@@ -1,0 +1,18 @@
+:root {
+  --brand-pink: #df8f9d;
+  --brand-pink-soft: #f8e7eb;
+  --brand-charcoal: #4e4e52;
+  --brand-yellow: #f5c94c;
+  --surface: #fffdfb;
+  --surface-muted: #f6f3f2;
+  --border: #e9dedf;
+  --text: #29282b;
+  --text-muted: #6e696c;
+  --success: #318867;
+  --danger: #c95858;
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --shadow: 0 16px 40px rgba(73, 57, 61, 0.1);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

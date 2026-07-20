@@ -1,0 +1,14 @@
+{
+  "name": "the-ielts-spells-frontend",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev:main": "pnpm --filter @ielts/main-web dev",
+    "dev:management": "pnpm --filter @ielts/management-web dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "dependencies": {
+    "codex-monorepo": "github:openai/codex"
+  }
+}
