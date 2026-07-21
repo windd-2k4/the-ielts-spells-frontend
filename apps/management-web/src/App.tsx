@@ -1,3 +1,58 @@
-import { BrandMark, Card } from "@ielts/ui";
-const students=[{name:"Nguyễn Việt Bách",done:92,reading:7.5,writing:6.5},{name:"Cao Ngân",done:78,reading:7,writing:6},{name:"Phạm Ngọc Ánh",done:64,reading:6.5,writing:6}];
-export default function App(){return <div className="layout"><aside><BrandMark/><nav><a className="active">Tổng quan</a><a>Khóa học</a><a>Lớp học & lịch</a><a>Học viên</a><a>Bài tập</a><a>Tiến độ kỹ năng</a><a>Điểm danh Zoom</a><a>CMS Landing page</a></nav></aside><main><header><div><span className="label">Lớp IELTS SW-01</span><h1>Tiến độ khóa học</h1></div><button>Xuất báo cáo</button></header><section className="metrics"><Card><span>Hoàn thành trung bình</span><strong>78%</strong></Card><Card><span>Bài quá hạn</span><strong>12</strong></Card><Card><span>Điểm danh</span><strong>91%</strong></Card></section><section className="panel"><div className="panel-head"><div><h2>Theo dõi theo kỹ năng</h2><p>Dữ liệu làm bài trên web và giáo viên nhập thủ công.</p></div><select><option>Tất cả kỹ năng</option><option>Speaking</option><option>Writing</option></select></div><table><thead><tr><th>Học viên</th><th>Hoàn thành</th><th>Reading</th><th>Writing</th><th>Trạng thái</th></tr></thead><tbody>{students.map(s=><tr key={s.name}><td><b>{s.name}</b></td><td><div className="progress"><i style={{width:`${s.done}%`}}/></div><small>{s.done}%</small></td><td>{s.reading}</td><td>{s.writing}</td><td><span className={s.done<70?"risk":"good"}>{s.done<70?"Cần theo dõi":"Đúng tiến độ"}</span></td></tr>)}</tbody></table></section></main></div>}
+import { SignOut, SpinnerGap } from "@phosphor-icons/react";
+import { useState } from "react";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ActivateAccountPage } from "./pages/ActivateAccountPage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
+import { LoginPage } from "./pages/LoginPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { StaffAdminPage } from "./pages/StaffAdminPage";
+import { isInvitationCallback } from "./lib/supabase";
+
+function Loader() { return <div className="app-loader" role="status"><span className="loader-ring" />Đang tải hệ thống...</div>; }
+function RequireSession() { const { session, isLoading } = useAuth(); if (isLoading) return <Loader />; return session ? <Outlet /> : <Navigate to="/login" replace />; }
+function RequireAdmin() {
+  const { roles, signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  if (roles.includes("admin")) return <Outlet />;
+  if (isInvitationCallback) return <Navigate to="/activate-account" replace />;
+
+  async function handleSignOut() {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
+  return <main className="pending-page">
+    <img src="/brand/the-ielts-spells-logo.png" alt="The IELTS Spells" />
+    <p className="auth-kicker">Không có quyền truy cập</p>
+    <h1>Tài khoản chưa được kích hoạt</h1>
+    <p>Web quản trị chỉ dành cho nhân sự đã nhận và hoàn tất lời mời. Nếu tài khoản đã được kích hoạt, hãy đăng xuất rồi đăng nhập lại.</p>
+    <button className="secondary-button pending-signout" type="button" onClick={handleSignOut} disabled={isSigningOut}>
+      {isSigningOut ? <SpinnerGap className="spin" size={20} /> : <SignOut size={20} />}
+      {isSigningOut ? "Đang đăng xuất..." : "Đăng xuất"}
+    </button>
+  </main>;
+}
+
+export default function App() {
+  return <AuthProvider><Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+    <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+    <Route path="/auth/callback" element={<AuthCallbackPage />} />
+    <Route element={<RequireSession />}>
+      <Route path="/activate-account" element={<ActivateAccountPage />} />
+      <Route element={<RequireAdmin />}><Route path="/" element={<StaffAdminPage />} /></Route>
+    </Route>
+    <Route path="/register" element={<Navigate to="/login" replace />} />
+    <Route path="/request-access" element={<Navigate to="/login" replace />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes></AuthProvider>;
+}
