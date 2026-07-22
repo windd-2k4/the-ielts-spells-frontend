@@ -6,14 +6,15 @@ import { isInvitationCallback } from "./lib/supabase";
 import { AdminShell } from "./layout/AdminShell";
 import { ActivateAccountPage } from "./pages/ActivateAccountPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
-import { ClassesPage } from "./pages/ClassesPage";
-import { CoursesPage } from "./pages/CoursesPage";
+import { CourseManagementPage } from "./pages/CourseManagementPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EnrollmentsPage } from "./pages/EnrollmentsPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { StaffAdminPage } from "./pages/StaffAdminPage";
+import { StudentsPage } from "./pages/StudentsPage";
+import { StudentDetailPage } from "./pages/StudentDetailPage";
 import "./admin.css";
 
 function Loader() { return <div className="app-loader" role="status"><span className="loader-ring" />Đang tải hệ thống...</div>; }
@@ -32,8 +33,8 @@ export default function App() {
     <Route element={<RequireSession />}><Route path="/activate-account" element={<ActivateAccountPage />} />
       <Route element={<RequireRoles any={["admin", "manager", "admissions"]} />}><Route element={<AdminShell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route element={<RequireRoles any={["admin", "manager"]} />}><Route path="/dashboard" element={<DashboardPage />} /><Route path="/courses" element={<CoursesPage />} /><Route path="/classes" element={<ClassesPage />} /></Route>
-        <Route element={<RequireRoles any={["admin", "manager", "admissions"]} />}><Route path="/enrollments" element={<EnrollmentsPage />} /></Route>
+        <Route element={<RequireRoles any={["admin", "manager"]} />}><Route path="/dashboard" element={<DashboardPage />} /><Route path="/courses" element={<CourseManagementPage />} /><Route path="/courses/:courseId" element={<CourseManagementPage />} /><Route path="/classes" element={<Navigate to="/courses" replace />} /></Route>
+        <Route element={<RequireRoles any={["admin", "manager", "admissions"]} />}><Route path="/students" element={<StudentsPage />} /><Route path="/students/:studentId" element={<StudentDetailPage />} /><Route path="/enrollments" element={<EnrollmentsPage />} /></Route>
         <Route element={<RequireRoles any={["admin"]} />}><Route path="/staff" element={<StaffAdminPage />} /></Route>
       </Route></Route>
     </Route>

@@ -1,12 +1,13 @@
 import { BookOpenText, CheckCircle, Sparkle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+import logo from "../../assest/logo.jpg";
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="auth-shell">
       <section className="brand-panel" aria-label="Giới thiệu The IELTS Spells">
         <a className="brand-link" href="/" aria-label="The IELTS Spells, về trang chính">
-          <img src="/brand/the-ielts-spells-logo.png" alt="" />
+          <img src={logo} alt="" />
           <span>The IELTS Spells</span>
         </a>
 
@@ -27,7 +28,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
       <section className="form-panel">
         <div className="mobile-brand">
-          <img src="/brand/the-ielts-spells-logo.png" alt="" />
+          <img src={logo} alt="" />
           <span>The IELTS Spells</span>
         </div>
         <div className="auth-content">{children}</div>

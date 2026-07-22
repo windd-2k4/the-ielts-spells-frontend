@@ -2,6 +2,7 @@ import { CheckCircle, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import logo from "../../assest/logo.jpg";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export function AuthCallbackPage() {
 
   return (
     <main className="callback-page">
-      <img src="/brand/the-ielts-spells-logo.png" alt="The IELTS Spells" />
+      <img src={logo} alt="The IELTS Spells" />
       {error ? <WarningCircle weight="fill" /> : <SpinnerGap className="spin" />}
       <h1>{error ? "Chưa thể xác thực" : "Đang hoàn tất đăng nhập"}</h1>
       <p>{error || "Vui lòng chờ trong giây lát."}</p>
