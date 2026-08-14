@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Sparkle, 
   Robot, 
@@ -10,7 +10,8 @@ import {
   Microphone,
   WarningCircle
 } from "@phosphor-icons/react";
-import { stableMetric } from "../../lib/stable-metric";
+import type { ClassActivityProgress, ClassSession } from "../../academic-types";
+import { apiFetch } from "../../lib/api";
 
 interface StudentSummary {
   id: string;
@@ -25,7 +26,7 @@ interface StudentSummary {
 
 interface Enrollment {
   id: string;
-  classId: string;
+  courseId: string;
   studentId: string;
   status: string;
 }
@@ -33,6 +34,7 @@ interface Enrollment {
 type Roster = { enrollment: Enrollment; student: StudentSummary }[];
 
 interface CourseProgressProps {
+  courseId: string;
   roster: Roster;
   onSelectStudent?: (studentId: string) => void;
 }
@@ -61,7 +63,7 @@ interface StudentHomework {
   exercises: StudentExerciseProgress[];
 }
 
-export default function CourseProgress({ roster, onSelectStudent }: CourseProgressProps) {
+export default function CourseProgress({ courseId, roster, onSelectStudent }: CourseProgressProps) {
   const [selectedSkill, setSelectedSkill] = useState<SkillType>("READING");
   const [selectedSession, setSelectedSession] = useState<number>(13);
   const [aiAssistantStudent, setAiAssistantStudent] = useState<{
@@ -70,9 +72,15 @@ export default function CourseProgress({ roster, onSelectStudent }: CourseProgre
   } | null>(null);
   const [aiFeedbackText, setAiFeedbackText] = useState("");
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+  const [progress,setProgress]=useState<ClassActivityProgress[]>([]);const [sessions,setSessions]=useState<ClassSession[]>([]);
+  useEffect(()=>{void Promise.all([apiFetch<ClassActivityProgress[]>(`/admin/courses/${courseId}/progress`),apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`)]).then(([p,s])=>{setProgress(p);setSessions(s);if(s.length)setSelectedSession(s[0].sessionNo)}).catch(()=>{setProgress([]);setSessions([])})},[courseId]);
+  const stableMetric=(studentId:string,_offset=0,min=0,range=100)=>{const attempts=progress.flatMap(activity=>activity.attempts.filter(value=>value.studentId===studentId));const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);if(!values.length)return 0;const rate=Math.round(values.reduce((a,b)=>a+b,0)/values.length);return min+Math.round(rate/100*range)};
 
   // Define static mock exercises per skill and session
   const getSessionExercises = (skill: SkillType, session: number): string[] => {
+    const sessionId=sessions.find(value=>value.sessionNo===session)?.id;
+    return progress.filter(value=>value.skill===skill&&(!sessionId||value.sessionId===sessionId)).map(value=>value.title);
+    /* Legacy labels retained below only as unreachable documentation of the old prototype.
     if (skill === "LISTENING") {
       if (session === 13) {
         return [
@@ -128,10 +136,15 @@ export default function CourseProgress({ roster, onSelectStudent }: CourseProgre
         "PRACTICE 2. Writing Task 2 Outline: Education topic"
       ];
     }
+    */
   };
 
   // Generate deterministic mock homework data based on current skill and session
   const getHomeworkData = (): StudentHomework[] => {
+    const sessionId=sessions.find(value=>value.sessionNo===selectedSession)?.id;
+    const visibleActivities=progress.filter(value=>value.skill===selectedSkill&&(!sessionId||value.sessionId===sessionId));
+    return roster.map(({student})=>({studentId:student.id,studentName:student.fullName,studentCode:student.studentCode,exercises:visibleActivities.map(activity=>{const attempt=activity.attempts.find(value=>value.studentId===student.id);return {exerciseId:activity.classActivityId,exerciseName:activity.title,score:attempt?.score==null?"—":attempt.maxScore?`${attempt.score}/${attempt.maxScore}`:String(attempt.score),timeSpent:attempt?.durationSeconds==null?undefined:`${Math.round(attempt.durationSeconds/60)} phút`,comprehension:attempt?.comprehensionPercent==null?undefined:`${attempt.comprehensionPercent}%`,errorAnalysis:attempt?.errorAnalysis??"Chưa có phân tích lỗi",tasks:[]}})}));
+    /* Legacy prototype generator is unreachable and retained only to preserve the old screen structure while migration finishes.
     const exercisesList = getSessionExercises(selectedSkill, selectedSession);
 
     return roster.map((item, index) => {
@@ -241,9 +254,11 @@ export default function CourseProgress({ roster, onSelectStudent }: CourseProgre
         exercises: exercisesProgress,
       };
     });
+    */
   };
 
   const [studentHomeworkList, setStudentHomeworkList] = useState<StudentHomework[]>(getHomeworkData);
+  useEffect(()=>{setStudentHomeworkList(getHomeworkData())},[selectedSkill,selectedSession,progress,roster.length]);
 
   // Re-generate mock data if active filters change (keep state aligned with selectors)
   const currentHomeworkList = getHomeworkData();
@@ -397,7 +412,7 @@ export default function CourseProgress({ roster, onSelectStudent }: CourseProgre
       <div className="flex items-center gap-3 bg-surface p-4 border border-outline-variant/40 rounded-2xl shadow-sm">
         <span className="text-sm font-bold text-on-surface-variant">Chọn session:</span>
         <div className="flex items-center gap-1.5">
-          {[13, 14, 15].map(num => (
+          {sessions.map(value => value.sessionNo).map(num => (
             <button
               key={num}
               onClick={() => {

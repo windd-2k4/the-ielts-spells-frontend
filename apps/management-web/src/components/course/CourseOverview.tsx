@@ -8,8 +8,9 @@ import {
   Users,
   Notebook,
 } from "@phosphor-icons/react";
-import type { AcademicClass, Course } from "../../academic-types";
-import { stableMetric } from "../../lib/stable-metric";
+import { useEffect, useMemo, useState } from "react";
+import type { AcademicClass, AttendanceRecord, ClassActivityProgress, ClassSession, Course } from "../../academic-types";
+import { apiFetch } from "../../lib/api";
 
 interface StudentSummary {
   id: string;
@@ -24,7 +25,7 @@ interface StudentSummary {
 
 interface Enrollment {
   id: string;
-  classId: string;
+  courseId: string;
   studentId: string;
   status: string;
 }
@@ -35,8 +36,6 @@ interface CourseOverviewProps {
   course: Course;
   selectedClass: AcademicClass | null;
   roster: Roster;
-  completedSessions: number;
-  totalSessions: number;
   setTab: (tab: any) => void;
   onSelectStudent?: (studentId: string) => void;
 }
@@ -79,35 +78,21 @@ export default function CourseOverview({
   course,
   selectedClass,
   roster,
-  completedSessions,
-  totalSessions,
   setTab,
   onSelectStudent,
 }: CourseOverviewProps) {
-  const average = roster.length
-    ? Math.round(roster.reduce((sum, item) => sum + stableMetric(item.student.id), 0) / roster.length)
-    : 0;
-
-  const risks = roster.filter(item => stableMetric(item.student.id) < 65);
+  const [sessions,setSessions]=useState<ClassSession[]>([]);const [attendance,setAttendance]=useState<AttendanceRecord[]>([]);const [progress,setProgress]=useState<ClassActivityProgress[]>([]);
+  useEffect(()=>{if(!selectedClass)return;void Promise.all([apiFetch<ClassSession[]>(`/admin/courses/${selectedClass.id}/sessions`),apiFetch<AttendanceRecord[]>(`/admin/courses/${selectedClass.id}/attendance`),apiFetch<ClassActivityProgress[]>(`/admin/courses/${selectedClass.id}/progress`)]).then(([s,a,p])=>{setSessions(s);setAttendance(a);setProgress(p)}).catch(()=>{setSessions([]);setAttendance([]);setProgress([])})},[selectedClass?.id]);
+  const totalSessions=sessions.length;const completedSessions=sessions.filter(value=>value.status==="COMPLETED").length;
+  const studentRates=useMemo(()=>new Map(roster.map(({student})=>{const relevant=progress.flatMap(activity=>activity.attempts.filter(attempt=>attempt.studentId===student.id));const values=relevant.map(attempt=>attempt.comprehensionPercent??(attempt.score!=null&&attempt.maxScore?Math.round(attempt.score/attempt.maxScore*100):null)).filter((value):value is number=>value!=null);return [student.id,values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null]})),[progress,roster]);
+  const knownRates=[...studentRates.values()].filter((value):value is number=>value!=null);
+  const average=knownRates.length?Math.round(knownRates.reduce((a,b)=>a+b,0)/knownRates.length):0;
+  const risks = roster.filter(item => {const value=studentRates.get(item.student.id);return value!=null&&value<65});
   
-  // AI Mock Insights
-  const classStrengths = "Kỹ năng Reading đạt trung bình tốt (76%). Học viên có khả năng nắm bắt ý chính và làm dạng bài Short Answer tương đối tốt.";
-  const classWeaknesses = "Kỹ năng Listening còn yếu ở Part 1 (điền thông tin số, tên riêng) do thiếu phản xạ chính tả. Kỹ năng Speaking còn ngập ngừng khi kéo dài câu trả lời (Extension).";
+  const classStrengths = progress.length ? "Dữ liệu phân tích được tổng hợp từ các bài làm đã nộp trong lớp." : "Chưa có đủ bài làm để tạo phân tích.";
+  const classWeaknesses = progress.length ? "Giáo viên cần xem chi tiết từng kỹ năng và xác nhận các kết quả tự nhập." : "Chưa có dữ liệu để xác định điểm nghẽn học thuật.";
   
-  const aiRecommendations = [
-    {
-      id: "rec-1",
-      title: "Giao thêm bài tập phát âm /s/ và /es/",
-      target: "Lớp học phần lớn phát âm thiếu phụ âm cuối, ảnh hưởng trực tiếp đến Speaking Part 1.",
-      action: "Sử dụng tài liệu bổ trợ IPA session 13",
-    },
-    {
-      id: "rec-2",
-      title: "Luyện nghe chép chính tả (Dictation) ngắn",
-      target: "Cải thiện phản xạ điền số và đánh vần tên riêng cho Listening Part 1.",
-      action: "Giao bài tập nghe số điện thoại trên Web",
-    },
-  ];
+  const aiRecommendations: {id:string;title:string;target:string;action:string}[] = [];
 
   return (
     <div className="space-y-6">
@@ -116,7 +101,7 @@ export default function CourseOverview({
         {[
           {
             label: "Tiến độ lớp học",
-            value: `${Math.round((completedSessions / totalSessions) * 100)}%`,
+            value: totalSessions ? `${Math.round((completedSessions / totalSessions) * 100)}%` : "—",
             note: `${completedSessions}/${totalSessions} session học`,
             icon: Clock,
             color: "text-primary bg-primary/10 border-primary/20",
@@ -192,7 +177,7 @@ export default function CourseOverview({
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {skills.map((skill, index) => {
-                const val = Math.max(50, Math.min(100, average - index * 4 + 6));
+                const skillKey=skill.toUpperCase();const attempts=progress.filter(value=>value.skill===skillKey).flatMap(value=>value.attempts);const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);const val=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):0;
                 return <ProgressBar key={skill} label={skill} value={val} />;
               })}
             </div>
@@ -278,9 +263,7 @@ export default function CourseOverview({
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-on-surface truncate hover:underline">{item.student.fullName}</p>
                           <p className="text-[10px] text-on-surface-variant truncate">
-                            {stableMetric(item.student.id) < 60 
-                              ? "Tiến độ rất chậm, thiếu bài tập nói và nghe" 
-                              : "Mắc lỗi chính tả ở phần Listening"}
+                            Tiến độ hiện tại {studentRates.get(item.student.id)}%
                           </p>
                         </div>
                       </div>

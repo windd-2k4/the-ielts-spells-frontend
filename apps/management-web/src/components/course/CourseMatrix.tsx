@@ -1,4 +1,6 @@
-import { stableMetric } from "../../lib/stable-metric";
+import { useEffect, useState } from "react";
+import type { ClassActivityProgress } from "../../academic-types";
+import { apiFetch } from "../../lib/api";
 
 interface StudentSummary {
   id: string;
@@ -13,7 +15,7 @@ interface StudentSummary {
 
 interface Enrollment {
   id: string;
-  classId: string;
+  courseId: string;
   studentId: string;
   status: string;
 }
@@ -21,19 +23,13 @@ interface Enrollment {
 type Roster = { enrollment: Enrollment; student: StudentSummary }[];
 
 interface CourseMatrixProps {
+  courseId: string;
   roster: Roster;
-  completedSessions: number;
 }
 
-export default function CourseMatrix({ roster, completedSessions }: CourseMatrixProps) {
-  const activities = [
-    { title: "Reading · Gap filling & True/False/Not Given", skill: "Reading" },
-    { title: "Listening · Form completion & Dictation", skill: "Listening" },
-    { title: "Writing Task 1 · Line Graph & Structure Analysis", skill: "Writing" },
-    { title: "Speaking Part 1 · Family Topic & Fluency Forecast", skill: "Speaking" },
-    { title: "Reading · Scanning techniques & Paragraph matching", skill: "Reading" },
-    { title: "Listening Part 2 · Map labeling & Direction", skill: "Listening" },
-  ];
+export default function CourseMatrix({ courseId, roster }: CourseMatrixProps) {
+  const [activities,setActivities]=useState<ClassActivityProgress[]>([]);
+  useEffect(()=>{void apiFetch<ClassActivityProgress[]>(`/admin/courses/${courseId}/progress`).then(setActivities).catch(()=>setActivities([]))},[courseId]);
 
   return (
     <div className="rounded-2xl border border-outline-variant/40 bg-surface shadow-sm overflow-hidden">
@@ -62,11 +58,11 @@ export default function CourseMatrix({ roster, completedSessions }: CourseMatrix
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/25">
-            {activities.map((activity, row) => (
-              <tr key={row} className="hover:bg-surface-container-low/20 transition-colors">
+            {activities.map((activity) => (
+              <tr key={activity.classActivityId} className="hover:bg-surface-container-low/20 transition-colors">
                 <td className="sticky left-0 bg-surface px-5 py-4 border-r border-outline-variant/20">
                   <span className="mb-1 inline-block text-[9px] font-extrabold bg-primary-container/20 text-primary px-2 py-0.5 rounded uppercase">
-                    Session {Math.max(1, completedSessions - 4 + row)} · {activity.skill}
+                    {activity.skill}
                   </span>
                   <strong className="block text-xs text-on-surface mt-1">{activity.title}</strong>
                   <span className="text-[9px] font-bold text-on-surface-variant block mt-0.5">
@@ -74,8 +70,9 @@ export default function CourseMatrix({ roster, completedSessions }: CourseMatrix
                   </span>
                 </td>
                 {roster.slice(0, 8).map(item => {
-                  const scoreMetric = stableMetric(item.student.id, row * 13);
-                  const isDone = scoreMetric >= 65;
+                  const attempt = activity.attempts.find(value => value.studentId === item.student.id);
+                  const scoreMetric = attempt?.comprehensionPercent ?? (attempt?.score != null && attempt.maxScore ? Math.round(attempt.score / attempt.maxScore * 100) : null);
+                  const isDone = Boolean(attempt);
                   
                   return (
                     <td 
@@ -87,7 +84,7 @@ export default function CourseMatrix({ roster, completedSessions }: CourseMatrix
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-250" 
                           : "bg-amber-50 text-amber-800 border border-amber-250"
                       }`}>
-                        {isDone ? `${scoreMetric}% · Đã xong` : "Chờ bổ sung"}
+                        {isDone ? `${scoreMetric == null ? "Đã nộp" : `${scoreMetric}%`} · Đã xong` : "Chưa có dữ liệu"}
                       </span>
                     </td>
                   );

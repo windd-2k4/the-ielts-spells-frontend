@@ -1,11 +1,12 @@
 import { NotePencil, MagnifyingGlass, Funnel, Eye } from "@phosphor-icons/react";
-import type { AcademicClass, Enrollment } from "../../academic-types";
+import type { Course, Enrollment, StudentSummary } from "../../academic-types";
 import { enrollmentStatusLabel } from "../../academic-types";
 import { StatusBadge } from "../AdminUi";
 
 interface ClassEnrollmentsProps {
   items: Enrollment[];
-  classes: AcademicClass[];
+  classes: Course[];
+  students: StudentSummary[];
   query: string;
   setQuery: (query: string) => void;
   classId: string;
@@ -17,6 +18,7 @@ interface ClassEnrollmentsProps {
 export default function ClassEnrollments({
   items,
   classes,
+  students,
   query,
   setQuery,
   classId,
@@ -30,18 +32,7 @@ export default function ClassEnrollments({
     return value ? `${value.name} (${value.code})` : "Lớp không xác định";
   };
 
-  const getStudentMockName = (studentId: string) => {
-    // Return friendly readable names for demonstration instead of raw UUIDs
-    const mockNames: Record<string, string> = {
-      "student-1": "Nguyễn Minh Anh",
-      "student-2": "Lê Thu Thảo",
-      "student-3": "Trần Việt Hoàng",
-      "student-4": "Nguyễn Việt Bách",
-      "student-5": "Bùi Huyền",
-      "student-6": "Xuân Mai",
-    };
-    return mockNames[studentId] || `Học viên (${studentId.slice(0, 6)})`;
-  };
+  const getStudent = (studentId: string) => students.find(student => student.id === studentId);
 
   return (
     <div className="space-y-6">
@@ -94,14 +85,14 @@ export default function ClassEnrollments({
                 <tr key={item.id} className="hover:bg-surface-container-low/20 transition-colors">
                   <td className="px-6 py-4">
                     <strong className="text-on-surface text-sm block font-bold">
-                      {getStudentMockName(item.studentId)}
+                      {getStudent(item.studentId)?.fullName || "Hồ sơ học viên không còn tồn tại"}
                     </strong>
                     <span className="text-[10px] text-on-surface-variant mt-0.5 block font-mono">
-                      {item.studentId}
+                      {getStudent(item.studentId)?.studentCode || item.studentId}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-on-surface font-semibold">
-                    {getClassName(item.classId)}
+                    {getClassName(item.courseId)}
                   </td>
                   <td className="px-6 py-4 text-on-surface-variant font-semibold tabular-nums">
                     {new Date(item.enrolledAt).toLocaleDateString("vi-VN")}

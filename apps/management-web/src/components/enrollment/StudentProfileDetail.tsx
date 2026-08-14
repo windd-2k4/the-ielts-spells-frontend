@@ -1,506 +1,623 @@
-import { useState, useEffect } from "react";
-import { 
-  Phone, 
-  Envelope, 
-  MapPin, 
-  Users, 
-  CalendarBlank, 
-  CheckCircle, 
-  Student, 
-  Sparkle,
-  Notebook,
-  PaperPlane,
-  Pen
+import {
+  CalendarBlank,
+  Check,
+  Envelope,
+  Info,
+  LockKey,
+  MapPin,
+  NotePencil,
+  Phone,
+  UserCircle,
+  Users,
+  WarningCircle,
+  X,
 } from "@phosphor-icons/react";
-import { stableMetric } from "../../lib/stable-metric";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import type { StudentDetail } from "../../academic-types";
+import { date } from "../../academic-types";
+import { apiFetch } from "../../lib/api";
+import { StudentRadarChart } from "./StudentRadarChart";
 
 interface StudentProfileDetailProps {
-  studentId: string;
+  studentId: string | null;
   onClose?: () => void;
 }
 
-interface StudentProfile {
-  id: string;
-  studentCode: string;
+type EditForm = {
   fullName: string;
   email: string;
   phone: string;
+  targetBand: string;
+  dateOfBirth: string;
   address: string;
-  parentName: string;
-  parentPhone: string;
-  roadmapName: string;
-  startBand: number;
-  currentBand: number;
-  targetBand: number;
-  attendanceRate: number;
-  homeworkRate: number;
-  classesList: string;
-  classSchedule: string;
-  skills: {
-    listening: number;
-    reading: number;
-    writing: number;
-    speaking: number;
-  };
-  logs: {
-    time: string;
-    action: string;
-    details: string;
-    type: "primary" | "tertiary" | "default";
-  }[];
-  coachNote: string;
-}
+  emergencyName: string;
+  emergencyRelationship: string;
+  emergencyPhone: string;
+  notes: string;
+};
+
+type EditFormErrors = Partial<Record<keyof EditForm, string>>;
+
+const inputClass =
+  "min-h-12 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5 text-sm text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15";
 
 export default function StudentProfileDetail({ studentId, onClose }: StudentProfileDetailProps) {
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [student, setStudent] = useState<StudentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
 
-  // Generate deterministic student profile details based on studentId
-  useEffect(() => {
-    const seed = studentId || "student-1";
-    const metric = stableMetric(seed, 10);
-    
-    let fullName = "Nguyễn Minh Anh";
-    let studentCode = "HV-2024-889";
-    let email = "minhanh.ng@gmail.com";
-    let phone = "0987 654 321";
-    let address = "25/12 Ba Đình, Hà Nội";
-    let parentName = "Chị Lan (Mẹ)";
-    let parentPhone = "0901 223 445";
-    let roadmapName = "Chinh phục IELTS 7.5+ (6 tháng)";
-    let startBand = 5.0;
-    let currentBand = 6.5;
-    let targetBand = 7.5;
-    let attendanceRate = 94;
-    let homeworkRate = 88;
-    let classesList = "Foundation 12.A & Writing Intensive";
-    let classSchedule = "Sáng Thứ 2, 4, 6";
-    let coachNote = "Minh Anh có tư duy logic tốt ở phần Reading. Cần tập trung cải thiện ngữ pháp phức trong Writing.";
-    
-    // Vary based on student selection
-    if (seed === "student-2") {
-      fullName = "Lê Thu Thảo";
-      studentCode = "HV-2024-512";
-      email = "thuthao.le@gmail.com";
-      phone = "0912 888 999";
-      address = "12 Trần Hưng Đạo, Hoàn Kiếm, HN";
-      parentName = "Anh Hùng (Bố)";
-      parentPhone = "0934 555 666";
-      roadmapName = "Giao tiếp & Học thuật IELTS 6.5+";
-      startBand = 4.5;
-      currentBand = 5.5;
-      targetBand = 6.5;
-      attendanceRate = 90;
-      homeworkRate = 82;
-      classesList = "Spoken IELTS 10.B & Reading Basics";
-      classSchedule = "Tối Thứ 3, 5, 7";
-      coachNote = "Thảo nói tự tin nhưng phát âm nguyên âm dài cần điều chỉnh. Cố gắng ghi âm shadowing nhiều hơn.";
-    } else if (seed === "student-3") {
-      fullName = "Trần Việt Hoàng";
-      studentCode = "HV-2024-205";
-      email = "viethoang.t@gmail.com";
-      phone = "0903 444 555";
-      address = "Phố Huế, Hai Bà Trưng, HN";
-      parentName = "Chị Mai (Mẹ)";
-      parentPhone = "0988 222 333";
-      roadmapName = "IELTS Intensive Cấp tốc 7.0";
-      startBand = 5.5;
-      currentBand = 6.5;
-      targetBand = 7.0;
-      attendanceRate = 96;
-      homeworkRate = 92;
-      classesList = "IELTS FastTrack 8 & Grammar Review";
-      classSchedule = "Tối Thứ 2, 4, 6";
-      coachNote = "Hoàng học lực đồng đều. Điểm viết luận có cải thiện tốt ở từ vựng học thuật.";
-    } else if (seed !== "student-1") {
-      // General mock name
-      const firstNames = ["Nguyễn", "Trần", "Lê", "Phạm", "Vũ"];
-      const middleNames = ["Hồng", "Việt", "Thị", "Khánh", "Văn"];
-      const lastNames = ["Nam", "Thảo", "Huy", "My", "Trang"];
-      
-      const fIndex = stableMetric(seed, 1) % firstNames.length;
-      const mIndex = stableMetric(seed, 2) % middleNames.length;
-      const lIndex = stableMetric(seed, 3) % lastNames.length;
-      
-      fullName = `${firstNames[fIndex]} ${middleNames[mIndex]} ${lastNames[lIndex]}`;
-      studentCode = `HV-2026-${stableMetric(seed, 4, 100, 899)}`;
-      email = `${lastNames[lIndex].toLowerCase()}.${middleNames[mIndex].toLowerCase()}@gmail.com`;
-      phone = `09${stableMetric(seed, 5, 10, 9)} ${stableMetric(seed, 6, 100, 899)} ${stableMetric(seed, 7, 100, 899)}`;
-      address = `${stableMetric(seed, 8, 10, 89)} Cầu Giấy, Hà Nội`;
-      parentName = "Phụ huynh học viên";
-      parentPhone = `09${stableMetric(seed, 9, 10, 9)} 123 456`;
-      roadmapName = "Chinh phục IELTS 6.5+";
-      startBand = 4.0;
-      currentBand = 5.5;
-      targetBand = 6.5;
-      attendanceRate = stableMetric(seed, 10, 80, 20);
-      homeworkRate = stableMetric(seed, 11, 75, 23);
-      classesList = "Pre-IELTS 15 & Listening Practice";
-      classSchedule = "Chiều Thứ 3, 5, 7";
-      coachNote = "Học viên chuyên cần, cần làm nhiều bài tập đọc để làm quen với từ vựng học thuật.";
+  const load = useCallback(async () => {
+    if (!studentId) {
+      setStudent(null);
+      setLoading(false);
+      return;
     }
-
-    // Set skills band scores
-    const listening = stableMetric(seed, 12, 45, 45) / 10; // e.g. 4.5 to 9.0
-    const reading = stableMetric(seed, 13, 40, 50) / 10;
-    const writing = stableMetric(seed, 14, 45, 40) / 10;
-    const speaking = stableMetric(seed, 15, 45, 45) / 10;
-
-    // Set mock timeline logs
-    const logs = [
-      {
-        time: "Hôm nay, 14:30",
-        action: "Nộp bài tập Writing Task 2",
-        details: "Chủ đề: Environmental Protection",
-        type: "primary" as const
-      },
-      {
-        time: "Hôm qua, 09:00",
-        action: "Hoàn thành bài Test Reading",
-        details: `Đạt điểm: ${reading.toFixed(1)} Band (${stableMetric(seed, 16, 20, 19)}/40 câu)`,
-        type: "tertiary" as const
-      },
-      {
-        time: "12 Th05, 18:00",
-        action: "Điểm danh Lớp học",
-        details: "Trạng thái: Có mặt (Muộn 10p)",
-        type: "default" as const
-      },
-      {
-        time: "10 Th05, 11:15",
-        action: "Đăng ký khóa học mới",
-        details: `Đăng ký thành công lớp ${classesList.split("&")[0]}`,
-        type: "primary" as const
-      }
-    ];
-
-    setProfile({
-      id: seed,
-      studentCode,
-      fullName,
-      email,
-      phone,
-      address,
-      parentName,
-      parentPhone,
-      roadmapName,
-      startBand,
-      currentBand,
-      targetBand,
-      attendanceRate,
-      homeworkRate,
-      classesList,
-      classSchedule,
-      skills: {
-        listening,
-        reading,
-        writing,
-        speaking
-      },
-      logs,
-      coachNote
-    });
+    setLoading(true);
+    setError("");
+    try {
+      setStudent(await apiFetch<StudentDetail>(`/admin/students/${studentId}`));
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Không tải được hồ sơ học viên");
+    } finally {
+      setLoading(false);
+    }
   }, [studentId]);
 
-  if (!profile) return <p className="text-center py-10 font-semibold">Đang tải hồ sơ học viên...</p>;
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  // SVG Radar coordinates math
-  // Center is at 100, 100
-  // R max is 80 (representing Band 9.0)
-  const getRadarPoint = (score: number, angle: number) => {
-    const maxVal = 9.0;
-    const radius = (score / maxVal) * 80;
-    const radians = (angle * Math.PI) / 180;
-    const x = 100 + radius * Math.cos(radians);
-    const y = 100 - radius * Math.sin(radians);
-    return `${x},${y}`;
-  };
+  if (loading) return <ProfileSkeleton />;
+  if (error || !student)
+    return <State title="Không tải được hồ sơ" text={error || "Không tìm thấy học viên"} action={() => void load()} />;
 
-  // Angle: L(90 deg - top), R(0 deg - right), W(270 deg - bottom), S(180 deg - left)
-  const listeningPoint = getRadarPoint(profile.skills.listening, 90);
-  const readingPoint = getRadarPoint(profile.skills.reading, 0);
-  const writingPoint = getRadarPoint(profile.skills.writing, 270);
-  const speakingPoint = getRadarPoint(profile.skills.speaking, 180);
-  const polyPoints = `${listeningPoint} ${readingPoint} ${writingPoint} ${speakingPoint}`;
+  const emergency = normalizeEmergencyContact(student.emergencyContact);
+  const profileCompleteness = getCompleteness(student);
 
   return (
     <div className="space-y-6">
-      {/* Student Profile Header */}
-      <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-5 border border-outline-variant/30 rounded-3xl shadow-sm relative overflow-hidden">
+      {/* Student Profile Header Banner */}
+      <header className="relative overflow-hidden rounded-[22px] border border-outline-variant/35 bg-surface p-5 shadow-sm md:p-7">
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-bl-full bg-primary-container/10" aria-hidden="true" />
         {onClose && (
-          <button 
+          <button
+            type="button"
+            aria-label="Đóng hồ sơ"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 hover:bg-surface-container rounded-full text-on-surface-variant transition-colors"
+            className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-xl border border-outline-variant/50 bg-surface transition hover:bg-surface-container"
           >
-            ✕
+            <X size={18} />
           </button>
         )}
-        
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="relative shrink-0">
-            {/* Avatar cutout sticker border style */}
-            <div className="w-20 h-20 rounded-full border-4 border-white bg-primary-container/20 text-primary flex items-center justify-center font-display font-black text-2xl shadow-md">
-              {profile.fullName.charAt(0)}
-            </div>
-            <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide border border-white">
-              Active
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-display text-2xl font-extrabold text-on-surface">{profile.fullName}</h2>
-              <span className="bg-surface-container px-2.5 py-0.5 rounded-lg text-xs font-extrabold text-on-surface-variant font-mono">
-                {profile.studentCode}
-              </span>
-            </div>
-            <p className="text-xs text-on-surface-variant flex items-center gap-1 font-bold">
-              <Sparkle size={14} className="text-primary animate-pulse" />
-              Lộ trình: {profile.roadmapName}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-2 shrink-0 w-full sm:w-auto">
-          <button className="flex-1 sm:flex-none px-4 py-2 border border-primary text-primary rounded-xl font-bold text-xs hover:bg-primary-container/10 transition-all flex items-center justify-center gap-1">
-            <Pen size={14} />
-            Sửa thông tin
-          </button>
-          <button className="flex-1 sm:flex-none px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-1">
-            <PaperPlane size={14} />
-            Gửi thông báo
-          </button>
-        </div>
-      </section>
-
-      {/* Grid Bento Layout */}
-      <div className="grid grid-cols-12 gap-6">
-        
-        {/* Left Column: Personal info & bento metrics */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Contact Details Card */}
-          <div className="bg-surface border border-outline-variant/40 p-5 rounded-2xl shadow-sm space-y-4">
-            <h3 className="font-display text-base font-extrabold text-on-surface border-b border-outline-variant/20 pb-2 flex items-center gap-1.5">
-              <Notebook size={18} className="text-primary" />
-              Thông tin cá nhân
-            </h3>
-            
-            <div className="space-y-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary shrink-0">
-                  <Phone size={18} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Số điện thoại</p>
-                  <p className="text-sm font-extrabold text-on-surface">{profile.phone}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary shrink-0">
-                  <Envelope size={18} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Email liên hệ</p>
-                  <p className="text-sm font-extrabold text-on-surface truncate max-w-[200px]">{profile.email}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary shrink-0">
-                  <MapPin size={18} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Địa chỉ</p>
-                  <p className="text-sm font-extrabold text-on-surface">{profile.address}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 border-t border-outline-variant/20 pt-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-700 shrink-0">
-                  <Users size={18} />
-                </div>
-                <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Liên hệ phụ huynh</p>
-                  <p className="text-xs font-bold text-on-surface">{profile.parentName}</p>
-                  <p className="text-xs text-on-surface font-extrabold mt-0.5">{profile.parentPhone}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bento Stats Panel */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-primary text-on-primary p-4 rounded-2xl flex flex-col justify-between shadow-sm h-28">
-              <CalendarBlank size={20} />
-              <div>
-                <p className="text-2xl font-black tabular-nums">{profile.attendanceRate}%</p>
-                <p className="text-[10px] opacity-80 font-bold uppercase tracking-wider mt-0.5">Điểm danh (Attendance)</p>
-              </div>
-            </div>
-            <div className="bg-primary-container/20 text-primary border border-primary/10 p-4 rounded-2xl flex flex-col justify-between shadow-sm h-28">
-              <CheckCircle size={20} />
-              <div>
-                <p className="text-2xl font-black tabular-nums">{profile.homeworkRate}%</p>
-                <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">Hoàn thành bài tập</p>
-              </div>
-            </div>
-            <div className="bg-surface border border-outline-variant/40 p-4 rounded-2xl flex flex-col justify-between shadow-sm h-28 col-span-2">
-              <div className="flex justify-between items-start">
-                <Student size={20} className="text-primary" />
-                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[10px] font-black uppercase border border-primary/20">
-                  02 Lớp học
+        <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
+          <div className="flex min-w-0 items-center gap-4">
+            <Avatar student={student} />
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-lg bg-primary-container/30 px-2.5 py-1 font-mono text-xs font-bold text-primary">
+                  {student.studentCode}
+                </span>
+                <span
+                  className={`rounded-lg px-2.5 py-1 text-xs font-black ${
+                    student.active ? "bg-emerald-50 text-emerald-700" : "bg-surface-container text-on-surface-variant"
+                  }`}
+                >
+                  {student.active ? "Hồ sơ hoạt động" : "Hồ sơ đã khóa"}
+                </span>
+                <span className="rounded-lg bg-surface-container-low border border-outline-variant/30 px-2.5 py-1 text-xs font-bold text-on-surface-variant flex items-center gap-1">
+                  <CalendarBlank size={14} className="text-primary" /> Gia nhập: {date(student.joinedAt)}
                 </span>
               </div>
-              <div>
-                <p className="text-sm font-black text-on-surface">{profile.classesList}</p>
-                <p className="text-[10px] text-on-surface-variant font-semibold mt-0.5">{profile.classSchedule}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Middle Column: Roadmap Progress & SVG Radar Skills chart */}
-        <div className="col-span-12 lg:col-span-5 space-y-6">
-          {/* Target Roadmap progress slider */}
-          <div className="bg-surface border border-outline-variant/40 p-5 rounded-2xl shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-display text-base font-extrabold text-on-surface">Tiến trình lộ trình</h3>
-              <span className="bg-primary-container/30 text-primary text-xs font-extrabold px-3 py-1 rounded-full border border-primary/20">
-                Target: {profile.targetBand.toFixed(1)}
-              </span>
-            </div>
-            
-            <div className="relative pt-8 pb-3 px-2">
-              {/* Progress Slider track */}
-              <div className="h-3 w-full bg-surface-container rounded-full overflow-hidden relative">
-                <div 
-                  className="h-full bg-primary rounded-full transition-all duration-1000 ease-out" 
-                  style={{ width: "72%" }} 
-                />
-              </div>
-
-              {/* Milestones markers */}
-              <div className="absolute top-1 left-[15%] flex flex-col items-center">
-                <div className="text-[9px] font-bold text-on-surface-variant">Đầu vào</div>
-                <div className="w-[1.5px] h-3 bg-outline-variant mt-0.5"></div>
-                <div className="mt-2 font-black text-xs text-on-surface">{profile.startBand.toFixed(1)}</div>
-              </div>
-
-              <div className="absolute top-1 left-[72%] flex flex-col items-center">
-                <div className="text-[9px] font-black text-primary">Hiện tại</div>
-                <div className="w-[1.5px] h-3 bg-primary mt-0.5"></div>
-                <div className="mt-1 font-black text-lg text-primary">{profile.currentBand.toFixed(1)}</div>
-              </div>
-
-              <div className="absolute top-1 left-[92%] flex flex-col items-center">
-                <div className="text-[9px] font-bold text-on-surface-variant">Đầu ra</div>
-                <div className="w-[1.5px] h-3 bg-outline-variant mt-0.5"></div>
-                <div className="mt-2 font-black text-xs text-on-surface">{profile.targetBand.toFixed(1)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* SVG Radar Spider Skills chart */}
-          <div className="bg-surface border border-outline-variant/40 p-5 rounded-2xl shadow-sm">
-            <h3 className="font-display text-base font-extrabold text-on-surface mb-3">Biểu đồ phân tích kỹ năng</h3>
-            
-            <div className="flex justify-center items-center py-6 relative">
-              <svg className="w-56 h-56 overflow-visible" viewBox="0 0 200 200">
-                {/* SVG Concentric Pentagonal Web representing Bands */}
-                <polygon points="100,20 180,100 100,180 20,100" className="stroke-outline-variant/50 fill-none" strokeWidth="1" strokeDasharray="3" />
-                <polygon points="100,40 160,100 100,160 40,100" className="stroke-outline-variant/50 fill-none" strokeWidth="1" strokeDasharray="3" />
-                <polygon points="100,60 140,100 100,140 60,100" className="stroke-outline-variant/50 fill-none" strokeWidth="1" strokeDasharray="3" />
-                <polygon points="100,80 120,100 100,120 80,100" className="stroke-outline-variant/50 fill-none" strokeWidth="1" strokeDasharray="3" />
-
-                {/* Main Axis lines */}
-                <line x1="100" y1="20" x2="100" y2="180" className="stroke-outline-variant/50" strokeWidth="1" />
-                <line x1="20" y1="100" x2="180" y2="100" className="stroke-outline-variant/50" strokeWidth="1" />
-
-                {/* Legend Labels */}
-                <text x="100" y="10" className="text-[10px] font-black fill-primary" textAnchor="middle">Listening</text>
-                <text x="192" y="104" className="text-[10px] font-black fill-primary" textAnchor="start">Reading</text>
-                <text x="100" y="196" className="text-[10px] font-black fill-primary" textAnchor="middle">Writing</text>
-                <text x="8" y="104" className="text-[10px] font-black fill-primary" textAnchor="end">Speaking</text>
-
-                {/* Inner Filled Radar Polygon displaying student progress */}
-                <polygon points={polyPoints} className="fill-primary/20 stroke-primary" strokeWidth="2.5" />
-
-                {/* Highlight circles on nodes */}
-                <circle cx={listeningPoint.split(",")[0]} cy={listeningPoint.split(",")[1]} r="4.5" className="fill-primary stroke-white" strokeWidth="1.5" />
-                <circle cx={readingPoint.split(",")[0]} cy={readingPoint.split(",")[1]} r="4.5" className="fill-primary stroke-white" strokeWidth="1.5" />
-                <circle cx={writingPoint.split(",")[0]} cy={writingPoint.split(",")[1]} r="4.5" className="fill-primary stroke-white" strokeWidth="1.5" />
-                <circle cx={speakingPoint.split(",")[0]} cy={speakingPoint.split(",")[1]} r="4.5" className="fill-primary stroke-white" strokeWidth="1.5" />
-              </svg>
-            </div>
-
-            {/* Micro grid display bands */}
-            <div className="grid grid-cols-2 gap-3 mt-2 text-xs font-bold">
-              <div className="flex justify-between p-2.5 rounded-xl bg-surface-container">
-                <span className="text-on-surface-variant font-semibold">Listening</span>
-                <span className="text-primary tabular-nums font-black">{profile.skills.listening.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 rounded-xl bg-surface-container">
-                <span className="text-on-surface-variant font-semibold">Reading</span>
-                <span className="text-primary tabular-nums font-black">{profile.skills.reading.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 rounded-xl bg-surface-container">
-                <span className="text-on-surface-variant font-semibold">Writing</span>
-                <span className="text-primary tabular-nums font-black">{profile.skills.writing.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 rounded-xl bg-surface-container">
-                <span className="text-on-surface-variant font-semibold">Speaking</span>
-                <span className="text-primary tabular-nums font-black">{profile.skills.speaking.toFixed(1)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Timeline Logs & Coach Comments */}
-        <div className="col-span-12 lg:col-span-3 space-y-6">
-          <div className="bg-surface border border-outline-variant/40 p-5 rounded-2xl shadow-sm flex flex-col h-full justify-between">
-            <div>
-              <h3 className="font-display text-base font-extrabold text-on-surface border-b border-outline-variant/20 pb-2 mb-4">
-                Nhật ký tóm tắt
-              </h3>
-
-              {/* Vertical Timeline */}
-              <div className="space-y-5 relative">
-                {profile.logs.map((log, lIdx) => (
-                  <div key={lIdx} className="relative pl-5 text-xs">
-                    {/* Circle Node Indicator */}
-                    <span className={`absolute left-0 top-1 w-2.5 h-2.5 rounded-full border border-white ${
-                      log.type === "primary" ? "bg-primary" : log.type === "tertiary" ? "bg-amber-500 animate-pulse" : "bg-outline"
-                    }`} />
-                    {/* Vertically connector line */}
-                    {lIdx < profile.logs.length - 1 && (
-                      <span className="absolute left-[4px] top-3.5 w-[1px] h-[calc(100%+14px)] bg-outline-variant/40" />
-                    )}
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] text-on-surface-variant font-bold">{log.time}</p>
-                      <p className="font-extrabold text-on-surface leading-tight">{log.action}</p>
-                      <p className="text-on-surface-variant font-medium opacity-80 leading-normal">{log.details}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Teacher Coaching Message box */}
-            <div className="mt-8 p-3.5 rounded-xl bg-primary-container/20 border border-primary/10 relative overflow-hidden">
-              <span className="material-symbols-outlined absolute -right-2 -bottom-2 text-[56px] text-primary/5 rotate-12">
-                lightbulb
-              </span>
-              <h4 className="font-extrabold text-xs text-primary flex items-center gap-1 mb-1">
-                💡 Nhận xét giáo viên
-              </h4>
-              <p className="text-[11px] text-on-surface-variant italic leading-relaxed">
-                "{profile.coachNote}"
+              <h1 className="truncate font-display text-2xl font-extrabold text-on-surface md:text-3xl">
+                {student.fullName}
+              </h1>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                {student.email ?? "Chưa có email"} · {student.phone ?? "Chưa có số điện thoại"}
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-on-primary shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+          >
+            <NotePencil size={18} /> Chỉnh sửa hồ sơ
+          </button>
         </div>
 
+        {/* Quick KPI Bar */}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-outline-variant/20 pt-5">
+          <BandCard label="Band hiện tại" value={student.currentBand} tone="neutral" />
+          <BandCard label="Band mục tiêu" value={student.targetBand} tone="primary" />
+          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low/45 p-4">
+            <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Chênh lệch Band</span>
+            <strong className="mt-1 block text-2xl tabular-nums text-indigo-600">
+              {student.targetBand && student.currentBand
+                ? `+${(student.targetBand - student.currentBand).toFixed(1)}`
+                : "—"}
+            </strong>
+          </div>
+          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low/45 p-4">
+            <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Hoàn thiện hồ sơ</span>
+            <strong className="mt-1 block text-2xl tabular-nums text-emerald-600">{profileCompleteness}%</strong>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Grid: Radar Chart + Details + Sidebar */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+          {/* Spider Radar Chart Section */}
+          <StudentRadarChart
+            currentBand={student.currentBand}
+            targetBand={student.targetBand}
+          />
+
+          <Panel title="Thông tin cá nhân" description="Dữ liệu định danh và thông tin liên hệ được quản lý lưu trữ trên hệ thống.">
+            <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+              <InfoRow icon={<Envelope />} label="Email" value={student.email} missing="Chưa có email" />
+              <InfoRow icon={<Phone />} label="Số điện thoại" value={student.phone} missing="Chưa có số điện thoại" />
+              <InfoRow icon={<CalendarBlank />} label="Ngày sinh" value={student.dateOfBirth ? date(student.dateOfBirth) : null} missing="Chưa cập nhật" />
+              <InfoRow icon={<MapPin />} label="Địa chỉ" value={student.address} missing="Chưa cập nhật" />
+            </div>
+          </Panel>
+
+          <Panel title="Liên hệ khẩn cấp" description="Thông tin người thân được liên hệ trong các tình huống cần thiết.">
+            {emergency.hasData ? (
+              <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+                <InfoRow icon={<UserCircle />} label="Người liên hệ" value={emergency.name} missing="Chưa cập nhật" />
+                <InfoRow icon={<Users />} label="Mối quan hệ" value={emergency.relationship} missing="Chưa cập nhật" />
+                <InfoRow icon={<Phone />} label="Số điện thoại khẩn cấp" value={emergency.phone} missing="Chưa cập nhật" />
+              </div>
+            ) : (
+              <EmptyLine text="Chưa có thông tin liên hệ khẩn cấp." />
+            )}
+          </Panel>
+        </div>
+
+        {/* Sidebar Column */}
+        <aside className="space-y-6">
+          <Panel title="Mức độ hoàn thiện hồ sơ">
+            <div className="flex items-end justify-between">
+              <strong className="text-4xl tabular-nums text-on-surface">{profileCompleteness}%</strong>
+              <span className="text-xs font-bold text-on-surface-variant">dữ liệu thiết yếu</span>
+            </div>
+            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-surface-container">
+              <div
+                className="h-full bg-primary transition-all duration-500 rounded-full"
+                style={{ width: `${profileCompleteness}%` }}
+              />
+            </div>
+            {profileCompleteness < 100 && (
+              <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                Cập nhật bổ sung các thông tin còn thiếu để trung tâm duy trì liên lạc và hỗ trợ học tập chu đáo.
+              </p>
+            )}
+          </Panel>
+
+          <Panel title="Ghi chú học vụ">
+            {student.notes ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface bg-surface-container-low/40 p-4 rounded-xl border border-outline-variant/25">
+                {student.notes}
+              </p>
+            ) : (
+              <EmptyLine text="Chưa có ghi chú học vụ." />
+            )}
+          </Panel>
+
+          <Panel title="Nguyên tắc quản lý hồ sơ">
+            <ul className="space-y-3 text-sm leading-5 text-on-surface-variant">
+              <li className="flex gap-2">
+                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Mỗi học viên duy trì 1 mã định danh duy nhất.
+              </li>
+              <li className="flex gap-2">
+                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Mỗi đợt học tạo 1 lượt ghi danh riêng biệt.
+              </li>
+              <li className="flex gap-2">
+                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Yêu cầu bảo lưu & chuyển lớp cần qua phê duyệt.
+              </li>
+            </ul>
+          </Panel>
+        </aside>
+      </div>
+
+      {editing && (
+        <EditStudentModal
+          student={student}
+          onClose={() => setEditing(false)}
+          onSaved={async () => {
+            setEditing(false);
+            await load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditStudentModal({ student, onClose, onSaved }: { student: StudentDetail; onClose: () => void; onSaved: () => Promise<void> }) {
+  const emergency = normalizeEmergencyContact(student.emergencyContact);
+  const initialForm: EditForm = {
+    fullName: student.fullName,
+    email: student.email ?? "",
+    phone: student.phone ?? "",
+    targetBand: student.targetBand?.toString() ?? "",
+    dateOfBirth: student.dateOfBirth ?? "",
+    address: student.address ?? "",
+    emergencyName: emergency.name ?? "",
+    emergencyRelationship: emergency.relationship ?? "",
+    emergencyPhone: emergency.phone ?? "",
+    notes: student.notes ?? "",
+  };
+  const [form, setForm] = useState<EditForm>(initialForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<EditFormErrors>({});
+  const dirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+  const hasTemporaryContact = isTemporaryEmail(form.email) || isTemporaryPhone(form.phone);
+
+  function update<K extends keyof EditForm>(key: K, value: EditForm[K]) {
+    setForm(current => ({ ...current, [key]: value }));
+    setFieldErrors(current => ({ ...current, [key]: undefined }));
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const validation = validateStudentEdit(form, student.currentBand);
+    setFieldErrors(validation);
+    if (Object.keys(validation).length > 0) {
+      setError("Vui lòng kiểm tra lại các trường được đánh dấu.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await apiFetch(`/admin/students/${student.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fullName: form.fullName.trim(),
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          targetBand: toNumber(form.targetBand),
+          dateOfBirth: form.dateOfBirth || null,
+          address: form.address.trim() || null,
+          emergencyContact: {
+            ...student.emergencyContact,
+            name: form.emergencyName.trim() || null,
+            relationship: form.emergencyRelationship.trim() || null,
+            phone: form.emergencyPhone.trim() || null,
+          },
+          notes: form.notes.trim() || null,
+        }),
+      });
+      await onSaved();
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Không thể cập nhật hồ sơ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-on-background/45 p-4 backdrop-blur-sm"
+      onMouseDown={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <form
+        onSubmit={submit}
+        className="my-6 w-full max-w-5xl overflow-hidden rounded-[22px] border border-outline-variant/40 bg-surface shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-student-title"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-outline-variant/25 px-5 py-4 md:px-7">
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-primary">Hồ sơ học viên</span>
+            <h2 id="edit-student-title" className="mt-1 font-display text-2xl font-bold">
+              Chỉnh sửa hồ sơ học viên
+            </h2>
+            <p className="mt-1 text-sm text-on-surface-variant">Cập nhật thông tin liên hệ và mục tiêu học tập. Mã {student.studentCode} không đổi.</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Đóng"
+            onClick={onClose}
+            className="grid h-10 w-10 place-items-center rounded-xl border border-outline-variant/50 hover:bg-surface-container"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="max-h-[72vh] overflow-y-auto p-5 md:p-7">
+          <div className="mb-6 flex flex-col gap-3 rounded-xl border border-outline-variant/35 bg-surface-container-low/45 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-container/25 text-primary"><LockKey size={20} /></span>
+              <div>
+                <strong className="block text-sm text-on-surface">Trạng thái truy cập được quản lý riêng</strong>
+                <p className="mt-0.5 text-xs text-on-surface-variant">Khóa hoặc kích hoạt hồ sơ cần thao tác có lý do và xác nhận, không thực hiện trong form này.</p>
+              </div>
+            </div>
+            <span className={`w-fit rounded-lg px-3 py-1.5 text-xs font-black ${student.active ? "bg-emerald-50 text-emerald-700" : "bg-surface-container text-on-surface-variant"}`}>
+              {student.active ? "Đang hoạt động" : "Đã khóa"}
+            </span>
+          </div>
+
+          <FormSection index="01" title="Thông tin cá nhân" description="Dữ liệu dùng để định danh và liên hệ trực tiếp với học viên.">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label="Họ và tên" required error={fieldErrors.fullName}>
+                <input autoComplete="name" required value={form.fullName} onChange={event => update("fullName", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Ngày sinh" error={fieldErrors.dateOfBirth}>
+                <input type="date" max={today()} value={form.dateOfBirth} onChange={event => update("dateOfBirth", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Email" error={fieldErrors.email} hint={isTemporaryEmail(form.email) ? "Email tạm từ dữ liệu seed, cần thay bằng email thật." : undefined}>
+                <input autoComplete="email" type="email" value={form.email} onChange={event => update("email", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Số điện thoại" error={fieldErrors.phone} hint={isTemporaryPhone(form.phone) ? "Số điện thoại tạm, chưa dùng để liên hệ." : undefined}>
+                <input autoComplete="tel" inputMode="tel" value={form.phone} onChange={event => update("phone", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Địa chỉ" className="md:col-span-2">
+                <input autoComplete="street-address" value={form.address} onChange={event => update("address", event.target.value)} className={inputClass} />
+              </Field>
+            </div>
+            {hasTemporaryContact && (
+              <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/55 bg-amber-50/70 p-3 text-xs leading-5 text-amber-950">
+                <WarningCircle className="mt-0.5 shrink-0" size={17} weight="fill" />
+                Hồ sơ còn thông tin liên hệ tạm. Hệ thống vẫn cho lưu để hoàn thiện dần, nhưng không dùng các giá trị này để gửi thông báo.
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection index="02" title="Mục tiêu học tập" description="Band hiện tại phải đến từ bài đầu vào hoặc kết quả đã được giáo viên xác nhận.">
+            <div className="grid gap-5 md:grid-cols-2">
+              <ReadOnlyMetric label="Band hiện tại" value={student.currentBand} description="Chỉ cập nhật qua luồng đánh giá năng lực có căn cứ." />
+              <Field label="Band mục tiêu" error={fieldErrors.targetBand} hint="Nhập theo nấc 0.5 và không thấp hơn Band hiện tại.">
+                <input type="number" min="0" max="9" step="0.5" value={form.targetBand} onChange={event => update("targetBand", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Ghi chú học vụ nội bộ" className="md:col-span-2" error={fieldErrors.notes}>
+                <textarea rows={4} value={form.notes} onChange={event => update("notes", event.target.value)} className={`${inputClass} resize-y`} placeholder="Ghi lại nhu cầu hỗ trợ, trao đổi với phụ huynh hoặc lưu ý học tập..." />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection index="03" title="Liên hệ khẩn cấp" description="Không bắt buộc. Nếu khai báo, cần đủ họ tên, mối quan hệ và số điện thoại.">
+            <div className="grid gap-5 md:grid-cols-3">
+              <Field label="Họ tên" error={fieldErrors.emergencyName}>
+                <input autoComplete="off" value={form.emergencyName} onChange={event => update("emergencyName", event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Mối quan hệ" error={fieldErrors.emergencyRelationship}>
+                <input autoComplete="off" value={form.emergencyRelationship} onChange={event => update("emergencyRelationship", event.target.value)} className={inputClass} placeholder="Ví dụ: Mẹ, cha, người giám hộ" />
+              </Field>
+              <Field label="Số điện thoại" error={fieldErrors.emergencyPhone}>
+                <input autoComplete="off" inputMode="tel" value={form.emergencyPhone} onChange={event => update("emergencyPhone", event.target.value)} className={inputClass} />
+              </Field>
+            </div>
+          </FormSection>
+
+          {error && <p className="mt-5 rounded-xl border border-error/25 bg-error-container/15 p-3 text-sm font-semibold text-error">{error}</p>}
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-outline-variant/25 bg-surface-container-low/35 px-5 py-4 md:px-7">
+          <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-outline-variant/55 px-5 py-2.5 font-bold hover:bg-surface-container">
+            Hủy
+          </button>
+          <div className="mr-auto hidden items-center gap-2 text-xs text-on-surface-variant sm:flex">
+            <Info size={16} /> Chỉ lưu các thay đổi trong hồ sơ, không thay đổi lịch sử ghi danh.
+          </div>
+          <button disabled={saving || !dirty} className="min-h-11 rounded-xl bg-primary px-5 py-2.5 font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-45">
+            {saving ? "Đang lưu..." : "Lưu thay đổi"}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function Panel({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-[20px] border border-outline-variant/35 bg-surface p-5 shadow-sm md:p-6">
+      <div className="mb-5">
+        <h2 className="font-display text-lg font-bold text-on-surface">{title}</h2>
+        {description && <p className="mt-1 text-sm text-on-surface-variant">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function InfoRow({ icon, label, value, missing }: { icon: ReactNode; label: string; value: string | null | undefined; missing: string }) {
+  return (
+    <div className="flex min-w-0 items-start gap-3 border-b border-outline-variant/20 py-4">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-container/20 text-primary">{icon}</span>
+      <div className="min-w-0">
+        <span className="block text-[11px] font-bold uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
+        <span className={`mt-1 block break-words text-sm font-bold ${value ? "text-on-surface" : "text-amber-700"}`}>{value || missing}</span>
       </div>
     </div>
   );
+}
+
+function BandCard({ label, value, tone }: { label: string; value: number | null; tone: "neutral" | "primary" }) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${
+        tone === "primary" ? "border-primary/20 bg-primary-container/15" : "border-outline-variant/35 bg-surface-container-low/45"
+      }`}
+    >
+      <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
+      <strong className={`mt-1 block text-2xl tabular-nums ${tone === "primary" ? "text-primary" : "text-on-surface"}`}>
+        {value ?? "Chưa có"}
+      </strong>
+    </div>
+  );
+}
+
+function Avatar({ student }: { student: StudentDetail }) {
+  return student.avatarPath ? (
+    <img src={student.avatarPath} alt="" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+  ) : (
+    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-primary-container/35 text-2xl font-black text-primary">
+      {student.fullName.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+function FormSection({ index, title, description, children }: { index: string; title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="border-t border-outline-variant/25 py-6 first:border-t-0 first:pt-0">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-container/25 text-xs font-black text-primary">{index}</span>
+        <div>
+          <h3 className="font-display text-lg font-bold text-on-surface">{title}</h3>
+          <p className="mt-1 text-sm text-on-surface-variant">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ReadOnlyMetric({ label, value, description }: { label: string; value: number | null; description: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/45 bg-surface-container-low/55 px-4 py-3">
+      <span className="block text-[11px] font-black uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <strong className="text-xl tabular-nums text-on-surface">{value ?? "Chưa có"}</strong>
+        <LockKey size={18} className="text-on-surface-variant" />
+      </div>
+      <p className="mt-2 text-xs leading-5 text-on-surface-variant">{description}</p>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  hint,
+  error,
+  className = "",
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.07em] text-on-surface-variant">
+        {label}
+        {required && <span className="text-error"> *</span>}
+      </span>
+      {children}
+      {error ? (
+        <span className="mt-1.5 block text-xs font-semibold text-error">{error}</span>
+      ) : hint ? (
+        <span className="mt-1.5 block text-xs leading-5 text-on-surface-variant">{hint}</span>
+      ) : null}
+    </label>
+  );
+}
+
+function EmptyLine({ text }: { text: string }) {
+  return <p className="rounded-xl border border-dashed border-outline-variant/55 bg-surface-container-low/35 p-4 text-sm text-on-surface-variant">{text}</p>;
+}
+
+function State({ title, text, action }: { title: string; text: string; action: () => void }) {
+  return (
+    <div className="rounded-[20px] border border-error/25 bg-error-container/10 p-10 text-center">
+      <strong className="block text-on-surface">{title}</strong>
+      <p className="mt-2 text-sm text-error">{text}</p>
+      <button onClick={action} className="mt-4 rounded-xl border border-primary/40 px-4 py-2 text-sm font-bold text-primary">
+        Thử lại
+      </button>
+    </div>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-36 animate-pulse rounded-[22px] bg-surface-container-low" />
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="h-72 animate-pulse rounded-[20px] bg-surface-container-low lg:col-span-2" />
+        <div className="h-72 animate-pulse rounded-[20px] bg-surface-container-low" />
+      </div>
+    </div>
+  );
+}
+
+function normalizeEmergencyContact(value: Record<string, unknown>) {
+  const read = (...keys: string[]) => keys.map(key => value?.[key]).find(item => typeof item === "string" && item.trim()) as string | undefined;
+  const name = read("name", "fullName", "contactName");
+  const relationship = read("relationship", "relation");
+  const phone = read("phone", "phoneNumber", "contactPhone");
+  return { name, relationship, phone, hasData: Boolean(name || relationship || phone) };
+}
+
+function getCompleteness(student: StudentDetail) {
+  const emergency = normalizeEmergencyContact(student.emergencyContact);
+  const fields = [student.fullName, student.email, student.phone, student.dateOfBirth, student.address, student.currentBand, student.targetBand, emergency.phone];
+  return Math.round((fields.filter(value => value !== null && value !== undefined && value !== "").length / fields.length) * 100);
+}
+
+function toNumber(value: string) {
+  return value.trim() === "" ? null : Number(value);
+}
+
+function validateStudentEdit(form: EditForm, currentBand: number | null) {
+  const errors: EditFormErrors = {};
+  const fullName = form.fullName.trim();
+  const email = form.email.trim();
+  const phone = form.phone.trim();
+  const targetBand = toNumber(form.targetBand);
+  const emergencyValues = [form.emergencyName.trim(), form.emergencyRelationship.trim(), form.emergencyPhone.trim()];
+  const hasEmergencyData = emergencyValues.some(Boolean);
+
+  if (fullName.length < 2) errors.fullName = "Họ và tên cần có ít nhất 2 ký tự.";
+  if (email && !isTemporaryEmail(email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Email chưa đúng định dạng.";
+  if (phone && !isTemporaryPhone(phone) && !isPhoneNumber(phone)) errors.phone = "Số điện thoại chưa hợp lệ.";
+  if (form.dateOfBirth && form.dateOfBirth > today()) errors.dateOfBirth = "Ngày sinh không được ở tương lai.";
+  if (targetBand !== null && (!isHalfBand(targetBand) || targetBand < 0 || targetBand > 9)) {
+    errors.targetBand = "Band mục tiêu phải từ 0.0 đến 9.0 theo nấc 0.5.";
+  } else if (targetBand !== null && currentBand !== null && targetBand < currentBand) {
+    errors.targetBand = "Band mục tiêu không được thấp hơn Band hiện tại.";
+  }
+  if (form.notes.length > 2000) errors.notes = "Ghi chú không được vượt quá 2.000 ký tự.";
+
+  if (hasEmergencyData) {
+    if (!emergencyValues[0]) errors.emergencyName = "Cần nhập tên người liên hệ.";
+    if (!emergencyValues[1]) errors.emergencyRelationship = "Cần nhập mối quan hệ.";
+    if (!emergencyValues[2]) errors.emergencyPhone = "Cần nhập số điện thoại khẩn cấp.";
+    else if (!isPhoneNumber(emergencyValues[2])) errors.emergencyPhone = "Số điện thoại khẩn cấp chưa hợp lệ.";
+  }
+  return errors;
+}
+
+function isTemporaryEmail(value: string | null | undefined) {
+  return Boolean(value && (value.toLowerCase().endsWith(".local") || value.toLowerCase().includes("@seed.")));
+}
+
+function isTemporaryPhone(value: string | null | undefined) {
+  if (!value) return false;
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 0 && (/^0+$/.test(digits) || digits.length < 9);
+}
+
+function isPhoneNumber(value: string) {
+  const digits = value.replace(/[\s().-]/g, "");
+  return /^\+?\d{9,15}$/.test(digits);
+}
+
+function isHalfBand(value: number) {
+  return Number.isInteger(value * 2);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }

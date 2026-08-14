@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { AcademicClass, Enrollment, EnrollmentStatus, Page, StudentSummary } from "../academic-types";
+import type { Course, Enrollment, EnrollmentStatus, Page, StudentSummary } from "../academic-types";
 import { enrollmentStatusLabel } from "../academic-types";
 import { Drawer, LoadState, PageHeader, PrimaryAction, StatusBadge } from "../components/AdminUi";
 import { apiFetch } from "../lib/api";
@@ -15,7 +15,8 @@ export function EnrollmentsPage() {
   const [searchParams] = useSearchParams();
   const initializedFromUrl = useRef(false);
   const [items, setItems] = useState<Enrollment[]>([]);
-  const [classes, setClasses] = useState<AcademicClass[]>([]);
+  const [classes, setClasses] = useState<Course[]>([]);
+  const [students, setStudents] = useState<StudentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -32,10 +33,11 @@ export function EnrollmentsPage() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<EnrollmentStatus>("ACTIVE");
   const [saving, setSaving] = useState(false);
+  const [leadForEnrollment, setLeadForEnrollment] = useState<ConsultingLead | null>(null);
   
   // Dashboard tabs state
   const [activeTab, setActiveTab] = useState<TabType>("leads");
-  const [selectedStudentId, setSelectedStudentId] = useState("student-1"); // Nguyễn Minh Anh is student-1
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const deferredQuery = useDeferredValue(query);
 
@@ -43,13 +45,15 @@ export function EnrollmentsPage() {
     setLoading(true);
     setError("");
     try {
-      const suffix = classId === "all" ? "" : `&classId=${classId}`;
-      const [enrollmentPage, classPage] = await Promise.all([
+      const suffix = classId === "all" ? "" : `&courseId=${classId}`;
+      const [enrollmentPage, classPage, studentPage] = await Promise.all([
         apiFetch<Page<Enrollment>>(`/admin/enrollments?size=100${suffix}`),
-        apiFetch<Page<AcademicClass>>("/admin/classes?size=100"),
+        apiFetch<Page<Course>>("/admin/courses?size=100"),
+        apiFetch<Page<StudentSummary>>("/admin/students?size=100"),
       ]);
       setItems(enrollmentPage.content);
       setClasses(classPage.content);
+      setStudents(studentPage.content);
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không tải được dữ liệu tuyển sinh");
     } finally {
@@ -65,7 +69,7 @@ export function EnrollmentsPage() {
   useEffect(() => {
     if (initializedFromUrl.current || !classes.length) return;
     initializedFromUrl.current = true;
-    const requestedClassId = searchParams.get("classId");
+    const requestedClassId = searchParams.get("courseId");
     const requestedStudentId = searchParams.get("studentId");
     const requestedTab = searchParams.get("tab") as TabType | null;
 
@@ -101,10 +105,12 @@ export function EnrollmentsPage() {
 
   const visibleEnrollments = useMemo(
     () =>
-      items.filter(item =>
-        `${item.studentId} ${item.notes ?? ""}`.toLowerCase().includes(deferredQuery.toLowerCase())
-      ),
-    [items, deferredQuery]
+      items.filter(item => {
+        const student = students.find(value => value.id === item.studentId);
+        return `${student?.studentCode ?? ""} ${student?.fullName ?? ""} ${student?.email ?? ""} ${student?.phone ?? ""} ${item.notes ?? ""}`
+          .toLowerCase().includes(deferredQuery.toLowerCase());
+      }),
+    [items, students, deferredQuery]
   );
 
   function createPlacement() {
@@ -114,7 +120,8 @@ export function EnrollmentsPage() {
     setStudentResults([]);
     setSelectedStudent(null);
     setNotes("");
-    setStatus("ACTIVE");
+    setStatus("PENDING");
+    setLeadForEnrollment(null);
     setOpen(true);
   }
 
@@ -123,6 +130,7 @@ export function EnrollmentsPage() {
     setStudentId(item.studentId);
     setNotes(item.notes ?? "");
     setStatus(item.status);
+    setLeadForEnrollment(null);
     setOpen(true);
   }
 
@@ -130,20 +138,12 @@ export function EnrollmentsPage() {
   const handleConvertLead = (lead: ConsultingLead) => {
     // Open placement drawer, pre-fill student details
     setEditing(null);
-    setStudentId(lead.id);
+    setLeadForEnrollment(lead);
+    setStudentId("");
     setStudentQuery(lead.fullName);
-    setSelectedStudent({
-      id: lead.id,
-      studentCode: `HV-2026-${lead.id.split("-").pop()}`,
-      fullName: lead.fullName,
-      email: lead.email,
-      phone: lead.phone,
-      avatarPath: null,
-      currentBand: 5.0,
-      targetBand: parseFloat(lead.targetBand) || 7.0,
-    });
+    setSelectedStudent(null);
     setNotes(`Ghi danh từ Landing Page Lead. Ghi chú tư vấn: ${lead.notes}`);
-    setStatus("ACTIVE");
+    setStatus("PENDING");
     setOpen(true);
   };
 
@@ -158,16 +158,26 @@ export function EnrollmentsPage() {
           body: JSON.stringify({ status, notes: notes || null }),
         });
       } else {
+        if (!studentId) throw new Error("Hãy chọn một hồ sơ học viên trước khi ghi danh");
+        const courseId = classId === "all" ? classes[0]?.id : classId;
+        if (!courseId) throw new Error("Hãy chọn khóa học trước khi ghi danh");
         await apiFetch("/admin/enrollments", {
           method: "POST",
           body: JSON.stringify({
-            classId: classId === "all" ? classes[0]?.id : classId,
+            courseId,
             studentId,
             notes: notes || null,
           }),
         });
+        if (leadForEnrollment) {
+          await apiFetch(`/admin/leads/${leadForEnrollment.id}/convert`, {
+            method: "PATCH",
+            body: JSON.stringify({ studentId }),
+          });
+        }
       }
       setOpen(false);
+      setLeadForEnrollment(null);
       await load();
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không thể lưu thông tin xếp lớp");
@@ -258,6 +268,7 @@ export function EnrollmentsPage() {
         <ClassEnrollments
           items={visibleEnrollments}
           classes={classes}
+          students={students}
           query={query}
           setQuery={setQuery}
           classId={classId}

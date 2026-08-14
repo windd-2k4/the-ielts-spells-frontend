@@ -8,7 +8,7 @@ const nav = [
   { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin", "manager"] },
   { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin", "manager"] },
   { to: "/students", label: "Học viên", icon: Users, roles: ["admin", "manager", "admissions"] },
-  { to: "/enrollments", label: "Tuyển sinh & xếp lớp", icon: Student, roles: ["admin", "manager", "admissions"] },
+  { to: "/enrollments", label: "Tuyển sinh & ghi danh", icon: Student, roles: ["admin", "manager", "admissions"] },
   { to: "/staff", label: "Nhân sự", icon: UsersThree, roles: ["admin"] },
 ];
 

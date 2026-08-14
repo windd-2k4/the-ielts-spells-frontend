@@ -1,14 +1,14 @@
 import { BookOpenText, Buildings, CalendarBlank, CheckCircle, Student, TrendUp } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { AcademicClass, Course, Enrollment, Page } from "../academic-types";
+import type { Course, Enrollment, Page } from "../academic-types";
 import { classStatusLabel } from "../academic-types";
 import { LoadState, PageHeader } from "../components/AdminUi";
 import { apiFetch } from "../lib/api";
 
 export function DashboardPage() {
   const [courses, setCourses] = useState<Page<Course> | null>(null);
-  const [classes, setClasses] = useState<Page<AcademicClass> | null>(null);
+  const [classes, setClasses] = useState<Page<Course> | null>(null);
   const [enrollments, setEnrollments] = useState<Page<Enrollment> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -19,7 +19,7 @@ export function DashboardPage() {
     try {
       const [a, b, c] = await Promise.all([
         apiFetch<Page<Course>>("/admin/courses?size=100"),
-        apiFetch<Page<AcademicClass>>("/admin/classes?size=100"),
+        apiFetch<Page<Course>>("/admin/courses?size=100"),
         apiFetch<Page<Enrollment>>("/admin/enrollments?size=100")
       ]);
       setCourses(a);
@@ -37,7 +37,7 @@ export function DashboardPage() {
   }, [load]);
 
   const activeCourses = courses?.content.filter(item => item.isActive).length ?? 0;
-  const openClasses = classes?.content.filter(item => ["ENROLLING", "IN_PROGRESS"].includes(item.status)).length ?? 0;
+  const openClasses = classes?.content.filter(item => ["OPEN", "ACTIVE"].includes(item.status)).length ?? 0;
   const activeEnrollments = enrollments?.content.filter(item => item.status === "ACTIVE").length ?? 0;
   const upcoming = classes?.content.filter(item => new Date(item.startsOn) >= new Date()).slice(0, 3) ?? [];
 
