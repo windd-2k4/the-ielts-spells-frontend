@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import {
-  BookOpen, CalendarBlank, Check, Clock, Exam, Info,
+  BookOpen, CalendarBlank, Check, Clock, Exam, FolderOpen, Info,
   NotePencil, Plus, Sparkle, SpinnerGap, Trash, VideoCamera,
   WarningCircle, X, User
 } from "@phosphor-icons/react";
@@ -24,6 +24,7 @@ interface SessionDrawerProps {
   onPatchDraft: (patch: Partial<SessionDraft>) => void;
   onApplyRoadmap: () => void;
   onAddItem: (type: SessionItemType) => void;
+  onOpenLibrary: () => void;
   onPatchItem: (index: number, patch: Partial<ItemDraft>) => void;
   onRemoveItem: (index: number) => void;
   onSave: () => void;
@@ -59,6 +60,7 @@ export default function SessionDrawer({
   onPatchDraft,
   onApplyRoadmap,
   onAddItem,
+  onOpenLibrary,
   onPatchItem,
   onRemoveItem,
   onSave,
@@ -443,20 +445,10 @@ export default function SessionDrawer({
 
           {/* Section 5: Assignments & Mini Tests Inside Session */}
           <Card
-            title={isTest ? "5. Đơn vị kiểm tra" : "5. Bài tập đính kèm buổi học"}
+            title={isTest ? "5. Đơn vị kiểm tra" : "5. Tài liệu & bài tập của buổi học"}
             icon={isTest ? <Exam size={18} weight="bold" className="text-amber-600" /> : <NotePencil size={18} weight="bold" className="text-primary" />}
             headerBadge={
-              !isTest && (
-                <button
-                  type="button"
-                  disabled={draft.items.length >= 10}
-                  onClick={() => onAddItem("ASSIGNMENT")}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-40 transition"
-                >
-                  <Plus size={14} weight="bold" />
-                  Thêm bài tập
-                </button>
-              )
+              !isTest && <div className="flex flex-wrap gap-2"><button type="button" onClick={onOpenLibrary} className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-surface px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10"><FolderOpen size={14} weight="bold"/>Chọn từ kho</button><button type="button" disabled={draft.items.filter(item=>item.itemType!=="MATERIAL").length >= 10} onClick={() => onAddItem("ASSIGNMENT")} className="flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-40 transition"><Plus size={14} weight="bold"/>Tạo nhanh bài tập</button></div>
             }
           >
             <div className="space-y-3">
@@ -464,12 +456,12 @@ export default function SessionDrawer({
                 <div className="rounded-xl border border-dashed border-outline-variant/60 py-8 px-4 text-center">
                   <NotePencil size={32} className="mx-auto text-outline/40 mb-2" />
                   <p className="text-sm font-semibold text-on-surface-variant">
-                    {isTest ? "Bài test độc lập chưa có mô tả đính kèm." : "Chưa có bài tập nào cho buổi học này."}
+                    {isTest ? "Bài test độc lập chưa có mô tả đính kèm." : "Chưa có tài liệu hoặc bài tập nào cho buổi học này."}
                   </p>
                   <p className="text-xs text-on-surface-variant/70 mt-0.5">
                     {isTest
                       ? "Bạn có thể để mặc định hoặc nhập yêu cầu kiểm tra chi tiết."
-                      : "Thêm tối đa 10 bài tập với deadline tự động (mặc định sau 2 ngày)."}
+                      : "Chọn từ kho học liệu; tối đa 10 bài tập, còn tài liệu không giới hạn."}
                   </p>
                 </div>
               ) : (
@@ -483,10 +475,10 @@ export default function SessionDrawer({
                         className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider ${
                           item.itemType === "TEST"
                             ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300"
-                            : "bg-primary/10 text-primary"
+                            : item.itemType === "MATERIAL" ? "bg-sky-50 text-sky-800" : "bg-primary/10 text-primary"
                         }`}
                       >
-                        {item.itemType === "TEST" ? "BÀI TEST" : "BÀI TẬP"} #{String(index + 1).padStart(2, "0")}
+                        {item.itemType === "TEST" ? "BÀI TEST" : item.itemType === "MATERIAL" ? "TÀI LIỆU" : "BÀI TẬP"} #{String(index + 1).padStart(2, "0")}
                       </span>
 
                       <button
@@ -500,7 +492,7 @@ export default function SessionDrawer({
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Tên bài tập / bài test *">
+                      <Field label={item.itemType === "MATERIAL" ? "Tên tài liệu *" : "Tên bài tập / bài test *"}>
                         <input
                           type="text"
                           value={item.title}
@@ -510,7 +502,7 @@ export default function SessionDrawer({
                         />
                       </Field>
 
-                      <Field label="Hạn nộp (Deadline)">
+                      <Field label={item.itemType === "MATERIAL" ? "Ngày hiển thị / nhắc đọc (không bắt buộc)" : "Hạn nộp (Deadline)"}>
                         <input
                           type="datetime-local"
                           value={item.deadlineAt}
@@ -528,6 +520,8 @@ export default function SessionDrawer({
                           className={inputClass}
                         />
                       </Field>
+                      <label className="flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant/50 px-3 text-xs font-bold"><input type="checkbox" checked={item.required} onChange={event=>onPatchItem(index,{required:event.target.checked})} className="rounded border-outline text-primary focus:ring-primary"/>Bắt buộc hoàn thành</label>
+                      <Field label="Đối tượng xem"><select value={item.visibility} onChange={event=>onPatchItem(index,{visibility:event.target.value as "STUDENT"|"TEACHER"})} className={inputClass}><option value="STUDENT">Học viên & giáo viên</option><option value="TEACHER">Chỉ giáo viên</option></select></Field>
                     </div>
                   </div>
                 ))

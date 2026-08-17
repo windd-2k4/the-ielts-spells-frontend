@@ -55,11 +55,13 @@ export type StudentDetail = StudentBase & { dateOfBirth: string | null; address:
 export type Reservation = { id: string; enrollmentId: string; status: string; reason: string; sessionsConsumed: number | null; sessionsRemaining: number | null; creditAmount: number | null; expiresOn: string | null; targetCourseId: string | null; requestedAt: string; approvedAt: string | null; notes: string | null };
 export type Transfer = { id: string; sourceEnrollmentId: string; targetCourseId: string; targetEnrollmentId: string | null; reservationId: string | null; status: string; reason: string; feeAdjustment: number | null; requestedAt: string; approvedAt: string | null; notes: string | null };
 export type SessionStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED";
-export type SessionItemType = "ASSIGNMENT" | "TEST";
+export type SessionItemType = "MATERIAL" | "ASSIGNMENT" | "TEST";
 export type CourseSessionItem = {
   id: string; itemType: SessionItemType; title: string; description: string | null;
   sourceAssignmentId: string | null; sourceTestId: string | null;
-  deadlineAt: string; displayOrder: number;
+  sourceResourceId: string | null; sourceExerciseTemplateId: string | null;
+  deadlineAt: string | null; displayOrder: number; required: boolean;
+  visibility: "STUDENT" | "TEACHER";
 };
 export type ClassSession = {
   id: string; courseId: string; sessionNo: number; title: string | null;

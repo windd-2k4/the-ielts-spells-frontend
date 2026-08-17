@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, BookOpenText, CalendarBlank, CaretRight, ChartLineUp, CheckCircle,
+  ArrowLeft, BookOpenText, Books, CalendarBlank, CaretRight, ChartLineUp, CheckCircle,
   Clock, GridFour, MagnifyingGlass, Plus, UsersThree, X,
 } from "@phosphor-icons/react";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -14,10 +14,11 @@ import CourseStudents from "../components/course/CourseStudents";
 import CourseAttendance from "../components/course/CourseAttendance";
 import CourseProgress from "../components/course/CourseProgress";
 import CourseMatrix from "../components/course/CourseMatrix";
+import CourseLibrary from "../components/course/CourseLibrary";
 import StudentProfileDetail from "../components/enrollment/StudentProfileDetail";
 import CourseEnrollmentModal from "../components/enrollment/CourseEnrollmentModal";
 
-type Tab = "overview" | "schedule" | "students" | "attendance" | "progress" | "matrix";
+type Tab = "overview" | "schedule" | "students" | "attendance" | "progress" | "matrix" | "library";
 const tabs: { id: Tab; label: string; icon: typeof BookOpenText }[] = [
   { id: "overview", label: "Tổng quan", icon: ChartLineUp },
   { id: "schedule", label: "Thời khóa biểu", icon: CalendarBlank },
@@ -25,6 +26,7 @@ const tabs: { id: Tab; label: string; icon: typeof BookOpenText }[] = [
   { id: "attendance", label: "Điểm danh", icon: CheckCircle },
   { id: "progress", label: "Tiến độ kỹ năng", icon: ChartLineUp },
   { id: "matrix", label: "Ma trận hoạt động", icon: GridFour },
+  { id: "library", label: "Học liệu", icon: Books },
 ];
 
 function CourseList() {
@@ -98,6 +100,6 @@ function Workspace(){
     <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div><div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-lg bg-primary-container/20 px-2.5 py-1 text-xs font-bold text-primary">{course.code}</span><StatusBadge value={course.status}>{classStatusLabel[course.status]}</StatusBadge><span className="text-xs font-bold text-on-surface-variant">{skillPairLabel[course.skillPair]}</span></div><h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">{course.name}</h1><p className="mt-2 max-w-3xl text-on-surface-variant">{course.description||"Theo dõi lịch học, học viên và chất lượng đào tạo trong một không gian thống nhất."}</p></div><button type="button" onClick={()=>setEnrollmentOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-4 focus:ring-primary/20"><Plus size={18} weight="bold"/> Ghi danh học viên</button></header>
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-outline-variant/40 bg-surface px-5 py-4 text-sm"><span className="flex items-center gap-2 text-on-surface-variant"><CalendarBlank size={17}/>{date(course.startsOn)} đến {date(course.endsOn)}</span><span className="flex items-center gap-2 text-on-surface-variant"><UsersThree size={17}/>{roster.length}/{course.capacity} học viên</span><span className="flex items-center gap-2 text-on-surface-variant"><Clock size={17}/>{completed}/{sessions.length} session</span></div>
     <nav aria-label="Chức năng khóa học" className="flex gap-1 overflow-x-auto border-b border-outline-variant/40">{tabs.map(tab=>{const Icon=tab.icon;return <button key={tab.id} onClick={()=>setTab(tab.id)} className={`inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-bold ${activeTab===tab.id?"border-primary text-primary":"border-transparent text-on-surface-variant hover:text-on-surface"}`}><Icon size={18}/>{tab.label}</button>})}</nav>
-    {activeTab==="overview"&&<CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={setSelectedStudentId}/>} {activeTab==="schedule"&&<CourseSchedule courseId={course.id} skillPair={course.skillPair}/>} {activeTab==="students"&&<CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={setSelectedStudentId} onRosterChanged={load}/>} {activeTab==="attendance"&&<CourseAttendance courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId}/>} {activeTab==="progress"&&<CourseProgress courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId}/>} {activeTab==="matrix"&&<CourseMatrix courseId={course.id} roster={roster}/>} {selectedStudentId&&<StudentProfileDetail studentId={selectedStudentId} onClose={()=>setSelectedStudentId(null)}/>} <CourseEnrollmentModal course={course} enrollments={enrollments} open={enrollmentOpen} onClose={()=>setEnrollmentOpen(false)} onSaved={load}/></section>;
+    {activeTab==="overview"&&<CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={setSelectedStudentId}/>} {activeTab==="schedule"&&<CourseSchedule courseId={course.id} skillPair={course.skillPair}/>} {activeTab==="students"&&<CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={setSelectedStudentId} onRosterChanged={load}/>} {activeTab==="attendance"&&<CourseAttendance courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId}/>} {activeTab==="progress"&&<CourseProgress courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId}/>} {activeTab==="matrix"&&<CourseMatrix courseId={course.id} roster={roster}/>} {activeTab==="library"&&<CourseLibrary courseId={course.id}/>} {selectedStudentId&&<StudentProfileDetail studentId={selectedStudentId} onClose={()=>setSelectedStudentId(null)}/>} <CourseEnrollmentModal course={course} enrollments={enrollments} open={enrollmentOpen} onClose={()=>setEnrollmentOpen(false)} onSaved={load}/></section>;
 }
 export function CourseManagementPage(){return useParams().courseId?<Workspace/>:<CourseList/>}

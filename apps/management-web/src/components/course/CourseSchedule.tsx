@@ -11,13 +11,18 @@ import { useAuth } from "../../auth/AuthContext";
 import { apiFetch } from "../../lib/api";
 import ScheduleSetupModal from "./ScheduleSetupModal";
 import SessionDrawer from "./SessionDrawer";
+import AttachLibraryModal from "../library/AttachLibraryModal";
+import type { LibraryItem } from "../../library-types";
+import { isResource } from "../../library-types";
 
 interface CourseScheduleProps { courseId: string; skillPair: SkillPair }
 type ScheduleType = "ALL" | "CLASS" | "EXAM";
 type ViewMode = "LIST" | "CALENDAR";
 export type ItemDraft = {
   id?: string; itemType: SessionItemType; title: string;
-  description: string; deadlineAt: string;
+  description: string; deadlineAt: string; sourceResourceId?: string;
+  sourceExerciseTemplateId?: string; required: boolean;
+  visibility: "STUDENT" | "TEACHER";
 };
 export type SessionDraft = {
   sessionNo: string; title: string; phaseName: string; content: string;
@@ -81,6 +86,9 @@ function fromSession(value: ClassSession): SessionDraft {
     notes: value.notes ?? "", items: (value.items ?? []).map(item => ({
       id: item.id, itemType: item.itemType, title: item.title,
       description: item.description ?? "", deadlineAt: toLocalInput(item.deadlineAt),
+      sourceResourceId: item.sourceResourceId ?? undefined,
+      sourceExerciseTemplateId: item.sourceExerciseTemplateId ?? undefined,
+      required: item.required, visibility: item.visibility,
     })),
   };
 }
@@ -103,6 +111,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
   const [showSetup, setShowSetup] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"SESSION" | "TEST">("SESSION");
   const [shiftFollowing, setShiftFollowing] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,7 +166,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     if (mode === "TEST") {
       const nextTestNo = sessions.filter(item => item.items?.some(child => child.itemType === "TEST")).length + 1;
       value.title = `Mini Test ${nextTestNo}`;
-      value.items = [{ itemType: "TEST", title: value.title, description: "", deadlineAt: plusDays(value.endsAt, 2) }];
+      value.items = [{ itemType: "TEST", title: value.title, description: "", deadlineAt: plusDays(value.endsAt, 2), required: true, visibility: "STUDENT" }];
     }
     setConfirmDelete(false);
     setDraft(value);
@@ -185,11 +194,34 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     setError("");
   }
   function addItem(type: SessionItemType) {
-    if (!draft || draft.items.length >= 10) return;
+    if (!draft || (type !== "MATERIAL" && draft.items.filter(item => item.itemType !== "MATERIAL").length >= 10)) return;
     patchDraft({ items: [...draft.items, {
-      itemType: type, title: type === "TEST" ? "Bài test" : "Bài tập",
-      description: "", deadlineAt: plusDays(draft.endsAt, 2),
+      itemType: type, title: type === "TEST" ? "Bài test" : type === "MATERIAL" ? "Tài liệu buổi học" : "Bài tập",
+      description: "", deadlineAt: type === "MATERIAL" ? "" : plusDays(draft.endsAt, 2),
+      required: type !== "MATERIAL", visibility: "STUDENT",
     }] });
+  }
+  function attachLibrary(items: LibraryItem[]) {
+    if (!draft) return;
+    const exerciseCount = draft.items.filter(item => item.itemType !== "MATERIAL").length;
+    let remaining = Math.max(0, 10 - exerciseCount);
+    const additions: ItemDraft[] = [];
+    items.forEach(item => {
+      if (isResource(item)) {
+        additions.push({ itemType: "MATERIAL", title: item.title, description: item.description ?? item.externalUrl ?? "",
+          deadlineAt: "", sourceResourceId: item.id, required: false,
+          visibility: item.teacherOnly ? "TEACHER" : "STUDENT" });
+      } else if (remaining > 0) {
+        additions.push({ itemType: "ASSIGNMENT", title: item.title, description: item.instructions ?? item.sourceUrl ?? "",
+          deadlineAt: plusDays(draft.endsAt, 2), sourceExerciseTemplateId: item.id,
+          required: true, visibility: "STUDENT" });
+        remaining -= 1;
+      }
+    });
+    patchDraft({ items: [...draft.items, ...additions] });
+    if (items.some(item => !isResource(item)) && remaining === 0 && additions.filter(value => value.itemType === "ASSIGNMENT").length < items.filter(value => !isResource(value)).length) {
+      setError("Session chỉ nhận tối đa 10 bài tập/bài test. Tài liệu không bị giới hạn.");
+    }
   }
   function patchItem(index: number, patch: Partial<ItemDraft>) {
     if (!draft) return;
@@ -215,7 +247,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
       return;
     }
     if (draft.items.some(item => !item.title.trim())) {
-      setError("Mỗi bài tập hoặc bài test cần có tên.");
+      setError("Mỗi tài liệu, bài tập hoặc bài test cần có tên.");
       return;
     }
     setSaving(true);
@@ -234,6 +266,9 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           description: item.description || null,
           deadlineAt: item.deadlineAt ? new Date(item.deadlineAt).toISOString() : null,
           sourceAssignmentId: null, sourceTestId: null, displayOrder: index,
+          sourceResourceId: item.sourceResourceId ?? null,
+          sourceExerciseTemplateId: item.sourceExerciseTemplateId ?? null,
+          required: item.required, visibility: item.visibility,
         })),
       };
       await apiFetch(`/admin/courses/${courseId}/sessions${editingId ? `/${editingId}` : ""}`, {
@@ -334,6 +369,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           onPatchDraft={patchDraft}
           onApplyRoadmap={applyRoadmap}
           onAddItem={addItem}
+          onOpenLibrary={() => setLibraryOpen(true)}
           onPatchItem={patchItem}
           onRemoveItem={removeItem}
           onSave={save}
@@ -343,6 +379,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
         />
       )}
       {showSetup && <ScheduleSetupModal courseId={courseId} skillPair={skillPair} teachers={teachers} onClose={()=>setShowSetup(false)} onApplied={load}/>} 
+      <AttachLibraryModal open={libraryOpen} courseId={courseId} skillPair={skillPair} onClose={()=>setLibraryOpen(false)} onAttach={attachLibrary}/>
     </div>
   );
 }
