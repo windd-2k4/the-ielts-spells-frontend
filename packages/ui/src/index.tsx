@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, PropsWithChildren } from "react";
 
 export function BrandMark() {
-  return <span aria-label="The IELTS Spells" style={{ fontWeight: 900, letterSpacing: "-.04em" }}>The <span style={{ color: "var(--brand-pink)" }}>IELTS Spells</span> ✦</span>;
+  return <span aria-label="The IELTS Spells" style={{ fontWeight: 900, letterSpacing: "-.04em", whiteSpace: "nowrap" }}>The <span style={{ color: "var(--brand-pink)" }}>IELTS Spells</span> ✦</span>;
 }
 
 export function Button({ children, style, ...props }: PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement>>) {

@@ -1,9 +1,50 @@
-import { BrandMark, Button } from "@ielts/ui";
+import Navbar from "@/components/Navbar";
+import Hero from "@/components/Hero";
+import TrustStrip from "@/components/TrustStrip";
+import AboutSection from "@/components/AboutSection";
+import BenefitsSection from "@/components/BenefitsSection";
+import CoursesSection from "@/components/CoursesSection";
+import RoadmapSection from "@/components/RoadmapSection";
+import TeachersSection from "@/components/TeachersSection";
+import FeedbackSection from "@/components/FeedbackSection";
+import ConsultationForm from "@/components/ConsultationForm";
+import Footer from "@/components/Footer";
 
 export default function Home() {
-  return <main className="shell">
-    <header className="header"><BrandMark/><nav className="nav"><a href="#courses">Khóa học</a><a href="#roadmap">Lộ trình</a><a href="#teachers">Giáo viên</a><a href="#blog">Blog</a></nav><Button>Đăng nhập</Button></header>
-    <section className="hero"><div><div className="eyebrow">IELTS learning, made magical</div><h1>Cast the Spells.<br/>Claim the Band.</h1><p>Lộ trình IELTS rõ ràng, theo dõi tiến độ từng kỹ năng và nhận phản hồi Writing chuyên sâu từ giáo viên kết hợp AI.</p><div className="actions"><Button>Đăng ký tư vấn</Button><Button style={{background:"transparent",color:"var(--text)",border:"1px solid var(--border)"}}>Khám phá khóa học</Button></div></div><div className="visual"><div className="book">📖✨</div></div></section>
-    <section className="stats"><div className="stat"><strong>8.5 IELTS</strong><span>Đội ngũ giáo viên</span></div><div className="stat"><strong>1–1.5 band</strong><span>Mục tiêu sau khóa học</span></div><div className="stat"><strong>4 kỹ năng</strong><span>Theo dõi trên một hệ thống</span></div></section>
-  </main>;
+  return (
+    <main className="min-h-screen bg-[#FEFDF5] text-[#1E1B18] font-sans antialiased">
+      {/* 1. Header Navigation */}
+      <Navbar />
+
+      {/* 2. Hero Banner */}
+      <Hero />
+
+      {/* 3. Achievements & Trust Strip */}
+      <TrustStrip />
+
+      {/* 4. Về Chúng Tôi / Triết Lý Học Thuật */}
+      <AboutSection />
+
+      {/* 5. Quyền Lợi Học Viên Bento Grid */}
+      <BenefitsSection />
+
+      {/* 6. Danh Sách Khóa Học & Filter Modal */}
+      <CoursesSection />
+
+      {/* 7. Lộ Trình 4 Giai Đoạn */}
+      <RoadmapSection />
+
+      {/* 8. Đội Ngũ Giảng Viên 8.0-8.5 */}
+      <TeachersSection />
+
+      {/* 9. Feedback & Kết Quả Học Viên */}
+      <FeedbackSection />
+
+      {/* 10. Form Tiếp Nhận Tư Vấn */}
+      <ConsultationForm />
+
+      {/* 11. Footer Liên Hệ */}
+      <Footer />
+    </main>
+  );
 }
