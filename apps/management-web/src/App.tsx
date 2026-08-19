@@ -12,6 +12,9 @@ import { EnrollmentsPage } from "./pages/EnrollmentsPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { LearningLibraryPage } from "./pages/LearningLibraryPage";
+import { TestBankPage } from "./pages/TestBankPage";
+import { TestBuilderPage } from "./pages/TestBuilderPage";
+import { MediaLibraryPage } from "./pages/MediaLibraryPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { StaffAdminPage } from "./pages/StaffAdminPage";
 import { StudentsPage } from "./pages/StudentsPage";
@@ -36,7 +39,12 @@ export default function App() {
       <Route element={<RequireRoles any={["admin", "manager", "admissions", "teacher"]} />}><Route element={<AdminShell />}>
         <Route index element={<HomeRedirect />} />
         <Route element={<RequireRoles any={["admin", "manager"]} />}><Route path="/dashboard" element={<DashboardPage />} /><Route path="/courses" element={<CourseManagementPage />} /><Route path="/courses/:courseId" element={<CourseManagementPage />} /><Route path="/classes" element={<Navigate to="/courses" replace />} /></Route>
-        <Route element={<RequireRoles any={["admin", "manager", "teacher"]} />}><Route path="/library" element={<LearningLibraryPage />} /></Route>
+        <Route element={<RequireRoles any={["admin", "manager", "teacher"]} />}>
+          <Route path="/library" element={<LearningLibraryPage />} />
+          <Route path="/test-bank" element={<TestBankPage />} />
+          <Route path="/test-builder/:skill/:testId" element={<TestBuilderPage />} />
+          <Route path="/media" element={<MediaLibraryPage />} />
+        </Route>
         <Route element={<RequireRoles any={["admin", "manager", "admissions"]} />}><Route path="/students" element={<StudentsPage />} /><Route path="/students/:studentId" element={<StudentDetailPage />} /><Route path="/enrollments" element={<EnrollmentsPage />} /></Route>
         <Route element={<RequireRoles any={["admin"]} />}><Route path="/staff" element={<StaffAdminPage />} /></Route>
       </Route></Route>

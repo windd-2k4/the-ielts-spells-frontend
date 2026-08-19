@@ -1,125 +1,420 @@
-import { ArrowSquareOut, FileArrowUp, SpinnerGap, X } from "@phosphor-icons/react";
-import { type FormEvent, useEffect, useState } from "react";
+import { X } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import type { Course } from "../../academic-types";
-import type { ExerciseTemplate, LearningResource, LibrarySkill, LibraryView } from "../../library-types";
+import type {
+  ContentLifecycleStatus, LearningResource, LibraryItem, LibraryScope, LibrarySkill, LibraryView, ResourceSourceType, VisibilityPermission,
+} from "../../library-types";
+import { isResource } from "../../library-types";
 import { apiFetch, apiUpload } from "../../lib/api";
-import { CATEGORIES, RESOURCE_TYPES } from "./library-config";
+import { CATEGORIES, SKILLS } from "./library-config";
 
-type EditableItem = LearningResource | ExerciseTemplate;
 type Props = {
-  open: boolean; view: LibraryView; skill: LibrarySkill; item?: EditableItem | null;
-  courseId?: string; courses: Course[]; onClose: () => void; onSaved: () => Promise<void>;
+  open: boolean;
+  view: LibraryView;
+  skill: LibrarySkill;
+  item: LibraryItem | null;
+  courseId?: string;
+  courses: Course[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
 };
 
-const fieldClass = "mt-1.5 min-h-11 w-full rounded-xl border-outline-variant/60 bg-surface text-sm focus:border-primary focus:ring-primary";
-
-export default function LibraryItemModal({ open, view, skill, item, courseId, courses, onClose, onSaved }: Props) {
-  const isExercise = view === "EXERCISES";
-  const existingExercise = item && "exerciseType" in item ? item : null;
-  const existingResource = item && "resourceType" in item ? item : null;
+export default function LibraryItemModal({
+  open, view, skill: initialSkill, item, courseId: defaultCourseId, courses, onClose, onSaved,
+}: Props) {
+  const [skill, setSkill] = useState<LibrarySkill>(initialSkill);
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [scope, setScope] = useState<LibraryScope>(defaultCourseId ? "COURSE" : "GLOBAL");
+  const [selectedCourseId, setSelectedCourseId] = useState(defaultCourseId ?? "");
+  const [sourceType, setSourceType] = useState<ResourceSourceType>("FILE_UPLOAD");
+  const [externalUrl, setExternalUrl] = useState("");
+  const [richTextContent, setRichTextContent] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[skill][0]?.value ?? "OTHER");
-  const [scope, setScope] = useState<"GLOBAL" | "COURSE">(courseId ? "COURSE" : "GLOBAL");
-  const [selectedCourseId, setSelectedCourseId] = useState(courseId ?? "");
-  const [url, setUrl] = useState("");
-  const [sourceMode, setSourceMode] = useState<"LINK" | "UPLOAD" | "NONE">("LINK");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [resourceType, setResourceType] = useState("DRIVE_LINK");
+  const [tagsInput, setTagsInput] = useState("");
+  const [visibilityPermission, setVisibilityPermission] = useState<VisibilityPermission>("STUDENT_AFTER_ASSIGN");
   const [teacherOnly, setTeacherOnly] = useState(false);
-  const [exerciseType, setExerciseType] = useState("PRACTICE");
-  const [completionMode, setCompletionMode] = useState("ONLINE");
-  const [durationMinutes, setDurationMinutes] = useState("");
-  const [maxScore, setMaxScore] = useState("");
-  const [attemptLimit, setAttemptLimit] = useState("1");
-  const [requiresReview, setRequiresReview] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open) return;
-    setTitle(item?.title ?? "");
-    setDescription(existingResource?.description ?? existingExercise?.instructions ?? "");
-    setCategory(item?.category ?? CATEGORIES[skill][0]?.value ?? "OTHER");
-    setScope(courseId ? "COURSE" : item?.scope ?? "GLOBAL");
-    setSelectedCourseId(courseId ?? item?.courseId ?? "");
-    setUrl(existingResource?.externalUrl ?? existingExercise?.sourceUrl ?? "");
-    setSourceMode(existingResource?.externalUrl ? "LINK" : "NONE");
+    setSkill(initialSkill);
+    const catOptions = CATEGORIES[initialSkill];
+    setCategory(catOptions[0]?.value ?? "PRACTICE_SET");
+  }, [initialSkill]);
+
+  useEffect(() => {
+    if (!item) {
+      setTitle("");
+      setScope(defaultCourseId ? "COURSE" : "GLOBAL");
+      setSelectedCourseId(defaultCourseId ?? "");
+      setSourceType("FILE_UPLOAD");
+      setExternalUrl("");
+      setRichTextContent("");
+      setDescription("");
+      setTagsInput("");
+      setVisibilityPermission("STUDENT_AFTER_ASSIGN");
+      setTeacherOnly(false);
+      setSelectedFile(null);
+      setError("");
+      return;
+    }
+
+    setTitle(item.title);
     setSelectedFile(null);
-    setResourceType(existingResource?.resourceType ?? "DRIVE_LINK");
-    setTeacherOnly(existingResource?.teacherOnly ?? false);
-    setExerciseType(existingExercise?.exerciseType ?? "PRACTICE");
-    setCompletionMode(existingExercise?.completionMode ?? "ONLINE");
-    setDurationMinutes(existingExercise?.durationMinutes?.toString() ?? "");
-    setMaxScore(existingExercise?.maxScore?.toString() ?? "");
-    setAttemptLimit(existingExercise?.attemptLimit?.toString() ?? "1");
-    setRequiresReview(existingExercise?.requiresTeacherReview ?? true);
-    setError("");
-  }, [courseId, existingExercise, existingResource, item, open, skill]);
+    setSkill(item.skill);
+    setCategory(item.category);
+    setScope(item.scope);
+    setSelectedCourseId(item.courseId ?? "");
+
+    if (isResource(item)) {
+      setSourceType(item.sourceType || (item.externalUrl ? "DRIVE_LINK" : "FILE_UPLOAD"));
+      setExternalUrl(item.externalUrl ?? "");
+      setRichTextContent(item.richTextContent ?? "");
+      setDescription(item.description ?? "");
+      setTagsInput((item.tags || []).join(", "));
+      setVisibilityPermission(item.visibilityPermission || "STUDENT_AFTER_ASSIGN");
+      setTeacherOnly(item.teacherOnly);
+    } else {
+      setDescription(item.instructions ?? "");
+    }
+  }, [defaultCourseId, item]);
 
   if (!open) return null;
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!title.trim()) { setError("Vui lòng nhập tên học liệu."); return; }
-    if (scope === "COURSE" && !selectedCourseId) { setError("Vui lòng chọn khóa học sở hữu học liệu."); return; }
-    if (!isExercise && sourceMode === "LINK" && !url.trim()) { setError("Vui lòng nhập đường dẫn Drive hoặc web."); return; }
-    if (!isExercise && sourceMode === "UPLOAD" && !selectedFile) { setError("Vui lòng chọn tệp cần tải lên."); return; }
-    setSaving(true); setError("");
+  async function handleSave(targetStatus: ContentLifecycleStatus) {
+    if (!title.trim()) {
+      setError("Vui lòng nhập tên học liệu.");
+      return;
+    }
+    if (scope === "COURSE" && !selectedCourseId) {
+      setError("Vui lòng chọn khóa học cho học liệu có phạm vi riêng.");
+      return;
+    }
+    if (view === "RESOURCES" && sourceType === "DRIVE_LINK" && !externalUrl.trim()) {
+      setError("Vui lòng nhập đường dẫn Google Drive hoặc website.");
+      return;
+    }
+    if (view === "RESOURCES" && sourceType === "FILE_UPLOAD" && !item && !selectedFile) {
+      setError("Vui lòng chọn tệp chính cần tải lên.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+
     try {
-      const endpoint = `/admin/library/${isExercise ? "exercises" : "resources"}${item ? `/${item.id}` : ""}`;
+      const endpoint = view === "RESOURCES" ? "resources" : "exercises";
+      const path = item ? `/admin/library/${endpoint}/${item.id}` : `/admin/library/${endpoint}`;
+      const method = item ? "PUT" : "POST";
       const common = {
-        title: title.trim(), skill, category, scope,
+        title: title.trim(),
+        skill,
+        category,
+        scope,
         courseId: scope === "COURSE" ? selectedCourseId : null,
-        status: !isExercise && sourceMode === "NONE" ? "DRAFT" : "PUBLISHED",
+        status: targetStatus,
       };
-      const body = isExercise ? {
-        ...common, instructions: description.trim() || null, exerciseType, completionMode,
-        sourceUrl: url.trim() || null, durationMinutes: durationMinutes ? Number(durationMinutes) : null,
-        maxScore: maxScore ? Number(maxScore) : null, attemptLimit: attemptLimit ? Number(attemptLimit) : null,
-        requiresTeacherReview: requiresReview, content: {}, answerKey: {},
-      } : {
-        ...common, description: description.trim() || null, resourceType,
-        externalUrl: sourceMode === "LINK" ? url.trim() : null, teacherOnly,
-      };
-      const saved = await apiFetch<LearningResource | ExerciseTemplate>(endpoint, { method: item ? "PUT" : "POST", body: JSON.stringify(body) });
-      if (!isExercise && sourceMode === "UPLOAD" && selectedFile) {
-        const form = new FormData();
-        form.append("file", selectedFile);
-        form.append("fileRole", "MAIN");
-        await apiUpload(`/admin/library/resources/${saved.id}/files`, form);
+      const payload = view === "RESOURCES"
+        ? {
+            ...common,
+            description: sourceType === "RICH_TEXT"
+              ? [description.trim(), richTextContent.trim()].filter(Boolean).join("\n\n")
+              : description.trim() || null,
+            resourceType: sourceType === "FILE_UPLOAD" ? "FILE" : sourceType === "DRIVE_LINK" ? "LINK" : "ARTICLE",
+            externalUrl: sourceType === "DRIVE_LINK" ? externalUrl.trim() : null,
+            teacherOnly: teacherOnly || visibilityPermission === "TEACHER_ONLY",
+          }
+        : {
+            ...common,
+            instructions: description.trim() || null,
+            exerciseType: "PRACTICE",
+            completionMode: "MANUAL",
+            sourceUrl: sourceType === "DRIVE_LINK" ? externalUrl.trim() : null,
+            durationMinutes: null,
+            maxScore: null,
+            attemptLimit: null,
+            requiresTeacherReview: true,
+            content: richTextContent.trim() ? { richText: richTextContent.trim(), tags: tagsInput.split(",").map(tag => tag.trim()).filter(Boolean) } : {},
+            answerKey: {},
+          };
+      const saved = await apiFetch<LibraryItem>(path, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      if (view === "RESOURCES" && selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("fileRole", "MAIN");
+        await apiUpload(`/admin/library/resources/${saved.id}/files`, formData);
       }
-      await onSaved(); onClose();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể lưu học liệu.");
-    } finally { setSaving(false); }
+      await onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Có lỗi xảy ra khi lưu học liệu.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-on-background/45 p-4" role="dialog" aria-modal="true" aria-labelledby="library-modal-title" onMouseDown={event => event.currentTarget === event.target && onClose()}>
-    <form noValidate onSubmit={submit} className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-[22px] border border-outline-variant/50 bg-surface shadow-2xl">
-      <header className="sticky top-0 z-10 flex items-start justify-between border-b border-outline-variant/40 bg-surface/95 px-6 py-5 backdrop-blur">
-        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">{isExercise ? "Kho bài tập mẫu" : "Kho tài liệu"} · {skill}</p><h2 id="library-modal-title" className="mt-1 font-display text-2xl font-bold">{item ? "Chỉnh sửa học liệu" : "Thêm học liệu mới"}</h2><p className="mt-1 text-sm text-on-surface-variant">Mã được hệ thống tự sinh và không thay đổi.</p></div>
-        <button type="button" onClick={onClose} aria-label="Đóng" className="grid h-11 w-11 place-items-center rounded-xl border border-outline-variant/50 hover:bg-surface-container"><X size={20}/></button>
-      </header>
-      <div className="space-y-5 p-6">
-        {error && <p role="alert" className="rounded-xl border border-error/25 bg-error-container/20 px-4 py-3 text-sm font-semibold text-error">{error}</p>}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-bold sm:col-span-2">Tên học liệu *<input required value={title} onChange={event=>setTitle(event.target.value)} className={fieldClass} placeholder={isExercise ? "Ví dụ: Listening Practice Test 01" : "Ví dụ: Teacher note · Session 01"}/></label>
-          <label className="text-sm font-bold">Nhóm nội dung<select value={category} onChange={event=>setCategory(event.target.value)} className={fieldClass}>{CATEGORIES[skill].map(value=><option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
-          {isExercise ? <label className="text-sm font-bold">Loại bài<select value={exerciseType} onChange={event=>setExerciseType(event.target.value)} className={fieldClass}><option value="PRACTICE">Bài luyện tập</option><option value="HOMEWORK">Bài về nhà</option><option value="MOCK_TEST">Đề mock test</option><option value="VOCABULARY">Bài kiểm tra từ vựng</option></select></label> : <label className="text-sm font-bold">Loại tài liệu<select value={resourceType} onChange={event=>setResourceType(event.target.value)} className={fieldClass}>{RESOURCE_TYPES.map(value=><option key={value.value} value={value.value}>{value.label}</option>)}</select></label>}
-          <label className="text-sm font-bold">Phạm vi<select disabled={Boolean(courseId)} value={scope} onChange={event=>setScope(event.target.value as "GLOBAL"|"COURSE")} className={fieldClass}><option value="GLOBAL">Dùng chung toàn hệ thống</option><option value="COURSE">Riêng một khóa học</option></select></label>
-          <label className="text-sm font-bold">Khóa học<select disabled={scope !== "COURSE" || Boolean(courseId)} value={selectedCourseId} onChange={event=>setSelectedCourseId(event.target.value)} className={fieldClass}><option value="">Chọn khóa học</option>{courseId && <option value={courseId}>Khóa học hiện tại</option>}{courses.filter(value=>value.id !== courseId).map(value=><option key={value.id} value={value.id}>{value.code} · {value.name}</option>)}</select></label>
-          {!isExercise && <div className="sm:col-span-2"><p className="text-sm font-bold">Nguồn học liệu</p><div className="mt-1.5 grid gap-2 sm:grid-cols-3">
-            {([ ["UPLOAD", "Tải tệp lên"], ["LINK", "Google Drive / web"], ["NONE", "Chỉ tạo mục"] ] as const).map(([value, label]) => <button key={value} type="button" onClick={()=>setSourceMode(value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-bold transition ${sourceMode === value ? "border-primary bg-primary-container/20 text-primary" : "border-outline-variant/60 hover:border-primary/50"}`}>{label}</button>)}
-          </div></div>}
-          {!isExercise && sourceMode === "UPLOAD" && <label className="text-sm font-bold sm:col-span-2">Tệp chính *<span className="mt-1.5 flex min-h-11 items-center gap-3 rounded-xl border border-dashed border-primary/50 bg-primary-container/10 px-4 text-sm font-semibold text-primary"><FileArrowUp size={20}/><input required type="file" onChange={event=>setSelectedFile(event.target.files?.[0] ?? null)} className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-on-primary"/></span><small className="mt-1 block text-on-surface-variant">Tối đa 50 MB. Sau khi tạo, bạn có thể thêm key, transcript, vocab hoặc audio trong phần tệp đính kèm.</small></label>}
-          {(isExercise || sourceMode === "LINK") && <label className="text-sm font-bold sm:col-span-2">Đường dẫn Drive / tài liệu {isExercise ? "" : "*"}<div className="relative"><input type="url" required={!isExercise && sourceMode === "LINK"} value={url} onChange={event=>setUrl(event.target.value)} className={`${fieldClass} pr-12`} placeholder="https://drive.google.com/..."/>{url && <a href={url} target="_blank" rel="noreferrer" aria-label="Mở đường dẫn" className="absolute right-3 top-1/2 mt-0.5 -translate-y-1/2 text-primary"><ArrowSquareOut size={20}/></a>}</div></label>}
-          {isExercise && <><label className="text-sm font-bold">Cách hoàn thành<select value={completionMode} onChange={event=>setCompletionMode(event.target.value)} className={fieldClass}><option value="ONLINE">Làm trên web</option><option value="UPLOAD">Nộp file</option><option value="MANUAL">Tự làm / GV xác nhận</option></select></label><label className="text-sm font-bold">Thời lượng gợi ý (phút)<input type="number" min="1" value={durationMinutes} onChange={event=>setDurationMinutes(event.target.value)} className={fieldClass}/></label><label className="text-sm font-bold">Điểm tối đa<input type="number" min="0.01" step="0.5" value={maxScore} onChange={event=>setMaxScore(event.target.value)} className={fieldClass}/></label><label className="text-sm font-bold">Số lần làm<input type="number" min="1" value={attemptLimit} onChange={event=>setAttemptLimit(event.target.value)} className={fieldClass}/></label></>}
-          <label className="text-sm font-bold sm:col-span-2">{isExercise ? "Hướng dẫn làm bài" : "Mô tả"}<textarea rows={3} value={description} onChange={event=>setDescription(event.target.value)} className={fieldClass} placeholder="Ghi rõ nội dung, cách sử dụng hoặc lưu ý cho giáo viên..."/></label>
-        </div>
-        <label className="flex items-start gap-3 rounded-xl border border-outline-variant/50 p-4"><input type="checkbox" checked={isExercise ? requiresReview : teacherOnly} onChange={event=>isExercise ? setRequiresReview(event.target.checked) : setTeacherOnly(event.target.checked)} className="mt-1 rounded border-outline text-primary focus:ring-primary"/><span><strong className="block text-sm">{isExercise ? "Giáo viên cần duyệt kết quả" : "Chỉ giáo viên được xem"}</strong><small className="mt-1 block text-on-surface-variant">{isExercise ? "Phù hợp Writing, Speaking hoặc bài nộp file." : "Dùng cho teacher note, key nội bộ và tài liệu hướng dẫn giảng dạy."}</small></span></label>
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-[20px] bg-white shadow-2xl overflow-hidden">
+        {/* Modal Header */}
+        <header className="flex items-center justify-between border-b border-[#e3dce2] px-6 py-4">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[#211A1D]">
+              {item ? "Chỉnh sửa học liệu" : "Thêm học liệu mới"}
+            </h2>
+            <p className="text-xs text-[#746A6E]">
+              {view === "RESOURCES" ? "Kho tài liệu giảng dạy" : "Kho bài tập mẫu"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-lg text-[#746A6E] hover:bg-[#f1eef4]"
+          >
+            <X size={20} />
+          </button>
+        </header>
+
+        {/* Modal Form Body */}
+        <form className="custom-scrollbar flex-1 overflow-y-auto p-6 space-y-5">
+          {error && (
+            <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-[#b4232d]">
+              {error}
+            </p>
+          )}
+
+          {/* Tên học liệu */}
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1.5">
+              Tên học liệu <span className="text-[#b4232d]">*</span>
+            </label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="VD: Reading Passage 1 - Matching Headings Practice..."
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3.5 text-sm focus:border-[#8f4458] focus:outline-none"
+            />
+          </div>
+
+          {/* Kỹ năng & Nhóm nội dung */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Kỹ năng</label>
+              <select
+                value={skill}
+                onChange={(e) => setSkill(e.target.value as LibrarySkill)}
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              >
+                {SKILLS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Nhóm nội dung</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              >
+                {(CATEGORIES[skill] || []).map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Phạm vi sử dụng */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Phạm vi</label>
+              <select
+                value={scope}
+                onChange={(e) => setScope(e.target.value as LibraryScope)}
+                disabled={!!defaultCourseId}
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none disabled:bg-[#f1eef4]"
+              >
+                <option value="GLOBAL">Dùng chung (Toàn hệ thống)</option>
+                <option value="COURSE">Riêng khóa học</option>
+              </select>
+            </div>
+
+            {scope === "COURSE" && (
+              <div>
+                <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Chọn Khóa học</label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  disabled={!!defaultCourseId}
+                  className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+                >
+                  <option value="">-- Chọn khóa học --</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Nguồn học liệu */}
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Nguồn học liệu</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setSourceType("FILE_UPLOAD")}
+                className={`min-h-[40px] rounded-xl border text-xs font-bold transition ${
+                  sourceType === "FILE_UPLOAD"
+                    ? "border-[#8f4458] bg-[#f7e7ec] text-[#743447]"
+                    : "border-[#e3dce2] bg-white text-[#746A6E]"
+                }`}
+              >
+                Tải file lên
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceType("DRIVE_LINK")}
+                className={`min-h-[40px] rounded-xl border text-xs font-bold transition ${
+                  sourceType === "DRIVE_LINK"
+                    ? "border-[#8f4458] bg-[#f7e7ec] text-[#743447]"
+                    : "border-[#e3dce2] bg-white text-[#746A6E]"
+                }`}
+              >
+                Link Google Drive/Web
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceType("RICH_TEXT")}
+                className={`min-h-[40px] rounded-xl border text-xs font-bold transition ${
+                  sourceType === "RICH_TEXT"
+                    ? "border-[#8f4458] bg-[#f7e7ec] text-[#743447]"
+                    : "border-[#e3dce2] bg-white text-[#746A6E]"
+                }`}
+              >
+                Bài viết Rich Text
+              </button>
+            </div>
+          </div>
+
+          {sourceType === "DRIVE_LINK" && (
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Đường dẫn đính kèm</label>
+              <input
+                value={externalUrl}
+                onChange={(e) => setExternalUrl(e.target.value)}
+                placeholder="https://drive.google.com/file/d/..."
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              />
+            </div>
+          )}
+
+          {sourceType === "RICH_TEXT" && (
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Nội dung bài viết</label>
+              <textarea
+                rows={4}
+                value={richTextContent}
+                onChange={(e) => setRichTextContent(e.target.value)}
+                placeholder="Nhập nội dung rich text bài giảng hoặc lý thuyết..."
+                className="w-full rounded-xl border border-[#e3dce2] p-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              />
+            </div>
+          )}
+
+          {sourceType === "FILE_UPLOAD" && (
+            <label className="block cursor-pointer rounded-xl border border-dashed border-[#e3dce2] bg-[#F8F6FA] p-6 text-center hover:border-[#8f4458]">
+              <input
+                type="file"
+                className="sr-only"
+                accept=".pdf,.doc,.docx,.mp3,.wav,.m4a,.png,.jpg,.jpeg"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs font-bold text-[#211A1D]">
+                {selectedFile ? selectedFile.name : item ? "Chọn tệp mới để bổ sung" : "Bấm để chọn tệp tải lên"}
+              </p>
+              <p className="mt-1 text-[11px] text-[#746A6E]">Hỗ trợ PDF, Audio MP3, DOCX, PNG (Tối đa 50MB)</p>
+            </label>
+          )}
+
+          {/* Quyền hiển thị */}
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Quyền xem</label>
+            <select
+              value={visibilityPermission}
+              onChange={(e) => setVisibilityPermission(e.target.value as VisibilityPermission)}
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+            >
+              <option value="TEACHER_ONLY">Chỉ giáo viên mới được thấy</option>
+              <option value="STUDENT_AFTER_ASSIGN">Học viên được thấy sau khi được giao bài</option>
+              <option value="STUDENT_AFTER_SUBMIT">Học viên được thấy sau khi đã nộp bài</option>
+            </select>
+          </div>
+
+          {/* Tags & Mô tả */}
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Thẻ phân loại (Tags)</label>
+            <input
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="VD: Listening, Section 1, Band 6.5 (phân tách bởi dấu phẩy)"
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3.5 text-sm focus:border-[#8f4458] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Mô tả / Ghi chú</label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ghi chú thêm về học liệu..."
+              className="w-full rounded-xl border border-[#e3dce2] p-3 text-sm focus:border-[#8f4458] focus:outline-none"
+            />
+          </div>
+        </form>
+
+        {/* Modal Sticky Footer Actions */}
+        <footer className="flex items-center justify-end gap-3 border-t border-[#e3dce2] bg-white px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] rounded-xl border border-[#e3dce2] px-4 text-xs font-bold text-[#211A1D]"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSave("DRAFT")}
+            className="min-h-[44px] rounded-xl border border-[#8f4458] px-4 text-xs font-bold text-[#8f4458] hover:bg-[#f7e7ec]"
+          >
+            Lưu nháp
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSave("PUBLISHED")}
+            className="min-h-[44px] rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white shadow-sm hover:bg-[#743447]"
+          >
+            {submitting ? "Đang lưu..." : "Gửi duyệt / Xuất bản"}
+          </button>
+        </footer>
       </div>
-      <footer className="sticky bottom-0 flex justify-end gap-3 border-t border-outline-variant/40 bg-surface/95 px-6 py-4 backdrop-blur"><button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-outline-variant/60 px-5 text-sm font-bold">Hủy</button><button disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-60">{saving&&<SpinnerGap className="animate-spin"/>}{saving?"Đang lưu...":"Lưu học liệu"}</button></footer>
-    </form>
-  </div>;
+    </div>
+  );
 }

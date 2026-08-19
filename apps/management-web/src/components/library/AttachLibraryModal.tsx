@@ -1,59 +1,216 @@
-import { ArrowSquareOut, BookOpenText, Check, FileText, MagnifyingGlass, SpinnerGap, X } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
-import type { Page, SkillPair } from "../../academic-types";
-import type { ExerciseTemplate, LearningResource, LibraryItem, LibrarySkill } from "../../library-types";
+import { Check, X } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import type { Course, SkillPair } from "../../academic-types";
+import type { LibraryItem, TestBankItem } from "../../library-types";
 import { isResource } from "../../library-types";
 import { apiFetch } from "../../lib/api";
-import { categoryLabel } from "./library-config";
 
-type Props = {
-  open: boolean; courseId: string; skillPair: SkillPair; onClose: () => void;
-  onAttach: (items: LibraryItem[]) => void;
+type SessionItem = {
+  itemType: "MATERIAL" | "ASSIGNMENT" | "TEST";
+  title: string;
+  description?: string | null;
+  sourceAssignmentId?: string | null;
+  sourceTestId?: string | null;
+  sourceResourceId?: string | null;
+  sourceExerciseTemplateId?: string | null;
+  deadlineAt?: string | null;
+  required?: boolean;
+  visibility?: "STUDENT" | "TEACHER";
+};
+type CourseSession = {
+  id: string; sessionNo: number; title: string | null; startsAt: string; endsAt: string;
+  zoomMeetingId: string | null; zoomUrl: string | null; status: string; notes: string | null;
+  phaseName: string | null; content: string | null; teacherId: string | null; items: SessionItem[];
 };
 
-export default function AttachLibraryModal({ open, courseId, skillPair, onClose, onAttach }: Props) {
-  const skills: LibrarySkill[] = skillPair === "LISTENING_READING" ? ["LISTENING", "READING"] : ["SPEAKING", "WRITING"];
-  const [skill, setSkill] = useState<LibrarySkill>(skills[0]);
-  const [kind, setKind] = useState<"ALL"|"RESOURCES"|"EXERCISES">("ALL");
-  const [query, setQuery] = useState("");
-  const [items, setItems] = useState<LibraryItem[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+type Props = {
+  open?: boolean;
+  item?: LibraryItem | TestBankItem;
+  courses?: Course[];
+  courseId?: string;
+  skillPair?: SkillPair;
+  onClose: () => void;
+  onSuccess?: () => void;
+  onAttach?: (items: LibraryItem[]) => void;
+};
+
+export default function AttachLibraryModal({
+  open = true,
+  item,
+  courses = [],
+  courseId = "",
+  skillPair,
+  onClose,
+  onSuccess,
+  onAttach,
+}: Props) {
+  const [selectedCourseId, setSelectedCourseId] = useState(courseId);
+  const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [sessions, setSessions] = useState<CourseSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [error, setError] = useState("");
+  const [isRequired, setIsRequired] = useState(true);
+  const [visibility, setVisibility] = useState<"STUDENT" | "TEACHER">("STUDENT");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (open === false) return null;
 
   useEffect(() => {
-    if (!open) return;
-    setSelected(new Set()); setQuery(""); setSkill(skills[0]);
-  }, [open, skillPair]);
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true); setError("");
-    // Only published assets are attachable to a session. Do not use the staff/enrolment ACTIVE status here.
-    const params = `skill=${skill}&courseId=${courseId}&includeGlobal=true&status=PUBLISHED&size=100`;
-    Promise.all([
-      apiFetch<Page<LearningResource>>(`/admin/library/resources?${params}`),
-      apiFetch<Page<ExerciseTemplate>>(`/admin/library/exercises?${params}`),
-    ]).then(([resources, exercises])=>setItems([...resources.content, ...exercises.content]))
-      .catch(reason=>setError(reason instanceof Error ? reason.message : "Không tải được kho học liệu."))
-      .finally(()=>setLoading(false));
-  }, [courseId, open, skill]);
+    if (!selectedCourseId) { setSessions([]); setSelectedSessionId(""); return; }
+    setLoadingSessions(true); setError("");
+    void apiFetch<CourseSession[]>(`/admin/courses/${selectedCourseId}/sessions`)
+      .then(result => {
+        setSessions(result);
+        setSelectedSessionId(current => result.some(session => session.id === current) ? current : result[0]?.id ?? "");
+      })
+      .catch(reason => setError(reason instanceof Error ? reason.message : "Không tải được danh sách buổi học."))
+      .finally(() => setLoadingSessions(false));
+  }, [selectedCourseId]);
 
-  const visible = useMemo(() => items.filter(item => {
-    const matchKind = kind === "ALL" || (kind === "RESOURCES" ? isResource(item) : !isResource(item));
-    const search = query.trim().toLowerCase();
-    return matchKind && (!search || `${item.code} ${item.title} ${item.category}`.toLowerCase().includes(search));
-  }), [items, kind, query]);
+  async function handleAttach() {
+    if (!item || !selectedCourseId || !selectedSessionId) {
+      setError("Vui lòng chọn khóa học và buổi học cần gắn.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const session = sessions.find(value => value.id === selectedSessionId);
+      if (!session) throw new Error("Buổi học đã chọn không còn tồn tại.");
+      const isTest = "purpose" in item;
+      const isExercise = "exerciseType" in item;
+      const newItem: SessionItem = {
+        itemType: isTest ? "TEST" : isExercise ? "ASSIGNMENT" : "MATERIAL",
+        title: item.title,
+        description: "description" in item ? item.description : "instructions" in item ? item.instructions : null,
+        sourceTestId: isTest ? item.id : null,
+        sourceResourceId: !isTest && isResource(item as LibraryItem) ? item.id : null,
+        sourceExerciseTemplateId: isExercise ? item.id : null,
+        required: isRequired,
+        visibility,
+      };
+      await apiFetch(`/admin/courses/${selectedCourseId}/sessions/${selectedSessionId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          sessionNo: session.sessionNo, title: session.title, startsAt: session.startsAt, endsAt: session.endsAt,
+          zoomMeetingId: session.zoomMeetingId, zoomUrl: session.zoomUrl, status: session.status,
+          notes: session.notes, phaseName: session.phaseName, content: session.content,
+          teacherId: session.teacherId,
+          items: [...(session.items ?? []), newItem],
+        }),
+      });
+      if (onAttach) onAttach([item as LibraryItem]);
+      else onSuccess?.();
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể gắn học liệu vào buổi học.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  if (!open) return null;
-  function toggle(id: string) { setSelected(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next}); }
-  function submit() { onAttach(items.filter(item=>selected.has(item.id))); onClose(); }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-full max-w-lg rounded-[20px] bg-white p-6 shadow-2xl space-y-5">
+        <div className="flex items-center justify-between border-b border-[#e3dce2] pb-3">
+          <div>
+            <h3 className="font-display text-lg font-bold text-[#211A1D]">Gắn vào buổi học (Session)</h3>
+            <p className="text-xs text-[#746A6E]">Tham chiếu nội dung mà không nhân bản dữ liệu</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-[#746A6E] hover:bg-[#f1eef4]">
+            <X size={20} />
+          </button>
+        </div>
 
-  return <div className="fixed inset-0 z-[70] grid place-items-center bg-on-background/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attach-library-title">
-    <div className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[22px] border border-outline-variant/50 bg-surface shadow-2xl">
-      <header className="flex items-start justify-between border-b border-outline-variant/40 px-6 py-5"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Gắn vào session</p><h2 id="attach-library-title" className="mt-1 font-display text-2xl font-bold">Chọn từ kho học liệu</h2><p className="mt-1 text-sm text-on-surface-variant">Tài liệu không bắt buộc deadline; bài tập mặc định hạn nộp sau buổi học 2 ngày.</p></div><button onClick={onClose} aria-label="Đóng" className="grid h-11 w-11 place-items-center rounded-xl border border-outline-variant/50"><X size={20}/></button></header>
-      <div className="space-y-4 border-b border-outline-variant/40 p-4"><div className="flex flex-wrap gap-2">{skills.map(value=><button key={value} onClick={()=>setSkill(value)} className={`min-h-10 rounded-xl px-4 text-sm font-bold ${skill===value?"bg-primary text-on-primary":"border border-outline-variant/50"}`}>{value[0]+value.slice(1).toLowerCase()}</button>)}</div><div className="flex flex-col gap-3 md:flex-row"><label className="relative flex-1"><MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 text-outline"/><input value={query} onChange={event=>setQuery(event.target.value)} className="min-h-11 w-full rounded-xl border-outline-variant/60 pl-11 text-sm focus:border-primary focus:ring-primary" placeholder="Tìm tài liệu hoặc bài tập mẫu..."/></label><select value={kind} onChange={event=>setKind(event.target.value as typeof kind)} className="min-h-11 rounded-xl border-outline-variant/60 text-sm focus:border-primary focus:ring-primary"><option value="ALL">Tất cả</option><option value="RESOURCES">Tài liệu</option><option value="EXERCISES">Bài tập mẫu</option></select></div></div>
-      <div className="flex-1 overflow-y-auto p-4">{loading?<div className="grid min-h-52 place-items-center"><span className="inline-flex items-center gap-2 text-sm font-semibold"><SpinnerGap className="animate-spin"/>Đang tải...</span></div>:error?<p className="rounded-xl bg-error-container/20 p-4 text-sm font-semibold text-error">{error}</p>:visible.length===0?<div className="grid min-h-52 place-items-center rounded-xl border border-dashed border-outline-variant/70 text-center"><div><FileText size={32} className="mx-auto text-outline"/><p className="mt-3 font-bold">Chưa có học liệu phù hợp</p><p className="mt-1 text-sm text-on-surface-variant">Hãy tạo trong Kho học liệu trước khi gắn vào session.</p></div></div>:<div className="grid gap-2 md:grid-cols-2">{visible.map(item=>{const checked=selected.has(item.id);const url=isResource(item)?item.externalUrl:item.sourceUrl;return <button key={item.id} onClick={()=>toggle(item.id)} className={`flex items-start gap-3 rounded-xl border p-4 text-left ${checked?"border-primary bg-primary-container/15":"border-outline-variant/50 hover:border-primary/40"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${checked?"bg-primary text-on-primary":"bg-surface-container text-primary"}`}>{checked?<Check size={18} weight="bold"/>:isResource(item)?<FileText size={19}/>:<BookOpenText size={19}/>}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><small className="font-bold text-primary">{item.code}</small><small className="rounded-full bg-surface-container px-2 py-0.5 font-bold">{isResource(item)?"TÀI LIỆU":"BÀI TẬP"}</small></span><strong className="mt-1 block line-clamp-2 text-sm">{item.title}</strong><small className="mt-1 block text-on-surface-variant">{categoryLabel(item.skill,item.category)} · {item.scope==="GLOBAL"?"Dùng chung":"Riêng khóa"}</small>{url&&<span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary"><ArrowSquareOut size={14}/>Có đường dẫn nguồn</span>}</span></button>})}</div>}</div>
-      <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/40 px-6 py-4"><p className="text-sm font-semibold text-on-surface-variant">Đã chọn <strong className="text-on-surface">{selected.size}</strong> mục</p><div className="flex gap-3"><button onClick={onClose} className="min-h-11 rounded-xl border border-outline-variant/60 px-5 text-sm font-bold">Hủy</button><button onClick={submit} disabled={!selected.size} className="min-h-11 rounded-xl bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-40">Gắn vào session</button></div></footer>
+        {item && (
+          <div className="rounded-xl border border-[#8f4458]/20 bg-[#f7e7ec]/50 p-3.5">
+            <span className="text-[11px] font-bold text-[#8f4458]">{item.code}</span>
+            <h4 className="font-display text-sm font-bold text-[#211A1D]">{item.title}</h4>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-[#b4232d]">{error}</p>}
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1">Chọn Khóa học</label>
+            <select
+              value={selectedCourseId}
+              onChange={(e) => setSelectedCourseId(e.target.value)}
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+            >
+              <option value="">-- Chọn khóa học áp dụng --</option>
+              {courses.length > 0
+                ? courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code})
+                    </option>
+                  ))
+                : null}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#211A1D] mb-1">Chọn Buổi học (Session)</label>
+            <select
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              disabled={!selectedCourseId || loadingSessions}
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+            >
+              <option value="">{loadingSessions ? "Đang tải buổi học..." : "-- Chọn buổi học --"}</option>
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  Session {session.sessionNo}{session.title ? ` · ${session.title}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1">Tính bắt buộc</label>
+              <select
+                value={isRequired ? "YES" : "NO"}
+                onChange={(e) => setIsRequired(e.target.value === "YES")}
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              >
+                <option value="YES">Bắt buộc hoàn thành</option>
+                <option value="NO">Tùy chọn (Tham khảo)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#211A1D] mb-1">Quyền truy cập</label>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as "STUDENT" | "TEACHER")}
+                className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+              >
+                <option value="STUDENT">Hiển thị cho Học viên</option>
+                <option value="TEACHER">Chỉ cho Giáo viên</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-[#e3dce2] pt-4">
+          <button onClick={onClose} className="min-h-[42px] rounded-xl border border-[#e3dce2] px-4 text-xs font-bold">
+            Hủy
+          </button>
+          <button
+            onClick={() => void handleAttach()}
+            disabled={submitting}
+            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white hover:bg-[#743447] disabled:opacity-50"
+          >
+            <Check size={16} />
+            {submitting ? "Đang gắn..." : "Xác nhận gắn học liệu"}
+          </button>
+        </div>
+      </div>
     </div>
-  </div>;
+  );
 }
