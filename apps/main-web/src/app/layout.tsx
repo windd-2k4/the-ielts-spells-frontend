@@ -8,6 +8,10 @@ export const metadata: Metadata = {
     "Lộ trình luyện thi IELTS tinh gọn, hiệu quả cao kết hợp phương pháp học thuật hiện đại và đội ngũ giảng viên IELTS 8.0-8.5. Cam kết đầu ra bằng hợp đồng.",
   keywords: ["IELTS", "Luyện thi IELTS", "The IELTS Spells", "IELTS 7.0+", "Học IELTS hiệu quả"],
   authors: [{ name: "The IELTS Spells Academic Team" }],
+  icons: {
+    icon: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

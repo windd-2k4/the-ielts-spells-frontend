@@ -1,7 +1,7 @@
 "use client";
 
 import { BrandMark } from "@ielts/ui";
-import { Phone, EnvelopeSimple, Clock, FacebookLogo, InstagramLogo, TiktokLogo, Sparkle, MonitorPlay } from "@phosphor-icons/react";
+import { Phone, EnvelopeSimple, Clock, FacebookLogo, InstagramLogo, TiktokLogo, MonitorPlay } from "@phosphor-icons/react";
 
 export default function Footer() {
   const scrollToSection = (id: string) => {
@@ -19,10 +19,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10">
           {/* Brand Info & Mission */}
           <div className="lg:col-span-4 space-y-5">
-            <div className="flex items-center gap-2 text-xl font-bold">
-              <div className="w-9 h-9 rounded-xl bg-[#F5C842] flex items-center justify-center text-[#894C5B]">
-                <Sparkle size={20} weight="fill" />
-              </div>
+            <div className="flex items-center gap-2.5 text-xl font-bold">
+              <img
+                src="/logo.jpg"
+                alt="The IELTS Spells Logo"
+                className="w-9 h-9 rounded-full object-cover shadow-sm shrink-0 border border-white/20"
+              />
               <BrandMark />
             </div>
 

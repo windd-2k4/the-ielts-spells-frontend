@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BrandMark } from "@ielts/ui";
-import { List, X, Sparkle, PhoneCall, Wrench, Warning } from "@phosphor-icons/react";
+import { List, X, PhoneCall, Wrench, Warning } from "@phosphor-icons/react";
 
 interface NavItem {
   id: string;
@@ -92,11 +92,13 @@ export default function Navbar() {
               e.preventDefault();
               scrollToSection("hero");
             }}
-            className="flex items-center gap-2 group text-xl font-bold tracking-tight whitespace-nowrap shrink-0"
+            className="flex items-center gap-2.5 group text-xl font-bold tracking-tight whitespace-nowrap shrink-0"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F5C842] to-[#EAB308] flex items-center justify-center text-[#894C5B] shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <Sparkle size={22} weight="fill" />
-            </div>
+            <img
+              src="/logo.jpg"
+              alt="The IELTS Spells Logo"
+              className="w-10 h-10 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform shrink-0 border border-[#F3E8C4]"
+            />
             <BrandMark />
           </a>
 

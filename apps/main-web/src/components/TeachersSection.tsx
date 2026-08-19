@@ -10,9 +10,9 @@ const TEACHERS = [
     score: "IELTS 8.5",
     subScore: "8.5W - 7.5S",
     exp: "IELTS 8.5 Overall",
-    bio: "Giảng viên IELTS 8.5 Overall sở hữu điểm số Writing 8.5 xuất sắc và Speaking 7.5. Chuyên gia đào tạo phương pháp tư duy viết bài luận học thuật và phản xạ giao tiếp tự nhiên.",
+    bio: "__________________Updating________________________",
     image: "/Jane.jpg",
-    quote: "Tư duy mạch lạc và vốn từ chính xác là chìa khóa bứt phá điểm số Speaking & Writing.",
+    quote: "________________Updating_________________________",
     bgColor: "from-[#F5C842]/10 to-[#894C5B]/5",
   },
   {
@@ -21,9 +21,9 @@ const TEACHERS = [
     score: "IELTS 8.5",
     subScore: "8.0 S-W",
     exp: "IELTS 8.5 Overall",
-    bio: "Giảng viên IELTS 8.5 Overall sở hữu cặp điểm ấn tượng 8.0 Speaking và 8.0 Writing. Tận tâm đồng hành 1:1, hướng dẫn học viên chuẩn hóa phát âm và tư duy lập luận.",
+    bio: "__________________Updating________________________",
     image: "/Linh.jpg",
-    quote: "Biến tiếng Anh thành công cụ diễn đạt tự nhiên và giàu sức thuyết phục trong mọi bài thi.",
+    quote: "__________________Updating________________________",
     bgColor: "from-[#894C5B]/10 to-[#F5C842]/5",
   },
 ];
@@ -42,7 +42,7 @@ export default function TeachersSection() {
               Gặp gỡ các <span className="text-[#894C5B]">"Pháp sư" IELTS</span> đồng hành
             </h2>
             <p className="text-base text-[#5C5752]">
-              100% giảng viên sở hữu IELTS 8.5 Overall, tinh thần tận tâm đồng hành 1:1 cùng học viên bứt phá mục tiêu.
+              100% giảng viên sở hữu IELTS 8.5 Overall, tinh thần tận tâm đồng hành cùng học viên bứt phá mục tiêu.
             </p>
           </div>
         </ScrollReveal>
