@@ -148,16 +148,16 @@ export default function BenefitsSection() {
           <div className="mt-12 p-6 rounded-3xl bg-white border border-[#F3E8C4] shadow-sm flex flex-wrap items-center justify-around gap-6 text-center">
             <div className="flex items-center gap-3 text-sm font-bold text-[#1E1B18]">
               <div className="w-10 h-10 rounded-xl bg-[#FEF9C3] text-[#894C5B] flex items-center justify-center">
-                <ShieldCheck size={22} weight="fill" className="text-[#F5C842]" />
+                <CheckCircle size={22} weight="fill" className="text-[#F5C842]" />
               </div>
-              <span>Cam Kết Đầu Ra Bằng Hợp Đồng</span>
+              <span>Bài Tập Rõ Ràng, Chi Tiết</span>
             </div>
 
             <div className="flex items-center gap-3 text-sm font-bold text-[#1E1B18]">
               <div className="w-10 h-10 rounded-xl bg-[#FEF9C3] text-[#894C5B] flex items-center justify-center">
-                <Clock size={22} weight="fill" className="text-[#F5C842]" />
+                <ChartLineUp size={22} weight="fill" className="text-[#F5C842]" />
               </div>
-              <span>Lớp Học Sĩ Số Tinh Gọn 20-25 Bạn</span>
+              <span>Theo Sát Chất Lượng Học Viên</span>
             </div>
 
             <div className="flex items-center gap-3 text-sm font-bold text-[#1E1B18]">

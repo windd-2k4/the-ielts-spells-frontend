@@ -18,9 +18,9 @@ const METRICS = [
   },
   {
     icon: Trophy,
-    value: "8.5",
+    value: "9.0",
     label: "Band điểm cao nhất",
-    subtext: "Nhiều học viên đạt 8.0 - 8.5 Listening/Reading",
+    subtext: "Nhiều học viên đạt 8.0 - 9.0 Listening/Reading",
   },
   {
     icon: ChalkboardTeacher,

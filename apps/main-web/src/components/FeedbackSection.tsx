@@ -92,7 +92,7 @@ const INTENSIVE_LR_FEEDBACKS: IntensiveFeedback[] = [
     id: 1,
     name: "Diễm Quỳnh",
     image: "/Intensive LR/Intensive LR/Diễm Quỳnh.PNG",
-    highlight: "Đã tiết kiệm 1/4 thời gian khi áp dụng Dual Track, thừa 5-7p check bài",
+    highlight: "Đã tiết kiệm 1/4 thời gian khi áp dụng Two-Track Reading, thừa 5-7p check bài",
   },
   {
     id: 2,
@@ -355,11 +355,11 @@ export default function FeedbackSection() {
                     </div>
                     <div className="flex items-center gap-2.5 text-sm text-[#1E1B18] font-bold">
                       <CheckCircle size={18} weight="fill" className="text-[#F5C842] shrink-0" />
-                      <span>Phương pháp Dual Track giúp làm Reading thừa 5-10 phút check đáp án</span>
+                      <span>Phương pháp Two-Track Reading giúp làm Reading thừa 5-10 phút check đáp án</span>
                     </div>
                     <div className="flex items-center gap-2.5 text-sm text-[#1E1B18] font-bold">
                       <CheckCircle size={18} weight="fill" className="text-[#F5C842] shrink-0" />
-                      <span>Nghe hiểu sâu bản chất thay vì học thuộc lòng hay bắt từ khóa ngẫu nhiên</span>
+                      <span>Phương pháp Core Listening giúp nghe hiểu sâu bản chất thay vì học thuộc lòng hay bắt từ khóa ngẫu nhiên</span>
                     </div>
                   </div>
 

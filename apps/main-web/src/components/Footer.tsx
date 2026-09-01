@@ -134,7 +134,7 @@ export default function Footer() {
 
               <div className="flex items-center gap-3">
                 <EnvelopeSimple size={20} className="text-[#F5C842] shrink-0" />
-                <span>Email: contact@theieltsspells.edu.vn</span>
+                <span>Email: theieltssspells101@gmail.com</span>
               </div>
 
               <div className="flex items-center gap-3">

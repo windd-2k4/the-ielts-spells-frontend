@@ -42,7 +42,7 @@ export default function Hero() {
 
             <ScrollReveal delay={2}>
               <p className="text-lg sm:text-xl text-[#5C5752] max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
-                Chinh phục IELTS bằng một lộ trình rõ ràng, kết hợp giữa phương pháp học thuật tinh gọn và sự hỗ trợ từ các giảng viên IELTS 8.5+ hàng đầu.
+                Chinh phục IELTS bằng một lộ trình rõ ràng, kết hợp giữa phương pháp học thuật tinh gọn và sự hỗ trợ từ các giáo viên từ 8.0 - 8.5 IELTS hàng đầu.
               </p>
             </ScrollReveal>
 
@@ -59,7 +59,7 @@ export default function Hero() {
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-lg border border-[#F3E8C4]">
                   <CheckCircle size={18} weight="fill" className="text-[#F5C842]" />
-                  <span>Sĩ số tối đa 20-25 bạn</span>
+                  <span>Sỉ số nhóm nhỏ</span>
                 </div>
               </div>
             </ScrollReveal>
@@ -116,7 +116,7 @@ export default function Hero() {
                     <Star size={24} weight="fill" className="text-[#F5C842]" />
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-[#1E1B18] font-display">Band 1.0-1.5+</p>
+                    <p className="text-lg font-bold text-[#1E1B18] font-display">Tăng từ 0.5-1.5 Band</p>
                     <p className="text-xs text-[#5C5752] font-medium">Sau mỗi khóa học</p>
                   </div>
                 </div>

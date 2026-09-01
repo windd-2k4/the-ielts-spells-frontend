@@ -43,7 +43,7 @@ export default function AboutSection() {
                 <div className="absolute -bottom-6 -right-4 sm:right-6 bg-[#FFFDF0] border-2 border-[#F5C842] p-5 rounded-2xl shadow-xl max-w-xs space-y-1">
                   <div className="flex items-center gap-2 text-[#894C5B] font-bold text-sm">
                     <CheckCircle size={20} weight="fill" className="text-[#F5C842]" />
-                    <span>Lớp học tối đa 20-25 bạn</span>
+                    <span>Lớp học sỉ số nhóm nhỏ</span>
                   </div>
                   <p className="text-xs text-[#5C5752]">
                     Đảm bảo từng học viên đều được giáo viên trực tiếp sửa bài và thực hành Speaking hàng buổi.

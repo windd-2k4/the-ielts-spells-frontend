@@ -227,10 +227,10 @@ export default function ConsultationForm() {
                         onChange={(e) => setFormData({ ...formData, course: e.target.value })}
                         className="w-full px-4 py-3 rounded-xl border border-[#F3E8C4] bg-white text-sm text-[#1E1B18] focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#F5C842]/20 transition-all"
                       >
-                        <option value="kickstart">Khoá Cơ Bản Kickstart (Cho người mới bắt đầu)</option>
-                        <option value="stepping-stone">Khoá Xây Nền Stepping Stone (Đầu vào 4.0+)</option>
-                        <option value="lr-intensive">Khoá Chuyên Sâu Listening &amp; Reading Intensive</option>
-                        <option value="sw-intensive">Khoá Chuyên Sâu Speaking &amp; Writing Intensive</option>
+                        <option value="stepping-stone">Khoá Stepping Stone (24 buổi)</option>
+                        <option value="foundation-lr">Khoá Xây nền LR - Đầu vào 4.0+ (12 buổi)</option>
+                        <option value="sw-intensive">Khoá Chuyên sâu SW (22 buổi)</option>
+                        <option value="lr-intensive">Khoá Chuyên sâu LR (18 buổi)</option>
                       </select>
                     </div>
 

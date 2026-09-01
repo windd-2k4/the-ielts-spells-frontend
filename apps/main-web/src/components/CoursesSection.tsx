@@ -6,7 +6,7 @@ import { Clock, Check, X, ArrowRight, Star } from "@phosphor-icons/react";
 
 interface Course {
   id: string;
-  category: "kickstart" | "stepping-stone" | "intensive";
+  category: "stepping-stone" | "foundation-lr" | "intensive";
   badge: string;
   title: string;
   level: string;
@@ -21,64 +21,47 @@ interface Course {
 
 const COURSES: Course[] = [
   {
-    id: "kickstart",
-    category: "kickstart",
-    badge: "Cơ Bản",
-    title: "IELTS Kickstart",
-    level: "Mới bắt đầu",
-    duration: "12 Tuần (36 buổi)",
-    target: "Lấy gốc căn bản & Chuẩn IPA",
-    highlights: [
-      "Lấy lại gốc từ vựng & ngữ pháp trọng tâm",
-      "Chuẩn hóa phát âm bảng IPA quốc tế",
-      "Làm quen phản xạ tiếng Anh tự nhiên",
-    ],
-    description: "Khoá học cơ bản dành cho người mới bắt đầu hoặc mất gốc. Giúp xây dựng nền tảng vững chắc về ngữ pháp, từ vựng cốt lõi và phát âm IPA chuẩn.",
-    image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80",
-    detailImage: "/SteppingStone.jpg",
-  },
-  {
     id: "stepping-stone",
     category: "stepping-stone",
     badge: "Xây Nền",
     title: "Stepping Stone",
-    level: "Đầu vào 4.0+",
-    duration: "16 Tuần (48 buổi)",
+    level: "Xây Nền",
+    duration: "24 buổi (2 buổi/tuần)",
     target: "Bứt phá 4 kỹ năng cơ bản",
     highlights: [
-      "Củng cố kiến thức cho đầu vào từ 4.0+",
+      "Củng cố kiến thức cho học viên xây nền",
       "Chiến thuật làm bài Reading & Listening",
       "Viết đoạn văn & phản xạ Speaking cơ bản",
     ],
-    description: "Khoá học xây nền kiến thức vững chắc cho học viên từ 4.0 trở lên. Mở rộng tư duy phát triển câu phức và rèn luyện 4 kỹ năng cơ bản.",
+    description: "Khoá học xây nền kiến thức vững chắc cho học viên. Mở rộng tư duy phát triển câu phức và rèn luyện 4 kỹ năng cơ bản.",
     popular: true,
     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80",
     detailImage: "/SteppingStone.jpg",
   },
   {
-    id: "lr-intensive",
-    category: "intensive",
-    badge: "Chuyên Sâu (Intensive)",
-    title: "Listening & Reading Intensive",
-    level: "Chuyên sâu L&R",
-    duration: "8 Tuần (24 buổi)",
-    target: "Chuyên sâu L&R Band 6.5+",
+    id: "foundation-lr",
+    category: "foundation-lr",
+    badge: "Xây Nền LR",
+    title: "Xây nền LR (đầu vào 4.0+)",
+    level: "Đầu vào 4.0+",
+    duration: "12 buổi (2 buổi/tuần)",
+    target: "Xây nền Listening & Reading 4.0+",
     highlights: [
-      "Chuyên sâu cặp kỹ năng Listening + Reading",
-      "Phương pháp Skimming/Scanning khoanh đáp án",
-      "Luyện bộ đề dự đoán bẫy thi thật",
+      "Tăng cường vốn từ vựng học thuật & ngữ pháp đọc hiểu",
+      "Phương pháp xử lý bài nghe và đọc cốt lõi",
+      "Bổ trợ nền đệm vững chắc cho giai đoạn Intensive",
     ],
-    description: "Khoá học chuyên sâu dành riêng cho cặp kỹ năng Listening & Reading. Tập trung bẫy đề thi thật, chiến thuật Skimming/Scanning và bí kíp khoanh vùng đáp án.",
-    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
-    detailImage: "/IntensiveLR.jpg",
+    description: "Khoá học xây nền cặp kỹ năng Listening & Reading cho học viên có đầu vào từ 4.0+. Định hình tư duy phân tích đề và từ vựng nền tảng.",
+    image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80",
+    detailImage: "/SteppingStone.jpg",
   },
   {
     id: "sw-intensive",
     category: "intensive",
     badge: "Chuyên Sâu (Intensive)",
-    title: "Speaking & Writing Intensive",
+    title: "Chuyên sâu SW",
     level: "Chuyên sâu S&W",
-    duration: "10 Tuần (30 buổi)",
+    duration: "22 buổi (2 buổi/tuần)",
     target: "Chuyên sâu S&W Band 6.5+",
     highlights: [
       "Chuyên sâu cặp kỹ năng Speaking + Writing",
@@ -88,6 +71,23 @@ const COURSES: Course[] = [
     description: "Khoá học chuyên sâu dành riêng cho cặp kỹ năng Speaking & Writing. Chấm chữa bài 1:1 chi tiết từng câu văn, chuẩn hóa phát âm và tư duy phát triển ý luận.",
     image: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
     detailImage: "/IntensiveSW.jpg",
+  },
+  {
+    id: "lr-intensive",
+    category: "intensive",
+    badge: "Chuyên Sâu (Intensive)",
+    title: "Chuyên sâu LR",
+    level: "Chuyên sâu L&R",
+    duration: "18 buổi (2 buổi/tuần)",
+    target: "Chuyên sâu L&R Band 6.5+",
+    highlights: [
+      "Chuyên sâu cặp kỹ năng Listening + Reading",
+      "Phương pháp Skimming/Scanning khoanh đáp án",
+      "Luyện bộ đề dự đoán bẫy thi thật",
+    ],
+    description: "Khoá học chuyên sâu dành riêng cho cặp kỹ năng Listening & Reading. Tập trung bẫy đề thi thật, chiến thuật Skimming/Scanning và bí kíp khoanh vùng đáp án.",
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
+    detailImage: "/IntensiveLR.jpg",
   },
 ];
 
@@ -121,8 +121,8 @@ export default function CoursesSection() {
             <div className="flex flex-wrap gap-2 bg-[#FEFDF5] p-1.5 rounded-2xl border border-[#F3E8C4]">
               {[
                 { id: "all", label: "Tất cả" },
-                { id: "kickstart", label: "Khoá Cơ Bản Kickstart" },
-                { id: "stepping-stone", label: "Khoá Xây Nền Stepping Stone" },
+                { id: "stepping-stone", label: "Khoá Stepping Stone" },
+                { id: "foundation-lr", label: "Khoá Xây Nền LR" },
                 { id: "intensive", label: "Khoá Chuyên Sâu (Intensive)" },
               ].map((tab) => (
                 <button
