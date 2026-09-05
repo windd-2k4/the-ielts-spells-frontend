@@ -19,7 +19,7 @@ export function WritingSpeakingBuilder({ skill }: Props) {
   const [testTitle, setTestTitle] = useState(
     skill === "writing"
       ? "IELTS Writing Task 1 & Task 2 Practice - Technology & Society"
-      : "IELTS Speaking Placement Test - Daily Habits & Hobbies"
+      : "IELTS Speaking Part 1–3 - Daily Habits & Hobbies"
   );
   const [activeTab, setActiveTab] = useState<number>(1);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -55,7 +55,7 @@ export function WritingSpeakingBuilder({ skill }: Props) {
       const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, {
         method: "PUT",
         body: JSON.stringify({ title: testTitle, description: null, skill: skill.toUpperCase(),
-          purpose: testRecord.purpose, testType: testRecord.testType, difficulty: testRecord.difficulty,
+          testType: testRecord.testType,
           durationMinutes: timeMinutes || 1, version: testRecord.version, tags: testRecord.tags,
           builderContent: { promptText, minWords, timeMinutes, sampleAnswer } }),
       });
@@ -269,7 +269,7 @@ export function WritingSpeakingBuilder({ skill }: Props) {
           {/* Sample Answer & AI Scoring Config */}
           <div className="rounded-[18px] border border-[#e3dce2] bg-white p-6 space-y-4 shadow-sm">
             <h3 className="font-display text-base font-bold text-[#211A1D]">
-              Bài mẫu Band 8.0+ & Cấu hình AI Assessment
+              Bài mẫu tham khảo & Cấu hình AI Assessment
             </h3>
 
             <div>
@@ -301,10 +301,8 @@ export function WritingSpeakingBuilder({ skill }: Props) {
           test={{
             id: testId || "t-w-01",
             code: "TST-W004",
-            purpose: "PRACTICE",
             skill: skill === "writing" ? "WRITING" : "SPEAKING",
             testType: "SINGLE_SKILL",
-            difficulty: "Band 6.0+",
             sectionsCount: 2,
             totalQuestions: 2,
             durationMinutes: 60,

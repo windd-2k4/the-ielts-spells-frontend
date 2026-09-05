@@ -52,6 +52,36 @@
   background: #8f4458;
 }
 
+/* Keep pasted Reading content inside its split panel. Source documents often
+   carry non-wrapping inline styles or fixed widths that must not control the builder. */
+.reading-passage-editor,
+.reading-passage-editor * {
+  box-sizing: border-box;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.reading-passage-editor,
+.reading-passage-editor p,
+.reading-passage-editor div,
+.reading-passage-editor span,
+.reading-passage-editor li,
+.reading-passage-editor blockquote,
+.reading-passage-editor aside {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  hyphens: none !important;
+}
+
+::highlight(reading-answer-evidence) {
+  color: inherit;
+  background-color: rgba(110, 231, 183, 0.58);
+  text-decoration: underline;
+  text-decoration-color: #16835f;
+  text-decoration-thickness: 2px;
+}
+
 /* Draggable Split Resizer */
 .split-resizer {
   width: 10px;

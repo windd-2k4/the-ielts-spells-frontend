@@ -84,20 +84,26 @@ export function isResource(item: LibraryItem): item is LearningResource {
 
 // ================= TEST BANK & BUILDER TYPES =================
 
-export type TestPurpose = "PLACEMENT" | "PRACTICE" | "PROGRESS" | "MOCK_TEST";
 export type TestType = "FULL_TEST" | "SINGLE_SKILL";
 export type QuestionTypeFormat =
   | "MULTIPLE_CHOICE"
   | "MULTIPLE_ANSWERS"
   | "FILL_IN_BLANK"
+  | "SHORT_ANSWER"
   | "TRUE_FALSE_NOT_GIVEN"
   | "YES_NO_NOT_GIVEN"
   | "MATCHING_HEADINGS"
   | "MATCHING_INFORMATION"
   | "MATCHING_FEATURES"
+  | "MATCHING_SENTENCE_ENDINGS"
   | "SENTENCE_COMPLETION"
   | "SUMMARY_COMPLETION"
+  | "NOTE_COMPLETION"
+  | "TABLE_COMPLETION"
+  | "FLOW_CHART_COMPLETION"
   | "DIAGRAM_LABELING";
+
+export type QuestionGroupAnswerSource = "PASSAGE" | "OPTION_BANK";
 
 export type QuestionOption = {
   id: string;
@@ -113,7 +119,7 @@ export type QuestionCardItem = {
   options: QuestionOption[];
   correctAnswers: string[]; // option id, text answer, or matching target
   acceptableAnswers?: string[];
-  passageSpan?: { start: number; end: number };
+  passageSpan?: { start: number; end: number; quote?: string };
   explanation?: string;
   trapAnalysis?: string;
   vocabularyNotes?: string;
@@ -134,11 +140,14 @@ export type SharedOptionItem = {
 export type QuestionGroupItem = {
   id: string;
   title: string;
+  titleMode?: "AUTO" | "CUSTOM";
   startQuestionNo: number;
   endQuestionNo: number;
   typeFormat: QuestionTypeFormat;
   instructions: string;
   wordLimitRule?: string; // e.g. "NO MORE THAN TWO WORDS AND/OR A NUMBER"
+  answerSource?: QuestionGroupAnswerSource;
+  requiredAnswerCount?: number;
   sharedOptions?: SharedOptionItem[];
   allowOptionReused?: boolean;
   linkedAudioTimestamp?: string; // "02:15"
@@ -216,10 +225,8 @@ export type TestBankItem = {
   id: string;
   code: string;
   title: string;
-  purpose: TestPurpose;
   skill: TestSkill;
   testType: TestType;
-  difficulty: string; // e.g., "Band 6.0-6.5"
   sectionsCount: number;
   totalQuestions: number;
   durationMinutes: number;
