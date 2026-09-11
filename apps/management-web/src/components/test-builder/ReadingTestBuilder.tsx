@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import type {
   PassageSection,
   QuestionCardItem,
@@ -27,14 +28,18 @@ import type {
 } from "../../library-types";
 import { apiFetch } from "../../lib/api";
 import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
+import GapFillGroupEditor, { gapFillPrompt, gapFillTemplateFromQuestions, inspectGapFillTemplate } from "./GapFillGroupEditor";
 import PublishValidationModal from "./PublishValidationModal";
+import QuestionGroupIllustrationField from "./QuestionGroupIllustrationField";
 import ReadingQuestionGroupDialog, { type ReadingQuestionGroupDraft } from "./ReadingQuestionGroupDialog";
 import ReadingRichTextEditor from "./ReadingRichTextEditor";
 import {
   createDefaultSharedOptions,
+  defaultGapFillLayout,
   defaultWordLimit,
   getReadingQuestionTypeDefinition,
   questionTypeUsesQuestionOptions,
+  questionTypeUsesGapTemplate,
   questionTypeUsesSharedOptions,
   questionTypeUsesWordLimit,
   readingQuestionTypeLabels,
@@ -44,6 +49,21 @@ import TestPreviewModal from "./TestPreviewModal";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readGroupIllustration(value: unknown): QuestionGroupItem["illustration"] {
+  if (!isRecord(value)
+    || typeof value.assetId !== "string"
+    || typeof value.fileUrl !== "string"
+    || typeof value.filename !== "string") return undefined;
+  return {
+    assetId: value.assetId,
+    fileUrl: value.fileUrl,
+    filename: value.filename,
+    altText: typeof value.altText === "string" ? value.altText : "",
+    width: typeof value.width === "number" ? value.width : undefined,
+    height: typeof value.height === "number" ? value.height : undefined,
+  };
 }
 
 function newId(prefix: string) {
@@ -142,6 +162,8 @@ function createGroup(
     requiredAnswerCount: draft?.requiredAnswerCount ?? definition.defaultRequiredAnswerCount,
     sharedOptions,
     allowOptionReused: draft?.allowOptionReused ?? definition.usesSharedOptions ?? false,
+    gapFillTemplate: questionTypeUsesGapTemplate(typeFormat, answerSource) ? "" : undefined,
+    gapFillLayout: defaultGapFillLayout(typeFormat),
     questions: Array.from({ length: safeQuestionCount }, (_, index) => createQuestion(startQuestionNo + index, typeFormat)),
     isCollapsed: false,
   };
@@ -167,6 +189,9 @@ function toQuestionGroups(value: unknown): QuestionGroupItem[] {
     requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
     sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as SharedOptionItem[] : [],
     allowOptionReused: typeof group.allowOptionReused === "boolean" ? group.allowOptionReused : false,
+    gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
+    gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
+    illustration: readGroupIllustration(group.illustration),
     linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
     questions: Array.isArray(group.questions)
       ? (group.questions as QuestionCardItem[]).map(normalizeQuestion)
@@ -488,6 +513,7 @@ function AnswerEditor({
 export function ReadingTestBuilder() {
   const navigate = useNavigate();
   const { testId } = useParams();
+  const { roles } = useAuth();
   const testRecordRef = useRef<TestBankItem | null>(null);
   const splitWorkspaceRef = useRef<HTMLDivElement>(null);
   const [testRecord, setTestRecord] = useState<TestBankItem | null>(null);
@@ -510,6 +536,9 @@ export function ReadingTestBuilder() {
     questionNo: number;
   } | null>(null);
   const [evidenceFocusRequest, setEvidenceFocusRequest] = useState(0);
+  const canPublish = roles.includes("admin");
+  const workflowStatus = canPublish ? "PUBLISHED" : "IN_REVIEW";
+  const workflowLabel = canPublish ? "Xuất bản" : "Gửi duyệt";
 
   const activePassage = passages.find((passage) => passage.id === activePassageId) ?? passages[0] ?? emptyPassage(1);
   const selectedQuestion = activePassage.questionGroups
@@ -633,6 +662,15 @@ export function ReadingTestBuilder() {
             targetId: group.id,
           });
         }
+        if (group.illustration && !group.illustration.altText.trim()) {
+          issues.push({
+            id: `${group.id}-illustration-alt`,
+            severity: "ERROR",
+            sectionTitle: group.title,
+            message: "Ảnh hoặc sơ đồ cần có mô tả để học viên và trình đọc màn hình hiểu nội dung.",
+            targetId: group.id,
+          });
+        }
         if (questionTypeUsesWordLimit(group.typeFormat, group.answerSource) && !group.wordLimitRule?.trim()) {
           issues.push({
             id: `${group.id}-word-limit`,
@@ -641,6 +679,18 @@ export function ReadingTestBuilder() {
             message: "Dạng Completion hoặc Short Answer cần có giới hạn từ.",
             targetId: group.id,
           });
+        }
+        if (questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)) {
+          const templateIssues = inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length);
+          if (group.gapFillTemplate !== undefined && (!group.gapFillTemplate.trim() || templateIssues.missing.length || templateIssues.duplicated.length || templateIssues.invalid.length)) {
+            issues.push({
+              id: `${group.id}-gap-template`,
+              severity: "ERROR",
+              sectionTitle: group.title,
+              message: "Mẫu Gap filling phải có đúng một vị trí [[n]] cho mỗi câu hỏi.",
+              targetId: group.id,
+            });
+          }
         }
         if (questionTypeUsesSharedOptions(group.typeFormat, group.answerSource)
           && !(group.sharedOptions?.some((option) => option.code.trim() && option.text.trim()))) {
@@ -692,7 +742,7 @@ export function ReadingTestBuilder() {
 
   const saveDraft = useCallback(async (nextPassages = passages, nextTitle = testTitle) => {
     const record = testRecordRef.current;
-    if (!record || !testId) return null;
+    if (!record || record.status !== "DRAFT" || !testId) return null;
     setSaveStatus("SAVING");
     try {
       const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, {
@@ -705,6 +755,7 @@ export function ReadingTestBuilder() {
           durationMinutes: record.durationMinutes || 60,
           version: record.version,
           tags: record.tags,
+          draftRevision: record.draftRevision,
           builderContent: {
             ...(record.builderContent ?? {}),
             format: record.builderContent?.format ?? (record.testType === "FULL_TEST" ? "FULL" : `PASSAGE_${nextPassages[0]?.passageNo ?? 1}`),
@@ -713,6 +764,7 @@ export function ReadingTestBuilder() {
         }),
       });
       setTestRecord(saved);
+      testRecordRef.current = saved;
       setSaveStatus("SAVED");
       setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
       return saved;
@@ -723,7 +775,7 @@ export function ReadingTestBuilder() {
   }, [passages, testId, testTitle]);
 
   useEffect(() => {
-    if (!loaded || !testRecordRef.current) return undefined;
+    if (!loaded || !testRecordRef.current || testRecordRef.current.status !== "DRAFT") return undefined;
     setSaveStatus("SAVING");
     const timeout = window.setTimeout(() => {
       void saveDraft();
@@ -841,6 +893,8 @@ export function ReadingTestBuilder() {
         ? createDefaultSharedOptions(typeFormat, () => newId("shared-option"))
         : [],
       allowOptionReused: Boolean(definition.usesSharedOptions),
+      gapFillTemplate: questionTypeUsesGapTemplate(typeFormat, answerSource) ? "" : undefined,
+      gapFillLayout: defaultGapFillLayout(typeFormat),
       questions: current.questions.map((question) => normalizeQuestion({
         ...question,
         typeFormat,
@@ -1032,6 +1086,8 @@ export function ReadingTestBuilder() {
     setActivePassageId(nextActive?.id ?? "");
   }
 
+  if (testRecord && testRecord.status !== "DRAFT") return <div className="grid min-h-screen place-items-center bg-[#F8F6FA] p-6 text-center"><div className="max-w-md rounded-2xl border border-[#e3dce2] bg-white p-7 shadow-sm"><WarningCircle size={32} className="mx-auto text-[#8f4458]" /><h1 className="mt-3 font-display text-xl font-bold">Đề không ở chế độ soạn thảo</h1><p className="mt-2 text-sm leading-6 text-[#746A6E]">Đề đang chờ duyệt hoặc đã xuất bản. Hãy quay lại ngân hàng đề để xem trước hoặc tạo bản chỉnh sửa.</p><Link to="/test-bank" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#8f4458] px-4 text-sm font-bold text-white">Quay lại ngân hàng đề</Link></div></div>;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#F8F6FA] text-[#211A1D]">
       <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#e3dce2] bg-white px-5 shadow-sm">
@@ -1078,7 +1134,7 @@ export function ReadingTestBuilder() {
 
           <button
             type="button"
-            onClick={() => setShowValidationModal(true)}
+            onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidationModal(true); }); }}
             className={`flex min-h-[34px] items-center gap-1.5 rounded-full px-3 text-xs font-bold transition ${
               validationIssues.some((issue) => issue.severity === "ERROR")
                 ? "bg-rose-50 text-[#b4232d] hover:bg-rose-100"
@@ -1119,11 +1175,11 @@ export function ReadingTestBuilder() {
 
           <button
             type="button"
-            onClick={() => setShowValidationModal(true)}
+            onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidationModal(true); }); }}
             className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white shadow-sm hover:bg-[#743447]"
           >
             <ShieldCheck size={16} />
-            Xuất bản
+            {workflowLabel}
           </button>
         </div>
       </header>
@@ -1301,6 +1357,7 @@ export function ReadingTestBuilder() {
             const groupDefinition = getReadingQuestionTypeDefinition(group.typeFormat);
             const usesSharedOptions = questionTypeUsesSharedOptions(group.typeFormat, group.answerSource);
             const usesWordLimit = questionTypeUsesWordLimit(group.typeFormat, group.answerSource);
+            const usesGapTemplate = questionTypeUsesGapTemplate(group.typeFormat, group.answerSource);
             return (
             <article id={group.id} key={group.id} className="rounded-[18px] border border-[#e3dce2] bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#e3dce2] pb-3">
@@ -1400,6 +1457,11 @@ export function ReadingTestBuilder() {
                   />
                 </label>
 
+                <QuestionGroupIllustrationField
+                  value={group.illustration}
+                  onChange={(illustration) => updateGroup(group.id, (current) => ({ ...current, illustration }))}
+                />
+
                 {groupDefinition.supportsOptionBank && (
                   <fieldset className="rounded-xl border border-[#e3dce2] p-3">
                     <legend className="px-1 text-[11px] font-bold text-[#746A6E]">Nguồn đáp án cho Summary</legend>
@@ -1439,6 +1501,29 @@ export function ReadingTestBuilder() {
                       className="min-h-[36px] w-full rounded-xl border border-[#e3dce2] px-3 text-xs focus:border-[#8f4458] focus:outline-none"
                     />
                   </label>
+                )}
+
+                {usesGapTemplate && (
+                  <GapFillGroupEditor
+                    title={group.title}
+                    template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)}
+                    layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)}
+                    questions={group.questions}
+                    onTemplateChange={(template) => updateGroup(group.id, (current) => ({
+                      ...current,
+                      gapFillTemplate: template,
+                      questions: current.questions.map((question, index) => normalizeQuestion({
+                        ...question,
+                        prompt: gapFillPrompt(template, index + 1, current.title),
+                      })),
+                    }))}
+                    onLayoutChange={(layout) => updateGroup(group.id, (current) => ({ ...current, gapFillLayout: layout }))}
+                    onAnswerChange={(questionId, correctAnswers, acceptableAnswers) => updateQuestion(
+                      group.id,
+                      questionId,
+                      (question) => ({ ...question, correctAnswers, acceptableAnswers }),
+                    )}
+                  />
                 )}
 
                 {usesSharedOptions && (
@@ -1525,7 +1610,7 @@ export function ReadingTestBuilder() {
                         </div>
                       </div>
 
-                      <label className="mt-3 block">
+                      {!usesGapTemplate && <label className="mt-3 block">
                         <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Nội dung câu hỏi</span>
                         <textarea
                           rows={2}
@@ -1534,14 +1619,14 @@ export function ReadingTestBuilder() {
                           className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none"
                           placeholder="Nhập câu hỏi hoặc câu cần điền..."
                         />
-                      </label>
+                      </label>}
 
-                      <AnswerEditor
+                      {!usesGapTemplate && <AnswerEditor
                         question={question}
                         sharedOptions={usesSharedOptions ? group.sharedOptions : undefined}
                         requiredAnswerCount={group.requiredAnswerCount}
                         onChange={(nextQuestion) => updateQuestion(group.id, question.id, () => nextQuestion)}
-                      />
+                      />}
 
                       <div className={`mt-4 rounded-xl border p-3 ${
                         question.passageSpan
@@ -1715,13 +1800,15 @@ export function ReadingTestBuilder() {
       {showValidationModal && draftTest && (
         <PublishValidationModal
           test={draftTest}
+          actionLabel={`Xác nhận ${workflowLabel.toLowerCase()}`}
           onClose={() => setShowValidationModal(false)}
           onPublished={async () => {
             if (!testId) return;
-            await saveDraft();
+            const saved = await saveDraft();
+            if (!saved) return;
             await apiFetch(`/admin/test-bank/${testId}/status`, {
               method: "PATCH",
-              body: JSON.stringify({ status: "PUBLISHED" }),
+              body: JSON.stringify({ status: workflowStatus, draftRevision: saved.draftRevision }),
             });
             setShowValidationModal(false);
             navigate("/test-bank");

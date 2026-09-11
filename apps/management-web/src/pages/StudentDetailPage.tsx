@@ -59,7 +59,7 @@ export function StudentDetailPage() {
 
   const courseById = (id: string) => courses.find(value => value.id === id);
   const pending = reservations.filter(x => x.status === "PENDING").length + transfers.filter(x => x.status === "PENDING").length;
-  const canApprove = roles.some(role => ["admin", "manager"].includes(role));
+  const canApprove = roles.includes("admin");
 
   if (loading) return <State text="Đang tải hồ sơ học viên..." />;
   if (error || !student) return <State text={error || "Không tìm thấy học viên"} error />;

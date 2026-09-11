@@ -11,7 +11,7 @@ type Invitation = { email: string; fullName: string; intendedRole: string; expir
 export function ActivateAccountPage() {
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [form, setForm] = useState({ fullName: "", phone: "", professionalSummary: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ fullName: "", password: "", confirmPassword: "" });
   const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [submitting, setSubmitting] = useState(false);
   useEffect(() => { void apiFetch<Invitation>("/auth/invitations/current").then(value => { setInvitation(value); setForm(current => ({ ...current, fullName: value.fullName })); }).catch(value => setError(value instanceof Error ? value.message : "Lời mời không hợp lệ")).finally(() => setLoading(false)); }, []);
   async function submit(event: FormEvent) {
@@ -22,7 +22,7 @@ export function ActivateAccountPage() {
     const { error: passwordError } = await supabase.auth.updateUser({ password: form.password });
     if (passwordError) { setError(passwordError.message); setSubmitting(false); return; }
     try {
-      await apiFetch("/auth/invitations/activate", { method: "POST", body: JSON.stringify({ fullName: form.fullName, phone: form.phone, professionalSummary: form.professionalSummary }) });
+      await apiFetch("/auth/invitations/activate", { method: "POST", body: JSON.stringify({ fullName: form.fullName }) });
       await supabase.auth.refreshSession(); navigate("/", { replace: true });
     } catch (value) { setError(value instanceof Error ? value.message : "Không thể kích hoạt tài khoản"); setSubmitting(false); }
   }
@@ -30,8 +30,6 @@ export function ActivateAccountPage() {
   return <AuthShell><header className="auth-heading compact"><p className="auth-kicker">Kích hoạt tài khoản</p><h1>Hoàn tất hồ sơ</h1><p>Kiểm tra thông tin được cấp và đặt mật khẩu để bắt đầu sử dụng hệ thống.</p></header>{error && <FormNotice kind="error">{error}</FormNotice>}{invitation && <form className="auth-form" onSubmit={submit}>
     <div className="invitation-summary"><CheckCircle weight="fill" /><div><strong>{invitation.email}</strong><span>Vai trò: {invitation.intendedRole}</span></div></div>
     <div className="field-group"><label>Họ và tên</label><input required value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} /></div>
-    <div className="field-group"><label>Số điện thoại</label><input value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} /></div>
-    <div className="field-group"><label>Giới thiệu chuyên môn</label><textarea rows={3} value={form.professionalSummary} onChange={event => setForm({ ...form, professionalSummary: event.target.value })} /></div>
     <PasswordField id="new-password" label="Mật khẩu mới" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} autoComplete="new-password" required />
     <PasswordField id="confirm-password" label="Xác nhận mật khẩu" value={form.confirmPassword} onChange={event => setForm({ ...form, confirmPassword: event.target.value })} autoComplete="new-password" required />
     <button className="primary-button" disabled={submitting}>{submitting ? <SpinnerGap className="spin" /> : <ArrowRight />}{submitting ? "Đang kích hoạt..." : "Kích hoạt tài khoản"}</button>

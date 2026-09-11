@@ -5,7 +5,7 @@ import { apiFetch } from "../../lib/api";
 
 type WeeklySlot = { dayOfWeek: number; startsAt: string; endsAt: string; enabled: boolean };
 type Props = {
-  courseId: string; skillPair: SkillPair; teachers: TeacherOption[];
+  courseId: string; skillPair: SkillPair; teachers: TeacherOption[]; primaryTeacherId: string;
   onClose: () => void; onApplied: () => Promise<void>;
 };
 
@@ -63,7 +63,7 @@ function builtInEntries(skillPair: SkillPair): ScheduleTemplateEntry[] {
 }
 const inputClass = "w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
 
-export default function ScheduleSetupModal({ courseId, skillPair, teachers, onClose, onApplied }: Props) {
+export default function ScheduleSetupModal({ courseId, skillPair, teachers, primaryTeacherId, onClose, onApplied }: Props) {
   const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
   const [selectedId, setSelectedId] = useState("builtin");
   const [name, setName] = useState(skillPair === "LISTENING_READING" ? "Lộ trình Listening & Reading chuẩn" : "Lộ trình Speaking & Writing chuẩn");
@@ -71,7 +71,7 @@ export default function ScheduleSetupModal({ courseId, skillPair, teachers, onCl
   const [startsOn, setStartsOn] = useState(new Date().toISOString().slice(0, 10));
   const [fromSession, setFromSession] = useState(1);
   const [toSession, setToSession] = useState(entries.length);
-  const [teacherId, setTeacherId] = useState("");
+  const [teacherId, setTeacherId] = useState(primaryTeacherId);
   const [zoomUrl, setZoomUrl] = useState("");
   const [slots, setSlots] = useState<WeeklySlot[]>([1, 2, 3, 4, 5, 6, 7].map(day => ({ dayOfWeek: day, startsAt: "19:00", endsAt: "21:00", enabled: day === 1 || day === 3 })));
   const [busy, setBusy] = useState(false);
@@ -148,7 +148,7 @@ export default function ScheduleSetupModal({ courseId, skillPair, teachers, onCl
           <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Từ session</span><input type="number" min={1} value={fromSession} onChange={event => setFromSession(Number(event.target.value))} className={inputClass}/></label><label><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Đến session</span><input type="number" min={fromSession} value={toSession} onChange={event => setToSession(Number(event.target.value))} className={inputClass}/></label></div>
           <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Ngày bắt đầu</span><input type="date" value={startsOn} onChange={event => setStartsOn(event.target.value)} className={inputClass}/></label>
           <div><p className="mb-2 text-xs font-extrabold uppercase text-on-surface-variant">Lịch học hằng tuần</p><div className="space-y-2">{slots.map((slot, index) => <div key={slot.dayOfWeek} className={`rounded-xl border p-3 ${slot.enabled ? "border-primary/35 bg-primary/5" : "border-outline-variant/40"}`}><label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={slot.enabled} onChange={event => setSlots(values => values.map((value, itemIndex) => itemIndex === index ? { ...value, enabled: event.target.checked } : value))} className="accent-primary"/>Thứ {slot.dayOfWeek === 7 ? "Chủ nhật" : slot.dayOfWeek + 1}</label>{slot.enabled && <div className="mt-2 grid grid-cols-2 gap-2"><input type="time" value={slot.startsAt} onChange={event => setSlots(values => values.map((value, itemIndex) => itemIndex === index ? { ...value, startsAt: event.target.value } : value))} className={inputClass}/><input type="time" value={slot.endsAt} onChange={event => setSlots(values => values.map((value, itemIndex) => itemIndex === index ? { ...value, endsAt: event.target.value } : value))} className={inputClass}/></div>}</div>)}</div></div>
-          <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Giáo viên mặc định</span><select value={teacherId} onChange={event => setTeacherId(event.target.value)} className={inputClass}><option value="">Chưa phân công</option>{teachers.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.fullName}</option>)}</select></label>
+          <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Giáo viên cho lộ trình</span><select value={teacherId} onChange={event => setTeacherId(event.target.value)} className={inputClass}><option value="">Dùng giáo viên chính của khóa</option>{teachers.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.fullName}{teacher.id === primaryTeacherId ? " (giáo viên chính)" : " (dạy thay)"}</option>)}</select><span className="mt-1.5 block text-xs text-on-surface-variant">Chọn người khác nếu toàn bộ lịch đang tạo cần giáo viên dạy thay.</span></label>
           <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase text-on-surface-variant">Link Zoom mặc định</span><input value={zoomUrl} onChange={event => setZoomUrl(event.target.value)} className={inputClass}/></label>
         </aside>
         <main className="min-h-0 overflow-y-auto p-5"><div className="mb-4 flex items-center justify-between"><div><h3 className="font-display text-lg font-extrabold">Nội dung từng session</h3><p className="text-xs text-on-surface-variant">Một buổi có thể có nhiều nội dung. Session và bài test là hai loại riêng.</p></div><button onClick={addEntry} className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-2 text-xs font-extrabold text-primary"><Plus size={15}/>Thêm session</button></div>

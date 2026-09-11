@@ -212,6 +212,26 @@ export function questionTypeUsesWordLimit(type: QuestionTypeFormat, answerSource
   return Boolean(definition.usesWordLimit && answerSource !== "OPTION_BANK");
 }
 
+const gapTemplateTypes = new Set<QuestionTypeFormat>([
+  "FILL_IN_BLANK",
+  "SENTENCE_COMPLETION",
+  "SUMMARY_COMPLETION",
+  "NOTE_COMPLETION",
+  "TABLE_COMPLETION",
+  "FLOW_CHART_COMPLETION",
+  "DIAGRAM_LABELING",
+]);
+
+export function questionTypeUsesGapTemplate(type: QuestionTypeFormat, answerSource?: QuestionGroupAnswerSource) {
+  return gapTemplateTypes.has(type) && answerSource !== "OPTION_BANK";
+}
+
+export function defaultGapFillLayout(type: QuestionTypeFormat): "PARAGRAPH" | "LIST" {
+  return type === "SUMMARY_COMPLETION" || type === "SENTENCE_COMPLETION" || type === "FILL_IN_BLANK"
+    ? "PARAGRAPH"
+    : "LIST";
+}
+
 export function createDefaultSharedOptions(type: QuestionTypeFormat, createId: () => string): SharedOptionItem[] {
   if (type === "MATCHING_HEADINGS") {
     return ["i", "ii", "iii", "iv", "v", "vi"].map((code) => ({ id: createId(), code, text: "" }));

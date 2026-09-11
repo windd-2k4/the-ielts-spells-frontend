@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {"dev":"next dev","build":"next build","start":"next start","typecheck":"tsc --noEmit"},
   "dependencies": {
+    "@ielts/api-client": "workspace:*",
+    "@ielts/contracts": "workspace:*",
     "@ielts/design-tokens": "workspace:*",
     "@ielts/ui": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
+    "@supabase/supabase-js": "^2.57.4",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

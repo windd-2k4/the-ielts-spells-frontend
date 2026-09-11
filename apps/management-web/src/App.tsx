@@ -1,4 +1,5 @@
 import { SignOut, SpinnerGap } from "@phosphor-icons/react";
+import type { UserRole } from "@ielts/contracts";
 import { useState } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -19,34 +20,39 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { StaffAdminPage } from "./pages/StaffAdminPage";
 import { StudentsPage } from "./pages/StudentsPage";
 import { StudentDetailPage } from "./pages/StudentDetailPage";
+import { StudentSupportCoursesPage } from "./pages/StudentSupportCoursesPage";
+import { CmsContentPage } from "./pages/CmsContentPage";
+import { hasAnyRole, managementHome, managementPortalRoles } from "./auth/roles";
 import "./admin.css";
 
 function Loader() { return <div className="app-loader" role="status"><span className="loader-ring" />Đang tải hệ thống...</div>; }
 function RequireSession() { const { session, isLoading } = useAuth(); if (isLoading) return <Loader />; return session ? <Outlet /> : <Navigate to="/login" replace />; }
-function RequireRoles({ any }: { any: string[] }) {
+function RequireRoles({ any }: { any: readonly UserRole[] }) {
   const { roles, signOut } = useAuth(); const [isSigningOut, setIsSigningOut] = useState(false);
-  if (any.some(role => roles.includes(role))) return <Outlet />;
+  if (hasAnyRole(roles, any)) return <Outlet />;
   if (isInvitationCallback) return <Navigate to="/activate-account" replace />;
   async function handleSignOut() { setIsSigningOut(true); try { await signOut(); } finally { setIsSigningOut(false); } }
   return <main className="pending-page"><img src="/brand/the-ielts-spells-logo.png" alt="The IELTS Spells" /><p className="auth-kicker">Không có quyền truy cập</p><h1>Tài khoản chưa được cấp quyền</h1><p>Web quản trị chỉ dành cho nhân sự đã hoàn tất lời mời và có vai trò phù hợp.</p><button className="secondary-button pending-signout" onClick={() => void handleSignOut()} disabled={isSigningOut}>{isSigningOut ? <SpinnerGap className="spin" /> : <SignOut />}{isSigningOut ? "Đang đăng xuất..." : "Đăng xuất"}</button></main>;
 }
-function HomeRedirect() { const { roles } = useAuth(); return <Navigate to={roles.includes("teacher") && !roles.some(role=>role==="admin"||role==="manager") ? "/library" : "/dashboard"} replace />; }
+function HomeRedirect() { const { roles } = useAuth(); return <Navigate to={managementHome(roles)} replace />; }
 
 export default function App() {
   return <AuthProvider><Routes>
     <Route path="/login" element={<LoginPage />} /><Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/auth/reset-password" element={<ResetPasswordPage />} /><Route path="/auth/callback" element={<AuthCallbackPage />} />
     <Route element={<RequireSession />}><Route path="/activate-account" element={<ActivateAccountPage />} />
-      <Route element={<RequireRoles any={["admin", "manager", "admissions", "teacher"]} />}><Route element={<AdminShell />}>
+      <Route element={<RequireRoles any={managementPortalRoles} />}><Route element={<AdminShell />}>
         <Route index element={<HomeRedirect />} />
-        <Route element={<RequireRoles any={["admin", "manager"]} />}><Route path="/dashboard" element={<DashboardPage />} /><Route path="/courses" element={<CourseManagementPage />} /><Route path="/courses/:courseId" element={<CourseManagementPage />} /><Route path="/classes" element={<Navigate to="/courses" replace />} /></Route>
-        <Route element={<RequireRoles any={["admin", "manager", "teacher"]} />}>
+        <Route element={<RequireRoles any={["admin"]} />}><Route path="/dashboard" element={<DashboardPage />} /><Route path="/courses" element={<CourseManagementPage />} /><Route path="/courses/:courseId" element={<CourseManagementPage />} /><Route path="/classes" element={<Navigate to="/courses" replace />} /></Route>
+        <Route element={<RequireRoles any={["admin", "teacher"]} />}>
           <Route path="/library" element={<LearningLibraryPage />} />
           <Route path="/test-bank" element={<TestBankPage />} />
           <Route path="/test-builder/:skill/:testId" element={<TestBuilderPage />} />
           <Route path="/media" element={<MediaLibraryPage />} />
         </Route>
-        <Route element={<RequireRoles any={["admin", "manager", "admissions"]} />}><Route path="/students" element={<StudentsPage />} /><Route path="/students/:studentId" element={<StudentDetailPage />} /><Route path="/enrollments" element={<EnrollmentsPage />} /></Route>
+        <Route element={<RequireRoles any={["admin", "admissions"]} />}><Route path="/students" element={<StudentsPage />} /><Route path="/students/:studentId" element={<StudentDetailPage />} /><Route path="/enrollments" element={<EnrollmentsPage />} /></Route>
         <Route element={<RequireRoles any={["admin"]} />}><Route path="/staff" element={<StaffAdminPage />} /></Route>
+        <Route element={<RequireRoles any={["student_support"]} />}><Route path="/support/courses" element={<StudentSupportCoursesPage />} /></Route>
+        <Route element={<RequireRoles any={["admin", "social_media"]} />}><Route path="/cms" element={<CmsContentPage />} /></Route>
       </Route></Route>
     </Route>
     <Route path="/register" element={<Navigate to="/login" replace />} /><Route path="/request-access" element={<Navigate to="/login" replace />} /><Route path="*" element={<Navigate to="/" replace />} />

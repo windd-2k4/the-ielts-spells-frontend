@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@ielts/contracts": "workspace:*",
     "@ielts/design-tokens": "workspace:*",
     "@ielts/ui": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",

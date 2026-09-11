@@ -16,6 +16,7 @@ interface SessionDrawerProps {
   drawerMode: "SESSION" | "TEST";
   skillPair: SkillPair;
   teachers: TeacherOption[];
+  primaryTeacherId: string;
   saving: boolean;
   error: string;
   confirmDelete: boolean;
@@ -52,6 +53,7 @@ export default function SessionDrawer({
   drawerMode,
   skillPair,
   teachers,
+  primaryTeacherId,
   saving,
   error,
   confirmDelete,
@@ -291,14 +293,15 @@ export default function SessionDrawer({
                     onChange={(e) => onPatchDraft({ teacherId: e.target.value })}
                     className={`${inputClass} pl-10`}
                   >
-                    <option value="">-- Chưa phân công --</option>
+                    <option value="">Chưa phân công</option>
                     {teachers.map((teacher) => (
                       <option key={teacher.id} value={teacher.id}>
-                        {teacher.fullName} ({teacher.email})
+                        {teacher.fullName} ({teacher.email}){teacher.id === primaryTeacherId ? " - Giáo viên chính" : " - Dạy thay"}
                       </option>
                     ))}
                   </select>
                 </div>
+                <span className="mt-1.5 block text-xs text-on-surface-variant">Chọn người khác giáo viên chính để bố trí dạy thay cho riêng buổi này.</span>
               </Field>
 
               <Field label="Trạng thái buổi học">

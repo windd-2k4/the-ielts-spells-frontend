@@ -193,3 +193,89 @@ button, input, select, textarea {
 .animate-float {
   animation: floatBadge 3.5s ease-in-out infinite;
 }
+
+.student-skip-link {
+  position: fixed;
+  z-index: 50;
+  top: 12px;
+  left: 12px;
+  transform: translateY(-180%);
+  border-radius: var(--radius-sm);
+  background: var(--brand-pink);
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 700;
+  transition: transform 160ms ease;
+}
+
+.student-skip-link:focus {
+  transform: translateY(0);
+  outline: 3px solid var(--brand-pink-soft);
+  outline-offset: 2px;
+}
+
+.reading-passage {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.reading-passage h1,
+.reading-passage h2,
+.reading-passage h3 {
+  margin: 1.5rem 0 0.75rem;
+  color: var(--text);
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.reading-passage p,
+.reading-passage ul,
+.reading-passage ol,
+.reading-passage blockquote {
+  margin: 0.9rem 0;
+}
+
+.reading-passage ul,
+.reading-passage ol {
+  padding-left: 1.5rem;
+}
+
+.reading-passage ul {
+  list-style: disc;
+}
+
+.reading-passage ol {
+  list-style: decimal;
+}
+
+.reading-passage blockquote {
+  border-left: 3px solid var(--brand-pink);
+  color: var(--text-muted);
+  padding-left: 1rem;
+}
+
+.reading-passage table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.reading-passage th,
+.reading-passage td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

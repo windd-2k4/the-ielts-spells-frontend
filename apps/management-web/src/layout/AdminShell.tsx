@@ -1,32 +1,35 @@
 import {
-  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, List, SignOut, Student, Users, UsersThree, X,
+  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, SignOut, Student, Users, UsersThree, X,
 } from "@phosphor-icons/react";
+import type { UserRole } from "@ielts/contracts";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import logo from "../../assest/logo.jpg";
 
-const navSections = [
+const navSections: Array<{ title: string; items: Array<{ to: string; label: string; icon: typeof BookOpenText; roles: UserRole[] }> }> = [
   {
     title: "QUẢN LÝ",
     items: [
-      { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin", "manager"] },
-      { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin", "manager"] },
+      { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin"] },
+      { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin"] },
     ],
   },
   {
     title: "NỘI DUNG ĐÀO TẠO",
     items: [
-      { to: "/library", label: "Kho học liệu", icon: Books, roles: ["admin", "manager", "teacher"] },
-      { to: "/test-bank", label: "Ngân hàng đề", icon: Exam, roles: ["admin", "manager", "teacher"] },
-      { to: "/media", label: "Kho Media", icon: FileAudio, roles: ["admin", "manager", "teacher"] },
+      { to: "/library", label: "Kho học liệu", icon: Books, roles: ["admin", "teacher"] },
+      { to: "/test-bank", label: "Ngân hàng đề", icon: Exam, roles: ["admin", "teacher"] },
+      { to: "/media", label: "Kho Media", icon: FileAudio, roles: ["admin", "teacher"] },
+      { to: "/cms", label: "Nội dung truyền thông", icon: Megaphone, roles: ["admin", "social_media"] },
     ],
   },
   {
     title: "VẬN HÀNH & NHÂN SỰ",
     items: [
-      { to: "/students", label: "Học viên", icon: Users, roles: ["admin", "manager", "admissions"] },
-      { to: "/enrollments", label: "Tuyển sinh & ghi danh", icon: Student, roles: ["admin", "manager", "admissions"] },
+      { to: "/students", label: "Học viên", icon: Users, roles: ["admin", "admissions"] },
+      { to: "/enrollments", label: "Tuyển sinh & ghi danh", icon: Student, roles: ["admin", "admissions"] },
+      { to: "/support/courses", label: "Học viên được hỗ trợ", icon: Heart, roles: ["student_support"] },
       { to: "/staff", label: "Nhân sự", icon: UsersThree, roles: ["admin"] },
     ],
   },

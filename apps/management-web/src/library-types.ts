@@ -137,6 +137,15 @@ export type SharedOptionItem = {
   text: string;
 };
 
+export type QuestionGroupIllustration = {
+  assetId: string;
+  fileUrl: string;
+  filename: string;
+  altText: string;
+  width?: number;
+  height?: number;
+};
+
 export type QuestionGroupItem = {
   id: string;
   title: string;
@@ -150,6 +159,9 @@ export type QuestionGroupItem = {
   requiredAnswerCount?: number;
   sharedOptions?: SharedOptionItem[];
   allowOptionReused?: boolean;
+  gapFillTemplate?: string;
+  gapFillLayout?: "PARAGRAPH" | "LIST";
+  illustration?: QuestionGroupIllustration;
   linkedAudioTimestamp?: string; // "02:15"
   questions: QuestionCardItem[];
   isCollapsed?: boolean;
@@ -189,8 +201,12 @@ export type WritingTaskSection = {
   title: string;
   promptHtml: string;
   imageUrl?: string;
+  imageAssetId?: string;
+  imageFilename?: string;
+  imageAltText?: string;
   suggestedTimeMinutes: number;
   minWords: number; // 150 for Task 1, 250 for Task 2
+  responseMode?: "STRUCTURED" | "FREEFORM";
   rubric: IELTSWritingRubric;
   sampleBand8Answer?: string;
   vocabularySuggestions?: string[];
@@ -206,14 +222,40 @@ export type IELTSSpeakingRubric = {
   notes?: string;
 };
 
+export type SpeakingHintOption = {
+  id: string;
+  label: string;
+  phrase: string;
+};
+
+export type SpeakingHintStep = {
+  id: string;
+  title: string;
+  instruction: string;
+  options: SpeakingHintOption[];
+};
+
+export type SpeakingQuestionItem = {
+  id: string;
+  promptText: string;
+  hintsEnabled: boolean;
+  hintSteps: SpeakingHintStep[];
+  sampleResponseText?: string;
+  teacherNotes?: string;
+};
+
 export type SpeakingPartSection = {
   id: string;
   partNo: 1 | 2 | 3;
   topicTitle: string;
   cueCardPromptHtml: string;
+  cueCardBullets?: string[];
+  hintsEnabled?: boolean;
+  hintSteps?: SpeakingHintStep[];
   preparationTimeSeconds: number; // e.g. 60
   answerTimeSeconds: number; // e.g. 120
   followUpQuestions: string[];
+  questions?: SpeakingQuestionItem[];
   sampleResponseText?: string;
   sampleAudioUrl?: string;
   recordingConfig?: { allowReRecord: boolean; maxAttempts: number };
@@ -243,6 +285,16 @@ export type TestBankItem = {
   createdAt: string;
   updatedAt: string;
   builderContent?: Record<string, unknown>;
+  draftRevision: number;
+  publishedVersion?: TestVersionSummary | null;
+};
+
+export type TestVersionSummary = {
+  id: string;
+  versionNumber: number;
+  versionLabel: string;
+  publishedAt: string;
+  publishedBy: string;
 };
 
 export type ValidationIssue = {
@@ -252,6 +304,13 @@ export type ValidationIssue = {
   questionNo?: number;
   message: string;
   targetId: string;
+};
+
+export type TestValidationResult = {
+  testId: string;
+  draftRevision: number;
+  publishable: boolean;
+  issues: ValidationIssue[];
 };
 
 export type MediaAsset = {

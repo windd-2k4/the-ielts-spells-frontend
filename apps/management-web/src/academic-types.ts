@@ -71,6 +71,10 @@ export type ClassSession = {
   items: CourseSessionItem[];
 };
 export type TeacherOption = { id: string; fullName: string; email: string; role: string };
+export type CourseTeacherAssignment = {
+  teacherId: string; fullName: string | null; email: string | null;
+  primary: boolean; assignedAt: string;
+};
 export type ScheduleTemplateEntry = {
   sessionNo: number; entryType: "SESSION" | "TEST"; phaseName: string | null; contents: string[];
 };

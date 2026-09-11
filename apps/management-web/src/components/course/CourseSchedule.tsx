@@ -5,7 +5,7 @@ import {
   WarningCircle, X,
 } from "@phosphor-icons/react";
 import type {
-  ClassSession, SessionItemType, SessionStatus, SkillPair, TeacherOption,
+  ClassSession, CourseTeacherAssignment, SessionItemType, SessionStatus, SkillPair, TeacherOption,
 } from "../../academic-types";
 import { useAuth } from "../../auth/AuthContext";
 import { apiFetch } from "../../lib/api";
@@ -95,9 +95,10 @@ function fromSession(value: ClassSession): SessionDraft {
 
 export default function CourseSchedule({ courseId, skillPair }: CourseScheduleProps) {
   const { roles } = useAuth();
-  const canManage = roles.some(role => role === "admin" || role === "manager");
+  const canManage = roles.includes("admin");
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [courseTeachers, setCourseTeachers] = useState<CourseTeacherAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -117,8 +118,12 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     setLoading(true);
     setError("");
     try {
-      const values = await apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`);
+      const [values, teacherAssignments] = await Promise.all([
+        apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`),
+        apiFetch<CourseTeacherAssignment[]>(`/admin/courses/${courseId}/teachers`),
+      ]);
       setSessions([...values].sort((a, b) => a.sessionNo - b.sessionNo));
+      setCourseTeachers(teacherAssignments);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không tải được thời khóa biểu.");
     } finally {
@@ -132,6 +137,11 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     void apiFetch<TeacherOption[]>("/admin/teacher-options")
       .then(setTeachers).catch(() => setTeachers([]));
   }, [canManage]);
+
+  const primaryTeacherId = useMemo(
+    () => courseTeachers.find((teacher) => teacher.primary)?.teacherId ?? "",
+    [courseTeachers],
+  );
 
   const monday = useMemo(() => {
     const result = new Date(weekAnchor);
@@ -153,6 +163,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
 
   function openCreate(day?: Date, slot?: "MORNING" | "AFTERNOON" | "EVENING", mode: "SESSION" | "TEST" = "SESSION") {
     const value = emptyDraft(Math.max(0, ...sessions.map(item => item.sessionNo)) + 1);
+    value.teacherId = primaryTeacherId;
     if (day) {
       const start = new Date(day);
       start.setHours(slot === "MORNING" ? 8 : slot === "AFTERNOON" ? 14 : 19, 0, 0, 0);
@@ -351,8 +362,8 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
 
       {error && !draft && <ErrorPanel message={error} onRetry={() => void load()} />}
       {loading ? <LoadingPanel /> : !error && (viewMode === "CALENDAR"
-        ? <CalendarView days={days} sessions={visibleSessions} canManage={canManage} onOpen={openEdit} onEmptyCell={openCreate} />
-        : <ListView sessions={visibleSessions} canManage={canManage} onOpen={openEdit} onCreate={() => openCreate()} />)}
+        ? <CalendarView days={days} sessions={visibleSessions} primaryTeacherId={primaryTeacherId} canManage={canManage} onOpen={openEdit} onEmptyCell={openCreate} />
+        : <ListView sessions={visibleSessions} primaryTeacherId={primaryTeacherId} canManage={canManage} onOpen={openEdit} onCreate={() => openCreate()} />)}
 
       {draft && (
         <SessionDrawer
@@ -361,6 +372,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           drawerMode={drawerMode}
           skillPair={skillPair}
           teachers={teachers}
+          primaryTeacherId={primaryTeacherId}
           saving={saving}
           error={error}
           confirmDelete={confirmDelete}
@@ -378,7 +390,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           onSetShiftFollowing={setShiftFollowing}
         />
       )}
-      {showSetup && <ScheduleSetupModal courseId={courseId} skillPair={skillPair} teachers={teachers} onClose={()=>setShowSetup(false)} onApplied={load}/>} 
+      {showSetup && <ScheduleSetupModal courseId={courseId} skillPair={skillPair} teachers={teachers} primaryTeacherId={primaryTeacherId} onClose={()=>setShowSetup(false)} onApplied={load}/>}
       <AttachLibraryModal open={libraryOpen} courseId={courseId} skillPair={skillPair} onClose={()=>setLibraryOpen(false)} onAttach={attachLibrary}/>
     </div>
   );
@@ -397,7 +409,7 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void
 function LoadingPanel() {
   return <div className="flex min-h-72 items-center justify-center rounded-2xl border border-outline-variant/40 bg-surface"><SpinnerGap className="animate-spin text-primary" size={30} /></div>;
 }
-function CalendarView({ days, sessions, canManage, onOpen, onEmptyCell }: { days: Date[]; sessions: ClassSession[]; canManage: boolean; onOpen: (session: ClassSession) => void; onEmptyCell: (day: Date, slot: "MORNING" | "AFTERNOON" | "EVENING") => void }) {
+function CalendarView({ days, sessions, primaryTeacherId, canManage, onOpen, onEmptyCell }: { days: Date[]; sessions: ClassSession[]; primaryTeacherId: string; canManage: boolean; onOpen: (session: ClassSession) => void; onEmptyCell: (day: Date, slot: "MORNING" | "AFTERNOON" | "EVENING") => void }) {
   const slots = [
     { key: "MORNING" as const, label: "Sáng", from: 0, to: 12 },
     { key: "AFTERNOON" as const, label: "Chiều", from: 12, to: 18 },
@@ -408,10 +420,10 @@ function CalendarView({ days, sessions, canManage, onOpen, onEmptyCell }: { days
       const start = new Date(session.startsAt);
       return start.toDateString() === day.toDateString() && start.getHours() >= slot.from && start.getHours() < slot.to;
     });
-    return <td key={day.toISOString()} onDoubleClick={() => canManage && onEmptyCell(day, slot.key)} className="align-top border-r border-outline-variant/20 p-2 last:border-r-0">{values.map(session => <SessionCard key={session.id} session={session} onClick={() => canManage && onOpen(session)} />)}{values.length === 0 && canManage && <button onClick={() => onEmptyCell(day, slot.key)} className="flex h-full min-h-28 w-full items-center justify-center rounded-xl border border-dashed border-transparent text-outline/0 transition hover:border-primary/25 hover:text-primary/70"><Plus size={20} /></button>}</td>;
+    return <td key={day.toISOString()} onDoubleClick={() => canManage && onEmptyCell(day, slot.key)} className="align-top border-r border-outline-variant/20 p-2 last:border-r-0">{values.map(session => <SessionCard key={session.id} session={session} primaryTeacherId={primaryTeacherId} onClick={() => canManage && onOpen(session)} />)}{values.length === 0 && canManage && <button onClick={() => onEmptyCell(day, slot.key)} className="flex h-full min-h-28 w-full items-center justify-center rounded-xl border border-dashed border-transparent text-outline/0 transition hover:border-primary/25 hover:text-primary/70"><Plus size={20} /></button>}</td>;
   })}</tr>)}</tbody></table></div><div className="flex flex-wrap items-center justify-center gap-5 border-t border-outline-variant/30 bg-surface-container-low px-5 py-4 text-xs font-semibold text-on-surface-variant"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-blue-100 ring-1 ring-blue-300" />Học trực tuyến (Zoom)</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />Có bài test</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" />Đã hủy</span></div></div>;
 }
-function SessionCard({ session, onClick }: { session: ClassSession; onClick: () => void }) {
+function SessionCard({ session, primaryTeacherId, onClick }: { session: ClassSession; primaryTeacherId: string; onClick: () => void }) {
   const start = new Date(session.startsAt);
   const end = new Date(session.endsAt);
   const hasTest = session.items?.some(item => item.itemType === "TEST");
@@ -424,12 +436,12 @@ function SessionCard({ session, onClick }: { session: ClassSession; onClick: () 
     {contents.length > 0 && <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-4 opacity-80">{contents.slice(0, 2).join(" · ")}</p>}
     <div className="mt-2 space-y-1 border-t border-current/10 pt-2 text-[10px] font-bold opacity-80">
       <p className="flex items-center gap-1"><Clock size={11} />{start.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}–{end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</p>
-      <p className="truncate">GV: {session.teacherName || "Chưa phân công"}</p>
+      <p className="truncate">GV: {session.teacherName || "Chưa phân công"}{session.teacherId && primaryTeacherId && session.teacherId !== primaryTeacherId ? " (dạy thay)" : ""}</p>
       <p className="flex items-center gap-1">{session.zoomUrl ? <><VideoCamera size={11} /> Có Zoom</> : "Chưa có link Zoom"}{!hasTest && session.items?.length > 0 && ` · ${session.items.length} bài tập`}</p>
     </div>
   </button>;
 }
-function ListView({ sessions, canManage, onOpen, onCreate }: { sessions: ClassSession[]; canManage: boolean; onOpen: (session: ClassSession) => void; onCreate: () => void }) {
+function ListView({ sessions, primaryTeacherId, canManage, onOpen, onCreate }: { sessions: ClassSession[]; primaryTeacherId: string; canManage: boolean; onOpen: (session: ClassSession) => void; onCreate: () => void }) {
   if (sessions.length === 0) return <div className="rounded-2xl border border-dashed border-outline-variant/70 bg-surface px-6 py-16 text-center"><CalendarBlank className="mx-auto text-primary/70" size={38} /><h3 className="mt-4 font-display text-xl font-extrabold">Chưa có buổi học</h3><p className="mt-2 text-sm text-on-surface-variant">Tạo buổi đầu tiên và áp dụng nhanh lộ trình Listening & Reading 18 buổi.</p>{canManage && <button onClick={onCreate} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-extrabold text-on-primary"><Plus size={18} />Thêm buổi học</button>}</div>;
-  return <div className="overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface shadow-sm"><div className="min-w-[850px]"><div className="grid grid-cols-[110px_1fr_190px_150px_110px] gap-3 border-b border-outline-variant/30 bg-surface-container-low px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-on-surface-variant"><span>Loại</span><span>Nội dung</span><span>Thời gian</span><span>Phụ trách</span><span>Hoạt động</span></div>{sessions.map(session => { const hasTest = session.items?.some(item => item.itemType === "TEST"); return <button key={session.id} onClick={() => canManage && onOpen(session)} className={`grid w-full grid-cols-[110px_1fr_190px_150px_110px] items-center gap-3 border-b border-outline-variant/25 px-5 py-4 text-left transition last:border-0 ${canManage ? "hover:bg-surface-container-low/30" : "cursor-default"}`}><span className={`text-xs font-extrabold ${hasTest ? "text-amber-800" : "text-primary"}`}>{hasTest ? (session.title || "MINI TEST") : `SESSION ${pad(session.sessionNo)}`}</span><span><strong className="block text-sm">{session.content?.split("\n").filter(Boolean).slice(0, 2).join(" · ") || session.title || "Chưa có nội dung"}</strong><small className="mt-1 block truncate text-on-surface-variant">{session.phaseName || "Chưa xác định giai đoạn"}{session.zoomUrl ? " · Zoom" : ""}</small></span><span className="text-xs font-semibold text-on-surface-variant">{new Date(session.startsAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span><span className="truncate text-xs font-semibold">{session.teacherName || "Chưa phân công"}</span><span className="flex items-center gap-2 text-xs font-bold"><NotePencil size={16} className="text-primary" />{hasTest ? "Đánh giá" : `${session.items?.length ?? 0}/10`}</span></button>; })}</div></div>;
+  return <div className="overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface shadow-sm"><div className="min-w-[850px]"><div className="grid grid-cols-[110px_1fr_190px_150px_110px] gap-3 border-b border-outline-variant/30 bg-surface-container-low px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-on-surface-variant"><span>Loại</span><span>Nội dung</span><span>Thời gian</span><span>Phụ trách</span><span>Hoạt động</span></div>{sessions.map(session => { const hasTest = session.items?.some(item => item.itemType === "TEST"); const isSubstitute = Boolean(session.teacherId && primaryTeacherId && session.teacherId !== primaryTeacherId); return <button key={session.id} onClick={() => canManage && onOpen(session)} className={`grid w-full grid-cols-[110px_1fr_190px_150px_110px] items-center gap-3 border-b border-outline-variant/25 px-5 py-4 text-left transition last:border-0 ${canManage ? "hover:bg-surface-container-low/30" : "cursor-default"}`}><span className={`text-xs font-extrabold ${hasTest ? "text-amber-800" : "text-primary"}`}>{hasTest ? (session.title || "MINI TEST") : `SESSION ${pad(session.sessionNo)}`}</span><span><strong className="block text-sm">{session.content?.split("\n").filter(Boolean).slice(0, 2).join(" · ") || session.title || "Chưa có nội dung"}</strong><small className="mt-1 block truncate text-on-surface-variant">{session.phaseName || "Chưa xác định giai đoạn"}{session.zoomUrl ? " · Zoom" : ""}</small></span><span className="text-xs font-semibold text-on-surface-variant">{new Date(session.startsAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</span><span className="min-w-0"><strong className="block truncate text-xs font-semibold">{session.teacherName || "Chưa phân công"}</strong>{isSubstitute && <small className="text-[10px] font-bold text-primary">Dạy thay</small>}</span><span className="flex items-center gap-2 text-xs font-bold"><NotePencil size={16} className="text-primary" />{hasTest ? "Đánh giá" : `${session.items?.length ?? 0}/10`}</span></button>; })}</div></div>;
 }

@@ -1,10 +1,12 @@
 import type { Session } from "@supabase/supabase-js";
+import type { UserRole } from "@ielts/contracts";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { isUserRole } from "./roles";
 
 type AuthContextValue = {
   session: Session | null;
-  roles: string[];
+  roles: UserRole[];
   isLoading: boolean;
   signOut: () => Promise<void>;
 };
@@ -13,7 +15,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles, setRoles] = useState<UserRole[]>([]);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function readRoles(session: Session | null) {
+function readRoles(session: Session | null): UserRole[] {
   if (!session) return [];
   try {
     const encodedPayload = session.access_token.split(".")[1];
@@ -64,13 +66,20 @@ function readRoles(session: Session | null) {
     const claim = payload.user_roles ?? payload.user_role;
 
     if (Array.isArray(claim)) {
-      return claim.map(String).map((role) => role.trim().toLowerCase()).filter(Boolean);
+      return normalizeRoles(claim);
     }
     if (typeof claim === "string" && claim.trim()) {
-      return claim.split(",").map((role) => role.trim().toLowerCase()).filter(Boolean);
+      return normalizeRoles(claim.split(","));
     }
     return [];
   } catch { return []; }
+}
+
+function normalizeRoles(values: unknown[]): UserRole[] {
+  return [...new Set(values
+    .map(String)
+    .map((role) => role.trim().toLowerCase())
+    .filter(isUserRole))];
 }
 
 export function useAuth() {

@@ -1,11 +1,12 @@
-import { ArrowClockwise, ArrowRight, Lock, PencilSimple, SignOut, SpinnerGap, UserPlus, UsersThree, X } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { ArrowClockwise, ArrowRight, Image as ImageIcon, Lock, PencilSimple, SignOut, SpinnerGap, UploadSimple, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { FormNotice } from "../auth/FormNotice";
-import { apiFetch } from "../lib/api";
+import { apiFetch, apiUpload } from "../lib/api";
 
 type Invitation = { id: string; email: string; fullName: string; intendedRole: Role; status: string; expiresAt: string };
-type Role = "MANAGER" | "TEACHER" | "TEACHING_ASSISTANT" | "ADMISSIONS" | "CMS_EDITOR";
+type Role = "TEACHER" | "ADMISSIONS" | "SOCIAL_MEDIA" | "STUDENT_SUPPORT";
+type StaffRole = "ADMIN" | Role;
 type StaffStatus = "DRAFT" | "INVITED" | "ACTIVE" | "SUSPENDED" | "OFFBOARDED";
 type Staff = {
   id: string;
@@ -13,11 +14,12 @@ type Staff = {
   fullName: string;
   email: string;
   phone: string | null;
+  avatarPath: string | null;
   jobTitle: string | null;
   department: string | null;
   employmentType: string | null;
   startDate: string | null;
-  role: Role;
+  role: StaffRole;
   cvPath: string | null;
   portfolioUrl: string | null;
   professionalSummary: string | null;
@@ -27,12 +29,12 @@ type Staff = {
 };
 type Page<T> = { content: T[] };
 
-const roleLabels: Record<Role, string> = {
-  MANAGER: "Quản lý",
+const roleLabels: Record<StaffRole, string> = {
+  ADMIN: "Quản trị viên",
   TEACHER: "Giáo viên",
-  TEACHING_ASSISTANT: "Trợ giảng",
   ADMISSIONS: "Tuyển sinh",
-  CMS_EDITOR: "Biên tập nội dung",
+  SOCIAL_MEDIA: "Social Media",
+  STUDENT_SUPPORT: "Hỗ trợ học viên",
 };
 
 const statusLabels: Record<StaffStatus, string> = {
@@ -47,16 +49,16 @@ const emptyInvite = {
   fullName: "",
   email: "",
   phone: "",
-  jobTitle: "",
-  department: "",
-  employmentType: "FULL_TIME",
   startDate: "",
   role: "TEACHER" as Role,
+  avatarPath: "",
   cvPath: "",
-  portfolioUrl: "",
   professionalSummary: "",
   internalNotes: "",
 };
+
+type StaffAvatarUpload = { filename: string; avatarPath: string };
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export function StaffAdminPage() {
   const { signOut } = useAuth();
@@ -69,6 +71,14 @@ export function StaffAdminPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarFilename, setAvatarFilename] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+  }, [avatarPreviewUrl]);
 
   const load = useCallback(async () => {
     setError("");
@@ -94,7 +104,7 @@ export function StaffAdminPage() {
       const keyword = query.trim().toLowerCase();
       const matchesQuery =
         !keyword ||
-        `${item.fullName} ${item.email} ${item.jobTitle ?? ""} ${item.department ?? ""}`
+        `${item.fullName} ${item.email}`
           .toLowerCase()
           .includes(keyword);
       return matchesQuery && (statusFilter === "ALL" || item.status === statusFilter);
@@ -109,10 +119,16 @@ export function StaffAdminPage() {
     try {
       await apiFetch("/admin/staff/invitations", {
         method: "POST",
-        body: JSON.stringify({ ...invite, startDate: invite.startDate || null }),
+        body: JSON.stringify({
+          ...invite,
+          avatarPath: invite.avatarPath || null,
+          cvPath: invite.cvPath.trim() || null,
+          startDate: invite.startDate || null,
+        }),
       });
       setSuccess(`Đã gửi lời mời đến ${invite.email}.`);
       setInvite(emptyInvite);
+      clearInviteAvatar();
       await load();
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không thể gửi lời mời");
@@ -132,12 +148,8 @@ export function StaffAdminPage() {
     const body = {
       fullName: selected.fullName,
       phone: selected.phone,
-      jobTitle: selected.jobTitle,
-      department: selected.department,
-      employmentType: selected.employmentType,
       startDate: selected.startDate,
       cvPath: selected.cvPath,
-      portfolioUrl: selected.portfolioUrl,
       professionalSummary: selected.professionalSummary,
       internalNotes: selected.internalNotes,
     };
@@ -182,6 +194,41 @@ export function StaffAdminPage() {
     onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setSelected(current => (current ? { ...current, [key]: event.target.value || null } : current)),
   });
+
+  function clearInviteAvatar() {
+    setInvite(current => ({ ...current, avatarPath: "" }));
+    setAvatarFilename("");
+    setAvatarPreviewUrl(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  }
+
+  async function uploadInviteAvatar(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setError("Vui lòng chọn tệp ảnh PNG, JPG, WebP hoặc GIF.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      setError("Ảnh đại diện không được vượt quá 5 MB.");
+      return;
+    }
+
+    setAvatarPreviewUrl(URL.createObjectURL(file));
+    setAvatarFilename(file.name);
+    setAvatarUploading(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const uploadedAvatar = await apiUpload<StaffAvatarUpload>("/admin/staff/avatars", body);
+      setInvite(current => ({ ...current, avatarPath: uploadedAvatar.avatarPath }));
+      setAvatarFilename(uploadedAvatar.filename);
+    } catch (value) {
+      clearInviteAvatar();
+      setError(value instanceof Error ? value.message : "Không thể tải ảnh đại diện lên.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   return (
     <main className="space-y-6">
@@ -258,28 +305,6 @@ export function StaffAdminPage() {
                 className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
               />
             </Field>
-            <Field label="Chức danh">
-              <input
-                {...inviteField("jobTitle")}
-                className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-              />
-            </Field>
-            <Field label="Phòng ban">
-              <input
-                {...inviteField("department")}
-                className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-              />
-            </Field>
-            <Field label="Loại hợp đồng">
-              <select
-                {...inviteField("employmentType")}
-                className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-              >
-                <option value="FULL_TIME">Toàn thời gian</option>
-                <option value="PART_TIME">Bán thời gian</option>
-                <option value="CONTRACT">Hợp đồng</option>
-              </select>
-            </Field>
             <Field label="Ngày bắt đầu">
               <input
                 type="date"
@@ -296,21 +321,58 @@ export function StaffAdminPage() {
                 />
               </Field>
             </div>
-            <Field label="Đường dẫn CV">
+            <div className="md:col-span-2">
+              <Field label="Ảnh đại diện (nếu có)">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadInviteAvatar(file);
+                    event.target.value = "";
+                  }}
+                />
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low/35 p-3">
+                  {avatarPreviewUrl ? (
+                    <img src={avatarPreviewUrl} alt="Xem trước ảnh đại diện" className="h-14 w-14 rounded-xl border border-outline-variant/40 object-cover" />
+                  ) : (
+                    <span className="grid h-14 w-14 place-items-center rounded-xl bg-primary-container/20 text-primary">
+                      <ImageIcon size={23} />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-on-surface">{avatarFilename || "Chưa chọn ảnh đại diện"}</p>
+                    <p className="mt-0.5 text-xs text-on-surface-variant">PNG, JPG, WebP hoặc GIF · tối đa 5 MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-primary/45 bg-surface px-3 text-xs font-bold text-primary transition-colors hover:bg-primary-container/15 disabled:opacity-50"
+                  >
+                    {avatarUploading ? <SpinnerGap className="spin" size={16} /> : <UploadSimple size={16} />}
+                    {avatarPreviewUrl ? "Đổi ảnh" : "Tải ảnh lên"}
+                  </button>
+                  {avatarPreviewUrl && !avatarUploading && (
+                    <button
+                      type="button"
+                      onClick={clearInviteAvatar}
+                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-error transition-colors hover:bg-error-container/15"
+                    >
+                      <X size={15} /> Bỏ ảnh
+                    </button>
+                  )}
+                </div>
+              </Field>
+            </div>
+            <Field label="Đường dẫn CV (nếu có)">
               <input
                 {...inviteField("cvPath")}
                 className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
               />
             </Field>
-            <div className="md:col-span-2">
-              <Field label="Portfolio">
-                <input
-                  type="url"
-                  {...inviteField("portfolioUrl")}
-                  className="w-full px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                />
-              </Field>
-            </div>
             <div className="md:col-span-2">
               <Field label="Thông tin chuyên môn">
                 <textarea
@@ -332,7 +394,7 @@ export function StaffAdminPage() {
             <div className="md:col-span-2 pt-2">
               <button
                 className="w-full px-5 py-3 bg-primary hover:opacity-95 text-on-primary rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
-                disabled={busy}
+                disabled={busy || avatarUploading}
               >
                 {busy ? <SpinnerGap className="spin" size={16} /> : <ArrowRight size={16} />}
                 {busy ? "Đang xử lý..." : "Tạo hồ sơ và gửi lời mời"}
@@ -399,7 +461,7 @@ export function StaffAdminPage() {
               <span className="material-symbols-outlined absolute left-3 text-outline text-lg">search</span>
               <input
                 aria-label="Tìm nhân sự"
-                placeholder="Tìm tên, email, chức danh..."
+                placeholder="Tìm tên hoặc email..."
                 value={query}
                 onChange={event => setQuery(event.target.value)}
                 className="w-full sm:w-64 pl-10 pr-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
@@ -424,12 +486,11 @@ export function StaffAdminPage() {
         {/* Directory Table */}
         <div className="border border-outline-variant/30 rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm min-w-[760px]">
+            <table className="w-full text-left border-collapse text-sm min-w-[640px]">
               <thead>
                 <tr className="bg-surface-container-low border-b border-outline-variant/30">
                   <th className="text-on-surface-variant font-bold text-xs uppercase tracking-wider px-6 py-4">Nhân sự</th>
                   <th className="text-on-surface-variant font-bold text-xs uppercase tracking-wider px-6 py-4">Vai trò</th>
-                  <th className="text-on-surface-variant font-bold text-xs uppercase tracking-wider px-6 py-4">Phòng ban</th>
                   <th className="text-on-surface-variant font-bold text-xs uppercase tracking-wider px-6 py-4">Trạng thái</th>
                   <th className="text-on-surface-variant font-bold text-xs uppercase tracking-wider px-6 py-4 w-28" />
                 </tr>
@@ -443,9 +504,6 @@ export function StaffAdminPage() {
                     </td>
                     <td className="px-6 py-4 border-t border-outline-variant/20 text-on-surface font-medium">
                       {roleLabels[item.role]}
-                    </td>
-                    <td className="px-6 py-4 border-t border-outline-variant/20 text-on-surface-variant">
-                      {item.department || "—"}
                     </td>
                     <td className="px-6 py-4 border-t border-outline-variant/20">
                       <span
@@ -516,38 +574,12 @@ export function StaffAdminPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Số điện thoại</label>
-                  <input
-                    {...editField("phone")}
-                    className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Chức danh</label>
-                  <input
-                    {...editField("jobTitle")}
-                    className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phòng ban</label>
-                  <input
-                    {...editField("department")}
-                    className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Loại hợp đồng</label>
-                  <input
-                    {...editField("employmentType")}
-                    className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                  />
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Số điện thoại</label>
+                <input
+                  {...editField("phone")}
+                  className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -560,20 +592,12 @@ export function StaffAdminPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Đường dẫn CV</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Đường dẫn CV (nếu có)</label>
                   <input
                     {...editField("cvPath")}
                     className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
                   />
                 </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Portfolio</label>
-                <input
-                  {...editField("portfolioUrl")}
-                  className="px-4 py-2 border border-outline-variant/60 rounded-xl bg-surface text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all"
-                />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -670,7 +694,7 @@ function RoleSelect({
   disabled = false,
   className = "",
 }: {
-  value: Role;
+  value: StaffRole;
   onChange: (value: Role) => void;
   disabled?: boolean;
   className?: string;
@@ -686,7 +710,7 @@ function RoleSelect({
       }
     >
       {Object.entries(roleLabels).map(([role, label]) => (
-        <option key={role} value={role}>
+        <option key={role} value={role} disabled={role === "ADMIN"}>
           {label}
         </option>
       ))}

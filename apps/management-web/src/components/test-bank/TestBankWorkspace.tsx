@@ -44,6 +44,7 @@ import {
 import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import type { Page } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
 import type {
@@ -53,6 +54,7 @@ import type {
   TestBankItem,
   TestSkill,
   TestType,
+  WritingTaskSection,
 } from "../../library-types";
 import PublishValidationModal from "../test-builder/PublishValidationModal";
 import TestPreviewModal from "../test-builder/TestPreviewModal";
@@ -429,6 +431,69 @@ function cloneReadingPassage(source: TestBankItem, passageNo: number): PassageSe
   };
 }
 
+function emptyWritingTask(taskNo: 1 | 2): WritingTaskSection {
+  return {
+    id: newId("writing-task"),
+    taskNo,
+    title: `Writing Task ${taskNo}`,
+    promptHtml: "",
+    suggestedTimeMinutes: taskNo === 1 ? 20 : 40,
+    minWords: taskNo === 1 ? 150 : 250,
+    responseMode: "STRUCTURED",
+    rubric: {
+      taskAchievementWeight: 25,
+      coherenceCohesionWeight: 25,
+      lexicalResourceWeight: 25,
+      grammaticalAccuracyWeight: 25,
+      notes: "",
+    },
+    sampleBand8Answer: "",
+    teacherNotes: "",
+    enableAiAssessment: false,
+  };
+}
+
+function emptySpeakingPart(partNo: 1 | 2 | 3) {
+  return {
+    id: newId("speaking-part"),
+    partNo,
+    topicTitle: "",
+    cueCardPromptHtml: "",
+    cueCardBullets: [],
+    hintsEnabled: true,
+    hintSteps: partNo === 2 ? ["Trả lời", "Lý do", "Ví dụ", "Kết luận"].map((title) => ({
+      id: newId("speaking-hint"),
+      title,
+      instruction: "",
+      options: [],
+    })) : [],
+    preparationTimeSeconds: partNo === 2 ? 60 : 0,
+    answerTimeSeconds: partNo === 2 ? 120 : 30,
+    followUpQuestions: [],
+    questions: partNo === 1 || partNo === 3 ? [{
+      id: newId("speaking-question"),
+      promptText: "",
+      hintsEnabled: true,
+      hintSteps: ["Trả lời", "Lý do", "Ví dụ", "Kết luận"].map((title) => ({
+        id: newId("speaking-hint"),
+        title,
+        instruction: "",
+        options: [],
+      })),
+      sampleResponseText: "",
+      teacherNotes: "",
+    }] : [],
+    recordingConfig: { allowReRecord: true, maxAttempts: 3 },
+    rubric: {
+      fluencyCoherenceWeight: 25,
+      lexicalResourceWeight: 25,
+      grammaticalAccuracyWeight: 25,
+      pronunciationWeight: 25,
+    },
+    teacherNotes: "",
+  };
+}
+
 function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBankItem[]) {
   const base = {
     format: form.format,
@@ -467,22 +532,21 @@ function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBank
   }
 
   if (form.skill === "WRITING") {
+    const taskNumbers: Array<1 | 2> = form.format === "FULL" ? [1, 2] : [form.format === "TASK_2" ? 2 : 1];
     return {
       ...base,
       sectionsPreset: form.format,
-      promptText: "",
-      minWords: form.format === "TASK_2" ? 250 : 150,
-      timeMinutes: form.durationMinutes,
-      sampleAnswer: "",
+      tasks: taskNumbers.map(emptyWritingTask),
     };
   }
 
+  const speakingPartNumbers: Array<1 | 2 | 3> = form.format === "FULL"
+    ? [1, 2, 3]
+    : [form.format === "PART_2" ? 2 : form.format === "PART_3" ? 3 : 1];
   return {
     ...base,
     sectionsPreset: form.format,
-    promptText: "",
-    timeMinutes: form.durationMinutes,
-    sampleAnswer: "",
+    parts: speakingPartNumbers.map(emptySpeakingPart),
   };
 }
 
@@ -588,6 +652,7 @@ function SkillCard({
 
 export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const navigate = useNavigate();
+  const { roles } = useAuth();
   const [tests, setTests] = useState<TestBankItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -602,6 +667,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const [createForm, setCreateForm] = useState<CreateTestForm>(defaultCreateForm);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const canPublish = roles.includes("admin");
 
   useEffect(() => {
     let active = true;
@@ -748,6 +814,33 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       setTests((current) => current.filter((item) => item.id !== test.id));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể archive đề thi");
+    }
+  }
+
+  async function handleCreateRevision(test: TestBankItem) {
+    setError("");
+    try {
+      const draft = await apiFetch<TestBankItem>(`/admin/test-bank/${test.id}/revisions`, {
+        method: "POST",
+        body: JSON.stringify({ draftRevision: test.draftRevision }),
+      });
+      setTests((current) => current.map((item) => item.id === draft.id ? draft : item));
+      navigate(`/test-builder/${draft.skill.toLowerCase()}/${draft.id}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể tạo bản chỉnh sửa từ phiên bản đã xuất bản.");
+    }
+  }
+
+  async function handleReturnToDraft(test: TestBankItem) {
+    setError("");
+    try {
+      const updated = await apiFetch<TestBankItem>(`/admin/test-bank/${test.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "DRAFT", draftRevision: test.draftRevision }),
+      });
+      setTests((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể trả đề về nháp.");
     }
   }
 
@@ -981,7 +1074,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                       <td className="p-3.5 font-semibold text-[#211A1D]">{formatLabels[formatOf(test)]}</td>
                       <td className="p-3.5 font-semibold text-[#211A1D]">{test.totalQuestions} câu</td>
                       <td className="p-3.5 text-[#746A6E]">{test.durationMinutes} phút</td>
-                      <td className="p-3.5 font-bold text-[#8f4458]">{test.version}</td>
+                      <td className="p-3.5 font-bold text-[#8f4458]">{test.publishedVersion?.versionLabel ?? test.version}</td>
                       <td className="p-3.5 text-[#746A6E]">{dateLabel(test.updatedAt)}</td>
                       <td className="p-3.5">{statusBadge(test.status)}</td>
                       <td className="p-3.5 text-right">
@@ -995,24 +1088,57 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                           >
                             <Eye size={16} />
                           </button>
-                          <Link
+                          {test.status === "DRAFT" && <Link
                             to={`/test-builder/${test.skill.toLowerCase()}/${test.id}`}
                             className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
                             title="Mở Test Builder"
                             aria-label={`Mở Test Builder cho ${test.title}`}
                           >
                             <NotePencil size={16} />
-                          </Link>
-                          {test.status !== "PUBLISHED" && test.status !== "ARCHIVED" && (
+                          </Link>}
+                          {test.status === "PUBLISHED" && (
+                            <button
+                              type="button"
+                              onClick={() => void handleCreateRevision(test)}
+                              className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
+                              title="Tạo bản chỉnh sửa"
+                              aria-label={`Tạo bản chỉnh sửa cho ${test.title}`}
+                            >
+                              <NotePencil size={16} />
+                            </button>
+                          )}
+                          {test.status === "DRAFT" && (
                             <button
                               type="button"
                               onClick={() => setPublishingTest(test)}
                               className="rounded-lg p-1.5 text-[#237653] hover:bg-emerald-50"
-                              title="Xuất bản"
-                              aria-label={`Xuất bản ${test.title}`}
+                              title={canPublish ? "Xuất bản" : "Gửi duyệt"}
+                              aria-label={`${canPublish ? "Xuất bản" : "Gửi duyệt"} ${test.title}`}
                             >
                               <ShieldCheck size={16} />
                             </button>
+                          )}
+                          {test.status === "IN_REVIEW" && canPublish && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void handleReturnToDraft(test)}
+                                className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
+                                title="Trả về nháp"
+                                aria-label={`Trả ${test.title} về nháp`}
+                              >
+                                <PencilSimpleLine size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPublishingTest(test)}
+                                className="rounded-lg p-1.5 text-[#237653] hover:bg-emerald-50"
+                                title="Duyệt và xuất bản"
+                                aria-label={`Duyệt và xuất bản ${test.title}`}
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                            </>
                           )}
                           {test.status !== "ARCHIVED" && (
                             <button
@@ -1288,11 +1414,12 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       {publishingTest && (
         <PublishValidationModal
           test={publishingTest}
+          actionLabel={canPublish ? "Xác nhận xuất bản" : "Xác nhận gửi duyệt"}
           onClose={() => setPublishingTest(null)}
           onPublished={async () => {
             const updated = await apiFetch<TestBankItem>(`/admin/test-bank/${publishingTest.id}/status`, {
               method: "PATCH",
-              body: JSON.stringify({ status: "PUBLISHED" }),
+              body: JSON.stringify({ status: canPublish ? "PUBLISHED" : "IN_REVIEW", draftRevision: publishingTest.draftRevision }),
             });
             setTests((current) => current.map((test) => (test.id === updated.id ? updated : test)));
             setPublishingTest(null);

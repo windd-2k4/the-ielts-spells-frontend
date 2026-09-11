@@ -5,7 +5,7 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ListeningPartSection,
   PassageSection,
@@ -13,18 +13,24 @@ import type {
   QuestionCardItem,
   QuestionTypeFormat,
   TestBankItem,
+  TestValidationResult,
   ValidationIssue,
 } from "../../library-types";
+import { apiFetch } from "../../lib/api";
 import {
+  questionTypeUsesGapTemplate,
   questionTypeUsesSharedOptions,
   questionTypeUsesWordLimit,
   readingQuestionTypes,
 } from "./readingQuestionGroupConfig";
+import { inspectGapFillTemplate } from "./GapFillGroupEditor";
 
 type Props = {
   test: TestBankItem;
   onClose: () => void;
   onPublished: () => Promise<void> | void;
+  /** Teachers submit a valid draft for review; moderators can publish it. */
+  actionLabel?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,6 +39,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isQuestionType(value: unknown): value is QuestionTypeFormat {
   return typeof value === "string" && readingQuestionTypes.includes(value as QuestionTypeFormat);
+}
+
+function readGroupIllustration(value: unknown): QuestionGroupItem["illustration"] {
+  if (!isRecord(value)
+    || typeof value.assetId !== "string"
+    || typeof value.fileUrl !== "string"
+    || typeof value.filename !== "string") return undefined;
+  return {
+    assetId: value.assetId,
+    fileUrl: value.fileUrl,
+    filename: value.filename,
+    altText: typeof value.altText === "string" ? value.altText : "",
+    width: typeof value.width === "number" ? value.width : undefined,
+    height: typeof value.height === "number" ? value.height : undefined,
+  };
 }
 
 function readPassageSpan(value: unknown): QuestionCardItem["passageSpan"] {
@@ -83,6 +104,9 @@ function readGroups(value: unknown): QuestionGroupItem[] {
     requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
     sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as QuestionGroupItem["sharedOptions"] : [],
     allowOptionReused: Boolean(group.allowOptionReused),
+    gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
+    gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
+    illustration: readGroupIllustration(group.illustration),
     linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
     questions: readQuestions(group.questions),
     isCollapsed: Boolean(group.isCollapsed),
@@ -230,6 +254,15 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             targetId: group.id,
           });
         }
+        if (group.illustration && !group.illustration.altText.trim()) {
+          issues.push({
+            id: `${group.id}-illustration-alt`,
+            severity: "ERROR",
+            sectionTitle: group.title,
+            message: "Ảnh hoặc sơ đồ cần có mô tả để học viên và trình đọc màn hình hiểu nội dung.",
+            targetId: group.id,
+          });
+        }
         if (group.questions.length === 0) {
           issues.push({
             id: `${group.id}-questions`,
@@ -247,6 +280,18 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             message: "Dạng Completion hoặc Short Answer cần có giới hạn từ.",
             targetId: group.id,
           });
+        }
+        if (questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)) {
+          const templateIssues = inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length);
+          if (group.gapFillTemplate !== undefined && (!group.gapFillTemplate.trim() || templateIssues.missing.length || templateIssues.duplicated.length || templateIssues.invalid.length)) {
+            issues.push({
+              id: `${group.id}-gap-template`,
+              severity: "ERROR",
+              sectionTitle: group.title,
+              message: "Mẫu Gap filling phải có đúng một vị trí [[n]] cho mỗi câu hỏi.",
+              targetId: group.id,
+            });
+          }
         }
         if (questionTypeUsesSharedOptions(group.typeFormat, group.answerSource)
           && !(group.sharedOptions?.some((option) => option.code.trim() && option.text.trim()))) {
@@ -307,11 +352,62 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
       if (part.questionGroups.length === 0) issues.push({ id: `${part.id}-groups`, severity: "ERROR", sectionTitle: `Part ${part.partNo}`, message: "Part chưa có Question Group.", targetId: "listening-question-panel" });
       part.questionGroups.forEach((group) => {
         if (!group.instructions.trim()) issues.push({ id: `${group.id}-instructions`, severity: "WARNING", sectionTitle: group.title, message: "Question Group chưa có instructions.", targetId: group.id });
+        if (questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)) {
+          const templateIssues = inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length);
+          if (group.gapFillTemplate !== undefined && (!group.gapFillTemplate.trim() || templateIssues.missing.length || templateIssues.duplicated.length || templateIssues.invalid.length)) {
+            issues.push({ id: `${group.id}-gap-template`, severity: "ERROR", sectionTitle: group.title, message: "Mẫu Gap filling phải có đúng một vị trí [[n]] cho mỗi câu hỏi.", targetId: group.id });
+          }
+        }
         group.questions.forEach((question) => {
           if (!question.prompt.trim()) issues.push({ id: `${question.id}-prompt`, severity: "ERROR", sectionTitle: group.title, questionNo: question.number, message: "Chưa nhập nội dung câu hỏi.", targetId: question.id });
           if (question.correctAnswers.length === 0) issues.push({ id: `${question.id}-answer`, severity: "ERROR", sectionTitle: group.title, questionNo: question.number, message: "Chưa nhập đáp án đúng.", targetId: question.id });
         });
       });
+    });
+    return issues;
+  }
+
+  if (test.skill === "WRITING" && Array.isArray(content.tasks)) {
+    const tasks = content.tasks.filter(isRecord);
+    if (tasks.length === 0) issues.push({ id: "writing-tasks", severity: "ERROR", sectionTitle: "Cấu trúc Writing", message: "Đề chưa có Writing Task.", targetId: "test-builder-workspace" });
+    tasks.forEach((task, index) => {
+      const taskNo = task.taskNo === 2 ? 2 : 1;
+      const promptHtml = typeof task.promptHtml === "string" ? task.promptHtml : "";
+      const minWords = typeof task.minWords === "number" ? task.minWords : 0;
+      const timeMinutes = typeof task.suggestedTimeMinutes === "number" ? task.suggestedTimeMinutes : 0;
+      if (!plainTextFromHtml(promptHtml)) issues.push({ id: `writing-${index}-prompt`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Chưa nhập đề bài.", targetId: "test-builder-workspace" });
+      if (minWords <= 0) issues.push({ id: `writing-${index}-words`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Số từ tối thiểu phải lớn hơn 0.", targetId: "test-builder-workspace" });
+      if (timeMinutes <= 0) issues.push({ id: `writing-${index}-time`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Thời gian gợi ý phải lớn hơn 0.", targetId: "test-builder-workspace" });
+      if (taskNo === 1 && !task.imageUrl) issues.push({ id: `writing-${index}-image`, severity: "WARNING", sectionTitle: "Writing Task 1", message: "Task 1 chưa có hình minh họa. Có thể bỏ qua nếu đề chỉ dùng nội dung văn bản.", targetId: "test-builder-workspace" });
+    });
+    return issues;
+  }
+
+  if (test.skill === "SPEAKING") {
+    const parts = Array.isArray(content.parts) ? content.parts.filter(isRecord) : [];
+    if (parts.length === 0) issues.push({ id: "speaking-parts", severity: "ERROR", sectionTitle: "Cấu trúc Speaking", message: "Đề chưa có Speaking Part.", targetId: "test-builder-workspace" });
+    parts.forEach((part, partIndex) => {
+      const partNo = part.partNo === 2 ? 2 : part.partNo === 3 ? 3 : 1;
+      if (typeof part.topicTitle !== "string" || !part.topicTitle.trim()) issues.push({ id: `speaking-${partIndex}-topic`, severity: "WARNING", sectionTitle: `Speaking Part ${partNo}`, message: "Chưa nhập tên chủ đề.", targetId: "test-builder-workspace" });
+      if (partNo === 1 || partNo === 3) {
+        const questions = Array.isArray(part.questions) ? part.questions.filter(isRecord) : [];
+        if (questions.length === 0) issues.push({ id: `speaking-${partIndex}-questions`, severity: "ERROR", sectionTitle: `Speaking Part ${partNo}`, message: `Part ${partNo} cần có ít nhất một câu hỏi.`, targetId: "test-builder-workspace" });
+        questions.forEach((question, questionIndex) => {
+          if (typeof question.promptText !== "string" || !question.promptText.trim()) issues.push({ id: `speaking-${partIndex}-${questionIndex}-prompt`, severity: "ERROR", sectionTitle: `Speaking Part ${partNo}`, questionNo: questionIndex + 1, message: "Chưa nhập nội dung câu hỏi.", targetId: question.id as string || "test-builder-workspace" });
+          if (question.hintsEnabled !== false) {
+            const steps = Array.isArray(question.hintSteps) ? question.hintSteps.filter(isRecord) : [];
+            if (!steps.some((step) => typeof step.instruction === "string" && step.instruction.trim() || Array.isArray(step.options) && step.options.length > 0)) issues.push({ id: `speaking-${partIndex}-${questionIndex}-hints`, severity: "WARNING", sectionTitle: `Speaking Part ${partNo}`, questionNo: questionIndex + 1, message: "Gợi ý đang bật nhưng chưa có nội dung.", targetId: question.id as string || "test-builder-workspace" });
+          }
+        });
+      } else {
+        if (typeof part.cueCardPromptHtml !== "string" || !part.cueCardPromptHtml.trim()) issues.push({ id: `speaking-${partIndex}-content`, severity: "ERROR", sectionTitle: "Speaking Part 2", message: "Chưa nhập đề bài cue card.", targetId: "test-builder-workspace" });
+        const bullets = Array.isArray(part.cueCardBullets) ? part.cueCardBullets.map(String).filter((item) => item.trim()) : [];
+        if (bullets.length === 0) issues.push({ id: `speaking-${partIndex}-bullets`, severity: "WARNING", sectionTitle: "Speaking Part 2", message: "Cue card chưa có ý You should say.", targetId: "test-builder-workspace" });
+        if (part.hintsEnabled !== false) {
+          const steps = Array.isArray(part.hintSteps) ? part.hintSteps.filter(isRecord) : [];
+          if (!steps.some((step) => typeof step.instruction === "string" && step.instruction.trim() || Array.isArray(step.options) && step.options.length > 0)) issues.push({ id: `speaking-${partIndex}-hints`, severity: "WARNING", sectionTitle: "Speaking Part 2", message: "Gợi ý đang bật nhưng chưa có nội dung.", targetId: "test-builder-workspace" });
+        }
+      }
     });
     return issues;
   }
@@ -333,13 +429,31 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
   return issues;
 }
 
-export default function PublishValidationModal({ test, onClose, onPublished }: Props) {
+export default function PublishValidationModal({ test, onClose, onPublished, actionLabel = "Xác nhận xuất bản" }: Props) {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
-  const issues = deriveValidationIssues(test);
+  const [serverValidation, setServerValidation] = useState<TestValidationResult | null>(null);
+  const [loadingValidation, setLoadingValidation] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingValidation(true);
+    setPublishError("");
+    void apiFetch<TestValidationResult>(`/admin/test-bank/${test.id}/validation`)
+      .then((result) => { if (active) setServerValidation(result); })
+      .catch((reason) => {
+        if (active) setPublishError(reason instanceof Error ? reason.message : "Không thể kiểm tra dữ liệu đề trên hệ thống.");
+      })
+      .finally(() => { if (active) setLoadingValidation(false); });
+    return () => { active = false; };
+  }, [test.id, test.draftRevision]);
+
+  const issues = serverValidation?.issues ?? deriveValidationIssues(test);
   const hasBlockingErrors = issues.some((issue) => issue.severity === "ERROR");
   const errorCount = issues.filter((issue) => issue.severity === "ERROR").length;
   const warningCount = issues.filter((issue) => issue.severity === "WARNING").length;
+  const submittingForReview = actionLabel.toLocaleLowerCase("vi-VN").includes("gửi duyệt");
+  const actionVerb = submittingForReview ? "gửi duyệt" : "xuất bản";
 
   return (
     <div
@@ -359,11 +473,12 @@ export default function PublishValidationModal({ test, onClose, onPublished }: P
             </span>
             <div>
               <h3 className="font-display text-lg font-bold text-[#211A1D]">
-                Kiểm tra trước khi xuất bản đề thi
+                Kiểm tra trước khi {actionVerb} đề thi
               </h3>
               <p className="text-xs text-[#746A6E]">
                 {test.code} • {test.title}
               </p>
+              {loadingValidation && <p className="mt-1 text-[11px] font-semibold text-[#746A6E]">Đang kiểm tra dữ liệu trên hệ thống...</p>}
             </div>
           </div>
 
@@ -378,7 +493,7 @@ export default function PublishValidationModal({ test, onClose, onPublished }: P
               Lỗi bắt buộc
             </span>
             <p className="mt-1 text-2xl font-black text-[#b4232d]">{errorCount}</p>
-            <p className="mt-0.5 text-[11px] text-[#746A6E]">Phải sửa hết lỗi này mới được xuất bản.</p>
+            <p className="mt-0.5 text-[11px] text-[#746A6E]">Phải sửa hết lỗi này mới được {actionVerb}.</p>
           </div>
 
           <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
@@ -449,7 +564,7 @@ export default function PublishValidationModal({ test, onClose, onPublished }: P
           <p className="text-xs text-[#746A6E]">
             {hasBlockingErrors
               ? "Vui lòng sửa tất cả lỗi bắt buộc để tiếp tục."
-              : "Đề thi đủ điều kiện cơ bản để xuất bản lên hệ thống."}
+              : `Đề thi đủ điều kiện cơ bản để ${actionVerb} lên hệ thống.`}
           </p>
 
           <div className="flex items-center gap-3">
@@ -474,11 +589,11 @@ export default function PublishValidationModal({ test, onClose, onPublished }: P
                   setPublishing(false);
                 }
               }}
-              disabled={hasBlockingErrors || publishing}
+              disabled={hasBlockingErrors || publishing || loadingValidation || Boolean(publishError && !serverValidation)}
               className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white shadow-sm hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShieldCheck size={18} />
-              {publishing ? "Đang xuất bản..." : "Xác nhận xuất bản"}
+              {publishing ? "Đang xử lý..." : actionLabel}
             </button>
           </div>
         </div>

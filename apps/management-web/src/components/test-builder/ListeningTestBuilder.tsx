@@ -4,16 +4,19 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import type {
   ListeningPartSection, MediaAsset, QuestionCardItem, QuestionGroupItem, QuestionOption,
   QuestionTypeFormat, TestBankItem,
 } from "../../library-types";
 import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
 import ListeningQuestionGroupDialog, { type ListeningQuestionGroupDraft } from "./ListeningQuestionGroupDialog";
+import GapFillGroupEditor, { gapFillPrompt, gapFillTemplateFromQuestions, inspectGapFillTemplate } from "./GapFillGroupEditor";
 import PublishValidationModal from "./PublishValidationModal";
 import ReadingRichTextEditor from "./ReadingRichTextEditor";
 import {
-  questionTypeUsesQuestionOptions, questionTypeUsesSharedOptions, readingQuestionTypeLabels,
+  defaultGapFillLayout, questionTypeUsesGapTemplate, questionTypeUsesQuestionOptions,
+  questionTypeUsesSharedOptions, readingQuestionTypeLabels,
 } from "./readingQuestionGroupConfig";
 import TestPreviewModal from "./TestPreviewModal";
 
@@ -81,6 +84,8 @@ function normalizeGroups(value: unknown): QuestionGroupItem[] {
       typeFormat: type, instructions: group.instructions ?? "", wordLimitRule: group.wordLimitRule ?? "",
       answerSource: group.answerSource ?? "PASSAGE", requiredAnswerCount: group.requiredAnswerCount,
       sharedOptions: group.sharedOptions ?? [], allowOptionReused: Boolean(group.allowOptionReused),
+      gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
+      gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
       linkedAudioTimestamp: group.linkedAudioTimestamp, questions, isCollapsed: Boolean(group.isCollapsed),
     };
   });
@@ -143,6 +148,7 @@ function AnswerEditor({ group, question, onChange }: {
 export function ListeningTestBuilder() {
   const navigate = useNavigate();
   const { testId } = useParams();
+  const { roles } = useAuth();
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recordRef = useRef<TestBankItem | null>(null);
@@ -164,11 +170,26 @@ export function ListeningTestBuilder() {
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const canPublish = roles.includes("admin");
+  const workflowStatus = canPublish ? "PUBLISHED" : "IN_REVIEW";
+  const workflowLabel = canPublish ? "Xuất bản" : "Gửi duyệt";
 
   const activePart = parts.find((part) => part.partNo === activePartNo) ?? parts[0];
   const allQuestions = parts.flatMap((part) => part.questionGroups).flatMap((group) => group.questions);
   const nextQuestionNo = Math.max(0, ...allQuestions.map((question) => question.number)) + 1;
-  const validationCount = useMemo(() => parts.reduce((sum, part) => sum + (!part.audioUrl ? 1 : 0) + (!plainText(part.transcriptHtml) ? 1 : 0) + part.questionGroups.flatMap((group) => group.questions).reduce((questionSum, question) => questionSum + (!question.prompt.trim() ? 1 : 0) + (!question.correctAnswers.length ? 1 : 0), 0), testTitle.trim() ? 0 : 1), [parts, testTitle]);
+  const validationCount = useMemo(() => parts.reduce((sum, part) => sum
+    + (!part.audioUrl ? 1 : 0)
+    + (!plainText(part.transcriptHtml) ? 1 : 0)
+    + part.questionGroups.reduce((groupSum, group) => {
+      const templateIssues = questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)
+        ? inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length)
+        : { missing: [], duplicated: [], invalid: [] };
+      const invalidTemplate = group.gapFillTemplate !== undefined && questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)
+        && (!group.gapFillTemplate?.trim() || templateIssues.missing.length > 0 || templateIssues.duplicated.length > 0 || templateIssues.invalid.length > 0);
+      return groupSum + (invalidTemplate ? 1 : 0) + group.questions.reduce((questionSum, question) => questionSum
+        + (!question.prompt.trim() ? 1 : 0)
+        + (!question.correctAnswers.length ? 1 : 0), 0);
+    }, 0), testTitle.trim() ? 0 : 1), [parts, testTitle]);
   const builderTest = useMemo<TestBankItem | null>(() => testRecord ? { ...testRecord, title: testTitle, sectionsCount: parts.length, totalQuestions: allQuestions.length, builderContent: { ...(testRecord.builderContent ?? {}), format: "FULL", parts } } : null, [allQuestions.length, parts, testRecord, testTitle]);
 
   useEffect(() => { recordRef.current = testRecord; }, [testRecord]);
@@ -183,20 +204,22 @@ export function ListeningTestBuilder() {
 
   const saveDraft = useCallback(async (silent = false) => {
     const record = recordRef.current;
-    if (!testId || !record) return;
+    if (!testId || !record || record.status !== "DRAFT") return null;
     if (!silent) setSaveStatus("SAVING");
     try {
       const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, { method: "PUT", body: JSON.stringify({
         title: testTitle, description: null, skill: "LISTENING", testType: record.testType,
         durationMinutes: record.durationMinutes || 40, version: record.version, tags: record.tags,
+        draftRevision: record.draftRevision,
         builderContent: { ...(record.builderContent ?? {}), format: "FULL", parts },
       }) });
-      setTestRecord(saved); setSaveStatus("SAVED"); setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
-    } catch { setSaveStatus("ERROR"); }
+      setTestRecord(saved); recordRef.current = saved; setSaveStatus("SAVED"); setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+      return saved;
+    } catch { setSaveStatus("ERROR"); return null; }
   }, [parts, testId, testTitle]);
 
   useEffect(() => {
-    if (!loaded || !recordRef.current) return undefined;
+    if (!loaded || !recordRef.current || recordRef.current.status !== "DRAFT") return undefined;
     const timer = window.setTimeout(() => void saveDraft(true), 1600);
     return () => window.clearTimeout(timer);
   }, [loaded, parts, saveDraft, testTitle]);
@@ -239,6 +262,8 @@ export function ListeningTestBuilder() {
       startQuestionNo: nextQuestionNo, endQuestionNo: end, typeFormat: draft.typeFormat, instructions: draft.instructions,
       wordLimitRule: draft.wordLimitRule, answerSource: "PASSAGE", requiredAnswerCount: draft.requiredAnswerCount,
       sharedOptions: draft.sharedOptions, allowOptionReused: draft.allowOptionReused,
+      gapFillTemplate: questionTypeUsesGapTemplate(draft.typeFormat, "PASSAGE") ? "" : undefined,
+      gapFillLayout: defaultGapFillLayout(draft.typeFormat),
       linkedAudioTimestamp: draft.linkedAudioTimestamp, questions,
     };
     setParts((current) => renumberParts(current.map((part) => part.partNo === activePartNo
@@ -269,10 +294,12 @@ export function ListeningTestBuilder() {
   if (!loaded) return <div className="grid h-screen place-items-center bg-[#F8F6FA]"><span className="inline-flex items-center gap-2 text-sm font-bold text-[#746A6E]"><SpinnerGap size={20} className="animate-spin" /> Đang tải Listening Builder...</span></div>;
   if (loadError || !activePart) return <div className="grid h-screen place-items-center bg-[#F8F6FA] p-6"><div className="max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-center"><WarningCircle size={28} className="mx-auto text-[#b4232d]" /><h1 className="mt-3 font-display text-lg font-bold">Không thể mở Listening Builder</h1><p className="mt-2 text-sm text-[#746A6E]">{loadError || "Draft không hợp lệ."}</p><Link to="/test-bank" className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#8f4458] px-4 text-sm font-bold text-white">Quay lại</Link></div></div>;
 
+  if (testRecord && testRecord.status !== "DRAFT") return <div className="grid min-h-screen place-items-center bg-[#F8F6FA] p-6 text-center"><div className="max-w-md rounded-2xl border border-[#e3dce2] bg-white p-7 shadow-sm"><WarningCircle size={32} className="mx-auto text-[#8f4458]" /><h1 className="mt-3 font-display text-xl font-bold">Đề không ở chế độ soạn thảo</h1><p className="mt-2 text-sm leading-6 text-[#746A6E]">Đề đang chờ duyệt hoặc đã xuất bản. Hãy quay lại ngân hàng đề để xem trước hoặc tạo bản chỉnh sửa.</p><Link to="/test-bank" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#8f4458] px-4 text-sm font-bold text-white">Quay lại ngân hàng đề</Link></div></div>;
+
   return <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-[#F8F6FA] text-[#211A1D]">
     <header className="z-30 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#e3dce2] bg-white px-5 py-2 shadow-sm">
       <div className="flex min-w-0 items-center gap-4"><Link to="/test-bank" className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#746A6E] hover:text-[#8f4458]"><ArrowLeft size={16} /> Ngân hàng đề</Link><span className="h-4 w-px bg-[#e3dce2]" /><label className="min-w-0"><span className="sr-only">Tên đề</span><input value={testTitle} onChange={(event) => setTestTitle(event.target.value)} className="min-w-[240px] max-w-[420px] border-b border-transparent font-display text-sm font-bold focus:border-[#8f4458] focus:outline-none" /></label><span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase text-[#746A6E]">{testRecord?.status ?? "DRAFT"}</span></div>
-      <div className="flex items-center gap-2"><span className={`hidden text-[11px] font-semibold lg:inline ${saveStatus === "ERROR" ? "text-[#b4232d]" : "text-[#237653]"}`}>{saveStatus === "ERROR" ? "Lưu thất bại" : `Đã lưu ${lastSavedTime}`}</span>{validationCount > 0 && <span className="hidden rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-[#b4232d] xl:inline">{validationCount} mục cần xử lý</span>}<button type="button" onClick={() => void saveDraft()} disabled={saveStatus === "SAVING"} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold disabled:opacity-50"><FloppyDisk size={16} /> Lưu nháp</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] px-3.5 text-xs font-bold text-[#8f4458]"><Eye size={16} /> Xem trước</button><button type="button" onClick={() => setShowValidation(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><ShieldCheck size={16} /> Xuất bản</button></div>
+      <div className="flex items-center gap-2"><span className={`hidden text-[11px] font-semibold lg:inline ${saveStatus === "ERROR" ? "text-[#b4232d]" : "text-[#237653]"}`}>{saveStatus === "ERROR" ? "Lưu thất bại" : `Đã lưu ${lastSavedTime}`}</span>{validationCount > 0 && <span className="hidden rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-[#b4232d] xl:inline">{validationCount} mục cần xử lý</span>}<button type="button" onClick={() => void saveDraft()} disabled={saveStatus === "SAVING"} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold disabled:opacity-50"><FloppyDisk size={16} /> Lưu nháp</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] px-3.5 text-xs font-bold text-[#8f4458]"><Eye size={16} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><ShieldCheck size={16} /> {workflowLabel}</button></div>
     </header>
 
     <nav className="flex min-h-12 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-5" aria-label="Các phần Listening"><div className="flex gap-1">{parts.map((part) => { const count = part.questionGroups.reduce((sum, group) => sum + group.questions.length, 0); return <button key={part.id} type="button" onClick={() => setActivePartNo(part.partNo)} aria-current={activePartNo === part.partNo ? "page" : undefined} className={`min-h-10 rounded-t-xl px-5 text-xs font-bold ${activePartNo === part.partNo ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E] hover:bg-[#e3dce2]"}`}>Part {part.partNo}<span className="ml-2 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px]">{count}</span></button>; })}</div><span className="hidden text-xs font-semibold text-[#746A6E] lg:inline">Listening Builder · {allQuestions.length}/40 câu</span></nav>
@@ -296,13 +323,14 @@ export function ListeningTestBuilder() {
           <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#e3dce2] pb-4"><div className="min-w-0 flex-1"><input value={group.title} onChange={(event) => updateGroup(group.id, (value) => ({ ...value, title: event.target.value, titleMode: "CUSTOM" }))} aria-label="Tên group" className="w-full border-b border-transparent font-display text-sm font-bold text-[#8f4458] focus:border-[#8f4458] focus:outline-none" /><p className="mt-1 text-[11px] font-semibold text-[#746A6E]">{readingQuestionTypeLabels[group.typeFormat]} · Câu {group.startQuestionNo}–{group.endQuestionNo}</p></div><div className="flex items-center gap-1.5">{group.linkedAudioTimestamp && <button type="button" onClick={() => seekTo(timestampToSeconds(group.linkedAudioTimestamp))} className="min-h-9 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-bold tabular-nums text-[#237653]">Phát [{group.linkedAudioTimestamp}]</button>}<button type="button" onClick={() => duplicateGroup(group)} aria-label="Nhân bản group" className="grid size-9 place-items-center rounded-lg border border-[#e3dce2]"><Copy size={15} /></button><button type="button" onClick={() => removeGroup(group.id)} aria-label="Xóa group" className="grid size-9 place-items-center rounded-lg border border-rose-200 text-[#b4232d]"><Trash size={15} /></button><button type="button" onClick={() => updateGroup(group.id, (value) => ({ ...value, isCollapsed: !value.isCollapsed }))} aria-label="Thu gọn group" className="grid size-9 place-items-center rounded-lg border border-[#e3dce2]">{group.isCollapsed ? <CaretDown size={15} /> : <CaretUp size={15} />}</button></div></header>
           {!group.isCollapsed && <><div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]"><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Instructions</span><textarea rows={2} value={group.instructions} onChange={(event) => updateGroup(group.id, (value) => ({ ...value, instructions: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none" /></label><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Timestamp</span><input value={group.linkedAudioTimestamp ?? ""} onChange={(event) => updateGroup(group.id, (value) => ({ ...value, linkedAudioTimestamp: event.target.value }))} className="min-h-10 w-full rounded-xl border border-[#e3dce2] px-3 text-xs font-bold tabular-nums focus:border-[#8f4458] focus:outline-none" placeholder="00:00" /></label></div>{group.wordLimitRule && <label className="mt-3 block"><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Word limit</span><input value={group.wordLimitRule} onChange={(event) => updateGroup(group.id, (value) => ({ ...value, wordLimitRule: event.target.value }))} className="min-h-9 w-full rounded-xl border border-[#e3dce2] px-3 text-xs" /></label>}
             {group.sharedOptions && group.sharedOptions.length > 0 && <div className="mt-3 rounded-xl border border-[#e3dce2] bg-[#f8f6fa] p-3"><p className="text-[11px] font-bold text-[#746A6E]">Option bank</p><div className="mt-2 grid gap-2 md:grid-cols-2">{group.sharedOptions.map((option) => <label key={option.id} className="flex items-center gap-2"><span className="w-5 text-xs font-bold text-[#8f4458]">{option.code}.</span><input value={option.text} onChange={(event) => updateGroup(group.id, (value) => ({ ...value, sharedOptions: value.sharedOptions?.map((item) => item.id === option.id ? { ...item, text: event.target.value } : item) }))} className="min-h-9 flex-1 rounded-lg border border-[#e3dce2] px-2.5 text-xs" /></label>)}</div></div>}
-            <div className="mt-4 space-y-3">{group.questions.map((question) => <div key={question.id} id={question.id} className={`rounded-xl border p-4 ${question.hasError ? "border-rose-200 bg-rose-50/30" : "border-[#e3dce2]"}`}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="grid size-8 place-items-center rounded-lg bg-[#8f4458] text-xs font-bold text-white">{question.number}</span><span className="text-xs font-bold">Câu {question.number}</span>{question.hasError && <span className="text-[10px] font-bold text-[#b4232d]">{question.errorMessage}</span>}</div><button type="button" onClick={() => removeQuestion(group.id, question.id)} aria-label={`Xóa câu ${question.number}`} className="grid size-9 place-items-center rounded-lg text-[#b4232d]"><Trash size={15} /></button></div><label className="mt-3 block"><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Nội dung câu hỏi</span><textarea rows={2} value={question.prompt} onChange={(event) => updateQuestion(group.id, question.id, (value) => normalizeQuestion({ ...value, prompt: event.target.value }, value.number, value.typeFormat))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none" placeholder="Nhập câu hỏi, form, note hoặc vị trí cần điền..." /></label><AnswerEditor group={group} question={question} onChange={(value) => updateQuestion(group.id, question.id, () => value)} /><div className="mt-3 grid gap-3 border-t border-[#e3dce2] pt-3 md:grid-cols-2"><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Giải thích đáp án</span><textarea rows={2} value={question.explanation ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, explanation: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Teacher note</span><textarea rows={2} value={question.teacherNote ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, teacherNote: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label></div></div>)}</div><button type="button" onClick={() => addQuestion(group)} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e3dce2] px-3 text-xs font-bold text-[#8f4458]"><Plus size={15} /> Thêm câu hỏi</button></>}
+            {questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && <div className="mt-4"><GapFillGroupEditor title={group.title} template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)} layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)} questions={group.questions} onTemplateChange={(template) => updateGroup(group.id, (value) => ({ ...value, gapFillTemplate: template, questions: value.questions.map((question, index) => normalizeQuestion({ ...question, prompt: gapFillPrompt(template, index + 1, value.title) }, question.number, question.typeFormat)) }))} onLayoutChange={(layout) => updateGroup(group.id, (value) => ({ ...value, gapFillLayout: layout }))} onAnswerChange={(questionId, correctAnswers, acceptableAnswers) => updateQuestion(group.id, questionId, (question) => normalizeQuestion({ ...question, correctAnswers, acceptableAnswers }, question.number, question.typeFormat))} /></div>}
+            <div className="mt-4 space-y-3">{group.questions.map((question) => <div key={question.id} id={question.id} className={`rounded-xl border p-4 ${question.hasError ? "border-rose-200 bg-rose-50/30" : "border-[#e3dce2]"}`}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="grid size-8 place-items-center rounded-lg bg-[#8f4458] text-xs font-bold text-white">{question.number}</span><span className="text-xs font-bold">Câu {question.number}</span>{question.hasError && <span className="text-[10px] font-bold text-[#b4232d]">{question.errorMessage}</span>}</div><button type="button" onClick={() => removeQuestion(group.id, question.id)} aria-label={`Xóa câu ${question.number}`} className="grid size-9 place-items-center rounded-lg text-[#b4232d]"><Trash size={15} /></button></div>{!questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && <><label className="mt-3 block"><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Nội dung câu hỏi</span><textarea rows={2} value={question.prompt} onChange={(event) => updateQuestion(group.id, question.id, (value) => normalizeQuestion({ ...value, prompt: event.target.value }, value.number, value.typeFormat))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none" placeholder="Nhập câu hỏi, form, note hoặc vị trí cần điền..." /></label><AnswerEditor group={group} question={question} onChange={(value) => updateQuestion(group.id, question.id, () => value)} /></>}<div className="mt-3 grid gap-3 border-t border-[#e3dce2] pt-3 md:grid-cols-2"><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Giải thích đáp án</span><textarea rows={2} value={question.explanation ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, explanation: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Teacher note</span><textarea rows={2} value={question.teacherNote ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, teacherNote: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label></div></div>)}</div><button type="button" onClick={() => addQuestion(group)} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e3dce2] px-3 text-xs font-bold text-[#8f4458]"><Plus size={15} /> Thêm câu hỏi</button></>}
         </article>)}</div>}
       </section>
     </main>
 
     <ListeningQuestionGroupDialog open={showGroupDialog} partNo={activePart.partNo} startQuestionNo={nextQuestionNo} currentTimestamp={formatTime(currentTime)} createId={() => newId("shared-option")} onClose={() => setShowGroupDialog(false)} onCreate={createGroup} />
-    {showValidation && builderTest && <PublishValidationModal test={builderTest} onClose={() => setShowValidation(false)} onPublished={() => { if (!testId) return; return apiFetch(`/admin/test-bank/${testId}/status`, { method: "PATCH", body: JSON.stringify({ status: "PUBLISHED" }) }).then(() => navigate("/test-bank")); }} />}
+    {showValidation && builderTest && <PublishValidationModal test={builderTest} actionLabel={`Xác nhận ${workflowLabel.toLowerCase()}`} onClose={() => setShowValidation(false)} onPublished={async () => { const saved = await saveDraft(); if (!saved || !testId) return; await apiFetch(`/admin/test-bank/${testId}/status`, { method: "PATCH", body: JSON.stringify({ status: workflowStatus, draftRevision: saved.draftRevision }) }); navigate("/test-bank"); }} />}
     {showPreview && builderTest && <TestPreviewModal test={builderTest} onClose={() => setShowPreview(false)} />}
   </div>;
 }

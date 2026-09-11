@@ -7,9 +7,11 @@ import {
   WarningCircle,
   Users,
   Notebook,
+  ChalkboardTeacher,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import type { AcademicClass, AttendanceRecord, ClassActivityProgress, ClassSession, Course } from "../../academic-types";
+import type { AcademicClass, AttendanceRecord, ClassActivityProgress, ClassSession, Course, CourseTeacherAssignment, TeacherOption } from "../../academic-types";
+import { useAuth } from "../../auth/AuthContext";
 import { apiFetch } from "../../lib/api";
 
 interface StudentSummary {
@@ -31,6 +33,10 @@ interface Enrollment {
 }
 
 type Roster = { enrollment: Enrollment; student: StudentSummary }[];
+type StaffOption = { authUserId: string | null; fullName: string; email: string; role: string; status: string };
+type ActiveStudentSupport = StaffOption & { authUserId: string };
+type StudentSupportAssignment = { studentSupportId: string };
+type Page<T> = { content: T[] };
 
 interface CourseOverviewProps {
   course: Course;
@@ -81,8 +87,111 @@ export default function CourseOverview({
   setTab,
   onSelectStudent,
 }: CourseOverviewProps) {
+  const { roles } = useAuth();
   const [sessions,setSessions]=useState<ClassSession[]>([]);const [attendance,setAttendance]=useState<AttendanceRecord[]>([]);const [progress,setProgress]=useState<ClassActivityProgress[]>([]);
+  const [studentSupportOptions, setStudentSupportOptions] = useState<ActiveStudentSupport[]>([]);
+  const [assignedSupportIds, setAssignedSupportIds] = useState<string[]>([]);
+  const [isLoadingSupport, setIsLoadingSupport] = useState(false);
+  const [isSavingSupport, setIsSavingSupport] = useState(false);
+  const [studentSupportError, setStudentSupportError] = useState("");
+  const [studentSupportSuccess, setStudentSupportSuccess] = useState("");
+  const [teacherOptions, setTeacherOptions] = useState<TeacherOption[]>([]);
+  const [courseTeachers, setCourseTeachers] = useState<CourseTeacherAssignment[]>([]);
+  const [primaryTeacherId, setPrimaryTeacherId] = useState("");
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [isSavingTeacher, setIsSavingTeacher] = useState(false);
+  const [teacherError, setTeacherError] = useState("");
+  const [teacherSuccess, setTeacherSuccess] = useState("");
+  const canAssignTeacher = roles.includes("admin");
+  const canAssignStudentSupport = roles.includes("admin");
   useEffect(()=>{if(!selectedClass)return;void Promise.all([apiFetch<ClassSession[]>(`/admin/courses/${selectedClass.id}/sessions`),apiFetch<AttendanceRecord[]>(`/admin/courses/${selectedClass.id}/attendance`),apiFetch<ClassActivityProgress[]>(`/admin/courses/${selectedClass.id}/progress`)]).then(([s,a,p])=>{setSessions(s);setAttendance(a);setProgress(p)}).catch(()=>{setSessions([]);setAttendance([]);setProgress([])})},[selectedClass?.id]);
+  useEffect(() => {
+    if (!selectedClass || !canAssignStudentSupport) {
+      setStudentSupportOptions([]);
+      setAssignedSupportIds([]);
+      return;
+    }
+    let active = true;
+    setIsLoadingSupport(true);
+    setStudentSupportError("");
+    void Promise.all([
+      apiFetch<Page<StaffOption>>("/admin/staff?size=200"),
+      apiFetch<StudentSupportAssignment[]>(`/admin/courses/${selectedClass.id}/student-supports`),
+    ]).then(([staff, assignments]) => {
+      if (!active) return;
+      setStudentSupportOptions(staff.content.filter((item): item is ActiveStudentSupport => item.authUserId !== null && item.status === "ACTIVE" && item.role === "STUDENT_SUPPORT"));
+      setAssignedSupportIds(assignments.map((item) => item.studentSupportId));
+    }).catch((value: unknown) => {
+      if (active) setStudentSupportError(value instanceof Error ? value.message : "Không tải được phân công Student Support.");
+    }).finally(() => {
+      if (active) setIsLoadingSupport(false);
+    });
+    return () => { active = false; };
+  }, [canAssignStudentSupport, selectedClass?.id]);
+
+  useEffect(() => {
+    if (!selectedClass || !canAssignTeacher) {
+      setTeacherOptions([]);
+      setCourseTeachers([]);
+      setPrimaryTeacherId("");
+      return;
+    }
+    let active = true;
+    setIsLoadingTeachers(true);
+    setTeacherError("");
+    void Promise.all([
+      apiFetch<TeacherOption[]>("/admin/teacher-options"),
+      apiFetch<CourseTeacherAssignment[]>(`/admin/courses/${selectedClass.id}/teachers`),
+    ]).then(([options, assignments]) => {
+      if (!active) return;
+      setTeacherOptions(options);
+      setCourseTeachers(assignments);
+      setPrimaryTeacherId(assignments.find((item) => item.primary)?.teacherId ?? "");
+    }).catch((value: unknown) => {
+      if (active) setTeacherError(value instanceof Error ? value.message : "Không tải được phân công giáo viên.");
+    }).finally(() => {
+      if (active) setIsLoadingTeachers(false);
+    });
+    return () => { active = false; };
+  }, [canAssignTeacher, selectedClass?.id]);
+
+  async function savePrimaryTeacher() {
+    if (!selectedClass || !primaryTeacherId) return;
+    setIsSavingTeacher(true);
+    setTeacherError("");
+    setTeacherSuccess("");
+    try {
+      const assignments = await apiFetch<CourseTeacherAssignment[]>(`/admin/courses/${selectedClass.id}/teachers/primary`, {
+        method: "PUT",
+        body: JSON.stringify({ teacherId: primaryTeacherId }),
+      });
+      setCourseTeachers(assignments);
+      setPrimaryTeacherId(assignments.find((item) => item.primary)?.teacherId ?? primaryTeacherId);
+      setTeacherSuccess("Đã cập nhật giáo viên chính của khóa học.");
+    } catch (value) {
+      setTeacherError(value instanceof Error ? value.message : "Không thể cập nhật giáo viên chính.");
+    } finally {
+      setIsSavingTeacher(false);
+    }
+  }
+
+  async function saveStudentSupports() {
+    if (!selectedClass) return;
+    setIsSavingSupport(true);
+    setStudentSupportError("");
+    setStudentSupportSuccess("");
+    try {
+      await apiFetch<StudentSupportAssignment[]>(`/admin/courses/${selectedClass.id}/student-supports`, {
+        method: "PUT",
+        body: JSON.stringify({ studentSupportIds: assignedSupportIds }),
+      });
+      setStudentSupportSuccess("Đã cập nhật phân công Student Support cho khóa học.");
+    } catch (value) {
+      setStudentSupportError(value instanceof Error ? value.message : "Không thể cập nhật phân công Student Support.");
+    } finally {
+      setIsSavingSupport(false);
+    }
+  }
   const totalSessions=sessions.length;const completedSessions=sessions.filter(value=>value.status==="COMPLETED").length;
   const studentRates=useMemo(()=>new Map(roster.map(({student})=>{const relevant=progress.flatMap(activity=>activity.attempts.filter(attempt=>attempt.studentId===student.id));const values=relevant.map(attempt=>attempt.comprehensionPercent??(attempt.score!=null&&attempt.maxScore?Math.round(attempt.score/attempt.maxScore*100):null)).filter((value):value is number=>value!=null);return [student.id,values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null]})),[progress,roster]);
   const knownRates=[...studentRates.values()].filter((value):value is number=>value!=null);
@@ -293,6 +402,52 @@ export default function CourseOverview({
           </div>
         </div>
       </div>
+
+      {canAssignTeacher && selectedClass && (
+        <section className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><ChalkboardTeacher size={22} /></span>
+            <div>
+              <h2 className="font-display text-lg font-extrabold">Phân công giảng dạy</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">Giáo viên chính được dùng làm mặc định cho lịch học. Có thể chọn giáo viên dạy thay ở từng buổi.</p>
+            </div>
+          </div>
+          {teacherError && <p role="alert" className="mt-4 rounded-xl border border-error/30 bg-error-container/20 px-3 py-2 text-sm text-error">{teacherError}</p>}
+          {teacherSuccess && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{teacherSuccess}</p>}
+          {isLoadingTeachers ? <p className="mt-4 text-sm text-on-surface-variant">Đang tải danh sách giáo viên...</p> : teacherOptions.length === 0 ? <p className="mt-4 text-sm text-on-surface-variant">Chưa có giáo viên đang hoạt động. Hãy kích hoạt tài khoản giáo viên trong mục Nhân sự.</p> : (
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Giáo viên chính</span><select value={primaryTeacherId} onChange={(event) => { setPrimaryTeacherId(event.target.value); setTeacherSuccess(""); }} className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"><option value="">Chọn giáo viên</option>{teacherOptions.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.fullName} ({teacher.email})</option>)}</select></label>
+              <button type="button" onClick={() => void savePrimaryTeacher()} disabled={!primaryTeacherId || isSavingTeacher} className="min-h-11 rounded-xl bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-50">{isSavingTeacher ? "Đang lưu..." : "Lưu giáo viên chính"}</button>
+            </div>
+          )}
+          {courseTeachers.some((item) => !item.primary) && <div className="mt-5 border-t border-outline-variant/30 pt-4"><p className="text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Giáo viên từng dạy thay</p><div className="mt-2 flex flex-wrap gap-2">{courseTeachers.filter((item) => !item.primary).map((teacher) => <span key={teacher.teacherId} className="rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-2 text-xs font-semibold">{teacher.fullName ?? teacher.email ?? "Giáo viên"}</span>)}</div></div>}
+        </section>
+      )}
+
+      {canAssignStudentSupport && selectedClass && (
+        <section className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-extrabold">Phân công Student Support</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">Nhân sự được chọn chỉ xem học viên, chuyên cần và tiến độ của khóa này.</p>
+            </div>
+            <button type="button" onClick={() => void saveStudentSupports()} disabled={isLoadingSupport || isSavingSupport} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-50">
+              {isSavingSupport ? "Đang lưu..." : "Lưu phân công"}
+            </button>
+          </div>
+          {studentSupportError && <p role="alert" className="mt-4 rounded-xl border border-error/30 bg-error-container/20 px-3 py-2 text-sm text-error">{studentSupportError}</p>}
+          {studentSupportSuccess && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{studentSupportSuccess}</p>}
+          {isLoadingSupport ? <p className="mt-4 text-sm text-on-surface-variant">Đang tải nhân sự hỗ trợ...</p> : studentSupportOptions.length === 0 ? <p className="mt-4 text-sm text-on-surface-variant">Chưa có nhân sự Student Support đang hoạt động.</p> : (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {studentSupportOptions.map((staff) => {
+                const supportId = staff.authUserId;
+                const checked = assignedSupportIds.includes(supportId);
+                return <label key={supportId} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${checked ? "border-primary bg-primary-container/10" : "border-outline-variant/50"}`}><input type="checkbox" checked={checked} onChange={() => setAssignedSupportIds((current) => checked ? current.filter((id) => id !== supportId) : [...current, supportId])} className="mt-1 h-4 w-4 accent-primary" /><span><strong className="block text-sm">{staff.fullName}</strong><span className="text-xs text-on-surface-variant">{staff.email}</span></span></label>;
+              })}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
