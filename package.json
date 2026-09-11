@@ -7,8 +7,5 @@
     "dev:management": "pnpm --filter @ielts/management-web dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck"
-  },
-  "dependencies": {
-    "codex-monorepo": "github:openai/codex"
   }
 }

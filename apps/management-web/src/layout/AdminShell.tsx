@@ -1,11 +1,58 @@
 import {
-  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, SignOut, Student, Users, UsersThree, X,
+  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, SignOut,
+  SlidersHorizontal, Student, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import logo from "../../assest/logo.jpg";
+
+type AdminDensity = "auto" | "compact" | "comfortable";
+
+const densityStorageKey = "ielts-management-density";
+const compactViewportQuery = "(min-width: 1024px) and (max-height: 900px)";
+
+const densityOptions: Array<{ value: AdminDensity; label: string }> = [
+  { value: "auto", label: "Tự động" },
+  { value: "compact", label: "Gọn" },
+  { value: "comfortable", label: "Thoải mái" },
+];
+
+function storedDensity(): AdminDensity {
+  try {
+    const value = window.localStorage.getItem(densityStorageKey);
+    return value === "compact" || value === "comfortable" ? value : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function useAdminDensity() {
+  const [density, setDensity] = useState<AdminDensity>(storedDensity);
+  const [compactViewport, setCompactViewport] = useState(() => window.matchMedia(compactViewportQuery).matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(compactViewportQuery);
+    const updateViewportDensity = (event: MediaQueryListEvent) => setCompactViewport(event.matches);
+    mediaQuery.addEventListener("change", updateViewportDensity);
+    return () => mediaQuery.removeEventListener("change", updateViewportDensity);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(densityStorageKey, density);
+    } catch {
+      // Keep the current-session preference when storage is unavailable.
+    }
+  }, [density]);
+
+  return {
+    density,
+    resolvedDensity: density === "auto" && compactViewport ? "compact" : density === "auto" ? "comfortable" : density,
+    setDensity,
+  } as const;
+}
 
 const navSections: Array<{ title: string; items: Array<{ to: string; label: string; icon: typeof BookOpenText; roles: UserRole[] }> }> = [
   {
@@ -38,6 +85,7 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
 export function AdminShell() {
   const { roles, session, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const { density, resolvedDensity, setDensity } = useAdminDensity();
   const location = useLocation();
   const email = session?.user.email ?? "Nhân sự";
   const role = roles[0] ?? "staff";
@@ -54,7 +102,11 @@ export function AdminShell() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden text-on-surface bg-[#F8F6FA]">
+    <div
+      className="admin-shell flex h-screen overflow-hidden bg-[#F8F6FA] text-on-surface"
+      data-density={density}
+      data-density-resolved={resolvedDensity}
+    >
       <a
         className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:top-2 focus:left-2 focus:bg-surface focus:px-4 focus:py-2 focus:rounded-xl focus:border focus:border-primary"
         href="#admin-content"
@@ -64,11 +116,11 @@ export function AdminShell() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-surface-container border-r border-outline-variant/60 flex flex-col py-5 overflow-y-auto shrink-0 transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-y-auto border-r border-outline-variant/60 bg-surface-container transition-transform duration-200 ease-in-out md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="px-5 mb-6 flex items-center justify-between gap-3">
+        <div className="admin-sidebar-brand flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg object-cover shrink-0" />
             <div>
@@ -86,7 +138,7 @@ export function AdminShell() {
         </div>
 
         {/* Navigation */}
-        <nav aria-label="Điều hướng quản trị" className="flex-1 px-3 space-y-5">
+        <nav aria-label="Điều hướng quản trị" className="admin-sidebar-nav flex-1">
           {navSections.map((section) => {
             const visibleItems = section.items.filter((item) =>
               item.roles.some((r) => roles.includes(r))
@@ -94,7 +146,7 @@ export function AdminShell() {
             if (visibleItems.length === 0) return null;
 
             return (
-              <div key={section.title} className="space-y-1">
+              <div key={section.title} className="admin-nav-section space-y-1">
                 <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-[#746A6E]">
                   {section.title}
                 </span>
@@ -106,7 +158,7 @@ export function AdminShell() {
                       to={item.to}
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
-                        `flex items-center px-3.5 py-2.5 rounded-xl font-label-md text-sm transition-all duration-200 ${
+                        `admin-nav-item flex items-center rounded-xl font-label-md text-sm transition-all duration-200 ${
                           isActive
                             ? "bg-[#8f4458] text-white shadow-sm font-bold"
                             : "text-[#493b42] hover:bg-[#e7e1e8] hover:text-[#211A1D]"
@@ -124,16 +176,16 @@ export function AdminShell() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="mt-auto pt-4 border-t border-outline-variant/30">
-          <div className="px-5 py-3 flex items-center gap-3">
-            <span className="w-9 h-9 grid place-items-center rounded-full bg-[#f7e7ec] text-[#743447] font-extrabold text-sm uppercase shrink-0">
+        <div className="admin-sidebar-footer mt-auto border-t border-outline-variant/30 pt-4">
+          <div className="admin-sidebar-profile flex items-center gap-3 px-5 py-3">
+            <span className="admin-sidebar-avatar grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f7e7ec] text-sm font-extrabold uppercase text-[#743447]">
               {email.charAt(0)}
             </span>
             <div className="flex-1 overflow-hidden">
-              <p className="font-label-md text-xs text-on-surface truncate font-semibold">
+              <p className="admin-sidebar-user truncate font-label-md text-xs font-semibold text-on-surface">
                 {email.split("@")[0]}
               </p>
-              <p className="text-[11px] text-on-surface-variant truncate font-caption">
+              <p className="admin-sidebar-email truncate font-caption text-[11px] text-on-surface-variant">
                 {email}
               </p>
             </div>
@@ -141,7 +193,7 @@ export function AdminShell() {
           <div className="px-2">
             <button
               onClick={() => void signOut()}
-              className="w-full text-left text-error hover:bg-error-container/10 flex items-center px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200"
+              className="admin-sidebar-signout flex w-full items-center rounded-xl px-3.5 py-2 text-left text-xs font-bold text-error transition-all duration-200 hover:bg-error-container/10"
             >
               <SignOut size={18} className="mr-2.5 shrink-0" />
               Đăng xuất
@@ -160,9 +212,9 @@ export function AdminShell() {
       )}
 
       {/* Main Workspace */}
-      <div className="flex-1 md:pl-64 flex flex-col h-screen overflow-hidden bg-surface-container-lowest">
+      <div className="admin-workspace flex h-screen flex-1 flex-col overflow-hidden bg-surface-container-lowest">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 bg-surface/90 backdrop-blur-md shadow-sm px-6 py-3.5 flex justify-between items-center border-b border-outline-variant/20 shrink-0">
+        <header className="admin-topbar sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-outline-variant/20 bg-surface/90 shadow-sm backdrop-blur-md">
           <div className="flex items-center gap-3">
             <button
               className="md:hidden flex items-center justify-center p-2 rounded-lg hover:bg-surface-container text-on-surface"
@@ -177,6 +229,19 @@ export function AdminShell() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <label className="admin-density-control" title="Điều chỉnh mật độ hiển thị của trang quản trị">
+              <span className="sr-only">Mật độ hiển thị</span>
+              <SlidersHorizontal aria-hidden="true" size={17} />
+              <select
+                aria-label="Mật độ hiển thị"
+                value={density}
+                onChange={(event) => setDensity(event.target.value as AdminDensity)}
+              >
+                {densityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border bg-primary-container/20 text-primary border-primary/20 capitalize">
               {role.replaceAll("_", " ")}
             </span>
@@ -184,7 +249,7 @@ export function AdminShell() {
         </header>
 
         {/* Content Canvas */}
-        <main id="admin-content" className="flex-1 overflow-y-auto p-6 md:p-8 outline-none">
+        <main id="admin-content" className="admin-content flex-1 overflow-y-auto outline-none">
           <Outlet />
         </main>
       </div>

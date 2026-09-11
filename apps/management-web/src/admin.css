@@ -15,10 +15,377 @@
 }
 
 .admin-shell {
+  --admin-sidebar-width: 16rem;
+  --admin-content-padding-x: 2rem;
+  --admin-content-padding-y: 2rem;
+  --admin-topbar-padding-x: 1.5rem;
+  --admin-topbar-padding-y: 0.375rem;
+  --admin-sidebar-padding-y: 1.25rem;
+  --admin-sidebar-brand-padding-x: 1.25rem;
+  --admin-sidebar-brand-margin-bottom: 1.5rem;
+  --admin-sidebar-nav-padding-x: 0.75rem;
+  --admin-nav-section-gap: 1.25rem;
+  --admin-nav-item-padding-x: 0.875rem;
+  --admin-nav-item-padding-y: 0.625rem;
+  --admin-density-control-height: 44px;
   min-height: 100dvh;
   background: var(--a-bg);
   color: var(--a-text);
   font-family: var(--font-sans);
+}
+
+.admin-sidebar {
+  width: min(var(--admin-sidebar-width), calc(100vw - 3rem));
+  padding-block: var(--admin-sidebar-padding-y);
+}
+
+.admin-sidebar-brand {
+  margin-bottom: var(--admin-sidebar-brand-margin-bottom);
+  padding-inline: var(--admin-sidebar-brand-padding-x);
+}
+
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-nav-section-gap);
+  padding-inline: var(--admin-sidebar-nav-padding-x);
+}
+
+.admin-nav-item {
+  min-height: 44px;
+  padding: var(--admin-nav-item-padding-y) var(--admin-nav-item-padding-x);
+}
+
+.admin-topbar {
+  min-height: 56px;
+  padding: var(--admin-topbar-padding-y) var(--admin-topbar-padding-x);
+}
+
+.admin-content {
+  padding: var(--admin-content-padding-y) var(--admin-content-padding-x);
+}
+
+.admin-density-control {
+  position: relative;
+  display: inline-flex;
+  min-height: var(--admin-density-control-height);
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(214, 194, 196, 0.7);
+  border-radius: 0.75rem;
+  background: rgba(251, 248, 255, 0.82);
+  padding-left: 0.75rem;
+  color: var(--a-muted);
+}
+
+.admin-density-control select {
+  min-height: calc(var(--admin-density-control-height) - 2px);
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0 1.8rem 0 0;
+  color: var(--a-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-density-control::after {
+  content: "";
+  position: absolute;
+  right: 0.65rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  pointer-events: none;
+}
+
+.admin-density-control:focus-within {
+  border-color: var(--a-brand);
+  box-shadow: 0 0 0 3px rgba(143, 68, 88, 0.12);
+}
+
+.admin-density-control select:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .admin-workspace {
+    padding-left: var(--admin-sidebar-width);
+  }
+
+  .admin-shell[data-density-resolved="compact"] {
+    --admin-sidebar-width: 12.75rem;
+    --admin-content-padding-x: 1.25rem;
+    --admin-content-padding-y: 1rem;
+    --admin-topbar-padding-x: 1rem;
+    --admin-topbar-padding-y: 0.125rem;
+    --admin-sidebar-padding-y: 0.75rem;
+    --admin-sidebar-brand-padding-x: 0.75rem;
+    --admin-sidebar-brand-margin-bottom: 0.75rem;
+    --admin-sidebar-nav-padding-x: 0.5rem;
+    --admin-nav-section-gap: 0.75rem;
+    --admin-nav-item-padding-x: 0.625rem;
+    --admin-nav-item-padding-y: 0.375rem;
+    --admin-density-control-height: 36px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-topbar {
+    min-height: 40px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-topbar > div {
+    gap: 0.5rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-topbar .text-xs {
+    font-size: 0.625rem;
+    line-height: 0.875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-topbar .px-3 {
+    padding-inline: 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-density-control {
+    gap: 0.3rem;
+    padding-left: 0.5rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-density-control select {
+    padding-right: 1.5rem;
+    font-size: 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-density-control > svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-brand {
+    gap: 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-brand img {
+    width: 1.625rem;
+    height: 1.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-brand h1 {
+    font-size: 0.8125rem;
+    line-height: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-brand p {
+    font-size: 0.625rem;
+    line-height: 0.875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-nav-section > span {
+    padding-inline: 0.625rem;
+    font-size: 0.5625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-nav-item {
+    min-height: 36px;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-nav-item > svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    margin-right: 0.5rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-footer {
+    padding-top: 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-profile {
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-avatar {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.6875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-user,
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-signout {
+    font-size: 0.6875rem;
+    line-height: 0.875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-email {
+    font-size: 0.625rem;
+    line-height: 0.75rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-signout {
+    min-height: 36px;
+    padding: 0.375rem 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-sidebar-signout > svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    margin-right: 0.5rem;
+  }
+
+  /* Compact mode follows desktop-dashboard density. It stays scoped to the
+     management shell; the full-screen Test Builder bypasses this shell. */
+  .admin-shell[data-density-resolved="compact"] .admin-content .gap-8 {
+    gap: 1.25rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .gap-6 {
+    gap: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .gap-5 {
+    gap: 0.875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.25rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.875rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .p-8 {
+    padding: 1.25rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .p-6 {
+    padding: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .p-5 {
+    padding: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .p-4 {
+    padding: 0.8125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .px-5 {
+    padding-inline: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .px-4 {
+    padding-inline: 0.8125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .py-4 {
+    padding-block: 0.8125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .py-3 {
+    padding-block: 0.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .mb-8 {
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content {
+    font-size: 0.8125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-4xl,
+  .admin-shell[data-density-resolved="compact"] .admin-content .md\:text-4xl {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-3xl,
+  .admin-shell[data-density-resolved="compact"] .admin-content .md\:text-3xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-2xl,
+  .admin-shell[data-density-resolved="compact"] .admin-content .md\:text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.625rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-lg {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-body-md,
+  .admin-shell[data-density-resolved="compact"] .admin-content .md\:text-body-md,
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-sm {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .text-xs {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .min-h-12 {
+    min-height: 40px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .min-h-11 {
+    min-height: 36px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .h-11 {
+    height: 36px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .w-11 {
+    width: 36px;
+  }
+
+  .admin-shell[data-density-resolved="compact"] .admin-content .min-h-10 {
+    min-height: 34px;
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-content {
+    padding: 1.25rem 1rem;
+  }
+
+  .admin-density-control {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-shell *::before,
+  .admin-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 .skip-link {

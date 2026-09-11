@@ -2,7 +2,7 @@
   "name": "@ielts/main-web",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"dev":"next dev","build":"next build","start":"next start","typecheck":"tsc --noEmit"},
+  "scripts": {"dev":"next dev","build":"next build","start":"next start","typecheck":"next typegen && tsc --noEmit"},
   "dependencies": {
     "@ielts/api-client": "workspace:*",
     "@ielts/contracts": "workspace:*",
