@@ -3,7 +3,7 @@
 import { createApiClient } from "@ielts/api-client";
 import { supabase } from "@/lib/supabase";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1").replace(/\/$/, "");
 
 export const apiFetch = createApiClient(apiUrl, {
   getAccessToken: async () => {

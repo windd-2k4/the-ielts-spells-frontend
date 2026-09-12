@@ -1,15 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrandMark } from "@ielts/ui";
-import { List, X, PhoneCall, Wrench, Warning } from "@phosphor-icons/react";
+import {
+  List,
+  X,
+  PhoneCall,
+  Wrench,
+  Warning,
+  GraduationCap,
+  User,
+  Gear,
+  SignOut,
+  CaretDown,
+} from "@phosphor-icons/react";
+import Link from "next/link";
+import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
 
 interface NavItem {
   id: string;
   label: string;
   isDev?: boolean;
 }
-
 const NAV_ITEMS: NavItem[] = [
   { id: "hero", label: "Trang chủ" },
   { id: "about", label: "Giới thiệu" },
@@ -21,13 +33,19 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function Navbar() {
+  const { session, signOut } = useStudentSession();
   const [activeSection, setActiveSection] = useState("hero");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Development Popup State
   const [devModalOpen, setDevModalOpen] = useState(false);
   const [devModalFeature, setDevModalFeature] = useState("");
+
+  const studentName = session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "Học viên";
+  const avatarInitial = studentName.charAt(0).toUpperCase();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,8 +65,18 @@ export default function Navbar() {
       }
     };
 
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const scrollToSection = (id: string) => {
@@ -69,12 +97,6 @@ export default function Navbar() {
       return;
     }
     scrollToSection(item.id);
-  };
-
-  const triggerDevModal = (featureName: string) => {
-    setMobileMenuOpen(false);
-    setDevModalFeature(featureName);
-    setDevModalOpen(true);
   };
 
   return (
@@ -122,21 +144,103 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* CTA Buttons */}
+          {/* CTA & User Profile Section */}
           <div className="hidden sm:flex items-center gap-3 shrink-0">
-            <button
-              onClick={() => triggerDevModal("Đăng nhập tài khoản")}
-              className="px-4 py-2.5 rounded-full text-sm font-semibold text-[#894C5B] hover:bg-[#F7E5EA] transition-colors whitespace-nowrap"
-            >
-              Đăng nhập
-            </button>
-            <button
-              onClick={() => scrollToSection("consultation")}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-[#F5C842] text-[#1E1B18] hover:bg-[#E5B520] shadow-md hover:shadow-lg active:scale-95 transition-all whitespace-nowrap"
-            >
-              <PhoneCall size={16} weight="bold" />
-              <span>Tư vấn miễn phí</span>
-            </button>
+            {session ? (
+              <>
+                {/* Góc Học Tập CTA Button */}
+                <Link
+                  href="/student"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-extrabold bg-[#894C5B] text-white hover:bg-[#723c4a] shadow-md hover:shadow-lg active:scale-95 transition-all whitespace-nowrap"
+                >
+                  <GraduationCap size={18} weight="fill" className="text-[#F5C842]" />
+                  <span>Góc học tập</span>
+                </Link>
+
+                {/* User Avatar & Dropdown Menu */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#FEF9C3] hover:bg-[#FDF3A7] border border-[#F3E8C4] transition-colors"
+                  >
+                    <span className="text-xs font-bold text-[#1E1B18] max-w-[100px] truncate">
+                      {studentName}
+                    </span>
+                    <div className="w-8 h-8 rounded-full bg-[#894C5B] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      {avatarInitial}
+                    </div>
+                    <CaretDown size={14} weight="bold" className="text-[#5C5752]" />
+                  </button>
+
+                  {/* Dropdown Card */}
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-[#F3E8C4] shadow-xl py-2 z-50 animate-in fade-in zoom-in-95">
+                      <div className="px-4 py-2.5 border-b border-[#F3E8C4]">
+                        <p className="text-xs text-[#857F7A]">Tài khoản học viên</p>
+                        <p className="text-sm font-bold text-[#1E1B18] truncate">{studentName}</p>
+                        <p className="text-xs text-[#857F7A] truncate">{session.user.email}</p>
+                      </div>
+
+                      <div className="py-1">
+                        <Link
+                          href="/student"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-sm font-semibold text-[#1E1B18] hover:bg-[#FEF9C3] transition-colors"
+                        >
+                          <GraduationCap size={18} className="text-[#894C5B]" />
+                          <span>Góc học tập</span>
+                        </Link>
+                        <Link
+                          href="/student/learning-profile"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-[#5C5752] hover:bg-[#FEF9C3] hover:text-[#1E1B18] transition-colors"
+                        >
+                          <User size={18} className="text-[#857F7A]" />
+                          <span>Hồ sơ học tập</span>
+                        </Link>
+                        <Link
+                          href="/student/learning-profile"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-[#5C5752] hover:bg-[#FEF9C3] hover:text-[#1E1B18] transition-colors"
+                        >
+                          <Gear size={18} className="text-[#857F7A]" />
+                          <span>Cài đặt</span>
+                        </Link>
+                      </div>
+
+                      <div className="border-t border-[#F3E8C4] pt-1 mt-1">
+                        <button
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            void signOut();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm font-semibold text-[#C84B31] hover:bg-[#FCE8E6] transition-colors"
+                        >
+                          <SignOut size={18} />
+                          <span>Đăng xuất</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/student/login"
+                  className="px-4 py-2.5 rounded-full text-sm font-semibold text-[#894C5B] hover:bg-[#F7E5EA] transition-colors whitespace-nowrap"
+                >
+                  Đăng nhập
+                </Link>
+                <button
+                  onClick={() => scrollToSection("consultation")}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-[#F5C842] text-[#1E1B18] hover:bg-[#E5B520] shadow-md hover:shadow-lg active:scale-95 transition-all whitespace-nowrap"
+                >
+                  <PhoneCall size={16} weight="bold" />
+                  <span>Tư vấn miễn phí</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger Toggle */}
@@ -167,18 +271,43 @@ export default function Navbar() {
                 </button>
               ))}
               <div className="pt-4 border-t border-[#F3E8C4] flex flex-col gap-3">
-                <button
-                  onClick={() => triggerDevModal("Đăng nhập hệ thống")}
-                  className="w-full text-center py-3 rounded-xl font-semibold text-[#894C5B] bg-[#F7E5EA]"
-                >
-                  Đăng nhập hệ thống
-                </button>
-                <button
-                  onClick={() => scrollToSection("consultation")}
-                  className="w-full text-center py-3 rounded-xl font-bold bg-[#F5C842] text-[#1E1B18] shadow-md"
-                >
-                  Nhận tư vấn lộ trình miễn phí
-                </button>
+                {session ? (
+                  <>
+                    <Link
+                      href="/student"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 rounded-xl font-extrabold text-white bg-[#894C5B] shadow-md flex items-center justify-center gap-2"
+                    >
+                      <GraduationCap size={20} weight="fill" className="text-[#F5C842]" />
+                      <span>Vào Góc học tập</span>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        void signOut();
+                      }}
+                      className="w-full text-center py-2.5 rounded-xl font-bold text-[#C84B31] bg-[#FCE8E6]"
+                    >
+                      Đăng xuất ({studentName})
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/student/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full text-center py-3 rounded-xl font-semibold text-[#894C5B] bg-[#F7E5EA]"
+                    >
+                      Đăng nhập học viên
+                    </Link>
+                    <button
+                      onClick={() => scrollToSection("consultation")}
+                      className="w-full text-center py-3 rounded-xl font-bold bg-[#F5C842] text-[#1E1B18] shadow-md"
+                    >
+                      Nhận tư vấn lộ trình miễn phí
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,9 +1,7 @@
 import { ArrowRight, Books, Clock, Exam, FileAudio, FileText, Plus, ShieldCheck, SpinnerGap, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Page } from "../../academic-types";
-import type { LearningResource, TestBankItem } from "../../library-types";
-import { apiFetch } from "../../lib/api";
+import { getContentHubDashboard, type ContentHubDashboard } from "../../lib/dashboard-api";
 
 type Props = {
   onOpenAddMaterial: () => void;
@@ -11,27 +9,23 @@ type Props = {
   onOpenNewTest: () => void;
   onNavigateTab: (tab: "MATERIALS" | "TEST_BANK" | "MEDIA") => void;
 };
-type Summary = { resources: number; tests: number; media: number; awaitingReview: number; inUse: number };
+type Summary = ContentHubDashboard["summary"];
 
 export function ContentHub({ onOpenAddMaterial, onOpenBulkImport, onOpenNewTest, onNavigateTab }: Props) {
   const [activeTab, setActiveTab] = useState<"RECENT" | "DRAFTS">("RECENT");
   const [summary, setSummary] = useState<Summary>({ resources: 0, tests: 0, media: 0, awaitingReview: 0, inUse: 0 });
-  const [materials, setMaterials] = useState<LearningResource[]>([]);
-  const [drafts, setDrafts] = useState<TestBankItem[]>([]);
+  const [materials, setMaterials] = useState<ContentHubDashboard["recentResources"]>([]);
+  const [drafts, setDrafts] = useState<ContentHubDashboard["draftTests"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      apiFetch<Summary>("/admin/library/summary"),
-      apiFetch<Page<LearningResource>>("/admin/library/resources?size=5&sort=updatedAt,desc"),
-      apiFetch<Page<TestBankItem>>("/admin/test-bank?status=DRAFT&size=5"),
-    ]).then(([nextSummary, resources, tests]) => {
+    getContentHubDashboard().then((dashboard) => {
       if (!active) return;
-      setSummary(nextSummary);
-      setMaterials(resources.content);
-      setDrafts(tests.content);
+      setSummary(dashboard.summary);
+      setMaterials(dashboard.recentResources);
+      setDrafts(dashboard.draftTests);
     }).catch((reason: Error) => active && setError(reason.message))
       .finally(() => active && setLoading(false));
     return () => { active = false; };

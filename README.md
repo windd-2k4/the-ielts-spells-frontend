@@ -118,6 +118,12 @@ the-ielts-spells-frontend/
 4. Spring Boot xác minh JWT, vai trò và quyền.
 5. Backend thực thi nghiệp vụ và trả dữ liệu.
 
+Main Web cung cấp các route xác thực học viên:
+
+- `/student/login`: đăng nhập bằng email, Google hoặc Facebook.
+- `/student/register`: tự đăng ký tài khoản học viên.
+- `/student/auth/callback`: hoàn tất email confirmation hoặc OAuth, sau đó đồng bộ hồ sơ học viên với backend.
+
 Quy tắc an toàn:
 
 - `main-web` có thể hỗ trợ phương thức đăng nhập phù hợp cho học viên.
@@ -168,6 +174,12 @@ cp .env.example apps/main-web/.env.local
 ```
 
 Cập nhật URL Supabase và anon/publishable key trong hai file vừa tạo.
+
+Trong Supabase Dashboard:
+
+1. Bật Email và các OAuth provider muốn hiển thị, hiện giao diện hỗ trợ Google và Facebook.
+2. Thêm `http://localhost:3000/student/auth/callback` và URL production tương ứng vào Redirect URLs.
+3. Bật `public.custom_access_token_hook` tại Authentication > Hooks để JWT nhận role từ `public.user_roles`.
 
 ### 3. Chạy ứng dụng
 

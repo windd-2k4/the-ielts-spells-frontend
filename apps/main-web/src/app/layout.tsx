@@ -1,6 +1,7 @@
 import "@ielts/design-tokens/theme.css";
 import "./globals.css";
 import type { Metadata } from "next";
+import { StudentSessionProvider } from "@/features/student-auth/StudentSessionProvider";
 
 export const metadata: Metadata = {
   title: "The IELTS Spells | Chinh phục IELTS bằng Phép thuật Học thuật",
@@ -25,7 +26,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <StudentSessionProvider>{children}</StudentSessionProvider>
+      </body>
     </html>
   );
 }

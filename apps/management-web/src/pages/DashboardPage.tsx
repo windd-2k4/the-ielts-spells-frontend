@@ -1,15 +1,11 @@
-import { BookOpenText, Buildings, CalendarBlank, CheckCircle, Student, TrendUp } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Course, Enrollment, Page } from "../academic-types";
 import { classStatusLabel } from "../academic-types";
 import { LoadState, PageHeader } from "../components/AdminUi";
-import { apiFetch } from "../lib/api";
+import { getAdminDashboard, type AdminDashboard } from "../lib/dashboard-api";
 
 export function DashboardPage() {
-  const [courses, setCourses] = useState<Page<Course> | null>(null);
-  const [classes, setClasses] = useState<Page<Course> | null>(null);
-  const [enrollments, setEnrollments] = useState<Page<Enrollment> | null>(null);
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -17,14 +13,7 @@ export function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [a, b, c] = await Promise.all([
-        apiFetch<Page<Course>>("/admin/courses?size=100"),
-        apiFetch<Page<Course>>("/admin/courses?size=100"),
-        apiFetch<Page<Enrollment>>("/admin/enrollments?size=100")
-      ]);
-      setCourses(a);
-      setClasses(b);
-      setEnrollments(c);
+      setDashboard(await getAdminDashboard());
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không tải được tổng quan");
     } finally {
@@ -36,10 +25,10 @@ export function DashboardPage() {
     void load();
   }, [load]);
 
-  const activeCourses = courses?.content.filter(item => item.isActive).length ?? 0;
-  const openClasses = classes?.content.filter(item => ["OPEN", "ACTIVE"].includes(item.status)).length ?? 0;
-  const activeEnrollments = enrollments?.content.filter(item => item.status === "ACTIVE").length ?? 0;
-  const upcoming = classes?.content.filter(item => new Date(item.startsOn) >= new Date()).slice(0, 3) ?? [];
+  const activeCourses = dashboard?.activeCourses ?? 0;
+  const openClasses = dashboard?.openCourses ?? 0;
+  const activeEnrollments = dashboard?.activeEnrollments ?? 0;
+  const upcoming = dashboard?.upcomingCourses ?? [];
 
   return (
     <section className="space-y-8">
@@ -108,7 +97,7 @@ export function DashboardPage() {
                 <p className="font-display text-4xl font-bold text-secondary mb-2">{openClasses}</p>
                 <div className="flex items-center text-xs font-semibold text-on-surface-variant gap-1">
                   <span className="material-symbols-outlined text-[16px]">schedule</span>
-                  <span>{classes?.totalElements ?? 0} lớp trong hệ thống</span>
+                  <span>{dashboard?.totalCourses ?? 0} lớp trong hệ thống</span>
                 </div>
               </div>
             </div>
@@ -125,7 +114,7 @@ export function DashboardPage() {
                 <p className="font-display text-4xl font-bold text-tertiary mb-2">{activeCourses}</p>
                 <div className="flex items-center text-xs font-semibold text-on-surface-variant gap-1">
                   <span className="material-symbols-outlined text-[16px]">done</span>
-                  <span>{courses?.totalElements ?? 0} khóa học tổng cộng</span>
+                  <span>{dashboard?.totalCourses ?? 0} khóa học tổng cộng</span>
                 </div>
               </div>
             </div>
@@ -140,8 +129,8 @@ export function DashboardPage() {
               <div className="relative z-10">
                 <p className="text-sm font-medium text-on-surface-variant mb-1">Tỷ lệ lớp vận hành</p>
                 <p className="font-display text-4xl font-bold text-primary mb-2">
-                  {classes?.totalElements
-                    ? Math.round((openClasses / classes.totalElements) * 100)
+                  {dashboard?.totalCourses
+                    ? Math.round((openClasses / dashboard.totalCourses) * 100)
                     : 0}%
                 </p>
                 <div className="flex items-center text-xs font-semibold text-on-surface-variant gap-1">
@@ -163,7 +152,7 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined text-primary text-2xl">calendar_month</span>
                     Lớp sắp khai giảng
                   </h3>
-                  <Link to="/classes" className="text-primary font-semibold text-sm hover:underline">
+                  <Link to="/courses" className="text-primary font-semibold text-sm hover:underline">
                     Xem tất cả
                   </Link>
                 </div>
