@@ -1,0 +1,78 @@
+.pulse { display: grid; gap: 14px; }
+.sectionTitle { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+.sectionTitle p { color: #934c5e; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.sectionTitle h2 { margin-top: 5px; color: #292528; font-size: clamp(20px, 2.2vw, 30px); letter-spacing: -.04em; }
+.sectionTitle > a { min-height: 44px; display: inline-flex; align-items: center; color: #934c5e; font-size: 11px; font-weight: 800; }
+.topGrid, .insightGrid { display: grid; gap: 14px; }
+.topGrid { grid-template-columns: minmax(0, 1.2fr) minmax(350px, .8fr); }
+.insightGrid { grid-template-columns: minmax(0, .9fr) minmax(430px, 1.1fr); }
+.card { min-width: 0; overflow: hidden; border: 1px solid #ded7da; border-radius: 20px; background: rgba(255,255,255,.8); box-shadow: 0 12px 32px rgba(46,34,39,.045); }
+.cardHeader { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #ebe5e7; }
+.cardHeader h3 { display: flex; align-items: center; gap: 8px; color: #30292c; font-size: 13px; letter-spacing: -.02em; }
+.cardHeader h3 svg { color: #934c5e; }
+.cardHeader p { margin-top: 3px; color: #85797e; font-size: 9px; }
+.cardHeader > a { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 11px; color: #934c5e; }
+.cardHeader > a:hover { background: #f4dce2; }
+.scoreGrid { display: grid; grid-template-columns: 1.35fr repeat(4, 1fr); gap: 8px; padding: 12px; }
+.overallScore, .skillScore { min-width: 0; min-height: 110px; display: flex; flex-direction: column; justify-content: space-between; padding: 13px; border: 1px solid #e3dcde; border-radius: 14px; }
+.overallScore { color: #fff; border-color: #934c5e; background: #934c5e; }
+.overallScore span, .skillScore span { font-size: 9px; font-weight: 750; }
+.overallScore strong, .skillScore strong { font-size: 25px; font-weight: 620; letter-spacing: -.045em; }
+.overallScore small { color: #f4dce2; }
+.skillScore { background: #fff; }
+.skillScore span { color: #5e5357; }
+.skillScore small { color: #91858a; }
+.overallScore small, .skillScore small { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.examStatus { padding: 4px 7px; border-radius: 999px; color: #7a3d4c; background: #f4dce2; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.examGrid { min-height: 134px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 8px; padding: 12px; }
+.examGrid > div { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; border: 1px solid #e3dcde; border-radius: 14px; background: #fff; }
+.examGrid span { color: #74696d; font-size: 9px; }
+.examGrid strong { margin: 11px 0; font-size: 19px; letter-spacing: -.03em; }
+.examGrid small { color: #92868a; font-size: 8px; line-height: 1.45; }
+.legend { display: inline-flex; align-items: center; gap: 7px; color: #74696d; font-size: 9px; white-space: nowrap; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; background: #934c5e; }
+.calendar { padding: 16px; }
+.monthLabel { margin-bottom: 11px; font-size: 12px; font-weight: 800; }
+.weekdays, .calendarGrid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.weekdays { margin-bottom: 5px; color: #a09498; font-size: 8px; text-align: center; }
+.calendarGrid { overflow: hidden; border: 1px solid #eee8ea; border-radius: 14px; }
+.day { position: relative; min-height: 42px; display: grid; place-items: center; border-right: 1px solid #eee8ea; border-bottom: 1px solid #eee8ea; color: #4e4448; font-size: 9px; background: #fff; }
+.day:nth-child(7n) { border-right: 0; }
+.day:nth-last-child(-n+7) { border-bottom: 0; }
+.day[data-outside="true"] { color: #c9c0c3; background: #faf8f7; }
+.day[data-level="1"] { color: #663442; background: #f7e5e9; }
+.day[data-level="2"] { color: #fff; background: #c8768a; }
+.day[data-level="3"] { color: #fff; background: #874354; }
+.day[data-today="true"] { box-shadow: inset 0 0 0 2px #2b2326; font-weight: 800; }
+.day i { position: absolute; right: 5px; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.weekTotal { flex: 0 0 auto; color: #934c5e; font-size: 16px; letter-spacing: -.03em; }
+.tableWrap { overflow-x: auto; }
+.weekTable { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 9px; }
+.weekTable th, .weekTable td { height: 41px; padding: 7px 10px; border-right: 1px solid #ebe5e7; border-bottom: 1px solid #ebe5e7; text-align: center; }
+.weekTable th:first-child { text-align: left; }
+.weekTable tr > *:last-child { border-right: 0; }
+.weekTable thead { color: #6b6064; background: #f2edef; text-transform: uppercase; }
+.weekTable tbody th { color: #5c5155; font-weight: 650; }
+.weekTable tbody td { color: #74696d; }
+.weekTable tbody tr[data-today="true"] { background: #fff5f7; }
+.weekTable tfoot { color: #30282b; background: #faf7f6; font-weight: 800; }
+.weekTable tfoot th, .weekTable tfoot td { border-bottom: 0; }
+
+@media (max-width: 1050px) {
+  .topGrid, .insightGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .sectionTitle { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .sectionTitle > a { min-height: 36px; }
+  .scoreGrid { grid-template-columns: repeat(2, 1fr); }
+  .overallScore { grid-column: 1 / -1; min-height: 100px; }
+  .skillScore { min-height: 92px; }
+  .examGrid { grid-template-columns: 1fr; }
+  .day { min-height: 38px; }
+}
+
+@media (max-width: 390px) {
+  .cardHeader { align-items: flex-start; }
+  .scoreGrid { grid-template-columns: 1fr 1fr; }
+}

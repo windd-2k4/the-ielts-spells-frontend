@@ -45,6 +45,7 @@ export function StudentRegisterForm() {
       return;
     }
     if (result.status === "confirmation") {
+      window.sessionStorage.setItem("student.pendingConfirmationEmail", email.trim());
       router.replace("/student/login?registered=true");
       return;
     }

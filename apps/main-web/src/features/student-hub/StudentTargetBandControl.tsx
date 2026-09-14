@@ -28,7 +28,7 @@ export function StudentTargetBandControl({ compact = false }: StudentTargetBandC
 
   async function handleSave() {
     const parsed = Number(selected);
-    if (!Number.isFinite(parsed)) {
+    if (!selected || !Number.isFinite(parsed) || !options.includes(parsed)) {
       setNotice({ kind: "error", text: "Vui lòng chọn Band mục tiêu." });
       return;
     }
@@ -42,55 +42,56 @@ export function StudentTargetBandControl({ compact = false }: StudentTargetBandC
   }
 
   return (
-    <div className={compact ? "space-y-2" : "rounded-[22px] border border-[#E8E2D5] bg-white p-5 shadow-[0_10px_30px_rgba(69,44,51,0.05)]"}>
+    <div className={compact ? "space-y-2" : "rounded-xl border border-[#E8E2D5] bg-white p-4 shadow-2xs space-y-3"}>
       {!compact && (
-        <div className="mb-4 flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F7E5EA] text-[#894C5B]">
-            <Target size={21} weight="duotone" />
+        <div className="flex items-start gap-2.5">
+          <span className="p-1.5 rounded-lg bg-[#F7E5EA] text-[#894C5B]">
+            <Target size={18} weight="bold" />
           </span>
           <div>
-            <h2 className="font-bold text-[#292528]">Band mục tiêu của bạn</h2>
-            <p className="mt-0.5 text-xs leading-5 text-[#6F676C]">
-              Mục tiêu này dùng để sắp xếp lộ trình và khóa học phù hợp.
+            <h3 className="text-sm font-bold text-[#1E1B18] font-sans">Band mục tiêu mong muốn</h3>
+            <p className="text-[11px] text-[#6F676C] leading-snug">
+              Thiết lập Band mục tiêu để hệ thống cập nhật danh sách khóa học và lộ trình phù hợp.
             </p>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <label className="sr-only" htmlFor={compact ? "dashboard-target-band" : "profile-target-band"}>
+      <div className="grid gap-2 pt-3">
+        <label className="text-xs font-medium text-[#5C5752]" htmlFor={compact ? "dashboard-target-band" : "profile-target-band"}>
           Band IELTS mong muốn
         </label>
         <select
           id={compact ? "dashboard-target-band" : "profile-target-band"}
           value={selected}
+          disabled={saving}
           onChange={(event) => {
             setSelected(event.target.value);
             setNotice(null);
           }}
-          className="min-h-11 flex-1 rounded-xl border border-[#DED7DA] bg-[#FFFCF8] px-3 text-sm font-semibold text-[#292528] outline-none transition focus:border-[#C85F78] focus:ring-4 focus:ring-[#F7E5EA]"
+          className="h-11 min-w-0 rounded-lg border border-[#E8E2D5] bg-white px-3 text-sm text-[#1E1B18] transition focus:border-[#894C5B]"
         >
-          <option value="">Chọn Band mục tiêu</option>
-          {options.map((value) => <option key={value} value={value.toFixed(1)}>IELTS {value.toFixed(1)}</option>)}
+          <option value="">Chọn band mục tiêu</option>
+          {options.map((value) => <option key={value} value={value.toFixed(1)}>IELTS Band {value.toFixed(1)}</option>)}
         </select>
         <button
           type="button"
           disabled={saving || !selected || selected === targetBand?.toFixed(1)}
           onClick={() => void handleSave()}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#894C5B] px-4 text-sm font-bold text-white transition hover:-translate-y-px hover:bg-[#753E4B] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E8CFD5] bg-white px-3.5 text-sm font-semibold text-[#894C5B] transition hover:bg-[#F7E5EA] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? <SpinnerGap size={18} className="animate-spin" /> : <FloppyDisk size={18} weight="bold" />}
-          <span>{saving ? "Đang lưu" : "Lưu mục tiêu"}</span>
+          {saving ? <SpinnerGap size={15} className="animate-spin" /> : <FloppyDisk size={15} weight="bold" />}
+          <span>{saving ? "Lưu..." : "Lưu mục tiêu"}</span>
         </button>
       </div>
 
       {notice && (
         <p
-          className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${notice.kind === "success" ? "text-[#247052]" : "text-[#B42335]"}`}
+          className={`flex items-center gap-1 text-[11px] font-semibold ${notice.kind === "success" ? "text-[#137333]" : "text-[#B42335]"}`}
           role="status"
           aria-live="polite"
         >
-          {notice.kind === "success" ? <CheckCircle size={15} weight="fill" /> : <WarningCircle size={15} weight="fill" />}
+          {notice.kind === "success" ? <CheckCircle size={14} weight="fill" /> : <WarningCircle size={14} weight="fill" />}
           {notice.text}
         </p>
       )}

@@ -42,6 +42,9 @@ export interface StudentPortalEnrollment {
   totalSessions: number;
   primaryTeacherName: string | null;
   nextSessionAt: string | null;
+  plannedExamMonth: string | null;
+  actualExamDate: string | null;
+  examRegistrationStatus: "NOT_REGISTERED" | "REGISTERED" | "ISSUE";
 }
 
 export interface StudentPortalSession {
@@ -73,6 +76,15 @@ export interface StudentPortalAttempt {
   totalQuestions: number;
 }
 
+export interface StudentPortalDailyActivity {
+  activityDate: string;
+  reading: number;
+  listening: number;
+  writing: number;
+  speaking: number;
+  totalAttempts: number;
+}
+
 export interface StudentCourseRecommendation {
   courseId: string;
   code: string;
@@ -92,6 +104,7 @@ export interface StudentPortalOverview {
   enrollments: StudentPortalEnrollment[];
   upcomingSessions: StudentPortalSession[];
   recentAttempts: StudentPortalAttempt[];
+  activityCalendar: StudentPortalDailyActivity[];
   readingAssignments: StudentReadingAssignment[];
   recommendedCourses: StudentCourseRecommendation[];
   aiStatus: "DEVELOPMENT" | "AVAILABLE";

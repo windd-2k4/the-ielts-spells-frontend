@@ -19,6 +19,7 @@ type StudentSessionContextValue = {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<string | undefined>;
   signUp: (fullName: string, email: string, password: string) => Promise<SignUpResult>;
+  resendSignupConfirmation: (email: string) => Promise<string | undefined>;
   signInWithOAuth: (provider: OAuthProvider, next?: string) => Promise<string | undefined>;
   completeOnboarding: (fullName?: string) => Promise<string | undefined>;
   signOut: () => Promise<void>;
@@ -36,6 +37,9 @@ function authErrorMessage(message: string) {
   }
   if (normalized.includes("rate limit") || normalized.includes("too many")) {
     return "Bạn đã thử quá nhiều lần. Vui lòng chờ một chút rồi thử lại.";
+  }
+  if (normalized.includes("email address not authorized")) {
+    return "Hệ thống gửi email chưa được cấu hình cho địa chỉ này. Vui lòng liên hệ trung tâm.";
   }
   if (normalized.includes("already registered") || normalized.includes("already exists")) {
     return "Email này đã được sử dụng. Bạn có thể chuyển sang đăng nhập.";
@@ -148,6 +152,18 @@ export function StudentSessionProvider({ children }: { children: ReactNode }) {
           return { error: onboardingError };
         }
         return { status: "signed-in" };
+      },
+      resendSignupConfirmation: async (email) => {
+        if (!isSupabaseConfigured) {
+          return "Chưa cấu hình kết nối đăng ký cho ứng dụng.";
+        }
+        const callbackUrl = `${window.location.origin}/student/auth/callback`;
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo: callbackUrl },
+        });
+        return error ? authErrorMessage(error.message) : undefined;
       },
       signInWithOAuth: async (provider, next) => {
         if (!isSupabaseConfigured) {

@@ -1,30 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { StudentSidebar } from "./StudentSidebar";
 import { StudentTopbar } from "./StudentTopbar";
 import { StudentMobileNav } from "./StudentMobileNav";
+import styles from "./StudentHubLayout.module.css";
 
 export function StudentHubLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#F7F5F4] text-[#292528] flex font-sans antialiased">
-      {/* Desktop Sidebar */}
-      <StudentSidebar />
-
-      {/* Main Content Workspace */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Topbar Navigation */}
+    <div className={styles.shell}>
+      <a className={styles.skip} href="#student-main-content">Đến nội dung học tập</a>
+      <div className={styles.workspace}>
         <StudentTopbar onToggleMobileMenu={() => setMobileMenuOpen(true)} />
 
-        {/* Page Content Container */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1480px] w-full mx-auto pb-20 lg:pb-10">
+        <main id="student-main-content" tabIndex={-1} className={styles.main}>
           {children}
         </main>
       </div>
 
-      {/* Mobile Drawer & Bottom Navigation */}
       <StudentMobileNav
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
