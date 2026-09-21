@@ -30,6 +30,7 @@ export function StudentCourses3DHero({
   onExploreClick,
 }: StudentCourses3DHeroProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const stickyRef = useRef<HTMLDivElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isAutoOpening, setIsAutoOpening] = useState(false);
 
@@ -42,9 +43,14 @@ export function StudentCourses3DHero({
     const handleScroll = () => {
       if (!trackRef.current) return;
       const rect = trackRef.current.getBoundingClientRect();
-      const maxScroll = rect.height - window.innerHeight;
-      if (maxScroll <= 0) return;
-      const raw = -rect.top / maxScroll;
+      const isMobile = window.innerWidth <= 767;
+      const isTablet = window.innerWidth <= 1199;
+      const stickyOffset = isMobile ? 76 : isTablet ? 88 : 96;
+      const stickyHeight = stickyRef.current?.offsetHeight ?? (window.innerHeight * 0.72);
+      const pinDistance = rect.height - stickyHeight;
+      if (pinDistance <= 0) return;
+      const scrolledInside = stickyOffset - rect.top;
+      const raw = scrolledInside / pinDistance;
       targetProgress = Math.max(0, Math.min(1, raw));
     };
 
@@ -57,11 +63,13 @@ export function StudentCourses3DHero({
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
     handleScroll();
     loop();
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
       cancelAnimationFrame(animFrameId);
     };
   }, []);
@@ -83,8 +91,13 @@ export function StudentCourses3DHero({
     setIsAutoOpening(true);
     if (trackRef.current) {
       const rect = trackRef.current.getBoundingClientRect();
-      const targetY = window.scrollY + rect.top + rect.height * 0.72;
-      window.scrollTo({ top: targetY, behavior: "smooth" });
+      const isMobile = window.innerWidth <= 767;
+      const isTablet = window.innerWidth <= 1199;
+      const stickyOffset = isMobile ? 76 : isTablet ? 88 : 96;
+      const stickyHeight = stickyRef.current?.offsetHeight ?? (window.innerHeight * 0.72);
+      const pinDistance = rect.height - stickyHeight;
+      const targetY = window.scrollY + (rect.top - stickyOffset) + pinDistance * 0.72;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
       setTimeout(() => {
         setIsAutoOpening(false);
       }, 1200);
@@ -114,7 +127,7 @@ export function StudentCourses3DHero({
 
   return (
     <div ref={trackRef} className={styles.heroTrack}>
-      <div className={styles.heroSticky}>
+      <div ref={stickyRef} className={styles.heroSticky}>
         {/* Ambient Glows */}
         <div className={styles.ambientGlow} />
 

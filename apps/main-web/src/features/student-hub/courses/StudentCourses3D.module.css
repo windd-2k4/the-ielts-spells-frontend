@@ -7,32 +7,36 @@
 
 .heroTrack {
   position: relative;
-  height: 220vh;
-  margin: -30px -34px 44px;
-  background: #1c1419;
-  border-radius: 24px 24px 0 0;
-  overflow: clip;
+  height: 190vh;
+  margin: 10px 0 48px;
+  pointer-events: none;
 }
 
 @media (max-width: 1199px) {
   .heroTrack {
-    margin: -26px -24px 38px;
-    height: 200vh;
+    margin: 8px 0 40px;
+    height: 180vh;
   }
 }
 
 @media (max-width: 767px) {
   .heroTrack {
-    margin: -18px -16px 30px;
-    height: 170vh;
+    margin: 6px 0 32px;
+    height: 160vh;
   }
 }
 
 .heroSticky {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: 96px;
+  height: min(calc(100vh - 124px), 740px);
+  min-height: 520px;
   width: 100%;
+  border-radius: 28px;
+  border: 1px solid rgba(244, 196, 48, 0.22);
+  box-shadow:
+    0 24px 64px rgba(15, 10, 13, 0.28),
+    0 4px 16px rgba(137, 76, 91, 0.12);
   overflow: hidden;
   perspective: 1300px;
   perspective-origin: 50% 50%;
@@ -40,21 +44,38 @@
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 50% 30%, rgba(137, 76, 91, 0.32) 0%, transparent 50%),
+    radial-gradient(circle at 50% 28%, rgba(137, 76, 91, 0.36) 0%, transparent 52%),
     radial-gradient(circle at 82% 70%, rgba(244, 196, 48, 0.14) 0%, transparent 40%),
     radial-gradient(circle at 18% 78%, rgba(104, 48, 61, 0.28) 0%, transparent 45%),
     linear-gradient(180deg, #241a20 0%, #1c1419 65%, #150e13 100%);
   user-select: none;
+  pointer-events: auto;
 }
 
-/* Seamless blend into the #f7f5f1 workspace canvas at the bottom of the hero */
+@media (max-width: 1199px) {
+  .heroSticky {
+    top: 88px;
+    height: min(calc(100vh - 110px), 680px);
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 767px) {
+  .heroSticky {
+    top: 76px;
+    height: min(calc(100vh - 96px), 620px);
+    border-radius: 20px;
+  }
+}
+
+/* Subtle dark atmosphere vignette at the bottom of the card */
 .bottomFade {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 90px;
-  background: linear-gradient(to bottom, transparent 0%, rgba(247, 245, 241, 0.8) 75%, #f7f5f1 100%);
+  height: 50px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(15, 10, 13, 0.5) 100%);
   pointer-events: none;
   z-index: 25;
 }
