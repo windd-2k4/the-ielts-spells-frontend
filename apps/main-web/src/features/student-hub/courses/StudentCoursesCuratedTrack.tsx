@@ -74,7 +74,31 @@ export function StudentCoursesCuratedTrack({
     el.scrollBy({ left: amount, behavior: "smooth" });
   };
 
-  if (courses.length === 0) return null;
+  if (courses.length === 0) {
+    return (
+      <section className="mb-14 space-y-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7E5EA] border border-[#EAC2CD] text-[#894C5B] text-xs font-bold uppercase tracking-wider mb-2">
+            <Sparkle size={13} weight="fill" className="text-[#894C5B]" />
+            <span>Lộ Trình Gợi Ý</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#292528] tracking-tight font-serif">
+            Khóa Học Nổi Bật Trong Hệ Thống
+          </h2>
+        </div>
+
+        <div className="rounded-3xl border border-dashed border-[#E8E2D5] bg-white p-8 text-center space-y-2">
+          <Sparkle size={26} className="mx-auto text-[#894C5B]" weight="fill" />
+          <h3 className="text-sm sm:text-base font-bold text-[#292528]">
+            Bạn đã ghi danh tất cả các khóa học hiện có trong hệ thống
+          </h3>
+          <p className="text-xs text-[#6F676C] max-w-md mx-auto">
+            Không còn khóa học mới nào bạn chưa tham gia. Hãy tập trung học thật tốt và theo dõi tiến độ ở phần Khóa học của tôi bên trên nhé!
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-14 space-y-6">
@@ -83,13 +107,13 @@ export function StudentCoursesCuratedTrack({
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7E5EA] border border-[#EAC2CD] text-[#894C5B] text-xs font-bold uppercase tracking-wider mb-2">
             <Sparkle size={13} weight="fill" className="text-[#894C5B]" />
-            <span>Lộ Trình Nổi Bật</span>
+            <span>Lộ Trình Gợi Ý</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-[#292528] tracking-tight font-serif">
             Khóa Học Nổi Bật Trong Hệ Thống
           </h2>
           <p className="mt-1 text-sm text-[#6F676C]">
-            Các chương trình được xây dựng theo chuẩn khảo thí quốc tế, cập nhật trực tiếp từ cơ sở dữ liệu.
+            Khám phá các khóa học gợi ý phù hợp để tiếp tục bứt phá mục tiêu (chỉ hiển thị khóa học bạn chưa tham gia).
           </p>
         </div>
 
