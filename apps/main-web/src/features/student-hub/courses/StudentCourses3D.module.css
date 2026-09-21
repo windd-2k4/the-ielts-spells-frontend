@@ -1,0 +1,397 @@
+/* ========================================================
+   THE IELTS SPELLS - 3D GRIMOIRE OF MASTERY (HERO STYLES)
+   Color theme: Brand Deep Plum (#211b1d, #241a20) &
+   Royal Maroon (#894C5B) with Warm Gold (#F4C430)
+   Harmonious transition to workspace (#f7f5f1)
+   ======================================================== */
+
+.heroTrack {
+  position: relative;
+  height: 220vh;
+  margin: -30px -34px 44px;
+  background: #1c1419;
+  border-radius: 24px 24px 0 0;
+  overflow: clip;
+}
+
+@media (max-width: 1199px) {
+  .heroTrack {
+    margin: -26px -24px 38px;
+    height: 200vh;
+  }
+}
+
+@media (max-width: 767px) {
+  .heroTrack {
+    margin: -18px -16px 30px;
+    height: 170vh;
+  }
+}
+
+.heroSticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  perspective: 1300px;
+  perspective-origin: 50% 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(137, 76, 91, 0.32) 0%, transparent 50%),
+    radial-gradient(circle at 82% 70%, rgba(244, 196, 48, 0.14) 0%, transparent 40%),
+    radial-gradient(circle at 18% 78%, rgba(104, 48, 61, 0.28) 0%, transparent 45%),
+    linear-gradient(180deg, #241a20 0%, #1c1419 65%, #150e13 100%);
+  user-select: none;
+}
+
+/* Seamless blend into the #f7f5f1 workspace canvas at the bottom of the hero */
+.bottomFade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(247, 245, 241, 0.8) 75%, #f7f5f1 100%);
+  pointer-events: none;
+  z-index: 25;
+}
+
+/* Background Atmosphere Stars & Embers */
+.ambientGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 20%, rgba(244, 196, 48, 0.65) 100%, transparent),
+    radial-gradient(1.5px 1.5px at 85% 25%, rgba(255, 255, 255, 0.7) 100%, transparent),
+    radial-gradient(1.5px 1.5px at 45% 15%, rgba(244, 196, 48, 0.45) 100%, transparent),
+    radial-gradient(2px 2px at 70% 80%, rgba(200, 95, 120, 0.5) 100%, transparent),
+    radial-gradient(2px 2px at 25% 75%, rgba(244, 196, 48, 0.5) 100%, transparent),
+    radial-gradient(1.5px 1.5px at 60% 65%, rgba(255, 255, 255, 0.6) 100%, transparent);
+  background-size: 300px 300px;
+  opacity: 0.85;
+}
+
+/* Ambient Floating Dust */
+.particleLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FDE047 0%, rgba(244, 196, 48, 0) 70%);
+  opacity: 0.55;
+  animation: floatParticle ease-in-out infinite;
+}
+
+@keyframes floatParticle {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-24px) translateX(12px);
+    opacity: 0.8;
+  }
+}
+
+/* 3D SCENE CONTAINER */
+.scene3D {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  height: 580px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* THE 3D BOOK STAGE */
+.bookStage {
+  position: relative;
+  width: 320px;
+  height: 440px;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease-out;
+  cursor: pointer;
+  z-index: 10;
+}
+
+@media (max-width: 640px) {
+  .bookStage {
+    width: 250px;
+    height: 350px;
+  }
+}
+
+/* Spine */
+.bookSpine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  transform-origin: left center;
+  transform: rotateY(-90deg);
+  background: linear-gradient(180deg, #38161d 0%, #68303d 50%, #2f1218 100%);
+  border-radius: 4px 0 0 4px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
+  z-index: 4;
+}
+
+/* Back Cover (Bottom Layer) */
+.bookBackCover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #441822 0%, #68303d 50%, #301016 100%);
+  border-radius: 4px 14px 14px 4px;
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.65),
+    0 10px 25px rgba(137, 76, 91, 0.35);
+  transform: translateZ(-16px);
+  border: 1px solid rgba(244, 196, 48, 0.3);
+}
+
+/* Page Stack Edge (Right Thickness) */
+.pageStackEdge {
+  position: absolute;
+  right: -2px;
+  top: 8px;
+  bottom: 8px;
+  width: 24px;
+  background: repeating-linear-gradient(
+    90deg,
+    #fcfaf6 0px,
+    #f4ebd9 1.5px,
+    #e5d9c2 3px
+  );
+  transform-origin: right center;
+  transform: rotateY(90deg);
+  border-radius: 2px;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Stationary Right Page (Interior Base) */
+.rightPageInterior {
+  position: absolute;
+  inset: 8px 8px 8px 18px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(253, 245, 230, 1) 0%, rgba(244, 232, 210, 1) 100%);
+  border-radius: 0 10px 10px 0;
+  border: 1px solid #e1d2be;
+  box-shadow:
+    inset -8px 0 20px rgba(0, 0, 0, 0.08),
+    inset 8px 0 16px rgba(104, 48, 61, 0.12);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transform: translateZ(-2px);
+  color: #292528;
+}
+
+/* Fanning Page Leaves */
+.pageLeaf {
+  position: absolute;
+  left: 16px;
+  top: 8px;
+  bottom: 8px;
+  width: calc(100% - 24px);
+  background:
+    radial-gradient(circle at 30% 50%, #fdfbf7 0%, #f7eedc 100%);
+  border-radius: 0 10px 10px 0;
+  border: 1px solid #dfd1bd;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  box-shadow: 2px 4px 14px rgba(0, 0, 0, 0.1);
+  will-change: transform;
+}
+
+/* Crease Glow in Book Center */
+.creaseGlow {
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  background: linear-gradient(
+    90deg,
+    rgba(244, 196, 48, 0.45) 0%,
+    rgba(244, 196, 48, 0.12) 60%,
+    transparent 100%
+  );
+  filter: blur(4px);
+  pointer-events: none;
+  z-index: 12;
+}
+
+/* Front Cover (Opens on Scroll / Click) */
+.frontCover {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, #7b3848 0%, #5d2532 60%, #3d151e 100%);
+  border-radius: 4px 14px 14px 4px;
+  border: 1.5px solid rgba(244, 196, 48, 0.55);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  box-shadow:
+    4px 10px 35px rgba(0, 0, 0, 0.6),
+    inset 0 0 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 20px;
+  color: #ffffff;
+  will-change: transform;
+}
+
+/* Gold Corner Accents */
+.goldCornerTL {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-top: 2.5px solid #F4C430;
+  border-left: 2.5px solid #F4C430;
+}
+
+.goldCornerTR {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-top: 2.5px solid #F4C430;
+  border-right: 2.5px solid #F4C430;
+}
+
+.goldCornerBL {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-bottom: 2.5px solid #F4C430;
+  border-left: 2.5px solid #F4C430;
+}
+
+.goldCornerBR {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-bottom: 2.5px solid #F4C430;
+  border-right: 2.5px solid #F4C430;
+}
+
+/* Rotating Seal Crest */
+.sealCrest {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 2px solid #F4C430;
+  background: radial-gradient(circle, rgba(244, 196, 48, 0.25) 0%, rgba(104, 48, 61, 0.85) 75%);
+  box-shadow:
+    0 0 24px rgba(244, 196, 48, 0.45),
+    inset 0 0 14px rgba(244, 196, 48, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FDE047;
+  animation: slowSpin 35s linear infinite;
+}
+
+@keyframes slowSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* FLOATING SPELL CARDS (PARALLAX) */
+.floatingCardLeft {
+  position: absolute;
+  left: 4%;
+  top: 25%;
+  z-index: 5;
+  transition: transform 0.15s ease-out;
+  pointer-events: none;
+}
+
+.floatingCardRight {
+  position: absolute;
+  right: 4%;
+  top: 38%;
+  z-index: 5;
+  transition: transform 0.15s ease-out;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .floatingCardLeft,
+  .floatingCardRight {
+    display: none;
+  }
+}
+
+.spellCardPill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: rgba(36, 26, 32, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(244, 196, 48, 0.35);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+}
+
+/* HERO TEXT OVERLAYS */
+.heroOverlayTop {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 20;
+  pointer-events: auto;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  padding: 0 16px;
+}
+
+.heroOverlayBottom {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 20;
+  pointer-events: auto;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* GOLDEN BLOOM PORTAL (TRANSITION EFFECT ON FULL SCROLL) */
+.portalBloom {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(253, 224, 71, 0.35) 0%, rgba(244, 196, 48, 0.15) 45%, transparent 75%);
+  pointer-events: none;
+  z-index: 18;
+  mix-blend-mode: screen;
+}

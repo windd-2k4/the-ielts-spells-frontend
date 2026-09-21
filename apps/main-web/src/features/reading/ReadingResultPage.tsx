@@ -4,7 +4,7 @@ import type { ReadingAttemptResult, StudentReadingAttempt } from "@ielts/contrac
 import {
   ArrowLeft, CheckCircle, CircleNotch, Clock, ClockCountdown,
   FileText, ListChecks, Sparkle, Trophy, X, XCircle, ArrowRight, CaretDown,
-  MinusCircle, Lightbulb
+  MinusCircle, Lightbulb, MagnifyingGlass, MapPin
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -86,7 +86,7 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
   }
 
   if (error || !result) {
-    return <main className="grid min-h-dvh place-items-center bg-slate-50 px-4"><div className="w-full max-w-xl"><ReadingStatePanel title="Chưa thể xem kết quả" message={error || "Kết quả chưa sẵn sàng."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /><Link href={`/student/reading/attempts/${attemptId}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-[#8f4458] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]">Quay lại bài làm</Link></div></main>;
+    return <main className="grid min-h-dvh place-items-center bg-slate-50 px-4"><div className="w-full max-w-xl"><ReadingStatePanel title="Chưa thể xem kết quả" message={error || "Kết quả chưa sẵn sàng."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /><Link href="/student/reading" className="mt-4 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-[#8f4458] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]">Quay lại danh sách bài thi Reading</Link></div></main>;
   }
 
   const totalQuestions = result.correctCount + result.incorrectCount + result.unansweredCount;
@@ -304,14 +304,27 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
                     <QuestionStatusBadge correct={q.correct} answered={q.answered} score={q.score} maxScore={q.maxScore} />
                   </div>
 
-                  {q.correctAnswers.length > 0 && (
-                    <div className="mt-3 flex items-start gap-2 text-sm">
-                      <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
-                      <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                        {q.correctAnswers.join(", ")}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    {q.correctAnswers.length > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
+                        <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                          {q.correctAnswers.join(", ")}
+                        </span>
+                      </div>
+                    ) : <div />}
+
+                    {(Array.isArray(q.evidenceSpans) && q.evidenceSpans.length > 0) || q.evidenceSpan ? (
+                      <Link
+                        href={`/student/reading/attempts/${attemptId}/explanations#question-${q.questionKey}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50/80 px-2.5 py-1 text-xs font-bold text-orange-800 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        title="Di chuyển tới đoạn bằng chứng được highlight trong bài đọc"
+                      >
+                        <MagnifyingGlass size={13} weight="bold" />
+                        <span>Xem vị trí</span>
+                      </Link>
+                    ) : null}
+                  </div>
 
                   {q.explanation && (
                     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700">

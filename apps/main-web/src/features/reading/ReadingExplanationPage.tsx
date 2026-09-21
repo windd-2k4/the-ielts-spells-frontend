@@ -3,7 +3,7 @@
 import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup, ReadingQuestionResult, ReadingSection, StudentReadingAttempt } from "@ielts/contracts";
 import {
   ArrowDown, ArrowLeft, ArrowSquareOut, ChatCircleDots, Check, CheckCircle, CircleNotch, Eye, Highlighter,
-  Info, Lightbulb, ListBullets, MapPin, MinusCircle, Moon, Sparkle, Sun, TreeStructure, X, XCircle,
+  Info, Lightbulb, ListBullets, MagnifyingGlass, MapPin, MinusCircle, Moon, Sparkle, Sun, TreeStructure, X, XCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +24,13 @@ import {
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import styles from "./ReadingExplanationPage.module.css";
 
+function hasEvidenceForQuestion(qResult: ReadingQuestionResult | undefined): boolean {
+  if (!qResult) return false;
+  if (Array.isArray(qResult.evidenceSpans) && qResult.evidenceSpans.length > 0) return true;
+  if (qResult.evidenceSpan != null) return true;
+  return false;
+}
+
 type ColorTheme = "standard" | "sepia" | "dark";
 
 export function ReadingExplanationPage({ attemptId }: { attemptId: string }) {
@@ -38,6 +45,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof getReadingAttemptResult>> | null>(null);
   const [selectedKey, setSelectedKey] = useState("");
+  const [isExplanationOpen, setIsExplanationOpen] = useState(true);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [focusedEvidenceId, setFocusedEvidenceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +125,10 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
   const selectedMeta = selectedResult ? questionByKey.get(selectedResult.questionKey) : undefined;
   const activeSection = attempt?.sections[activeSectionIndex] ?? selectedMeta?.section ?? attempt?.sections[0];
   const selectedEvidenceSpans = evidenceSpansForResult(selectedResult);
+  const selectedStudentResp = selectedResult && attempt
+    ? attempt.responses.find((r) => r.questionKey === selectedResult.questionKey)
+    : undefined;
+  const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
 
   // Keep the selected question and every authored evidence reference in view without
   // recentering the whole page. The passage HTML is rebuilt before marks are applied,
@@ -133,7 +145,14 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
     const passagePane = passagePaneRef.current;
     const mark = focusedEvidence?.marks[0];
     if (mark && passagePane) {
-      window.setTimeout(() => scrollInsidePane(passagePane, mark), 50);
+      window.setTimeout(() => {
+        scrollInsidePane(passagePane, mark);
+        focusedEvidence?.marks.forEach((m) => {
+          m.classList.remove(styles.evidenceMarkPulse);
+          void m.offsetWidth;
+          m.classList.add(styles.evidenceMarkPulse);
+        });
+      }, 50);
     }
 
     if (selectedKey) {
@@ -162,6 +181,47 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
       }
     }
   }
+
+  const locateEvidence = useCallback((questionKey: string, evidenceId?: string) => {
+    setSelectedKey(questionKey);
+    setIsExplanationOpen(true);
+    if (evidenceId) {
+      setFocusedEvidenceId(evidenceId);
+    } else {
+      setFocusedEvidenceId(null);
+    }
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#question-${questionKey}`);
+    }
+
+    if (attempt) {
+      const secIdx = attempt.sections.findIndex((sec) =>
+        sec.questionGroups.some((grp) => grp.questions.some((q) => q.key === questionKey))
+      );
+      if (secIdx >= 0 && secIdx !== activeSectionIndex) {
+        setActiveSectionIndex(secIdx);
+      }
+    }
+
+    window.setTimeout(() => {
+      const root = passageRef.current;
+      const passagePane = passagePaneRef.current;
+      if (!root || !passagePane) return;
+
+      const marks = root.querySelectorAll<HTMLElement>("mark[data-evidence-mark='true']");
+      const targetMark = evidenceId
+        ? (root.querySelector<HTMLElement>(`mark[data-evidence-id='${evidenceId}']`) ?? marks[0])
+        : marks[0];
+      if (targetMark) {
+        scrollInsidePane(passagePane, targetMark);
+        marks.forEach((m) => {
+          m.classList.remove(styles.evidenceMarkPulse);
+          void m.offsetWidth;
+          m.classList.add(styles.evidenceMarkPulse);
+        });
+      }
+    }, 120);
+  }, [attempt, activeSectionIndex]);
 
   if (loading) {
     return (
@@ -321,10 +381,10 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
           </div>
         </article>
 
-        {/* Right Pane: compact question review with inline explanations */}
+        {/* Right Pane: clean IELTS review view with bottom explanation drawer */}
         <aside ref={answersPaneRef} className={styles.answersPane} aria-label="Danh sách câu hỏi và lời giải">
-          <div className={styles.paneInner}>
-            <div className={styles.answersInner}>
+          <div className={styles.questionsScrollArea}>
+            <div className={styles.questionsInner}>
               
               {/* Question Groups */}
               {activeSection?.questionGroups.map((group) => {
@@ -340,13 +400,6 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                   group.typeFormat === "FILL_IN_BLANK";
 
                 if (isTable) {
-                  const selectedQuestionInGroup = group.questions.find((q) => q.key === selectedKey);
-                  const selectedResultInGroup = selectedQuestionInGroup ? resultByKey.get(selectedQuestionInGroup.key) : undefined;
-                  const selectedStudentResp = selectedQuestionInGroup
-                    ? attempt.responses.find((r) => r.questionKey === selectedQuestionInGroup.key)
-                    : undefined;
-                  const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
-
                   return (
                     <section key={group.key} className={styles.questionGroup}>
                       <div className={styles.groupHeading}>
@@ -360,29 +413,15 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                         resultByKey={resultByKey}
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
+                        isExplanationOpen={isExplanationOpen}
                         onSelectQuestion={selectQuestion}
+                        onLocateEvidence={locateEvidence}
                       />
-
-                      {selectedQuestionInGroup && selectedResultInGroup ? (
-                        <QuestionExplanationPanel
-                          result={selectedResultInGroup}
-                          studentAnswerText={selectedStudentAnswerText}
-                          focusedEvidenceId={focusedEvidenceId}
-                          onFocusEvidence={setFocusedEvidenceId}
-                        />
-                      ) : null}
                     </section>
                   );
                 }
 
                 if (isFlowChart) {
-                  const selectedQuestionInGroup = group.questions.find((q) => q.key === selectedKey);
-                  const selectedResultInGroup = selectedQuestionInGroup ? resultByKey.get(selectedQuestionInGroup.key) : undefined;
-                  const selectedStudentResp = selectedQuestionInGroup
-                    ? attempt.responses.find((r) => r.questionKey === selectedQuestionInGroup.key)
-                    : undefined;
-                  const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
-
                   return (
                     <section key={group.key} className={styles.questionGroup}>
                       <div className={styles.groupHeading}>
@@ -396,29 +435,15 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                         resultByKey={resultByKey}
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
+                        isExplanationOpen={isExplanationOpen}
                         onSelectQuestion={selectQuestion}
+                        onLocateEvidence={locateEvidence}
                       />
-
-                      {selectedQuestionInGroup && selectedResultInGroup ? (
-                        <QuestionExplanationPanel
-                          result={selectedResultInGroup}
-                          studentAnswerText={selectedStudentAnswerText}
-                          focusedEvidenceId={focusedEvidenceId}
-                          onFocusEvidence={setFocusedEvidenceId}
-                        />
-                      ) : null}
                     </section>
                   );
                 }
 
                 if (isDiagram) {
-                  const selectedQuestionInGroup = group.questions.find((q) => q.key === selectedKey);
-                  const selectedResultInGroup = selectedQuestionInGroup ? resultByKey.get(selectedQuestionInGroup.key) : undefined;
-                  const selectedStudentResp = selectedQuestionInGroup
-                    ? attempt.responses.find((r) => r.questionKey === selectedQuestionInGroup.key)
-                    : undefined;
-                  const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
-
                   return (
                     <section key={group.key} className={styles.questionGroup}>
                       <div className={styles.groupHeading}>
@@ -432,17 +457,10 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                         resultByKey={resultByKey}
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
+                        isExplanationOpen={isExplanationOpen}
                         onSelectQuestion={selectQuestion}
+                        onLocateEvidence={locateEvidence}
                       />
-
-                      {selectedQuestionInGroup && selectedResultInGroup ? (
-                        <QuestionExplanationPanel
-                          result={selectedResultInGroup}
-                          studentAnswerText={selectedStudentAnswerText}
-                          focusedEvidenceId={focusedEvidenceId}
-                          onFocusEvidence={setFocusedEvidenceId}
-                        />
-                      ) : null}
                     </section>
                   );
                 }
@@ -464,25 +482,17 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                           const isSelected = question.key === selectedKey;
 
                           return (
-                            <Fragment key={question.key}>
-                              <ShortAnswerReviewCard
-                                question={question}
-                                group={group}
-                                qResult={qResult}
-                                studentAnswerText={studentAnswerText}
-                                isSelected={isSelected}
-                                onSelect={() => selectQuestion(question.key)}
-                              />
-
-                              {isSelected && qResult ? (
-                                <QuestionExplanationPanel
-                                  result={qResult}
-                                  studentAnswerText={studentAnswerText}
-                                  focusedEvidenceId={focusedEvidenceId}
-                                  onFocusEvidence={setFocusedEvidenceId}
-                                />
-                              ) : null}
-                            </Fragment>
+                            <ShortAnswerReviewCard
+                              key={question.key}
+                              question={question}
+                              group={group}
+                              qResult={qResult}
+                              studentAnswerText={studentAnswerText}
+                              isSelected={isSelected}
+                              isExplanationOpen={isExplanationOpen}
+                              onSelect={() => selectQuestion(question.key)}
+                              onLocateEvidence={locateEvidence}
+                            />
                           );
                         })}
                       </div>
@@ -491,13 +501,6 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                 }
 
                 if (isGapFill) {
-                  const selectedQuestionInGroup = group.questions.find((q) => q.key === selectedKey);
-                  const selectedResultInGroup = selectedQuestionInGroup ? resultByKey.get(selectedQuestionInGroup.key) : undefined;
-                  const selectedStudentResp = selectedQuestionInGroup
-                    ? attempt.responses.find((r) => r.questionKey === selectedQuestionInGroup.key)
-                    : undefined;
-                  const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
-
                   return (
                     <section key={group.key} className={styles.questionGroup}>
                       <div className={styles.groupHeading}>
@@ -522,17 +525,10 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                         resultByKey={resultByKey}
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
+                        isExplanationOpen={isExplanationOpen}
                         onSelectQuestion={selectQuestion}
+                        onLocateEvidence={locateEvidence}
                       />
-
-                      {selectedQuestionInGroup && selectedResultInGroup ? (
-                        <QuestionExplanationPanel
-                          result={selectedResultInGroup}
-                          studentAnswerText={selectedStudentAnswerText}
-                          focusedEvidenceId={focusedEvidenceId}
-                          onFocusEvidence={setFocusedEvidenceId}
-                        />
-                      ) : null}
                     </section>
                   );
                 }
@@ -564,25 +560,17 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                         const isSelected = question.key === selectedKey;
 
                         return (
-                          <Fragment key={question.key}>
-                            <QuestionReviewCard
-                              question={question}
-                              group={group}
-                              qResult={qResult}
-                              studentAnswerText={studentAnswerText}
-                              isSelected={isSelected}
-                              onSelect={() => selectQuestion(question.key)}
-                            />
-
-                            {isSelected && qResult ? (
-                              <QuestionExplanationPanel
-                                result={qResult}
-                                studentAnswerText={studentAnswerText}
-                                focusedEvidenceId={focusedEvidenceId}
-                                onFocusEvidence={setFocusedEvidenceId}
-                              />
-                            ) : null}
-                          </Fragment>
+                          <QuestionReviewCard
+                            key={question.key}
+                            question={question}
+                            group={group}
+                            qResult={qResult}
+                            studentAnswerText={studentAnswerText}
+                            isSelected={isSelected}
+                            isExplanationOpen={isExplanationOpen}
+                            onSelect={() => selectQuestion(question.key)}
+                            onLocateEvidence={locateEvidence}
+                          />
                         );
                       })}
                     </div>
@@ -591,6 +579,20 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
               })}
             </div>
           </div>
+
+          {/* Bottom Docked Explanation Drawer */}
+          {isExplanationOpen && selectedResult ? (
+            <div className={styles.bottomExplanationDrawer}>
+              <QuestionExplanationPanel
+                result={selectedResult}
+                studentAnswerText={selectedStudentAnswerText}
+                focusedEvidenceId={focusedEvidenceId}
+                onFocusEvidence={setFocusedEvidenceId}
+                onLocateEvidence={locateEvidence}
+                onClose={() => setIsExplanationOpen(false)}
+              />
+            </div>
+          ) : null}
         </aside>
       </main>
 
@@ -612,7 +614,10 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                 key={q.questionKey}
                 type="button"
                 className={`${styles.paletteBtn} ${btnClass}`}
-                onClick={() => selectQuestion(q.questionKey)}
+                onClick={() => {
+                  selectQuestion(q.questionKey);
+                  locateEvidence(q.questionKey);
+                }}
                 title={`Câu ${q.questionNo}: ${q.correct ? "Đúng" : q.answered ? "Sai" : "Chưa trả lời"}`}
               >
                 {q.questionNo}
@@ -636,14 +641,18 @@ function QuestionReviewCard({
   qResult,
   studentAnswerText,
   isSelected,
+  isExplanationOpen,
   onSelect,
+  onLocateEvidence,
 }: {
   question: ReadingQuestion;
   group: ReadingQuestionGroup;
   qResult: ReadingQuestionResult | undefined;
   studentAnswerText: string;
   isSelected: boolean;
+  isExplanationOpen?: boolean;
   onSelect: () => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
@@ -664,18 +673,6 @@ function QuestionReviewCard({
     group.typeFormat === "MULTIPLE_CHOICE" ||
     group.typeFormat === "MULTIPLE_ANSWERS";
 
-  const badgeClass = isCorrect
-    ? styles.badgeCorrect
-    : isIncorrect
-    ? styles.badgeIncorrect
-    : styles.badgeUnanswered;
-
-  const statusPillClass = isCorrect
-    ? styles.statusCorrect
-    : isIncorrect
-    ? styles.statusIncorrect
-    : styles.statusUnanswered;
-
   // 1 & 2: True/False/Not Given & Yes/No/Not Given
   if (isTFNG) {
     const tfngOptions =
@@ -689,32 +686,9 @@ function QuestionReviewCard({
         className={`${styles.questionCard} ${isSelected ? styles.questionCardActive : ""}`}
         onClick={onSelect}
       >
-        <div className={styles.questionTopline}>
-          <div className="flex items-start gap-2.5 flex-1 min-w-0">
-            <span className={styles.circleQuestionBadge}>{question.number}</span>
-            <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
-          </div>
-          <div className={styles.questionActions}>
-            <span className={`${styles.statusPill} ${statusPillClass}`}>
-              {isCorrect ? (
-                <><CheckCircle size={14} weight="fill" /> Đúng</>
-              ) : isIncorrect ? (
-                <><XCircle size={14} weight="fill" /> Sai</>
-              ) : (
-                <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
-              )}
-            </span>
-            <button
-              type="button"
-              className={`${styles.explanationButton} ${isSelected ? styles.explanationButtonActive : ""}`}
-              onClick={onSelect}
-              aria-expanded={isSelected}
-              aria-controls={`question-explanation-${question.key}`}
-            >
-              <ChatCircleDots size={16} weight={isSelected ? "fill" : "regular"} aria-hidden="true" />
-              <span>{isSelected ? "Đang xem" : "Xem giải thích"}</span>
-            </button>
-          </div>
+        <div className={styles.questionPromptRow}>
+          <span className={styles.circleQuestionBadge}>{question.number}</span>
+          <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
 
         <div className={styles.radioOptionsListReview}>
@@ -734,13 +708,30 @@ function QuestionReviewCard({
             return (
               <div key={opt} className={rowClass}>
                 <span className={`${styles.radioCircle} ${isStudentSelected ? styles.radioCircleChecked : ""}`} />
-                <span className="flex-1">{opt}</span>
+                <span className="flex-1 font-medium">{opt}</span>
                 {isStudentSelected && isOptionCorrect ? (
                   <Check size={16} className="text-emerald-600 font-bold" />
                 ) : isStudentSelected && !isOptionCorrect ? (
                   <X size={16} className="text-rose-600 font-bold" />
                 ) : isOptionCorrect && (isIncorrect || isUnanswered) ? (
                   <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Đáp án chuẩn</span>
+                ) : null}
+
+                {isOptionCorrect ? (
+                  <button
+                    type="button"
+                    className={`${styles.magnifierIconButton} ${
+                      isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLocateEvidence?.(question.key);
+                    }}
+                    title="Xem vị trí bằng chứng và lời giải"
+                    aria-label={`Xem giải thích câu ${question.number}`}
+                  >
+                    <MagnifyingGlass size={13} weight="bold" />
+                  </button>
                 ) : null}
               </div>
             );
@@ -752,38 +743,17 @@ function QuestionReviewCard({
 
   // 3: Multiple Choice
   if (isMC && options.length > 0) {
+    const isMultipleAnswers = group.typeFormat === "MULTIPLE_ANSWERS";
+
     return (
       <article
         id={`question-card-${question.key}`}
         className={`${styles.questionCard} ${isSelected ? styles.questionCardActive : ""}`}
         onClick={onSelect}
       >
-        <div className={styles.questionTopline}>
-          <div className="flex items-baseline gap-2 flex-1 min-w-0">
-            <strong className="text-base font-extrabold text-slate-900">{question.number}</strong>
-            <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
-          </div>
-          <div className={styles.questionActions}>
-            <span className={`${styles.statusPill} ${statusPillClass}`}>
-              {isCorrect ? (
-                <><CheckCircle size={14} weight="fill" /> Đúng</>
-              ) : isIncorrect ? (
-                <><XCircle size={14} weight="fill" /> Sai</>
-              ) : (
-                <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
-              )}
-            </span>
-            <button
-              type="button"
-              className={`${styles.explanationButton} ${isSelected ? styles.explanationButtonActive : ""}`}
-              onClick={onSelect}
-              aria-expanded={isSelected}
-              aria-controls={`question-explanation-${question.key}`}
-            >
-              <ChatCircleDots size={16} weight={isSelected ? "fill" : "regular"} aria-hidden="true" />
-              <span>{isSelected ? "Đang xem" : "Xem giải thích"}</span>
-            </button>
-          </div>
+        <div className={styles.questionPromptRow}>
+          <span className={styles.circleQuestionBadge}>{question.number}</span>
+          <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
 
         <div className={styles.radioOptionsListReview}>
@@ -804,8 +774,6 @@ function QuestionReviewCard({
               rowClass = `${styles.radioRowReview} ${styles.radioRowReviewIsCorrect}`;
             }
 
-            const isMultipleAnswers = group.typeFormat === "MULTIPLE_ANSWERS";
-
             return (
               <div key={option.key} className={rowClass}>
                 {isMultipleAnswers ? (
@@ -819,13 +787,30 @@ function QuestionReviewCard({
                 ) : (
                   <span className={`${styles.radioCircle} ${isStudentSelected ? styles.radioCircleChecked : ""}`} />
                 )}
-                <span className="flex-1">{optionLabel(option.code, option.text)}</span>
+                <span className="flex-1 font-medium">{optionLabel(option.code, option.text)}</span>
                 {isStudentSelected && isOptionCorrect ? (
                   <Check size={16} className="text-emerald-600 font-bold" />
                 ) : isStudentSelected && !isOptionCorrect ? (
                   <X size={16} className="text-rose-600 font-bold" />
                 ) : isOptionCorrect && (isIncorrect || isUnanswered) ? (
                   <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Đáp án chuẩn</span>
+                ) : null}
+
+                {isOptionCorrect ? (
+                  <button
+                    type="button"
+                    className={`${styles.magnifierIconButton} ${
+                      isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLocateEvidence?.(question.key);
+                    }}
+                    title="Xem vị trí bằng chứng và lời giải"
+                    aria-label={`Xem giải thích câu ${question.number}`}
+                  >
+                    <MagnifyingGlass size={13} weight="bold" />
+                  </button>
                 ) : null}
               </div>
             );
@@ -850,37 +835,13 @@ function QuestionReviewCard({
         className={`${styles.questionCard} ${isSelected ? styles.questionCardActive : ""}`}
         onClick={onSelect}
       >
-        <div className={styles.questionTopline}>
-          <span className={`${styles.questionBadge} ${badgeClass}`}>
-            {question.number}
-          </span>
-          <div className={styles.questionActions}>
-            <span className={`${styles.statusPill} ${statusPillClass}`}>
-              {isCorrect ? (
-                <><CheckCircle size={14} weight="fill" /> Đúng</>
-              ) : isIncorrect ? (
-                <><XCircle size={14} weight="fill" /> Sai</>
-              ) : (
-                <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
-              )}
-            </span>
-            <button
-              type="button"
-              className={`${styles.explanationButton} ${isSelected ? styles.explanationButtonActive : ""}`}
-              onClick={onSelect}
-              aria-expanded={isSelected}
-              aria-controls={`question-explanation-${question.key}`}
-            >
-              <ChatCircleDots size={16} weight={isSelected ? "fill" : "regular"} aria-hidden="true" />
-              <span>{isSelected ? "Đang xem" : "Xem giải thích"}</span>
-            </button>
-          </div>
+        <div className={styles.questionPromptRow}>
+          <span className={styles.circleQuestionBadge}>{question.number}</span>
+          <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
 
-        <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
-
         <div className={styles.matchingReviewRow}>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap flex-1">
             <span className="text-xs font-semibold text-slate-500">Học viên chọn:</span>
             <div className={`${styles.matchingSlotReview} ${
               isCorrect
@@ -898,14 +859,29 @@ function QuestionReviewCard({
               )}
               <span>{displayLabel || `[ Ô ${question.number} - Bỏ qua ]`}</span>
             </div>
+
+            {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
+              <div className={styles.matchingCorrectCallout}>
+                <span>💡 Đáp án chuẩn:</span>
+                <strong>{qResult.correctAnswers.join(", ")}</strong>
+              </div>
+            ) : null}
           </div>
 
-          {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
-            <div className={styles.matchingCorrectCallout}>
-              <span>💡 Đáp án chuẩn:</span>
-              <strong>{qResult.correctAnswers.join(", ")}</strong>
-            </div>
-          ) : null}
+          <button
+            type="button"
+            className={`${styles.magnifierIconButton} ${
+              isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLocateEvidence?.(question.key);
+            }}
+            title="Xem vị trí bằng chứng và lời giải"
+            aria-label={`Xem giải thích câu ${question.number}`}
+          >
+            <MagnifyingGlass size={13} weight="bold" />
+          </button>
         </div>
       </article>
     );
@@ -918,49 +894,41 @@ function QuestionReviewCard({
       className={`${styles.questionCard} ${isSelected ? styles.questionCardActive : ""}`}
       onClick={onSelect}
     >
-      <div className={styles.questionTopline}>
-        <span className={`${styles.questionBadge} ${badgeClass}`}>
-          {question.number}
-        </span>
-        <div className={styles.questionActions}>
-          <span className={`${styles.statusPill} ${statusPillClass}`}>
-            {isCorrect ? (
-              <><CheckCircle size={14} weight="fill" /> Đúng</>
-            ) : isIncorrect ? (
-              <><XCircle size={14} weight="fill" /> Sai</>
-            ) : (
-              <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
-            )}
-          </span>
-          <button
-            type="button"
-            className={`${styles.explanationButton} ${isSelected ? styles.explanationButtonActive : ""}`}
-            onClick={onSelect}
-            aria-expanded={isSelected}
-            aria-controls={`question-explanation-${question.key}`}
-          >
-            <ChatCircleDots size={16} weight={isSelected ? "fill" : "regular"} aria-hidden="true" />
-            <span>{isSelected ? "Đang xem" : "Xem giải thích"}</span>
-          </button>
-        </div>
+      <div className={styles.questionPromptRow}>
+        <span className={styles.circleQuestionBadge}>{question.number}</span>
+        <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
       </div>
 
-      <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
-
-      {/* Fill-in-blank / Short answer response display */}
-      <div className={styles.responseBox}>
-        <div className={`${styles.userAnswerRow} ${
-          isCorrect ? styles.userAnswerCorrect : isIncorrect ? styles.userAnswerIncorrect : styles.userAnswerUnanswered
-        }`}>
-          <span>Bạn trả lời:</span>
-          <strong>{studentAnswerText || "Bỏ qua (Chưa điền)"}</strong>
-        </div>
-        {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
-          <div className={styles.correctAnswerRow}>
-            <span>Đáp án chuẩn:</span>
-            <strong>{qResult.correctAnswers.join(", ")}</strong>
+      <div className={styles.responseBoxClean}>
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <div className={`${styles.userAnswerRow} ${
+            isCorrect ? styles.userAnswerCorrect : isIncorrect ? styles.userAnswerIncorrect : styles.userAnswerUnanswered
+          }`}>
+            <span>Bạn trả lời:</span>
+            <strong>{studentAnswerText || "Bỏ qua (Chưa điền)"}</strong>
           </div>
-        ) : null}
+          {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
+            <div className={styles.correctAnswerRow}>
+              <span>Đáp án chuẩn:</span>
+              <strong>{qResult.correctAnswers.join(", ")}</strong>
+            </div>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          className={`${styles.magnifierIconButton} ${
+            isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onLocateEvidence?.(question.key);
+          }}
+          title="Xem vị trí bằng chứng và lời giải"
+          aria-label={`Xem giải thích câu ${question.number}`}
+        >
+          <MagnifyingGlass size={13} weight="bold" />
+        </button>
       </div>
     </article>
   );
@@ -974,13 +942,17 @@ function GapInlineReviewSlot({
   qResult,
   studentAnswerText,
   isSelected,
+  isExplanationOpen,
   onSelect,
+  onLocateEvidence,
 }: {
   question: ReadingQuestion;
   qResult: ReadingQuestionResult | undefined;
   studentAnswerText: string;
   isSelected: boolean;
+  isExplanationOpen?: boolean;
   onSelect: () => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
@@ -1024,6 +996,22 @@ function GapInlineReviewSlot({
           <span>{qResult.correctAnswers.join(" / ")}</span>
         </span>
       ) : null}
+
+      <button
+        type="button"
+        className={`${styles.magnifierIconButton} ${
+          isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+        }`}
+        style={{ width: "22px", height: "22px", minWidth: "22px", margin: "0 2px" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onLocateEvidence?.(question.key);
+        }}
+        title="Xem vị trí bằng chứng và lời giải"
+        aria-label={`Xem giải thích câu ${question.number}`}
+      >
+        <MagnifyingGlass size={12} weight="bold" />
+      </button>
     </span>
   );
 }
@@ -1054,13 +1042,17 @@ function GapFillReviewCard({
   resultByKey,
   attemptResponses,
   selectedKey,
+  isExplanationOpen,
   onSelectQuestion,
+  onLocateEvidence,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
+  isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1134,7 +1126,9 @@ function GapFillReviewCard({
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
+                      isExplanationOpen={isExplanationOpen}
                       onSelect={() => onSelectQuestion(q.key)}
+                      onLocateEvidence={onLocateEvidence}
                     />
                   );
                 })}
@@ -1171,7 +1165,9 @@ function GapFillReviewCard({
                         qResult={slotResult}
                         studentAnswerText={slotAnswerText}
                         isSelected={selectedKey === q.key}
+                        isExplanationOpen={isExplanationOpen}
                         onSelect={() => onSelectQuestion(q.key)}
+                        onLocateEvidence={onLocateEvidence}
                       />
                     );
                   })}
@@ -1192,7 +1188,9 @@ function GapFillReviewCard({
                           qResult={qResult}
                           studentAnswerText={studentAnswerText}
                           isSelected={isSelected}
+                          isExplanationOpen={isExplanationOpen}
                           onSelect={() => onSelectQuestion(question.key)}
+                          onLocateEvidence={onLocateEvidence}
                         />
                       ) : null}
                     </Fragment>
@@ -1210,7 +1208,9 @@ function GapFillReviewCard({
                   qResult={qResult}
                   studentAnswerText={studentAnswerText}
                   isSelected={isSelected}
+                  isExplanationOpen={isExplanationOpen}
                   onSelect={() => onSelectQuestion(question.key)}
+                  onLocateEvidence={onLocateEvidence}
                 />
               </div>
             );
@@ -1229,13 +1229,17 @@ function TableReviewCard({
   resultByKey,
   attemptResponses,
   selectedKey,
+  isExplanationOpen,
   onSelectQuestion,
+  onLocateEvidence,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
+  isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1312,7 +1316,9 @@ function TableReviewCard({
                             qResult={qResult}
                             studentAnswerText={studentAnswerText}
                             isSelected={isSelected}
+                            isExplanationOpen={isExplanationOpen}
                             onSelect={() => onSelectQuestion(q.key)}
+                            onLocateEvidence={onLocateEvidence}
                           />
                         );
                       })}
@@ -1352,7 +1358,9 @@ function TableReviewCard({
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
+                      isExplanationOpen={isExplanationOpen}
                       onSelect={() => onSelectQuestion(question.key)}
+                      onLocateEvidence={onLocateEvidence}
                     />
                   </td>
                 </tr>
@@ -1373,13 +1381,17 @@ function FlowChartReviewCard({
   resultByKey,
   attemptResponses,
   selectedKey,
+  isExplanationOpen,
   onSelectQuestion,
+  onLocateEvidence,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
+  isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1450,7 +1462,9 @@ function FlowChartReviewCard({
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
+                      isExplanationOpen={isExplanationOpen}
                       onSelect={() => onSelectQuestion(q.key)}
+                      onLocateEvidence={onLocateEvidence}
                     />
                   );
                 })
@@ -1468,7 +1482,9 @@ function FlowChartReviewCard({
                         qResult={qResult}
                         studentAnswerText={studentAnswerText}
                         isSelected={isSelected}
+                        isExplanationOpen={isExplanationOpen}
                         onSelect={() => onSelectQuestion(step.question!.key)}
+                        onLocateEvidence={onLocateEvidence}
                       />
                     );
                   })()}
@@ -1498,13 +1514,17 @@ function DiagramReviewCard({
   resultByKey,
   attemptResponses,
   selectedKey,
+  isExplanationOpen,
   onSelectQuestion,
+  onLocateEvidence,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
+  isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const imageUrl =
     typeof group.answerConfig?.imageUrl === "string"
@@ -1550,7 +1570,9 @@ function DiagramReviewCard({
                 qResult={qResult}
                 studentAnswerText={studentAnswerText}
                 isSelected={isSelected}
+                isExplanationOpen={isExplanationOpen}
                 onSelect={() => onSelectQuestion(question.key)}
+                onLocateEvidence={onLocateEvidence}
               />
             </div>
           );
@@ -1569,24 +1591,22 @@ function ShortAnswerReviewCard({
   qResult,
   studentAnswerText,
   isSelected,
+  isExplanationOpen,
   onSelect,
+  onLocateEvidence,
 }: {
   question: ReadingQuestion;
   group: ReadingQuestionGroup;
   qResult: ReadingQuestionResult | undefined;
   studentAnswerText: string;
   isSelected: boolean;
+  isExplanationOpen?: boolean;
   onSelect: () => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
 }) {
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
-
-  const statusPillClass = isCorrect
-    ? styles.statusCorrect
-    : isIncorrect
-    ? styles.statusIncorrect
-    : styles.statusUnanswered;
 
   return (
     <article
@@ -1594,53 +1614,47 @@ function ShortAnswerReviewCard({
       className={`${styles.questionCard} ${isSelected ? styles.questionCardActive : ""}`}
       onClick={onSelect}
     >
-      <div className={styles.questionTopline}>
-        <div className="flex items-baseline gap-2 flex-1 min-w-0">
-          <strong className="text-base font-extrabold text-slate-900">{question.number}</strong>
-          <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
-        </div>
-        <div className={styles.questionActions}>
-          <span className={`${styles.statusPill} ${statusPillClass}`}>
-            {isCorrect ? (
-              <><CheckCircle size={14} weight="fill" /> Đúng</>
-            ) : isIncorrect ? (
-              <><XCircle size={14} weight="fill" /> Sai</>
-            ) : (
-              <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
-            )}
-          </span>
-          <button
-            type="button"
-            className={`${styles.explanationButton} ${isSelected ? styles.explanationButtonActive : ""}`}
-            onClick={onSelect}
-            aria-expanded={isSelected}
-            aria-controls={`question-explanation-${question.key}`}
-          >
-            <ChatCircleDots size={16} weight={isSelected ? "fill" : "regular"} aria-hidden="true" />
-            <span>{isSelected ? "Đang xem" : "Xem giải thích"}</span>
-          </button>
-        </div>
+      <div className={styles.questionPromptRow}>
+        <span className={styles.circleQuestionBadge}>{question.number}</span>
+        <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
       </div>
 
-      <div className={styles.responseBox}>
-        <div
-          className={`${styles.userAnswerRow} ${
-            isCorrect
-              ? styles.userAnswerCorrect
-              : isIncorrect
-              ? styles.userAnswerIncorrect
-              : styles.userAnswerUnanswered
-          }`}
-        >
-          <span>Bạn trả lời:</span>
-          <strong>{studentAnswerText || "Bỏ qua (Chưa điền)"}</strong>
-        </div>
-        {(isIncorrect || isUnanswered) && qResult?.correctAnswers?.length ? (
-          <div className={styles.correctAnswerRow}>
-            <span>Đáp án chuẩn:</span>
-            <strong>{qResult.correctAnswers.join(" / ")}</strong>
+      <div className={styles.responseBoxClean}>
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <div
+            className={`${styles.userAnswerRow} ${
+              isCorrect
+                ? styles.userAnswerCorrect
+                : isIncorrect
+                ? styles.userAnswerIncorrect
+                : styles.userAnswerUnanswered
+            }`}
+          >
+            <span>Bạn trả lời:</span>
+            <strong>{studentAnswerText || "Bỏ qua (Chưa điền)"}</strong>
           </div>
-        ) : null}
+          {(isIncorrect || isUnanswered) && qResult?.correctAnswers?.length ? (
+            <div className={styles.correctAnswerRow}>
+              <span>Đáp án chuẩn:</span>
+              <strong>{qResult.correctAnswers.join(" / ")}</strong>
+            </div>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          className={`${styles.magnifierIconButton} ${
+            isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onLocateEvidence?.(question.key);
+          }}
+          title="Xem vị trí bằng chứng và lời giải"
+          aria-label={`Xem giải thích câu ${question.number}`}
+        >
+          <MagnifyingGlass size={13} weight="bold" />
+        </button>
       </div>
     </article>
   );
@@ -1651,11 +1665,15 @@ function QuestionExplanationPanel({
   studentAnswerText,
   focusedEvidenceId,
   onFocusEvidence,
+  onLocateEvidence,
+  onClose,
 }: {
   result: ReadingQuestionResult;
   studentAnswerText: string;
   focusedEvidenceId: string | null;
   onFocusEvidence: (evidenceId: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onClose?: () => void;
 }) {
   const solution = result.solution ?? null;
   const explanation = solution?.explanation ?? result.explanation;
@@ -1663,133 +1681,168 @@ function QuestionExplanationPanel({
   const evidenceSpans = evidenceSpansForResult(result);
   const relatedLessonUrl = safeHttpUrl(solution?.relatedLessonUrl);
 
+  const isCorrect = result.correct === true;
+  const isUnanswered = !result.answered;
+  const isIncorrect = result.answered && !result.correct;
+
   return (
-    <section
-      id={`question-explanation-${result.questionKey}`}
-      className={styles.explanationPanel}
-      aria-live="polite"
-    >
-      <div className={styles.explanationHeader}>
-        <div>
-          <span className={styles.explanationEyebrow}>Phân tích đáp án</span>
-          <h3 className={styles.explanationTitle}>
-            <Sparkle size={17} weight="fill" aria-hidden="true" />
-            Giải thích câu {result.questionNo}
-          </h3>
-        </div>
-        {evidenceSpans.length > 0 ? (
-          <span className={styles.evidenceStatus}>
-            <Highlighter size={15} aria-hidden="true" />
-            {evidenceSpans.length > 1 ? `${evidenceSpans.length} vị trí đối chiếu` : "Đã đánh dấu trong bài"}
+    <>
+      {/* Header */}
+      <div className={styles.drawerHeader}>
+        <div className={styles.drawerHeaderLeft}>
+          <span className={styles.drawerQuestionNumber}>Câu {result.questionNo}:</span>
+          <span
+            className={
+              isCorrect
+                ? styles.drawerStatusCorrect
+                : isIncorrect
+                ? styles.drawerStatusIncorrect
+                : styles.drawerStatusUnanswered
+            }
+          >
+            {isCorrect ? (
+              <><CheckCircle size={14} weight="fill" /> Đúng</>
+            ) : isIncorrect ? (
+              <><XCircle size={14} weight="fill" /> Sai</>
+            ) : (
+              <><MinusCircle size={14} weight="fill" /> Bỏ qua</>
+            )}
           </span>
+
+          <span className={styles.drawerAnswerInfo}>
+            Đáp án: <strong>{result.correctAnswers.join(", ") || "—"}</strong>
+          </span>
+
+          {studentAnswerText && !isCorrect ? (
+            <span className={styles.drawerStudentAnswerInfo}>
+              (Bạn chọn: <span className="font-bold text-rose-700">{studentAnswerText}</span>)
+            </span>
+          ) : null}
+        </div>
+
+        {onClose ? (
+          <button
+            type="button"
+            className={styles.drawerCloseBtn}
+            onClick={onClose}
+            title="Đóng bảng giải thích"
+            aria-label="Đóng"
+          >
+            <X size={16} weight="bold" />
+          </button>
         ) : null}
       </div>
 
-      <div className={styles.explanationMeta}>
-        <span className={styles.pillCorrect}>
-          <span>Đáp án đúng</span>
-          <strong>{result.correctAnswers.join(", ") || "—"}</strong>
-        </span>
-        <span className={`${styles.pillUser} ${
-          !result.answered
-            ? styles.pillUserEmpty
-            : result.correct
-            ? styles.pillUserCorrect
-            : styles.pillUserIncorrect
-        }`}>
-          <span>Bạn đã chọn</span>
-          <strong>{studentAnswerText || "Bỏ qua"}</strong>
-        </span>
+      {/* Section 1: HƯỚNG DẪN LÀM BÀI */}
+      <div className={styles.drawerSection}>
+        <h4 className={styles.drawerSectionTitle}>
+          <ListBullets size={16} weight="bold" className="text-orange-600" />
+          CÁC BƯỚC HƯỚNG DẪN LÀM BÀI
+        </h4>
+
+        {reasoningSteps.length > 0 ? (
+          <div className={styles.stepsList}>
+            {reasoningSteps.map((step, idx) => {
+              const stepPrefixMatch = step.match(/^(bước\s*\d+|step\s*\d+)[:.]?\s*(.*)/i);
+              const label = stepPrefixMatch ? stepPrefixMatch[1] : `Bước ${idx + 1}`;
+              const body = stepPrefixMatch ? stepPrefixMatch[2] : step;
+
+              return (
+                <div key={idx} className={styles.stepRow}>
+                  <strong className={styles.stepRowLabel}>{label}: </strong>
+                  <span className={styles.stepRowBody}>{body}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : explanation ? (
+          <div className={styles.stepRow}>
+            <span className={styles.stepRowBody}>{explanation}</span>
+          </div>
+        ) : (
+          <div className={styles.drawerEmptyNotice}>
+            <Info size={16} />
+            <span>Chưa có hướng dẫn làm bài cho câu này.</span>
+          </div>
+        )}
       </div>
 
-      {explanation ? (
-        <div className={styles.explanationText}>{explanation}</div>
-      ) : (
-        <p className={styles.explanationEmpty}>Câu này chưa có lời giải chi tiết từ hệ thống.</p>
-      )}
+      {/* Section 2: BẰNG CHỨNG TRONG BÀI ĐỌC */}
+      <div className={styles.drawerSection}>
+        <h4 className={styles.drawerSectionTitle}>
+          <MapPin size={16} weight="fill" className="text-orange-600" />
+          BẰNG CHỨNG TRONG BÀI ĐỌC
+        </h4>
 
-      {reasoningSteps.length > 0 ? (
-        <section className={styles.solutionSection} aria-labelledby={`reasoning-${result.questionKey}`}>
-          <h4 id={`reasoning-${result.questionKey}`} className={styles.solutionSectionTitle}>
-            <ListBullets size={16} weight="bold" aria-hidden="true" />
-            Cách suy luận
-          </h4>
-          <ol className={styles.reasoningSteps}>
-            {reasoningSteps.map((step, index) => <li key={`${result.questionKey}-step-${index}`}>{step}</li>)}
-          </ol>
-        </section>
-      ) : null}
+        {evidenceSpans.length > 0 ? (
+          <div className={styles.drawerEvidenceList}>
+            {evidenceSpans.map((evidence, idx) => {
+              const evidenceId = evidenceIdentifier(evidence, idx);
+              const isFocused = focusedEvidenceId === evidenceId;
+              const quoteText = evidence.quote
+                ? `“${evidence.quote}”`
+                : evidence.label || "Vị trí đoạn văn liên quan trong bài đọc";
 
+              return (
+                <button
+                  key={evidenceId}
+                  type="button"
+                  className={`${styles.drawerEvidenceBtn} ${isFocused ? styles.drawerEvidenceBtnActive : ""}`}
+                  onClick={() => {
+                    onFocusEvidence(evidenceId);
+                    onLocateEvidence?.(result.questionKey, evidenceId);
+                  }}
+                  title="Bấm để di chuyển đến vị trí này trong bài đọc"
+                >
+                  <MapPin size={15} weight="fill" className="text-orange-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Vị trí {idx + 1}:</strong> {quoteText}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={styles.drawerEmptyNotice}>
+            <Info size={16} />
+            <span>Chưa có bằng chứng được ghi chú cho câu này.</span>
+          </div>
+        )}
+      </div>
+
+      {/* Additional Notes (Trap / Vocabulary / Related lesson) if available */}
       {solution?.trapAnalysis ? (
-        <section className={`${styles.solutionSection} ${styles.trapSection}`} aria-labelledby={`trap-${result.questionKey}`}>
-          <h4 id={`trap-${result.questionKey}`} className={styles.solutionSectionTitle}>
-            <Info size={16} weight="fill" aria-hidden="true" />
-            Điểm dễ nhầm
-          </h4>
-          <p>{solution.trapAnalysis}</p>
-        </section>
+        <div className={styles.drawerExtraNote}>
+          <strong className="text-rose-700">
+            <Info size={15} weight="fill" /> Điểm dễ nhầm lẫn:
+          </strong>
+          <span>{solution.trapAnalysis}</span>
+        </div>
       ) : null}
 
       {solution?.vocabularyNotes ? (
-        <section className={`${styles.solutionSection} ${styles.vocabularySection}`} aria-labelledby={`vocabulary-${result.questionKey}`}>
-          <h4 id={`vocabulary-${result.questionKey}`} className={styles.solutionSectionTitle}>
-            <Sparkle size={16} weight="fill" aria-hidden="true" />
-            Từ khóa và paraphrase
-          </h4>
-          <p>{solution.vocabularyNotes}</p>
-        </section>
-      ) : null}
-
-      {evidenceSpans.length > 0 ? (
-        <section className={styles.evidenceList} aria-labelledby={`evidence-${result.questionKey}`}>
-          <h4 id={`evidence-${result.questionKey}`} className={styles.solutionSectionTitle}>
-            <MapPin size={16} weight="fill" aria-hidden="true" />
-            Vị trí đối chiếu
-          </h4>
-          <ul>
-            {evidenceSpans.map((evidence, index) => {
-              const evidenceId = evidenceIdentifier(evidence, index);
-              const mode = evidence.mode ?? (evidence.quote ? "DIRECT_QUOTE" : "NO_DIRECT_EVIDENCE");
-              const canFocus = mode !== "NO_DIRECT_EVIDENCE" && Boolean(evidence.quote || evidence.paragraphKey);
-              const label = evidence.label || (mode === "WHOLE_PARAGRAPH" ? "Đoạn văn liên quan" : mode === "NO_DIRECT_EVIDENCE" ? "Không có trích dẫn trực tiếp" : "Trích dẫn trong Passage");
-              return (
-                <li key={evidenceId}>
-                  <button
-                    type="button"
-                    className={`${styles.evidenceListButton} ${focusedEvidenceId === evidenceId ? styles.evidenceListButtonActive : ""}`}
-                    disabled={!canFocus}
-                    onClick={() => onFocusEvidence(evidenceId)}
-                    aria-current={focusedEvidenceId === evidenceId ? "true" : undefined}
-                  >
-                    <span className={styles.evidenceListIndex}>{index + 1}</span>
-                    <span className={styles.evidenceListCopy}>
-                      <strong>{label}</strong>
-                      <span>{evidence.quote ? `“${evidence.quote}”` : "Giáo viên giải thích dựa trên việc không có thông tin trực tiếp trong Passage."}</span>
-                    </span>
-                    {canFocus ? <MapPin size={15} weight="fill" aria-hidden="true" /> : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <div className={styles.drawerExtraNote}>
+          <strong className="text-emerald-700">
+            <Sparkle size={15} weight="fill" /> Từ khóa & Paraphrase:
+          </strong>
+          <span>{solution.vocabularyNotes}</span>
+        </div>
       ) : null}
 
       {relatedLessonUrl ? (
-        <a
-          className={styles.relatedLessonLink}
-          href={relatedLessonUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span>
-            <strong>Ôn lại bài liên quan</strong>
-            <small> Mở tài liệu giáo viên gợi ý</small>
-          </span>
-          <ArrowSquareOut size={17} weight="bold" aria-hidden="true" />
-        </a>
+        <div>
+          <a
+            className={styles.drawerRelatedLesson}
+            href={relatedLessonUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ArrowSquareOut size={15} weight="bold" />
+            <span>Xem bài học ôn tập liên quan</span>
+          </a>
+        </div>
       ) : null}
-    </section>
+    </>
   );
 }
 
@@ -2020,7 +2073,10 @@ function markEvidenceSpans(root: HTMLElement, evidenceSpans: EvidenceForView[]):
   const marksById = new Map<string, HTMLElement[]>();
   mergeEvidenceIntervals(intervals).reverse().forEach((interval) => {
     const marks = wrapEvidenceInterval(root, interval.start, interval.end);
-    interval.ids.forEach((id) => marksById.set(id, marks));
+    interval.ids.forEach((id) => {
+      marksById.set(id, marks);
+      marks.forEach((m) => m.setAttribute("data-evidence-id", id));
+    });
   });
   return evidenceSpans.map((evidence, index) => ({
     id: evidenceIdentifier(evidence, index),
