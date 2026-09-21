@@ -1,5 +1,5 @@
-import { ReadingAssignmentsPage } from "@/features/reading/ReadingAssignmentsPage";
+import { redirect } from "next/navigation";
 
 export default function StudentReadingPage() {
-  return <ReadingAssignmentsPage />;
+  redirect("/student/practice?skill=READING");
 }

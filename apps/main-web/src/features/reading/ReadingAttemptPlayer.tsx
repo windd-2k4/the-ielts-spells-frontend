@@ -1,17 +1,74 @@
 "use client";
 
-import type { ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
-import { ArrowLeft, CheckCircle, CircleNotch, Clock, FloppyDisk, ListNumbers, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { ReadingAnnotation, ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
+import {
+  ArrowLeft, ArrowsHorizontal, CaretLeft, CaretRight, CheckCircle, CircleNotch, Clock,
+  CornersIn, CornersOut, Eye, Flag, FloppyDisk, NotePencil, PaperPlaneTilt, WarningCircle,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "./ReadingQuestionGroup";
+import { ReadingAnnotations } from "./ReadingAnnotations";
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import { allReadingQuestions, formatDuration, isAnswered, requestMessage } from "./readingFormat";
+import {
+  isReadingFontScale,
+  migrateLegacyReadingFontScale,
+  READING_FONT_SCALE_OPTIONS,
+  READING_FONT_SCALE_STORAGE_KEY,
+  type ReadingFontScale,
+} from "./readingFontScale";
 import { getReadingAttempt, saveReadingResponses, submitReadingAttempt } from "./readingApi";
+import styles from "./ReadingAttemptPlayer.module.css";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
+type ColorTheme = "standard" | "eye-care" | "dark";
+
+type LocalReadingDraft = {
+  attemptId: string;
+  savedAt: string;
+  responses: SaveReadingResponseItem[];
+};
+
+function localDraftKey(attemptId: string) {
+  return `reading-attempt-draft:${attemptId}`;
+}
+
+function readLocalDraft(attemptId: string): LocalReadingDraft | null {
+  try {
+    const raw = localStorage.getItem(localDraftKey(attemptId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LocalReadingDraft>;
+    if (parsed.attemptId !== attemptId || !Array.isArray(parsed.responses)) return null;
+    const responses = parsed.responses.filter((item): item is SaveReadingResponseItem => Boolean(
+      item && typeof item === "object" && typeof item.questionKey === "string"
+      && typeof item.clientRevision === "number" && item.answer && typeof item.answer === "object"
+    ));
+    return responses.length ? { attemptId, savedAt: parsed.savedAt ?? new Date().toISOString(), responses } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalDraft(attemptId: string, responses: SaveReadingResponseItem[]) {
+  try {
+    if (!responses.length) {
+      localStorage.removeItem(localDraftKey(attemptId));
+      return;
+    }
+    const draft: LocalReadingDraft = { attemptId, savedAt: new Date().toISOString(), responses };
+    localStorage.setItem(localDraftKey(attemptId), JSON.stringify(draft));
+  } catch {
+    // localStorage may be unavailable in private browsing; server autosave remains the source of truth.
+  }
+}
+
+function clearLocalDraft(attemptId: string) {
+  try { localStorage.removeItem(localDraftKey(attemptId)); } catch {}
+}
 
 export function ReadingAttemptPlayer({ attemptId }: { attemptId: string }) {
   return <StudentSessionGate><ReadingAttemptContent attemptId={attemptId} /></StudentSessionGate>;
@@ -22,6 +79,43 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, ReadingAnswer>>({});
   const [activeSectionKey, setActiveSectionKey] = useState("");
+  const [activeQuestionKey, setActiveQuestionKey] = useState("");
+  const [flaggedKeys, setFlaggedKeys] = useState<Set<string>>(new Set());
+  const [fontScale, setFontScale] = useState<ReadingFontScale>("standard");
+  const [colorTheme, setColorTheme] = useState<ColorTheme>("standard");
+  const [annotations, setAnnotations] = useState<ReadingAnnotation[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedScale = localStorage.getItem(READING_FONT_SCALE_STORAGE_KEY);
+      if (isReadingFontScale(savedScale)) {
+        setFontScale(savedScale);
+      } else {
+        const legacyScale = localStorage.getItem("ielts_exam_font_scale");
+        const migratedScale = migrateLegacyReadingFontScale(legacyScale);
+        setFontScale(migratedScale);
+        localStorage.setItem(READING_FONT_SCALE_STORAGE_KEY, migratedScale);
+      }
+      const savedTheme = localStorage.getItem("ielts_exam_color_theme") as ColorTheme | null;
+      if (savedTheme && ["standard", "eye-care", "dark"].includes(savedTheme)) setColorTheme(savedTheme);
+    } catch {}
+  }, []);
+
+  function changeFontScale(scale: ReadingFontScale) {
+    setFontScale(scale);
+    try { localStorage.setItem(READING_FONT_SCALE_STORAGE_KEY, scale); } catch {}
+  }
+
+  function cycleTheme() {
+    setColorTheme((current) => {
+      const next = current === "standard" ? "eye-care" : current === "eye-care" ? "dark" : "standard";
+      try { localStorage.setItem("ielts_exam_color_theme", next); } catch {}
+      return next;
+    });
+  }
+  const [leftPanePercent, setLeftPanePercent] = useState(50);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -29,6 +123,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(Date.now());
   const pendingRef = useRef(new Map<string, SaveReadingResponseItem>());
   const revisionsRef = useRef(new Map<string, number>());
@@ -36,6 +131,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const flushRef = useRef<() => Promise<boolean>>(async () => true);
   const autoSubmitTriedRef = useRef(false);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,17 +139,34 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     try {
       const value = await getReadingAttempt(attemptId);
       if (value.status !== "IN_PROGRESS") {
+        clearLocalDraft(attemptId);
         router.replace(`/student/reading/attempts/${attemptId}/result`);
         return;
       }
+      const firstQuestion = allReadingQuestions(value.sections)[0]?.question.key ?? "";
+      const localDraft = readLocalDraft(attemptId);
+      const serverResponses = new Map(value.responses.map((response) => [response.questionKey, response]));
+      const localResponses = localDraft?.responses.filter((response) => {
+        const serverResponse = serverResponses.get(response.questionKey);
+        return !serverResponse || response.clientRevision > serverResponse.clientRevision;
+      }) ?? [];
+      const mergedAnswers = Object.fromEntries(value.responses.map((response) => [response.questionKey, response.answer]));
+      for (const response of localResponses) mergedAnswers[response.questionKey] = response.answer;
+
       setAttempt(value);
       setActiveSectionKey(value.sections[0]?.key ?? "");
-      const stored = Object.fromEntries(value.responses.map((response) => [response.questionKey, response.answer]));
-      setAnswers(stored);
+      setActiveQuestionKey(firstQuestion);
+      setAnswers(mergedAnswers);
+      setAnnotations(value.annotations ?? []);
       revisionsRef.current = new Map(value.responses.map((response) => [response.questionKey, response.clientRevision]));
-      pendingRef.current.clear();
-      setPendingCount(0);
+      pendingRef.current = new Map(localResponses.map((response) => [response.questionKey, response]));
+      for (const response of localResponses) revisionsRef.current.set(response.questionKey, response.clientRevision);
+      setPendingCount(localResponses.length);
       setSaveState("idle");
+      if (localResponses.length) {
+        setSaveError("Có đáp án chưa đồng bộ từ lần trước. Hệ thống sẽ tự lưu lại.");
+        window.setTimeout(() => { void flushRef.current(); }, 0);
+      }
     } catch (failure) {
       setLoadError(requestMessage(failure));
     } finally {
@@ -61,29 +174,35 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     }
   }, [attemptId, router]);
 
+  useEffect(() => { setIsOnline(navigator.onLine); }, []);
   useEffect(() => {
-    void load();
-  }, [load]);
+    const onOnline = () => {
+      setIsOnline(true);
+      if (pendingRef.current.size > 0) void flushRef.current();
+    };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const flushPending = useCallback(async () => {
-    if (savePromiseRef.current) {
-      return savePromiseRef.current;
-    }
-    if (pendingRef.current.size === 0) {
-      return true;
-    }
-
-    const snapshot: SaveReadingResponseItem[] = Array.from(pendingRef.current.values()).slice(0, 50);
+    if (savePromiseRef.current) return savePromiseRef.current;
+    if (pendingRef.current.size === 0) return true;
+    const snapshot = Array.from(pendingRef.current.values()).slice(0, 50);
     const task = (async () => {
       setSaveState("saving");
       setSaveError("");
       try {
         const savedAttempt = await saveReadingResponses(attemptId, { responses: snapshot });
         for (const item of snapshot) {
-          if (pendingRef.current.get(item.questionKey)?.clientRevision === item.clientRevision) {
-            pendingRef.current.delete(item.questionKey);
-          }
+          if (pendingRef.current.get(item.questionKey)?.clientRevision === item.clientRevision) pendingRef.current.delete(item.questionKey);
         }
+        writeLocalDraft(attemptId, Array.from(pendingRef.current.values()));
         setAttempt(savedAttempt);
         setPendingCount(pendingRef.current.size);
         setSaveState(pendingRef.current.size === 0 ? "saved" : "idle");
@@ -91,11 +210,10 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       } catch (failure) {
         for (const item of snapshot) {
           const current = pendingRef.current.get(item.questionKey);
-          if (!current || current.clientRevision <= item.clientRevision) {
-            pendingRef.current.set(item.questionKey, item);
-          }
+          if (!current || current.clientRevision <= item.clientRevision) pendingRef.current.set(item.questionKey, item);
         }
         setPendingCount(pendingRef.current.size);
+        writeLocalDraft(attemptId, Array.from(pendingRef.current.values()));
         setSaveError(requestMessage(failure));
         setSaveState("failed");
         return false;
@@ -103,9 +221,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
         savePromiseRef.current = null;
         if (pendingRef.current.size > 0) {
           window.clearTimeout(saveTimerRef.current);
-          saveTimerRef.current = window.setTimeout(() => {
-            void flushRef.current();
-          }, 1200);
+          saveTimerRef.current = window.setTimeout(() => { void flushRef.current(); }, 1200);
         }
       }
     })();
@@ -113,44 +229,43 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     return task;
   }, [attemptId]);
 
-  useEffect(() => {
-    flushRef.current = flushPending;
-  }, [flushPending]);
-
+  useEffect(() => { flushRef.current = flushPending; }, [flushPending]);
   useEffect(() => () => window.clearTimeout(saveTimerRef.current), []);
-
-  const scheduleSave = useCallback(() => {
-    window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => {
-      void flushRef.current();
-    }, 900);
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (pendingRef.current.size > 0) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
   const updateAnswer = useCallback((questionKey: string, answer: ReadingAnswer) => {
     const nextRevision = (revisionsRef.current.get(questionKey) ?? 0) + 1;
     revisionsRef.current.set(questionKey, nextRevision);
     pendingRef.current.set(questionKey, { questionKey, answer, clientRevision: nextRevision });
+    writeLocalDraft(attemptId, Array.from(pendingRef.current.values()));
     setPendingCount(pendingRef.current.size);
     setSaveState("idle");
     setSaveError("");
     setAnswers((current) => ({ ...current, [questionKey]: answer }));
-    scheduleSave();
-  }, [scheduleSave]);
+    window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => { void flushRef.current(); }, 900);
+  }, [attemptId]);
 
   const remainingSeconds = attempt ? Math.max(0, Math.floor((Date.parse(attempt.expiresAt) - now) / 1000)) : 0;
-
   useEffect(() => {
-    if (!attempt || remainingSeconds === 0) {
-      return undefined;
-    }
+    if (!attempt || remainingSeconds === 0) return undefined;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [attempt, remainingSeconds]);
 
   const submit = useCallback(async (automatic: boolean) => {
-    if (isSubmitting) {
-      return;
-    }
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setSaveError("");
     const saved = await flushRef.current();
@@ -161,6 +276,9 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     }
     try {
       await submitReadingAttempt(attemptId);
+      clearLocalDraft(attemptId);
+      pendingRef.current.clear();
+      setPendingCount(0);
       router.replace(`/student/reading/attempts/${attemptId}/result`);
     } catch (failure) {
       setSaveError(requestMessage(failure));
@@ -178,91 +296,181 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const questions = useMemo(() => attempt ? allReadingQuestions(attempt.sections) : [], [attempt]);
   const answeredCount = useMemo(() => questions.filter(({ question }) => isAnswered(answers[question.key])).length, [answers, questions]);
   const activeSection = attempt?.sections.find((section) => section.key === activeSectionKey) ?? attempt?.sections[0];
+  const locatedQuestionIndex = questions.findIndex(({ question }) => question.key === activeQuestionKey);
+  const activeQuestionIndex = locatedQuestionIndex >= 0 ? locatedQuestionIndex : 0;
+  const currentQuestion = questions[activeQuestionIndex];
+
+  function selectSection(section: ReadingSection) {
+    setActiveSectionKey(section.key);
+    const firstQuestion = section.questionGroups.flatMap((group) => group.questions)[0];
+    if (firstQuestion) setActiveQuestionKey(firstQuestion.key);
+  }
 
   function goToQuestion(section: ReadingSection, question: ReadingQuestion) {
     setActiveSectionKey(section.key);
-    window.setTimeout(() => {
-      document.getElementById(`reading-question-${question.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 0);
+    setActiveQuestionKey(question.key);
+    window.setTimeout(() => document.getElementById(`reading-question-${question.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+  }
+
+  function moveQuestion(offset: number) {
+    const next = questions[Math.min(questions.length - 1, Math.max(0, activeQuestionIndex + offset))];
+    if (next) goToQuestion(next.section, next.question);
+  }
+
+  function toggleFlag(questionKey: string) {
+    setFlaggedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(questionKey)) next.delete(questionKey); else next.add(questionKey);
+      return next;
+    });
+  }
+
+  function startDividerDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const bounds = workspaceRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const update = (clientX: number) => setLeftPanePercent(Math.min(68, Math.max(32, ((clientX - bounds.left) / bounds.width) * 100)));
+    update(event.clientX);
+    const onMove = (moveEvent: PointerEvent) => update(moveEvent.clientX);
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
   }
 
   if (loading) {
-    return <main className="grid min-h-dvh place-items-center bg-[var(--surface-muted)] px-4" aria-busy="true"><span className="flex items-center gap-3 text-sm font-medium text-[var(--text-muted)]"><CircleNotch size={21} className="animate-spin text-[var(--brand-pink)]" aria-hidden="true" />Đang tải bài Reading</span></main>;
+    return <main className={styles.statePage} aria-busy="true"><span><CircleNotch size={21} className={styles.spin} aria-hidden="true" />Đang chuẩn bị phòng thi Reading</span></main>;
   }
-
   if (loadError || !attempt || !activeSection) {
-    return <main className="grid min-h-dvh place-items-center bg-[var(--surface-muted)] px-4"><div className="w-full max-w-xl"><ReadingStatePanel title="Không thể mở bài Reading" message={loadError || "Bài Reading không có nội dung để hiển thị."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /></div></main>;
+    return <main className={styles.statePage}><div><ReadingStatePanel title="Không thể mở bài Reading" message={loadError || "Bài Reading không có nội dung để hiển thị."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /></div></main>;
   }
 
-  return <div className="min-h-dvh bg-[var(--surface-muted)] text-[var(--text)]">
-    <a href="#reading-attempt" className="student-skip-link">Bỏ qua điều hướng đến nội dung bài Reading</a>
-    <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
-      <div className="mx-auto flex min-h-16 max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
-        <Link href="/student/reading" className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] px-2 text-sm font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)]"><ArrowLeft size={18} aria-hidden="true" />Danh sách bài</Link>
-        <div className={`flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] border px-3 font-mono text-lg font-bold tabular-nums ${remainingSeconds <= 300 ? "border-[var(--danger)] bg-[var(--surface)] text-[var(--danger)]" : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text)]"}`} role="timer" aria-label={`Thời gian còn lại ${formatDuration(remainingSeconds)}`}><Clock size={19} aria-hidden="true" />{formatDuration(remainingSeconds)}</div>
-        <button type="button" onClick={() => setShowSubmitConfirmation(true)} disabled={isSubmitting} className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-pink)] px-4 text-sm font-bold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"><PaperPlaneTilt size={18} aria-hidden="true" />Nộp bài</button>
+  const activeFontScale = READING_FONT_SCALE_OPTIONS.find((option) => option.value === fontScale) ?? READING_FONT_SCALE_OPTIONS[0];
+  const examStyle = {
+    "--exam-content-size": `${activeFontScale.pixels}px`,
+    "--exam-content-line-height": activeFontScale.lineHeight,
+  } as CSSProperties;
+  const workspaceStyle = { "--left-pane": `${leftPanePercent}%` } as CSSProperties;
+  const fontClass = fontScale === "standard" ? styles.fontStandard : fontScale === "large" ? styles.fontLarge : styles.fontExtraLarge;
+  const themeClass = colorTheme === "eye-care" ? styles.themeEyeCare : colorTheme === "dark" ? styles.themeDark : styles.themeStandard;
+  const themeLabel = colorTheme === "eye-care" ? "Chế độ Bảo vệ mắt (Giấy vàng dịu)" : colorTheme === "dark" ? "Chế độ Ban đêm (Tối)" : "Chế độ Chuẩn (Nền trắng)";
+  const themeShortLabel = colorTheme === "eye-care" ? "Bảo vệ mắt" : colorTheme === "dark" ? "Chế độ tối" : "Màu chuẩn";
+
+  const activeSectionQuestions = activeSection.questionGroups.flatMap((group) => group.questions);
+  const firstQ = activeSectionQuestions[0]?.number;
+  const lastQ = activeSectionQuestions[activeSectionQuestions.length - 1]?.number;
+  const questionRangeText = firstQ && lastQ ? `câu ${firstQ}–${lastQ}` : "các câu hỏi";
+
+  return <div className={`${styles.examShell} ${fontClass} ${themeClass}`} style={examStyle}>
+    <a href="#reading-workspace" className="student-skip-link">Đến nội dung bài thi</a>
+    <header className={styles.examHeader}>
+      <div className={styles.brandBlock}>
+        <Link href="/student/reading" className={styles.exitButton} aria-label="Thoát về danh sách đề"><ArrowLeft size={20} aria-hidden="true" /></Link>
+        <img src="/logo.jpg" width={38} height={38} alt="" />
+        <div><strong>The IELTS Spells</strong><span>{attempt.title}</span></div>
+      </div>
+      <div className={styles.headerStatus}>
+        <SaveStatus state={saveState} pendingCount={pendingCount} isOnline={isOnline} />
+        <button type="button" onClick={() => void flushRef.current()} disabled={saveState === "saving" || pendingCount === 0} className={styles.iconButton} aria-label="Lưu đáp án ngay"><FloppyDisk size={19} aria-hidden="true" /></button>
+      </div>
+      <div className={styles.headerActions}>
+        <div className={styles.fontControls} role="group" aria-label="Cỡ chữ nội dung bài thi">
+          {READING_FONT_SCALE_OPTIONS.map((option) => <button key={option.value} type="button" onClick={() => changeFontScale(option.value)} aria-pressed={fontScale === option.value} aria-label={`Cỡ chữ ${option.label}, ${option.pixels} pixel`} title={`${option.label}: ${option.pixels} px (${option.points} pt)`}><span className={styles.fontGlyph} data-size={option.value} aria-hidden="true">{option.glyph}</span></button>)}
+        </div>
+        <span className="sr-only" aria-live="polite">Cỡ chữ {activeFontScale.label}, {activeFontScale.pixels} pixel</span>
+        <button type="button" onClick={cycleTheme} className={`${styles.themeButton} ${colorTheme !== "standard" ? styles.themeButtonActive : ""}`} title={`Chuyển chế độ màn hình: ${themeLabel}`} aria-label={themeLabel}>
+          <Eye size={18} aria-hidden="true" />
+          <span>{themeShortLabel}</span>
+        </button>
+        <button type="button" onClick={() => setNotesOpen(true)} className={`${styles.notesButton} ${notesOpen ? styles.notesButtonActive : ""}`} aria-expanded={notesOpen} aria-label={`Mở ghi chú và tô sáng, ${annotations.length} mục`}>
+          <NotePencil size={18} aria-hidden="true" />
+          <span>Ghi chú</span>
+          {annotations.length > 0 ? <strong>{annotations.length}</strong> : null}
+        </button>
+        <button type="button" onClick={() => void toggleFullscreen()} className={styles.iconButton} aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}>{isFullscreen ? <CornersIn size={20} /> : <CornersOut size={20} />}</button>
+        <div className={`${styles.timer} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`} role="timer" aria-label={`Thời gian còn lại ${formatDuration(remainingSeconds)}`}><Clock size={19} aria-hidden="true" /><span>{formatDuration(remainingSeconds)}</span><small>còn lại</small></div>
+        <button type="button" onClick={() => setShowSubmitConfirmation(true)} disabled={isSubmitting} className={styles.submitButton}><PaperPlaneTilt size={18} aria-hidden="true" />Nộp bài</button>
       </div>
     </header>
-    <main id="reading-attempt" className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0">
-          <header className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] sm:p-6">
-            <p className="text-sm font-semibold text-[var(--brand-pink)]">Reading</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">{attempt.title}</h1>
-            {attempt.description ? <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{attempt.description}</p> : null}
-            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--text-muted)]">
-              <span>{answeredCount}/{questions.length} câu đã trả lời</span>
-              <SaveStatus state={saveState} pendingCount={pendingCount} />
-              <button type="button" onClick={() => void flushRef.current()} disabled={saveState === "saving" || pendingCount === 0} className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] px-3 font-semibold text-[var(--brand-pink)] transition hover:bg-[var(--brand-pink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] disabled:cursor-not-allowed disabled:text-[var(--text-muted)]"><FloppyDisk size={18} aria-hidden="true" />Lưu ngay</button>
-            </div>
-            {saveError ? <p className="mt-4 flex items-start gap-2 rounded-[var(--radius-sm)] border border-[var(--danger)] bg-[var(--surface-muted)] p-3 text-sm leading-6 text-[var(--danger)]" role="alert"><WarningCircle size={18} className="mt-0.5 shrink-0" weight="fill" aria-hidden="true" />{saveError}</p> : null}
-          </header>
 
-          {showSubmitConfirmation ? <section className="mt-5 rounded-[var(--radius-md)] border border-[var(--brand-pink)] bg-[var(--brand-pink-soft)] p-5" aria-labelledby="submit-confirmation-title">
-            <h2 id="submit-confirmation-title" className="text-lg font-bold text-[var(--text)]">Bạn muốn nộp bài?</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Bạn đã trả lời {answeredCount}/{questions.length} câu. Sau khi nộp, bạn không thể sửa đáp án.</p>
-            <div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => void submit(false)} disabled={isSubmitting} className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-pink)] px-4 text-sm font-bold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? <CircleNotch size={18} className="animate-spin" aria-hidden="true" /> : <PaperPlaneTilt size={18} aria-hidden="true" />}{isSubmitting ? "Đang nộp bài" : "Xác nhận nộp bài"}</button><button type="button" onClick={() => setShowSubmitConfirmation(false)} disabled={isSubmitting} className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--text)] transition hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] disabled:cursor-not-allowed disabled:opacity-60">Tiếp tục làm bài</button></div>
-          </section> : null}
+    <section className={styles.sectionBar}>
+      <div><span>READING</span><strong>Passage {activeSection.sectionNo}</strong></div>
+      <p>Đọc bài văn và trả lời {questionRangeText} trong phần này.</p>
+      <span>{answeredCount}/{questions.length} câu đã trả lời</span>
+    </section>
 
-          <nav className="mt-5 flex gap-2 overflow-x-auto border-b border-[var(--border)] pb-3" aria-label="Chọn passage">
-            {attempt.sections.map((section) => <button key={section.key} type="button" onClick={() => setActiveSectionKey(section.key)} aria-current={section.key === activeSection.key ? "page" : undefined} className={`min-h-11 shrink-0 rounded-[var(--radius-sm)] px-4 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] ${section.key === activeSection.key ? "bg-[var(--brand-pink)] text-white" : "border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--brand-pink)]"}`}>Passage {section.sectionNo}</button>)}
-          </nav>
+    {saveError ? <div className={styles.saveError} role="alert"><WarningCircle size={18} weight="fill" aria-hidden="true" />{saveError}<button type="button" onClick={() => void flushRef.current()}>Thử lưu lại</button></div> : null}
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-2">
-            <article className="reading-passage rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] sm:p-6">
-              <p className="text-sm font-semibold text-[var(--brand-pink)]">Reading Passage {activeSection.sectionNo}</p>
-              <h2 className="mt-1 text-2xl font-bold text-[var(--text)]">{activeSection.title}</h2>
-              {activeSection.contentHtml ? <div className="mt-6" dangerouslySetInnerHTML={{ __html: activeSection.contentHtml }} /> : <p className="mt-6 rounded-[var(--radius-sm)] bg-[var(--surface-muted)] p-4 text-sm leading-6 text-[var(--text-muted)]">Passage này chưa có nội dung.</p>}
-            </article>
-            <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] sm:p-6" aria-label={`Câu hỏi của passage ${activeSection.sectionNo}`}>
-              <div className="space-y-8">{activeSection.questionGroups.map((group) => <ReadingQuestionGroup key={group.key} group={group} answers={answers} onAnswer={updateAnswer} />)}</div>
-            </section>
-          </div>
+    <main id="reading-workspace" ref={workspaceRef} className={styles.workspace} style={workspaceStyle}>
+      <article className={`${styles.passagePane} ${fontClass}`} aria-label={`Reading Passage ${activeSection.sectionNo}`}>
+        <div className={styles.paneInner}>
+          <p className={styles.passageKicker}>Reading Passage {activeSection.sectionNo}</p>
+          <h1>{activeSection.title}</h1>
+          {activeSection.contentHtml ? <ReadingAnnotations
+            attemptId={attemptId}
+            sectionKey={activeSection.key}
+            html={activeSection.contentHtml}
+            contentClassName={styles.passageContent}
+            annotations={annotations}
+            notesOpen={notesOpen}
+            onNotesOpenChange={setNotesOpen}
+            onAnnotationsChange={setAnnotations}
+          /> : <p className={styles.emptyPassage}>Passage này chưa có nội dung.</p>}
         </div>
+      </article>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <nav className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]" aria-label="Điều hướng câu hỏi">
-            <p className="flex items-center gap-2 text-sm font-bold text-[var(--text)]"><ListNumbers size={20} className="text-[var(--brand-pink)]" aria-hidden="true" />Câu hỏi</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Đã trả lời: {answeredCount}/{questions.length}</p>
-            <div className="mt-4 grid grid-cols-5 gap-2">
-              {questions.map(({ section, question }) => <button key={question.key} type="button" onClick={() => goToQuestion(section, question)} className={`grid min-h-11 place-items-center rounded-[var(--radius-sm)] border text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-pink)] ${isAnswered(answers[question.key]) ? "border-[var(--brand-pink)] bg-[var(--brand-pink-soft)] text-[var(--brand-pink)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--brand-pink)]"}`} aria-label={`Đi đến câu ${question.number}${isAnswered(answers[question.key]) ? ", đã trả lời" : ", chưa trả lời"}`}>{question.number}</button>)}
-            </div>
-          </nav>
-        </aside>
-      </div>
+      <button type="button" className={styles.divider} onPointerDown={startDividerDrag} aria-label="Kéo để thay đổi độ rộng bài đọc và câu hỏi"><ArrowsHorizontal size={18} aria-hidden="true" /></button>
+
+      <section className={`${styles.questionsPane} ${fontClass}`} aria-label={`Câu hỏi passage ${activeSection.sectionNo}`}>
+        <div className={styles.paneInner}>
+          {activeSection.questionGroups.map((group) => <ReadingQuestionGroup key={group.key} group={group} answers={answers} onAnswer={updateAnswer} activeQuestionKey={activeQuestionKey} flaggedKeys={flaggedKeys} onQuestionFocus={setActiveQuestionKey} onToggleFlag={toggleFlag} />)}
+        </div>
+      </section>
     </main>
+
+    <footer className={styles.examFooter}>
+      <nav className={styles.sectionTabs} aria-label="Chọn passage">
+        {attempt.sections.map((section) => {
+          const sectionQuestions = section.questionGroups.flatMap((group) => group.questions);
+          return <button key={section.key} type="button" onClick={() => selectSection(section)} aria-current={section.key === activeSection.key ? "page" : undefined}><strong>Part {section.sectionNo}</strong><span>{sectionQuestions.filter((question) => isAnswered(answers[question.key])).length}/{sectionQuestions.length}</span></button>;
+        })}
+      </nav>
+      <nav className={styles.questionNav} aria-label="Điều hướng câu hỏi">
+        {questions.map(({ section, question }) => {
+          const answered = isAnswered(answers[question.key]);
+          const active = question.key === activeQuestionKey;
+          const flagged = flaggedKeys.has(question.key);
+          return <button key={question.key} type="button" onClick={() => goToQuestion(section, question)} className={`${answered ? styles.answered : ""} ${active ? styles.active : ""} ${flagged ? styles.flagged : ""}`} aria-current={active ? "step" : undefined} aria-label={`Câu ${question.number}, ${answered ? "đã trả lời" : "chưa trả lời"}${flagged ? ", đã đánh dấu" : ""}`}>{question.number}{flagged ? <Flag size={10} weight="fill" aria-hidden="true" /> : null}</button>;
+        })}
+      </nav>
+      <div className={styles.nextControls}><button type="button" onClick={() => moveQuestion(-1)} disabled={activeQuestionIndex <= 0} aria-label="Câu trước"><CaretLeft size={22} /></button><span>Câu {currentQuestion?.question.number ?? "–"}</span><button type="button" onClick={() => moveQuestion(1)} disabled={activeQuestionIndex >= questions.length - 1} aria-label="Câu tiếp theo"><CaretRight size={22} /></button></div>
+    </footer>
+
+    {showSubmitConfirmation ? <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isSubmitting) setShowSubmitConfirmation(false); }}>
+      <section className={styles.submitDialog} role="dialog" aria-modal="true" aria-labelledby="submit-confirmation-title">
+        <span className={styles.dialogIcon}><PaperPlaneTilt size={25} weight="fill" aria-hidden="true" /></span>
+        <p className={styles.eyebrow}>Xác nhận nộp bài</p>
+        <h2 id="submit-confirmation-title">Bạn đã hoàn thành bài thi?</h2>
+        <p>Bạn đã trả lời <strong>{answeredCount}/{questions.length}</strong> câu và còn <strong>{formatDuration(remainingSeconds)}</strong>. Sau khi nộp, đáp án không thể chỉnh sửa.</p>
+        {flaggedKeys.size > 0 ? <div className={styles.flagNotice}><Flag size={18} weight="fill" aria-hidden="true" />Bạn còn {flaggedKeys.size} câu đã đánh dấu cần kiểm tra.</div> : null}
+        <div className={styles.dialogActions}><button type="button" onClick={() => setShowSubmitConfirmation(false)} disabled={isSubmitting}>Tiếp tục kiểm tra</button><button type="button" onClick={() => void submit(false)} disabled={isSubmitting}>{isSubmitting ? <CircleNotch size={18} className={styles.spin} /> : <PaperPlaneTilt size={18} />}{isSubmitting ? "Đang nộp" : "Nộp bài"}</button></div>
+      </section>
+    </div> : null}
   </div>;
 }
 
-function SaveStatus({ state, pendingCount }: { state: SaveState; pendingCount: number }) {
-  if (state === "saving") {
-    return <span className="inline-flex items-center gap-2"><CircleNotch size={16} className="animate-spin text-[var(--brand-pink)]" aria-hidden="true" />Đang lưu</span>;
-  }
-  if (state === "saved") {
-    return <span className="inline-flex items-center gap-2 text-[var(--success)]"><CheckCircle size={16} weight="fill" aria-hidden="true" />Đã lưu</span>;
-  }
-  if (pendingCount > 0) {
-    return <span className="inline-flex items-center gap-2"><Clock size={16} className="text-[var(--brand-pink)]" aria-hidden="true" />Sẽ tự lưu</span>;
-  }
-  return <span>Đáp án được tự động lưu</span>;
+function SaveStatus({ state, pendingCount, isOnline }: { state: SaveState; pendingCount: number; isOnline: boolean }) {
+  if (!isOnline) return <span className={`${styles.saveStatus} ${styles.failed}`}><WarningCircle size={16} weight="fill" aria-hidden="true" />Ngoại tuyến · giữ cục bộ</span>;
+  if (state === "saving") return <span className={styles.saveStatus}><CircleNotch size={16} className={styles.spin} aria-hidden="true" />Đang lưu</span>;
+  if (state === "saved") return <span className={`${styles.saveStatus} ${styles.saved}`}><CheckCircle size={16} weight="fill" aria-hidden="true" />Đã lưu</span>;
+  if (state === "failed") return <span className={`${styles.saveStatus} ${styles.failed}`}><WarningCircle size={16} weight="fill" aria-hidden="true" />Lỗi lưu</span>;
+  if (pendingCount > 0) return <span className={styles.saveStatus}><Clock size={16} aria-hidden="true" />Sẽ tự lưu</span>;
+  return <span className={styles.saveStatus}><CheckCircle size={16} aria-hidden="true" />Tự động lưu</span>;
 }

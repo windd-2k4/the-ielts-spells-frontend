@@ -15,9 +15,8 @@ export function StudentPracticeShortcuts() {
       <div className={styles.skillStrip}>
         {studentPracticeSkills.map((skill) => {
           const Icon = icons[skill.id];
-          const content = <><Icon size={22} weight="duotone" /><span><strong>{skill.name}</strong><small>{skill.available ? "Mở bài được giao" : "Đang phát triển"}</small></span></>;
-          return skill.href ? <Link key={skill.id} href={skill.href} className={styles.skill}>{content}</Link>
-            : <div key={skill.id} className={`${styles.skill} ${styles.unavailable}`}>{content}</div>;
+          const content = <><Icon size={22} weight="duotone" /><span><strong>{skill.name}</strong><small>Mở danh mục luyện đề</small></span></>;
+          return <Link key={skill.id} href={skill.href} className={styles.skill}>{content}</Link>;
         })}
       </div>
     </section>

@@ -3,7 +3,6 @@ import {
   Check,
   Copy,
   Eye,
-  Highlighter,
   Minus,
   NotePencil,
   Plus,
@@ -19,6 +18,8 @@ import { useAuth } from "../../auth/AuthContext";
 import type {
   PassageSection,
   QuestionCardItem,
+  ReadingEvidenceMode,
+  ReadingEvidenceSpan,
   QuestionGroupItem,
   QuestionOption,
   QuestionTypeFormat,
@@ -32,6 +33,7 @@ import GapFillGroupEditor, { gapFillPrompt, gapFillTemplateFromQuestions, inspec
 import PublishValidationModal from "./PublishValidationModal";
 import QuestionGroupIllustrationField from "./QuestionGroupIllustrationField";
 import ReadingQuestionGroupDialog, { type ReadingQuestionGroupDraft } from "./ReadingQuestionGroupDialog";
+import ReadingQuestionSolutionEditor from "./ReadingQuestionSolutionEditor";
 import ReadingRichTextEditor from "./ReadingRichTextEditor";
 import {
   createDefaultSharedOptions,
@@ -49,6 +51,93 @@ import TestPreviewModal from "./TestPreviewModal";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isReadingEvidenceMode(value: unknown): value is ReadingEvidenceMode {
+  return value === "DIRECT_QUOTE"
+    || value === "WHOLE_PARAGRAPH"
+    || value === "NO_DIRECT_EVIDENCE";
+}
+
+function hasEvidenceRange(evidence: ReadingEvidenceSpan): evidence is ReadingEvidenceSpan & { start: number; end: number } {
+  return typeof evidence.start === "number"
+    && typeof evidence.end === "number"
+    && evidence.start >= 0
+    && evidence.end > evidence.start;
+}
+
+function normalizeEvidenceSpan(value: unknown, fallbackId: string): ReadingEvidenceSpan | null {
+  if (!isRecord(value)) return null;
+  const mode = isReadingEvidenceMode(value.mode) ? value.mode : "DIRECT_QUOTE";
+  const start = typeof value.start === "number" && Number.isFinite(value.start) ? value.start : null;
+  const end = typeof value.end === "number" && Number.isFinite(value.end) ? value.end : null;
+  return {
+    id: typeof value.id === "string" && value.id.trim() ? value.id : fallbackId,
+    start: mode === "NO_DIRECT_EVIDENCE" ? null : start,
+    end: mode === "NO_DIRECT_EVIDENCE" ? null : end,
+    quote: mode === "NO_DIRECT_EVIDENCE" ? "" : typeof value.quote === "string" ? value.quote : "",
+    prefix: typeof value.prefix === "string" ? value.prefix : undefined,
+    suffix: typeof value.suffix === "string" ? value.suffix : undefined,
+    paragraphKey: typeof value.paragraphKey === "string" ? value.paragraphKey : undefined,
+    label: typeof value.label === "string" ? value.label : undefined,
+    mode,
+  };
+}
+
+function evidenceSpansForQuestion(question: QuestionCardItem): ReadingEvidenceSpan[] {
+  const spans = Array.isArray(question.evidenceSpans)
+    ? question.evidenceSpans
+      .map((evidence, index) => normalizeEvidenceSpan(evidence, `evidence-${question.id}-${index + 1}`))
+      .filter((evidence): evidence is ReadingEvidenceSpan => evidence !== null)
+    : [];
+  if (spans.length > 0) return spans;
+
+  const legacySpan = question.passageSpan;
+  if (!legacySpan || !Number.isFinite(legacySpan.start) || !Number.isFinite(legacySpan.end)
+    || legacySpan.start < 0 || legacySpan.end <= legacySpan.start) return [];
+  return [{
+    id: `legacy-evidence-${question.id}`,
+    start: legacySpan.start,
+    end: legacySpan.end,
+    quote: legacySpan.quote ?? "",
+    mode: "DIRECT_QUOTE",
+  }];
+}
+
+function legacyPassageSpanFromEvidence(evidenceSpans: ReadingEvidenceSpan[]): QuestionCardItem["passageSpan"] {
+  const evidence = evidenceSpans[0];
+  if (evidenceSpans.length !== 1 || !evidence || !hasEvidenceRange(evidence)) return undefined;
+  return {
+    start: evidence.start,
+    end: evidence.end,
+    quote: evidence.quote || undefined,
+  };
+}
+
+function withEvidenceSpans(question: QuestionCardItem, evidenceSpans: ReadingEvidenceSpan[]): QuestionCardItem {
+  const normalized = evidenceSpans
+    .map((evidence, index) => normalizeEvidenceSpan(evidence, `evidence-${question.id}-${index + 1}`))
+    .filter((evidence): evidence is ReadingEvidenceSpan => evidence !== null);
+  return {
+    ...question,
+    evidenceSpans: normalized.length > 0 ? normalized : undefined,
+    passageSpan: legacyPassageSpanFromEvidence(normalized),
+  };
+}
+
+function questionHasAuthoredContent(question: QuestionCardItem) {
+  return Boolean(
+    question.prompt.trim()
+    || question.correctAnswers.length > 0
+    || question.acceptableAnswers?.length
+    || question.explanation?.trim()
+    || question.reasoningSteps?.some((step) => step.trim())
+    || question.trapAnalysis?.trim()
+    || question.vocabularyNotes?.trim()
+    || question.teacherNote?.trim()
+    || question.relatedLessonUrl?.trim()
+    || evidenceSpansForQuestion(question).length,
+  );
 }
 
 function readGroupIllustration(value: unknown): QuestionGroupItem["illustration"] {
@@ -102,10 +191,21 @@ function emptyPassage(passageNo: number): PassageSection {
 
 function normalizeQuestion(question: QuestionCardItem): QuestionCardItem {
   const hasPrompt = question.prompt.trim().length > 0;
-  const hasAnswer = question.correctAnswers.length > 0;
+  const correctAnswers = Array.isArray(question.correctAnswers) ? question.correctAnswers.filter(Boolean) : [];
+  const acceptableAnswers = Array.isArray(question.acceptableAnswers) ? question.acceptableAnswers.filter(Boolean) : [];
+  const reasoningSteps = Array.isArray(question.reasoningSteps)
+    ? question.reasoningSteps.map((step) => String(step).trim()).filter(Boolean)
+    : [];
+  const evidenceSpans = evidenceSpansForQuestion(question);
+  const hasAnswer = correctAnswers.length > 0;
   return {
     ...question,
     options: needsOptions(question.typeFormat) && question.options.length === 0 ? defaultOptions() : question.options,
+    correctAnswers,
+    acceptableAnswers,
+    reasoningSteps,
+    evidenceSpans: evidenceSpans.length > 0 ? evidenceSpans : undefined,
+    passageSpan: legacyPassageSpanFromEvidence(evidenceSpans),
     isComplete: hasPrompt && hasAnswer,
     hasError: !hasPrompt || !hasAnswer,
     errorMessage: !hasPrompt
@@ -126,6 +226,7 @@ function createQuestion(number: number, typeFormat: QuestionTypeFormat): Questio
     correctAnswers: [],
     acceptableAnswers: [],
     explanation: "",
+    reasoningSteps: [],
     trapAnalysis: "",
     vocabularyNotes: "",
     teacherNote: "",
@@ -534,8 +635,10 @@ export function ReadingTestBuilder() {
     groupId: string;
     questionId: string;
     questionNo: number;
+    evidenceId?: string;
   } | null>(null);
   const [evidenceFocusRequest, setEvidenceFocusRequest] = useState(0);
+  const [focusedEvidenceId, setFocusedEvidenceId] = useState<string | null>(null);
   const canPublish = roles.includes("admin");
   const workflowStatus = canPublish ? "PUBLISHED" : "IN_REVIEW";
   const workflowLabel = canPublish ? "Xuất bản" : "Gửi duyệt";
@@ -544,6 +647,9 @@ export function ReadingTestBuilder() {
   const selectedQuestion = activePassage.questionGroups
     .flatMap((group) => group.questions)
     .find((question) => question.number === selectedQuestionNo);
+  const selectedQuestionEvidenceSpans = selectedQuestion ? evidenceSpansForQuestion(selectedQuestion) : [];
+  const focusedEvidence = selectedQuestionEvidenceSpans.find((evidence) => evidence.id === focusedEvidenceId)
+    ?? selectedQuestionEvidenceSpans.find(hasEvidenceRange);
 
   // Calculate real passage statistics dynamically
   const passageStats = useMemo(() => {
@@ -563,6 +669,7 @@ export function ReadingTestBuilder() {
 
   useEffect(() => {
     setEvidenceCaptureTarget(null);
+    setFocusedEvidenceId(null);
   }, [activePassageId]);
 
   useEffect(() => {
@@ -723,6 +830,52 @@ export function ReadingTestBuilder() {
               targetId: question.id,
             });
           }
+          const questionEvidence = evidenceSpansForQuestion(question);
+          const hasNoDirectEvidence = questionEvidence.some((evidence) => evidence.mode === "NO_DIRECT_EVIDENCE");
+          if (!question.explanation?.trim()) {
+            issues.push({
+              id: `${question.id}-solution`,
+              severity: hasNoDirectEvidence ? "ERROR" : "WARNING",
+              sectionTitle: group.title,
+              questionNo: question.number,
+              message: hasNoDirectEvidence
+                ? "Khi không có trích dẫn trực tiếp, cần giải thích rõ lý do trong lời giải."
+                : "Câu hỏi chưa có lời giải cho học viên.",
+              targetId: question.id,
+            });
+          }
+          if (questionEvidence.length === 0) {
+            issues.push({
+              id: `${question.id}-evidence-empty`,
+              severity: "WARNING",
+              sectionTitle: group.title,
+              questionNo: question.number,
+              message: "Chưa gắn bằng chứng trong Passage.",
+              targetId: question.id,
+            });
+          }
+          questionEvidence.forEach((evidence) => {
+            if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !hasEvidenceRange(evidence)) {
+              issues.push({
+                id: `${question.id}-evidence-${evidence.id}-range`,
+                severity: "ERROR",
+                sectionTitle: group.title,
+                questionNo: question.number,
+                message: "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
+                targetId: question.id,
+              });
+            }
+            if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !evidence.quote.trim()) {
+              issues.push({
+                id: `${question.id}-evidence-${evidence.id}-quote`,
+                severity: "ERROR",
+                sectionTitle: group.title,
+                questionNo: question.number,
+                message: "Một bằng chứng chưa có đoạn trích. Hãy gắn lại vị trí trong Passage.",
+                targetId: question.id,
+              });
+            }
+          });
           if (group.typeFormat === "MULTIPLE_ANSWERS"
             && question.correctAnswers.length !== (group.requiredAnswerCount ?? 2)) {
             issues.push({
@@ -937,9 +1090,7 @@ export function ReadingTestBuilder() {
 
   function deleteGroup(groupId: string) {
     const group = activePassage.questionGroups.find((item) => item.id === groupId);
-    const hasEnteredData = group?.questions.some((question) => (
-      question.prompt.trim() || question.correctAnswers.length > 0 || question.explanation?.trim()
-    ));
+    const hasEnteredData = group?.questions.some(questionHasAuthoredContent);
     if (hasEnteredData && !window.confirm(
       `Xóa “${group?.title}” sẽ xóa toàn bộ ${group?.questions.length} câu và đáp án trong group. Bạn có muốn tiếp tục?`,
     )) return;
@@ -954,9 +1105,7 @@ export function ReadingTestBuilder() {
     const question = activePassage.questionGroups
       .find((group) => group.id === groupId)
       ?.questions.find((item) => item.id === questionId);
-    const hasEnteredData = Boolean(question?.prompt.trim()
-      || question?.correctAnswers.length
-      || question?.explanation?.trim());
+    const hasEnteredData = question ? questionHasAuthoredContent(question) : false;
     if (hasEnteredData && !window.confirm(
       `Câu ${question?.number} đã có dữ liệu. Bạn có muốn xóa câu này?`,
     )) return;
@@ -999,9 +1148,7 @@ export function ReadingTestBuilder() {
   function requestGroupQuestionCount(group: QuestionGroupItem, requestedCount: number) {
     const safeCount = Math.min(20, Math.max(1, requestedCount || 1));
     const removedQuestions = group.questions.slice(safeCount);
-    const removesEnteredData = removedQuestions.some((question) => (
-      question.prompt.trim() || question.correctAnswers.length > 0 || question.explanation?.trim()
-    ));
+    const removesEnteredData = removedQuestions.some(questionHasAuthoredContent);
     if (removesEnteredData && !window.confirm(
       `Giảm còn ${safeCount} câu sẽ xóa ${removedQuestions.length} câu cuối cùng cùng dữ liệu đã nhập. Bạn có muốn tiếp tục?`,
     )) return;
@@ -1022,15 +1169,20 @@ export function ReadingTestBuilder() {
         optionIdMap.set(option.id, nextId);
         return { ...option, id: nextId };
       });
-      return {
+      const questionId = newId("question");
+      const clonedQuestion = {
         ...question,
-        id: newId("question"),
+        id: questionId,
         number: 0,
         options,
         correctAnswers: question.correctAnswers.map((answer) => (
           optionIdMap.get(answer) ?? sharedOptionIdMap.get(answer) ?? answer
         )),
       };
+      return withEvidenceSpans(
+        clonedQuestion,
+        evidenceSpansForQuestion(question).map((evidence) => ({ ...evidence, id: newId("evidence") })),
+      );
     });
     setAllPassages((current) => renumberPassageQuestions(current.map((passage) => (
       passage.id === activePassage.id
@@ -1278,18 +1430,56 @@ export function ReadingTestBuilder() {
             passageId={activePassage.id}
             value={activePassage.content}
             onChange={(content) => updateActivePassage({ content })}
-            evidenceSpan={selectedQuestion?.passageSpan}
+            evidenceSpans={selectedQuestionEvidenceSpans}
+            evidenceSpan={focusedEvidence ? legacyPassageSpanFromEvidence([focusedEvidence]) : undefined}
             evidenceQuestionNo={selectedQuestion?.number}
+            evidenceFocusId={focusedEvidenceId}
             evidenceFocusRequest={evidenceFocusRequest}
             captureQuestionNo={evidenceCaptureTarget?.questionNo}
+            captureEvidenceLabel={evidenceCaptureTarget?.evidenceId
+              ? selectedQuestionEvidenceSpans.find((evidence) => evidence.id === evidenceCaptureTarget.evidenceId)?.label
+              : undefined}
+            captureEvidenceMode={evidenceCaptureTarget?.evidenceId
+              ? selectedQuestionEvidenceSpans.find((evidence) => evidence.id === evidenceCaptureTarget.evidenceId)?.mode
+              : "DIRECT_QUOTE"}
             onCancelEvidenceCapture={() => setEvidenceCaptureTarget(null)}
-            onEvidenceCaptured={(evidence) => {
+            onEvidenceCaptured={(evidence: {
+              id?: string | null;
+              start?: number | null;
+              end?: number | null;
+              quote?: string | null;
+              prefix?: string | null;
+              suffix?: string | null;
+              paragraphKey?: string | null;
+              label?: string | null;
+              mode?: ReadingEvidenceMode | null;
+            }) => {
               if (!evidenceCaptureTarget) return;
+              if (typeof evidence.start !== "number" || typeof evidence.end !== "number"
+                || evidence.start < 0 || evidence.end <= evidence.start) return;
+              const capturedEvidence: ReadingEvidenceSpan = {
+                id: evidenceCaptureTarget.evidenceId ?? evidence.id ?? newId("evidence"),
+                start: evidence.start,
+                end: evidence.end,
+                quote: evidence.quote ?? "",
+                prefix: evidence.prefix ?? undefined,
+                suffix: evidence.suffix ?? undefined,
+                paragraphKey: evidence.paragraphKey ?? undefined,
+                label: evidence.label ?? undefined,
+                mode: evidence.mode === "WHOLE_PARAGRAPH" ? "WHOLE_PARAGRAPH" : "DIRECT_QUOTE",
+              };
               updateQuestion(evidenceCaptureTarget.groupId, evidenceCaptureTarget.questionId, (question) => ({
-                ...question,
-                passageSpan: evidence,
+                ...withEvidenceSpans(
+                  question,
+                  evidenceCaptureTarget.evidenceId
+                    ? evidenceSpansForQuestion(question).map((current) => (
+                      current.id === evidenceCaptureTarget.evidenceId ? capturedEvidence : current
+                    ))
+                    : [...evidenceSpansForQuestion(question), capturedEvidence],
+                ),
               }));
               setSelectedQuestionNo(evidenceCaptureTarget.questionNo);
+              setFocusedEvidenceId(capturedEvidence.id);
               setEvidenceCaptureTarget(null);
               setEvidenceFocusRequest((current) => current + 1);
             }}
@@ -1621,109 +1811,43 @@ export function ReadingTestBuilder() {
                         />
                       </label>}
 
-                      {!usesGapTemplate && <AnswerEditor
+                      <ReadingQuestionSolutionEditor
                         question={question}
-                        sharedOptions={usesSharedOptions ? group.sharedOptions : undefined}
-                        requiredAnswerCount={group.requiredAnswerCount}
-                        onChange={(nextQuestion) => updateQuestion(group.id, question.id, () => nextQuestion)}
-                      />}
-
-                      <div className={`mt-4 rounded-xl border p-3 ${
-                        question.passageSpan
-                          ? "border-emerald-200 bg-emerald-50/70"
-                          : "border-dashed border-[#d8ced6] bg-[#f8f6fa]"
-                      }`}>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-start gap-2.5">
-                            <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg ${
-                              question.passageSpan ? "bg-emerald-100 text-emerald-700" : "bg-[#f7e7ec] text-[#8f4458]"
-                            }`}>
-                              <Highlighter size={17} weight="bold" />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-extrabold text-[#211A1D]">
-                                {question.passageSpan ? "Đã gắn vị trí bằng chứng" : "Highlight vị trí đáp án"}
-                              </p>
-                              <p className="mt-0.5 max-h-10 overflow-hidden text-[11px] leading-5 text-[#746A6E]">
-                                {question.passageSpan?.quote
-                                  ? `“${question.passageSpan.quote}”`
-                                  : "Bôi đoạn văn trong Passage dùng để đối chiếu câu trả lời."}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex shrink-0 items-center gap-2">
-                            {question.passageSpan && (
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedQuestionNo(question.number);
-                                  setEvidenceFocusRequest((current) => current + 1);
-                                }}
-                                className="min-h-9 rounded-lg border border-emerald-300 bg-white px-3 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50"
-                              >
-                                Xem vị trí
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedQuestionNo(question.number);
-                                setEvidenceCaptureTarget({
-                                  groupId: group.id,
-                                  questionId: question.id,
-                                  questionNo: question.number,
-                                });
-                              }}
-                              className="min-h-9 rounded-lg bg-[#8f4458] px-3 text-[11px] font-bold text-white hover:bg-[#743447]"
-                            >
-                              {question.passageSpan ? "Gắn lại" : "Gắn vị trí"}
-                            </button>
-                            {question.passageSpan && (
-                              <button
-                                type="button"
-                                aria-label={`Xóa vị trí bằng chứng của câu ${question.number}`}
-                                title="Xóa vị trí đã gắn"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  updateQuestion(group.id, question.id, (current) => ({
-                                    ...current,
-                                    passageSpan: undefined,
-                                  }));
-                                }}
-                                className="grid size-9 place-items-center rounded-lg border border-rose-200 bg-white text-[#b4232d] hover:bg-rose-50"
-                              >
-                                <Trash size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 border-t border-[#e3dce2]/70 pt-3 md:grid-cols-2">
-                        <label>
-                          <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Giải thích đáp án</span>
-                          <textarea
-                            rows={2}
-                            value={question.explanation ?? ""}
-                            onChange={(event) => updateQuestion(group.id, question.id, (current) => ({ ...current, explanation: event.target.value }))}
-                            className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none"
-                            placeholder="Phân tích key, paraphrase, vị trí thông tin..."
+                        answerEditor={usesGapTemplate ? (
+                          <p className="text-xs leading-5 text-[#746A6E]">
+                            Đáp án của dạng này được nhập trong mẫu Gap filling ở phần cấu hình Question Group phía trên.
+                          </p>
+                        ) : (
+                          <AnswerEditor
+                            question={question}
+                            sharedOptions={usesSharedOptions ? group.sharedOptions : undefined}
+                            requiredAnswerCount={group.requiredAnswerCount}
+                            onChange={(nextQuestion) => updateQuestion(group.id, question.id, () => nextQuestion)}
                           />
-                        </label>
-                        <label>
-                          <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Teacher note nội bộ</span>
-                          <textarea
-                            rows={2}
-                            value={question.teacherNote ?? ""}
-                            onChange={(event) => updateQuestion(group.id, question.id, (current) => ({ ...current, teacherNote: event.target.value }))}
-                            className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none"
-                            placeholder="Lưu ý khi giảng, bẫy thường gặp..."
-                          />
-                        </label>
-                      </div>
+                        )}
+                        onQuestionChange={(patch) => updateQuestion(group.id, question.id, (current) => ({ ...current, ...patch }))}
+                        onEvidenceSpansChange={(evidenceSpans) => updateQuestion(
+                          group.id,
+                          question.id,
+                          (current) => withEvidenceSpans(current, evidenceSpans),
+                        )}
+                        onRequestEvidenceCapture={(evidenceId) => {
+                          setSelectedQuestionNo(question.number);
+                          setFocusedEvidenceId(evidenceId ?? null);
+                          setEvidenceCaptureTarget({
+                            groupId: group.id,
+                            questionId: question.id,
+                            questionNo: question.number,
+                            evidenceId,
+                          });
+                        }}
+                        onFocusEvidence={(evidence) => {
+                          setSelectedQuestionNo(question.number);
+                          setFocusedEvidenceId(evidence.id);
+                          setEvidenceFocusRequest((current) => current + 1);
+                        }}
+                        createEvidenceId={() => newId("evidence")}
+                      />
                     </div>
                   ))}
 

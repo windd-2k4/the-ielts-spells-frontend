@@ -33,7 +33,79 @@ export interface ProgressSummary {
   latestScore?: number;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+export type IeltsSkill = "READING" | "LISTENING" | "WRITING" | "SPEAKING";
+
+export type PracticeProgressFilter = "ALL" | "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+
+export interface PracticeCoverImage {
+  fileUrl?: string;
+  altText?: string;
+}
+
+export interface StudentPracticeCatalogItem {
+  testId: string;
+  testVersionId: string;
+  code: string;
+  title: string;
+  description: string | null;
+  skill: IeltsSkill;
+  testType: "FULL_TEST" | "SINGLE_SKILL";
+  format: string;
+  sectionsCount: number;
+  totalItems: number;
+  durationMinutes: number;
+  tags: string[];
+  questionTypes: string[];
+  coverImage: PracticeCoverImage;
+  publishedAt: string;
+  attemptsCount: number;
+  activeAttemptId: string | null;
+  activeAttemptExpiresAt: string | null;
+  lastScore: number | null;
+  deliveryReady: boolean;
+}
+
 export type ReadingAssignmentMode = "PRACTICE" | "EXAM";
+
+export interface TestAssignment {
+  id: string;
+  testId: string;
+  testVersionId: string;
+  testTitle: string;
+  versionLabel: string;
+  skill: "READING";
+  courseId: string;
+  courseName: string;
+  mode: ReadingAssignmentMode;
+  opensAt: string | null;
+  closesAt: string | null;
+  maxAttempts: number;
+  durationSeconds: number | null;
+  showResultAfterSubmit: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateTestAssignmentRequest {
+  testVersionId: string;
+  courseId: string;
+  opensAt: string | null;
+  closesAt: string | null;
+  maxAttempts: number;
+  mode: ReadingAssignmentMode;
+  durationSeconds: number | null;
+  showResultAfterSubmit: boolean;
+}
 
 export type ReadingAttemptStatus = "IN_PROGRESS" | "GRADED" | "EXPIRED";
 
@@ -71,6 +143,24 @@ export interface StudentReadingAssignment {
   activeAttemptExpiresAt: string | null;
 }
 
+export interface StudentReadingCatalogItem {
+  testId: string;
+  testVersionId: string;
+  code: string;
+  title: string;
+  description: string | null;
+  testType: "FULL_TEST" | "SINGLE_SKILL";
+  sectionsCount: number;
+  totalQuestions: number;
+  durationMinutes: number;
+  tags: string[];
+  publishedAt: string;
+  attemptsCount: number;
+  activeAttemptId: string | null;
+  activeAttemptExpiresAt: string | null;
+  lastScore: number | null;
+}
+
 export interface ReadingAnswer {
   value?: string;
   values?: string[];
@@ -78,7 +168,7 @@ export interface ReadingAnswer {
 
 export interface ReadingQuestionOption {
   key: string;
-  code: string;
+  code: string | null;
   text: string;
 }
 
@@ -116,9 +206,39 @@ export interface SavedReadingResponse {
   answeredAt: string;
 }
 
+export type ReadingAnnotationType = "HIGHLIGHT" | "NOTE" | "UNDERLINE" | "STRIKETHROUGH";
+export type ReadingAnnotationColor = "YELLOW" | "GREEN" | "PINK" | "CYAN" | "RED" | "INK";
+
+export interface ReadingAnnotation {
+  id: string;
+  sectionKey: string;
+  type: ReadingAnnotationType;
+  color: ReadingAnnotationColor;
+  startOffset: number;
+  endOffset: number;
+  selectedText: string;
+  prefix: string;
+  suffix: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveReadingAnnotationRequest {
+  sectionKey: string;
+  type: ReadingAnnotationType;
+  color: ReadingAnnotationColor;
+  startOffset: number;
+  endOffset: number;
+  selectedText: string;
+  prefix: string;
+  suffix: string;
+  note: string | null;
+}
+
 export interface StudentReadingAttempt {
   attemptId: string;
-  assignmentId: string;
+  assignmentId: string | null;
   testVersionId: string;
   status: ReadingAttemptStatus;
   startedAt: string;
@@ -129,6 +249,7 @@ export interface StudentReadingAttempt {
   allowResultAfterSubmit: boolean;
   sections: ReadingSection[];
   responses: SavedReadingResponse[];
+  annotations: ReadingAnnotation[];
   autoScore: number | null;
   finalScore: number | null;
 }
@@ -152,6 +273,40 @@ export interface ReadingQuestionResult {
   maxScore: number;
   correctAnswers: string[];
   explanation: string | null;
+  /**
+   * Structured solution content. `explanation` remains available so that
+   * published versions created before this field can still be rendered.
+   */
+  solution: ReadingQuestionSolution | null;
+  /** All passage references authored for this question, in author order. */
+  evidenceSpans: ReadingEvidenceSpan[];
+  /** @deprecated Use `evidenceSpans`; retained for previously published tests. */
+  evidenceSpan: ReadingEvidenceSpan | null;
+}
+
+export type ReadingEvidenceMode = "DIRECT_QUOTE" | "WHOLE_PARAGRAPH" | "NO_DIRECT_EVIDENCE";
+
+export interface ReadingEvidenceSpan {
+  id: string | null;
+  /** Null when the teacher deliberately records that no passage quote applies. */
+  start: number | null;
+  /** Null when the teacher deliberately records that no passage quote applies. */
+  end: number | null;
+  quote: string | null;
+  prefix: string | null;
+  suffix: string | null;
+  paragraphKey: string | null;
+  label: string | null;
+  mode: ReadingEvidenceMode;
+}
+
+export interface ReadingQuestionSolution {
+  explanation: string | null;
+  reasoningSteps: string[];
+  trapAnalysis: string | null;
+  vocabularyNotes: string | null;
+  /** Optional published follow-up resource selected by the teacher. */
+  relatedLessonUrl: string | null;
 }
 
 export interface ReadingAttemptResult {

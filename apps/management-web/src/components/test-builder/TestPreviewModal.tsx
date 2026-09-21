@@ -6,7 +6,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ListeningPartSection, PassageSection, QuestionCardItem, QuestionGroupItem,
-  QuestionTypeFormat, SpeakingHintStep, SpeakingPartSection, SpeakingQuestionItem,
+  QuestionTypeFormat, ReadingEvidenceSpan, SpeakingHintStep, SpeakingPartSection, SpeakingQuestionItem,
   TestBankItem, WritingTaskSection,
 } from "../../library-types";
 import { apiBlob } from "../../lib/api";
@@ -52,10 +52,68 @@ function readPassageSpan(value: unknown): QuestionCardItem["passageSpan"] {
   return { start, end, quote: typeof value.quote === "string" ? value.quote : undefined };
 }
 
+function readEvidenceSpans(value: unknown, legacyValue: unknown, questionId: string): ReadingEvidenceSpan[] {
+  const legacy = readPassageSpan(legacyValue);
+  const sources: Record<string, unknown>[] = Array.isArray(value)
+    ? value.filter(isRecord)
+    : legacy
+    ? [{ start: legacy.start, end: legacy.end, quote: legacy.quote }]
+    : [];
+  const spans: ReadingEvidenceSpan[] = [];
+  sources.forEach((source, index) => {
+    const mode = source.mode === "WHOLE_PARAGRAPH"
+      ? "WHOLE_PARAGRAPH"
+      : source.mode === "NO_DIRECT_EVIDENCE"
+      ? "NO_DIRECT_EVIDENCE"
+      : "DIRECT_QUOTE";
+    if (mode === "NO_DIRECT_EVIDENCE") {
+      spans.push({
+        id: typeof source.id === "string" ? source.id : `preview-evidence-${questionId}-${index + 1}`,
+        start: null,
+        end: null,
+        quote: "",
+        prefix: typeof source.prefix === "string" ? source.prefix : undefined,
+        suffix: typeof source.suffix === "string" ? source.suffix : undefined,
+        paragraphKey: typeof source.paragraphKey === "string" ? source.paragraphKey : undefined,
+        label: typeof source.label === "string" ? source.label : undefined,
+        mode,
+      });
+      return;
+    }
+    const start = Number(source.start);
+    const end = Number(source.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return;
+    spans.push({
+      id: typeof source.id === "string" ? source.id : `preview-evidence-${questionId}-${index + 1}`,
+      start,
+      end,
+      quote: typeof source.quote === "string" ? source.quote : "",
+      prefix: typeof source.prefix === "string" ? source.prefix : undefined,
+      suffix: typeof source.suffix === "string" ? source.suffix : undefined,
+      paragraphKey: typeof source.paragraphKey === "string" ? source.paragraphKey : undefined,
+      label: typeof source.label === "string" ? source.label : undefined,
+      mode,
+    });
+  });
+  return spans;
+}
+
+function readSafeExternalUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function readQuestions(value: unknown): QuestionCardItem[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).map((question, index) => ({
-    id: typeof question.id === "string" ? question.id : `preview-question-${index + 1}`,
+  return value.filter(isRecord).map((question, index) => {
+    const id = typeof question.id === "string" ? question.id : `preview-question-${index + 1}`;
+    return {
+    id,
     number: typeof question.number === "number" ? question.number : 0,
     typeFormat: isQuestionType(question.typeFormat) ? question.typeFormat : "FILL_IN_BLANK",
     prompt: typeof question.prompt === "string" ? question.prompt : "",
@@ -63,14 +121,25 @@ function readQuestions(value: unknown): QuestionCardItem[] {
     correctAnswers: Array.isArray(question.correctAnswers) ? question.correctAnswers.map(String) : [],
     acceptableAnswers: Array.isArray(question.acceptableAnswers) ? question.acceptableAnswers.map(String) : [],
     explanation: typeof question.explanation === "string" ? question.explanation : "",
+    reasoningSteps: Array.isArray(question.reasoningSteps)
+      ? question.reasoningSteps.filter((step): step is string => typeof step === "string")
+      : [],
     trapAnalysis: typeof question.trapAnalysis === "string" ? question.trapAnalysis : "",
     vocabularyNotes: typeof question.vocabularyNotes === "string" ? question.vocabularyNotes : "",
+    relatedLessonUrl: readSafeExternalUrl(question.relatedLessonUrl),
     teacherNote: typeof question.teacherNote === "string" ? question.teacherNote : "",
+    solutionVisibility: question.solutionVisibility === "TEACHER_ONLY"
+      || question.solutionVisibility === "STUDENT_AFTER_ASSIGN"
+      || question.solutionVisibility === "STUDENT_AFTER_SUBMIT"
+      ? question.solutionVisibility
+      : "STUDENT_AFTER_SUBMIT",
     passageSpan: readPassageSpan(question.passageSpan),
+    evidenceSpans: readEvidenceSpans(question.evidenceSpans, question.passageSpan, id),
     isComplete: Boolean(question.isComplete),
     hasError: Boolean(question.hasError),
     errorMessage: typeof question.errorMessage === "string" ? question.errorMessage : undefined,
-  }));
+    };
+  });
 }
 
 function readGroups(value: unknown): QuestionGroupItem[] {
@@ -254,6 +323,47 @@ function scrollToQuestion(questionId: string) {
   document.getElementById(`preview-question-${questionId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+function SolutionFeedback({ question }: { question: QuestionCardItem }) {
+  const evidence = question.evidenceSpans?.length
+    ? question.evidenceSpans
+    : question.passageSpan
+    ? [{
+      id: `legacy-preview-${question.id}`,
+      start: question.passageSpan.start,
+      end: question.passageSpan.end,
+      quote: question.passageSpan.quote ?? "",
+      mode: "DIRECT_QUOTE" as const,
+    }]
+    : [];
+  const reasoningSteps = (question.reasoningSteps ?? []).filter((step) => step.trim());
+  const hasSolution = Boolean(
+    question.explanation?.trim()
+    || reasoningSteps.length
+    || question.trapAnalysis?.trim()
+    || question.vocabularyNotes?.trim()
+    || evidence.length
+    || question.relatedLessonUrl,
+  );
+
+  if (question.solutionVisibility === "TEACHER_ONLY") {
+    return <div className="rounded-xl border border-dashed border-[#D8CED6] bg-[#F8F6FA] px-3 py-2.5 text-xs leading-5 text-[#746A6E]">Lời giải của câu này chỉ giáo viên xem; bản xem trước học viên sẽ không hiển thị nội dung.</div>;
+  }
+
+  if (!hasSolution) {
+    return <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">Chưa có lời giải hoặc bằng chứng cho câu này. Học viên sẽ chỉ thấy đáp án.</div>;
+  }
+
+  return <div className="space-y-3 rounded-2xl border border-[#DED7DA] bg-[#FCFAFB] p-3.5">
+    <div className="flex items-center gap-2 text-xs font-bold text-[#8F4458]"><Lightbulb size={16} weight="fill" /> Lời giải &amp; đối chiếu</div>
+    {question.explanation?.trim() && <section className="rounded-xl border-l-4 border-[#C85F78] bg-white px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-[#AD4C64]">Vì sao đáp án này đúng</p><p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[#4F474B]">{question.explanation}</p></section>}
+    {reasoningSteps.length > 0 && <section className="rounded-xl bg-[#F1EEF4] px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-[#746A6E]">Cách suy luận</p><ol className="mt-2 space-y-1.5">{reasoningSteps.map((step, index) => <li key={`${question.id}-step-${index}`} className="flex gap-2 text-xs leading-5 text-[#292528]"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-bold text-[#8F4458]">{index + 1}</span><span>{step}</span></li>)}</ol></section>}
+    {question.trapAnalysis?.trim() && <section className="rounded-xl border border-rose-100 bg-rose-50/65 px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-[#B42335]">Bẫy cần tránh</p><p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[#6F3B47]">{question.trapAnalysis}</p></section>}
+    {question.vocabularyNotes?.trim() && <section className="rounded-xl border border-sky-100 bg-sky-50/65 px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-sky-800">Từ vựng &amp; paraphrase</p><p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-sky-950">{question.vocabularyNotes}</p></section>}
+    {evidence.length > 0 && <section className="space-y-2"><p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">Bằng chứng trong Passage</p>{evidence.map((item, index) => item.mode === "NO_DIRECT_EVIDENCE" ? <div key={item.id} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950"><strong>{item.label?.trim() || "Không có trích dẫn trực tiếp."}</strong> Passage không cung cấp thông tin cần thiết để khẳng định hoặc phủ định đáp án.</div> : <div key={item.id} className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-950"><Highlighter size={15} className="mt-0.5 shrink-0 text-emerald-700" /><span><strong>{item.label?.trim() || `Bằng chứng ${index + 1}`}:</strong>{item.quote?.trim() ? ` “${item.quote}”` : " Đã gắn vị trí trong Passage."}</span></div>)}</section>}
+    {question.relatedLessonUrl && <a href={question.relatedLessonUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#C85F78]/35 bg-white px-3 text-xs font-bold text-[#8F4458] transition hover:bg-[#F7E5EA]">Xem bài học liên quan <ArrowRight size={14} /></a>}
+  </div>;
+}
+
 function ReviewFeedback({ question, group, response, showAnswer, showExplanation }: {
   question: QuestionCardItem;
   group: QuestionGroupItem;
@@ -268,8 +378,7 @@ function ReviewFeedback({ question, group, response, showAnswer, showExplanation
       {correct ? "Trả lời đúng" : response.length ? "Câu trả lời chưa đúng" : "Chưa trả lời"}
     </div>
     {showAnswer && <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800"><strong>Đáp án:</strong> {answerLabel(question, group) || "Chưa thiết lập"}</p>}
-    {showExplanation && question.explanation && <p className="rounded-lg border border-[#DED7DA] bg-white px-3 py-2 text-xs leading-5 text-[#6F676C]"><strong className="text-[#292528]">Giải thích:</strong> {question.explanation}</p>}
-    {showExplanation && question.passageSpan?.quote && <p className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-900"><Highlighter size={15} className="mt-0.5 shrink-0" /><span><strong>Vị trí đối chiếu:</strong> “{question.passageSpan.quote}”</span></p>}
+    {showExplanation && <SolutionFeedback question={question} />}
   </div>;
 }
 
@@ -552,6 +661,7 @@ export default function TestPreviewModal({ test, onClose }: Props) {
   const [responses, setResponses] = useState<ResponseMap>({});
   const [writingResponses, setWritingResponses] = useState<WritingResponseMap>({});
   const [remainingSeconds, setRemainingSeconds] = useState(Math.max(0, test.durationMinutes * 60));
+  const coverImage = useMemo(() => readGroupIllustration(test.builderContent?.coverImage), [test.builderContent]);
   const allQuestions = useMemo(() => test.skill === "READING"
     ? readPassages(test.builderContent ?? {}).flatMap((passage) => passage.questionGroups).flatMap((group) => group.questions)
     : test.skill === "LISTENING"
@@ -591,6 +701,6 @@ export default function TestPreviewModal({ test, onClose }: Props) {
 
   return <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[#181518]/90 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="preview-title">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-xl sm:px-5"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-[#AD4C64]">Bản xem trước học viên</p><div className="flex flex-wrap items-center gap-2"><h1 id="preview-title" className="truncate font-display text-sm font-bold text-[#292528]">{test.title}</h1><span className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">{test.skill} · {previewItemCount} {test.skill === "WRITING" ? "task" : "câu"}</span></div><p className="mt-0.5 text-[10px] text-[#6F676C]">Dữ liệu từ draft hiện tại · không tạo lượt làm bài</p></div><div className="flex flex-wrap items-center gap-2"><div className="hidden rounded-xl bg-[#F2ECEE] p-1 sm:flex">{([{ value: "DESKTOP", icon: Desktop, label: "Desktop" }, { value: "TABLET", icon: DeviceTablet, label: "Tablet" }, { value: "MOBILE", icon: DeviceMobile, label: "Mobile" }] as const).map(({ value, icon: Icon, label }) => <button key={value} type="button" onClick={() => setDevice(value)} aria-label={label} aria-pressed={device === value} className={`grid size-9 place-items-center rounded-lg transition focus:outline-none focus:ring-2 focus:ring-[#C85F78] ${device === value ? "bg-white text-[#AD4C64] shadow-sm" : "text-[#6F676C]"}`}><Icon size={18} /></button>)}</div><div className="flex rounded-xl border border-[#DED7DA] bg-white p-1"><button type="button" onClick={() => setMode("TAKE")} aria-pressed={!review} className={`min-h-9 rounded-lg px-3 text-xs font-bold ${!review ? "bg-[#AD4C64] text-white" : "text-[#6F676C]"}`}>Làm bài</button><button type="button" onClick={() => setMode("REVIEW")} aria-pressed={review} className={`min-h-9 rounded-lg px-3 text-xs font-bold ${review ? "bg-[#AD4C64] text-white" : "text-[#6F676C]"}`}>Xem lại</button></div>{review && <div className="hidden items-center gap-3 border-l border-[#DED7DA] pl-3 md:flex"><label className="flex items-center gap-1.5 text-xs font-semibold text-[#6F676C]"><input type="checkbox" checked={showAnswers} onChange={(event) => setShowAnswers(event.target.checked)} className="accent-[#C85F78]" />{showAnswers ? <Eye size={15} /> : <EyeSlash size={15} />} {test.skill === "WRITING" ? "Bài mẫu" : "Đáp án"}</label>{test.skill !== "WRITING" && <label className="flex items-center gap-1.5 text-xs font-semibold text-[#6F676C]"><input type="checkbox" checked={showExplanations} onChange={(event) => setShowExplanations(event.target.checked)} className="accent-[#C85F78]" />Giải thích</label>}</div>}<button type="button" onClick={onClose} aria-label="Đóng xem trước" className="grid size-10 place-items-center rounded-xl bg-[#F2ECEE] text-[#292528] transition hover:bg-rose-50 hover:text-[#B42335] focus:outline-none focus:ring-2 focus:ring-[#C85F78]"><X size={20} /></button></div></header>
-    <main className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-2 sm:p-4"><div className={`flex min-h-0 flex-col overflow-hidden bg-white shadow-2xl transition-[width,height] duration-200 ${device === "DESKTOP" ? "preview-desktop rounded-[20px]" : device === "TABLET" ? "preview-tablet" : "preview-mobile"}`}><div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#DED7DA] bg-white px-4"><div className="min-w-0"><p className="truncate font-display text-sm font-bold text-[#AD4C64]">{test.title}</p><p className="text-[10px] text-[#6F676C]">{test.skill === "SPEAKING" ? `${previewItemCount} câu luyện nói` : `${previewAnsweredCount}/${previewItemCount} ${test.skill === "WRITING" ? "task đã làm" : "câu đã trả lời"}`}</p></div><div className="flex items-center gap-3"><span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold tabular-nums ${remainingSeconds <= 300 ? "bg-rose-50 text-[#B42335]" : "bg-[#F2ECEE] text-[#292528]"}`}><Timer size={15} /> {formatDuration(remainingSeconds)}</span>{!review && test.skill !== "SPEAKING" && <button type="button" onClick={() => setMode("REVIEW")} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#AD4C64] px-3 text-xs font-bold text-white transition hover:bg-[#943b52] focus:outline-none focus:ring-2 focus:ring-[#C85F78]"><span className="hidden sm:inline">Nộp bài xem trước</span><ArrowRight size={16} /></button>}</div></div>{test.skill === "READING" ? <ReadingPreview test={test} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={updateAnswer} /> : test.skill === "LISTENING" ? <ListeningPreview test={test} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={updateAnswer} /> : test.skill === "WRITING" ? <WritingPreview test={test} responses={writingResponses} review={review} showAnswers={showAnswers} onChange={updateWritingAnswer} /> : test.skill === "SPEAKING" ? <SpeakingPreview test={test} /> : <GenericPreview test={test} />}</div></main>
+    <main className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-2 sm:p-4"><div className={`flex min-h-0 flex-col overflow-hidden bg-white shadow-2xl transition-[width,height] duration-200 ${device === "DESKTOP" ? "preview-desktop rounded-[20px]" : device === "TABLET" ? "preview-tablet" : "preview-mobile"}`}><div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#DED7DA] bg-white px-4"><div className="min-w-0"><p className="truncate font-display text-sm font-bold text-[#AD4C64]">{test.title}</p><p className="text-[10px] text-[#6F676C]">{test.skill === "SPEAKING" ? `${previewItemCount} câu luyện nói` : `${previewAnsweredCount}/${previewItemCount} ${test.skill === "WRITING" ? "task đã làm" : "câu đã trả lời"}`}</p></div><div className="flex items-center gap-3"><span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold tabular-nums ${remainingSeconds <= 300 ? "bg-rose-50 text-[#B42335]" : "bg-[#F2ECEE] text-[#292528]"}`}><Timer size={15} /> {formatDuration(remainingSeconds)}</span>{!review && test.skill !== "SPEAKING" && <button type="button" onClick={() => setMode("REVIEW")} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#AD4C64] px-3 text-xs font-bold text-white transition hover:bg-[#943b52] focus:outline-none focus:ring-2 focus:ring-[#C85F78]"><span className="hidden sm:inline">Nộp bài xem trước</span><ArrowRight size={16} /></button>}</div></div>{coverImage && <figure className="shrink-0 border-b border-[#DED7DA] bg-[#F7F5F4] p-3 sm:p-4"><AuthenticatedMediaImage fileUrl={coverImage.fileUrl} alt={coverImage.altText} className="mx-auto max-h-44 w-full max-w-4xl rounded-xl bg-white object-contain" /></figure>}{test.skill === "READING" ? <ReadingPreview test={test} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={updateAnswer} /> : test.skill === "LISTENING" ? <ListeningPreview test={test} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={updateAnswer} /> : test.skill === "WRITING" ? <WritingPreview test={test} responses={writingResponses} review={review} showAnswers={showAnswers} onChange={updateWritingAnswer} /> : test.skill === "SPEAKING" ? <SpeakingPreview test={test} /> : <GenericPreview test={test} />}</div></main>
   </div>;
 }

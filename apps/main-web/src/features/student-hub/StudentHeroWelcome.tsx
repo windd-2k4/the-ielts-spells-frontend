@@ -24,7 +24,7 @@ export function StudentHeroWelcome({ data, unsubmittedAttempt }: StudentHeroWelc
   if (unsubmittedAttempt) {
     action = { title: unsubmittedAttempt.title, subtitle: `Bài ${unsubmittedAttempt.skill} đang làm dở. Tiếp tục từ phần bạn đã lưu.`, label: "Tiếp tục làm bài", href: `/student/reading/attempts/${unsubmittedAttempt.id}`, tag: "Tiếp tục việc học", icon: <PlayCircle size={18} weight="fill" /> };
   } else if (assignment) {
-    action = { title: assignment.title, subtitle: assignment.closesAt ? `Hạn làm bài: ${new Date(assignment.closesAt).toLocaleString("vi-VN", {dateStyle:"short",timeStyle:"short"})}` : `Bài Reading từ khóa ${assignment.courseName}.`, label: "Mở bài được giao", href: "/student/reading", tag: "Bài tập còn lượt làm", icon: <BookOpenText size={18} /> };
+    action = { title: assignment.title, subtitle: assignment.closesAt ? `Hạn làm bài: ${new Date(assignment.closesAt).toLocaleString("vi-VN", {dateStyle:"short",timeStyle:"short"})}` : `Bài Reading từ khóa ${assignment.courseName}.`, label: "Mở bài được giao", href: "/student/assignments", tag: "Bài tập còn lượt làm", icon: <BookOpenText size={18} /> };
   }
 
   return (

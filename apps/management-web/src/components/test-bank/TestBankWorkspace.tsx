@@ -13,6 +13,7 @@ import {
   Checks,
   ClipboardText,
   Compass,
+  DownloadSimple,
   Exam,
   Eye,
   GitMerge,
@@ -27,7 +28,9 @@ import {
   PencilSimpleLine,
   Plus,
   PuzzlePiece,
+  Robot,
   ShieldCheck,
+  Sparkle,
   SpinnerGap,
   Table,
   Tag,
@@ -557,14 +560,157 @@ function questionTypeList(skill: TestSkill | "ALL") {
   return readingQuestionTypes;
 }
 
+function renderSkillAvatar(skill: TestSkill) {
+  switch (skill) {
+    case "READING":
+      return (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-100 text-sky-700 shadow-2xs">
+          <BookOpenText size={20} weight="duotone" />
+        </span>
+      );
+    case "LISTENING":
+      return (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-100 text-indigo-700 shadow-2xs">
+          <Headphones size={20} weight="duotone" />
+        </span>
+      );
+    case "WRITING":
+      return (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 shadow-2xs">
+          <PencilSimpleLine size={20} weight="duotone" />
+        </span>
+      );
+    case "SPEAKING":
+      return (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-700 shadow-2xs">
+          <Microphone size={20} weight="duotone" />
+        </span>
+      );
+    default:
+      return (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-stone-100 text-stone-700 shadow-2xs">
+          <Exam size={20} weight="duotone" />
+        </span>
+      );
+  }
+}
+
+function renderSkillBadge(skill: TestSkill) {
+  switch (skill) {
+    case "READING":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200/90 bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-800 shadow-2xs">
+          <BookOpenText size={13} weight="fill" className="text-sky-600" />
+          <span>READING</span>
+        </span>
+      );
+    case "LISTENING":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200/90 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-800 shadow-2xs">
+          <Headphones size={13} weight="fill" className="text-indigo-600" />
+          <span>LISTENING</span>
+        </span>
+      );
+    case "WRITING":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200/90 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 shadow-2xs">
+          <PencilSimpleLine size={13} weight="fill" className="text-amber-600" />
+          <span>WRITING</span>
+        </span>
+      );
+    case "SPEAKING":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200/90 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-800 shadow-2xs">
+          <Microphone size={13} weight="fill" className="text-rose-600" />
+          <span>SPEAKING</span>
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-bold text-stone-700">
+          <span>{skill}</span>
+        </span>
+      );
+  }
+}
+
+function renderFormatBadge(test: TestBankItem) {
+  const format = formatOf(test);
+  const label = formatLabels[format] ?? "Chưa xác định";
+
+  if (format === "FULL" || test.testType === "FULL_TEST") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg border border-purple-300/80 bg-gradient-to-r from-purple-100 to-indigo-100 px-2.5 py-1 text-[11px] font-extrabold text-purple-900 shadow-2xs">
+        <Cards size={13} weight="fill" className="text-purple-700" />
+        <span>Full đề (Full Test)</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function renderTags(tags: string[]) {
+  if (!tags || tags.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      {tags.slice(0, 3).map((tag, idx) => {
+        const isAi = tag.toUpperCase().includes("AI") || tag.toUpperCase().includes("CRAWLED") || tag.toUpperCase().includes("GEMINI") || tag.toUpperCase().includes("NVIDIA");
+        return (
+          <span
+            key={idx}
+            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+              isAi
+                ? "bg-violet-50 text-violet-700 border border-violet-200/70"
+                : "bg-stone-100 text-stone-600 border border-stone-200/60"
+            }`}
+          >
+            {isAi && <Sparkle size={10} weight="fill" className="text-violet-500" />}
+            <span>{tag}</span>
+          </span>
+        );
+      })}
+      {tags.length > 3 && (
+        <span className="text-[10px] font-medium text-stone-400">+{tags.length - 3}</span>
+      )}
+    </div>
+  );
+}
+
 function statusBadge(status: ContentLifecycleStatus) {
-  const className = {
-    PUBLISHED: "bg-emerald-50 text-[#237653]",
-    IN_REVIEW: "bg-amber-50 text-[#8a6000]",
-    DRAFT: "bg-stone-100 text-[#746A6E]",
-    ARCHIVED: "bg-rose-50 text-[#b4232d]",
-  }[status];
-  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${className}`}>{statusLabels[status]}</span>;
+  switch (status) {
+    case "PUBLISHED":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/80 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 shadow-2xs">
+          <CheckCircle size={12} weight="fill" className="text-emerald-600" />
+          <span>Published</span>
+        </span>
+      );
+    case "IN_REVIEW":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/80 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 shadow-2xs">
+          <SpinnerGap size={12} className="animate-spin text-amber-600" />
+          <span>Chờ duyệt</span>
+        </span>
+      );
+    case "ARCHIVED":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-rose-300/80 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-800 shadow-2xs">
+          <span>Archived</span>
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-stone-300/80 bg-stone-100 px-2.5 py-1 text-[11px] font-bold text-stone-700 shadow-2xs">
+          <span>Draft</span>
+        </span>
+      );
+  }
 }
 
 function SkillCard({
@@ -664,6 +810,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const [publishingTest, setPublishingTest] = useState<TestBankItem | null>(null);
   const [previewTest, setPreviewTest] = useState<TestBankItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [createForm, setCreateForm] = useState<CreateTestForm>(defaultCreateForm);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -859,19 +1006,74 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onOpenBulkImport}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#e3dce2] bg-white px-4 text-sm font-bold text-[#211A1D] transition hover:bg-[#f1eef4]"
-          >
-            <UploadSimple size={18} weight="bold" />
-            Import Excel/CSV
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Dropdown menu cho các tính năng Import & Crawl */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowImportDropdown(!showImportDropdown)}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#e3dce2] bg-white px-4 text-sm font-bold text-[#211A1D] shadow-sm transition hover:bg-[#f8f6fa] hover:border-[#cdbfc6] focus:outline-none"
+            >
+              <DownloadSimple size={18} className="text-[#8f4458]" />
+              <span>Import &amp; Crawl</span>
+              <CaretDown size={14} className={`text-[#746A6E] transition-transform duration-200 ${showImportDropdown ? "rotate-180" : ""}`} />
+            </button>
+
+            {showImportDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowImportDropdown(false)} />
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-[#e3dce2] bg-white p-2 shadow-xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => { setShowImportDropdown(false); navigate("/test-bank/import-ai"); }}
+                    className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-sm font-semibold text-[#211A1D] hover:bg-[#f7e7ec] hover:text-[#743447] transition"
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f7e7ec] text-[#8f4458]">
+                      <Sparkle size={17} weight="duotone" />
+                    </span>
+                    <div>
+                      <div className="font-bold">Nhập đề bằng AI</div>
+                      <div className="text-[11px] font-normal text-[#746A6E]">Dán văn bản hoặc file PDF</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowImportDropdown(false); navigate("/test-bank/crawl-hub"); }}
+                    className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-sm font-semibold text-[#211A1D] hover:bg-[#e0e7ff] hover:text-[#3730a3] transition"
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e0e7ff] text-[#4338ca]">
+                      <Robot size={17} weight="duotone" />
+                    </span>
+                    <div>
+                      <div className="font-bold">Kho Đề Crawl Hub</div>
+                      <div className="text-[11px] font-normal text-[#746A6E]">Duyệt đề cào Open Source</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowImportDropdown(false); onOpenBulkImport(); }}
+                    className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-sm font-semibold text-[#211A1D] hover:bg-[#f1eef4] transition"
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f1eef4] text-[#4a4044]">
+                      <UploadSimple size={17} weight="bold" />
+                    </span>
+                    <div>
+                      <div className="font-bold">Import Excel / CSV</div>
+                      <div className="text-[11px] font-normal text-[#746A6E]">Tải lên định dạng bảng mẫu</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Nút Tạo đề mới */}
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#8f4458] px-5 text-sm font-bold text-white shadow-sm hover:bg-[#743447]"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#8f4458] px-5 text-sm font-bold text-white shadow-sm hover:bg-[#743447] transition"
           >
             <Plus size={18} weight="bold" />
             Tạo đề mới
@@ -1053,27 +1255,21 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                     </tr>
                   )}
                   {filteredTests.map((test) => (
-                    <tr key={test.id} className="hover:bg-[#f8f6fa]">
+                    <tr key={test.id} className="transition hover:bg-[#f8f6fa]/80">
                       <td className="p-3.5">
                         <div className="flex items-center gap-3">
-                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f7e7ec] text-[#8f4458]">
-                            <Exam size={18} weight="duotone" />
-                          </span>
+                          {renderSkillAvatar(test.skill)}
                           <div className="min-w-0">
                             <span className="font-bold text-[#8f4458]">{test.code}</span>
-                            <p className="max-w-[320px] truncate font-semibold text-[#211A1D]">{test.title}</p>
-                            {test.tags.length > 0 && (
-                              <p className="mt-0.5 max-w-[320px] truncate text-[11px] text-[#746A6E]">
-                                {test.tags.join(", ")}
-                              </p>
-                            )}
+                            <p className="max-w-[320px] truncate font-bold text-[#211A1D]">{test.title}</p>
+                            {renderTags(test.tags)}
                           </div>
                         </div>
                       </td>
-                      <td className="p-3.5 font-bold text-[#211A1D]">{test.skill}</td>
-                      <td className="p-3.5 font-semibold text-[#211A1D]">{formatLabels[formatOf(test)]}</td>
-                      <td className="p-3.5 font-semibold text-[#211A1D]">{test.totalQuestions} câu</td>
-                      <td className="p-3.5 text-[#746A6E]">{test.durationMinutes} phút</td>
+                      <td className="p-3.5">{renderSkillBadge(test.skill)}</td>
+                      <td className="p-3.5">{renderFormatBadge(test)}</td>
+                      <td className="p-3.5 font-bold text-[#211A1D]">{test.totalQuestions} câu</td>
+                      <td className="p-3.5 font-medium text-[#746A6E]">{test.durationMinutes} phút</td>
                       <td className="p-3.5 font-bold text-[#8f4458]">{test.publishedVersion?.versionLabel ?? test.version}</td>
                       <td className="p-3.5 text-[#746A6E]">{dateLabel(test.updatedAt)}</td>
                       <td className="p-3.5">{statusBadge(test.status)}</td>
@@ -1430,6 +1626,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       {previewTest && (
         <TestPreviewModal test={previewTest} onClose={() => setPreviewTest(null)} />
       )}
+
     </div>
   );
 }

@@ -85,6 +85,15 @@ export function questionOptions(question: ReadingQuestion, group: ReadingQuestio
   return [];
 }
 
+export function optionLabel(code: string | null, text: string) {
+  const normalizedCode = code?.trim();
+  const normalizedText = text.trim();
+  if (!normalizedCode || normalizedCode === normalizedText) {
+    return normalizedText;
+  }
+  return `${normalizedCode}. ${normalizedText}`;
+}
+
 export function assignmentAvailability(assignment: StudentReadingAssignment, now = Date.now()) {
   const openAt = assignment.opensAt ? Date.parse(assignment.opensAt) : undefined;
   const closeAt = assignment.closesAt ? Date.parse(assignment.closesAt) : undefined;

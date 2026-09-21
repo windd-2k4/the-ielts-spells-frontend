@@ -12,7 +12,11 @@ export function StudentHubShellGuard({ children }: { children: React.ReactNode }
     pathname.startsWith("/student/register") ||
     pathname.startsWith("/student/auth");
 
-  if (isAuthPage) {
+  // The test player, result and explanation views are focused workspaces. They
+  // own a compact toolbar, so the learning-hub navigation must not wrap them.
+  const isReadingWorkspacePage = /^\/student\/reading\/attempts\/[^/]+(?:\/(?:result|explanations))?$/.test(pathname);
+
+  if (isAuthPage || isReadingWorkspacePage) {
     return <>{children}</>;
   }
 

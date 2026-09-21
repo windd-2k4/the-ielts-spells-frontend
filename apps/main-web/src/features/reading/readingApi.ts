@@ -1,8 +1,11 @@
 import type {
   ReadingAttemptResult,
+  ReadingAnnotation,
+  SaveReadingAnnotationRequest,
   SaveReadingResponsesRequest,
   StudentReadingAssignment,
   StudentReadingAttempt,
+  StudentReadingCatalogItem,
 } from "@ielts/contracts";
 import { apiFetch } from "@/lib/api";
 
@@ -10,6 +13,16 @@ const readingPath = "/student/reading";
 
 export function getReadingAssignments() {
   return apiFetch<StudentReadingAssignment[]>(`${readingPath}/assignments`);
+}
+
+export function getPublishedReadingTests() {
+  return apiFetch<StudentReadingCatalogItem[]>(`${readingPath}/catalog`);
+}
+
+export function startOrResumeSelfPractice(testVersionId: string) {
+  return apiFetch<StudentReadingAttempt>(`${readingPath}/catalog/${testVersionId}/attempts`, {
+    method: "POST",
+  });
 }
 
 export function startOrResumeReadingAttempt(assignmentId: string) {
@@ -26,6 +39,19 @@ export function saveReadingResponses(attemptId: string, request: SaveReadingResp
   return apiFetch<StudentReadingAttempt>(`${readingPath}/attempts/${attemptId}/responses`, {
     method: "PUT",
     body: JSON.stringify(request),
+  });
+}
+
+export function saveReadingAnnotation(attemptId: string, annotationId: string, request: SaveReadingAnnotationRequest) {
+  return apiFetch<ReadingAnnotation>(`${readingPath}/attempts/${attemptId}/annotations/${annotationId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export function deleteReadingAnnotation(attemptId: string, annotationId: string) {
+  return apiFetch<void>(`${readingPath}/attempts/${attemptId}/annotations/${annotationId}`, {
+    method: "DELETE",
   });
 }
 

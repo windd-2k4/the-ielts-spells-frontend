@@ -64,7 +64,7 @@ export interface StudentPortalSession {
 
 export interface StudentPortalAttempt {
   attemptId: string;
-  assignmentId: string;
+  assignmentId: string | null;
   title: string;
   skill: "READING";
   status: StudentAttemptStatus;

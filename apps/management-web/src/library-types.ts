@@ -111,6 +111,30 @@ export type QuestionOption = {
   text: string;
 };
 
+/**
+ * A durable anchor from a Reading question back to the source Passage.
+ *
+ * `start` and `end` intentionally allow `null` for questions such as
+ * NOT GIVEN, where the explanation needs to state that the required
+ * information does not appear in the Passage rather than point to one quote.
+ */
+export type ReadingEvidenceMode =
+  | "DIRECT_QUOTE"
+  | "WHOLE_PARAGRAPH"
+  | "NO_DIRECT_EVIDENCE";
+
+export type ReadingEvidenceSpan = {
+  id: string;
+  start: number | null;
+  end: number | null;
+  quote: string;
+  prefix?: string;
+  suffix?: string;
+  paragraphKey?: string;
+  label?: string;
+  mode: ReadingEvidenceMode;
+};
+
 export type QuestionCardItem = {
   id: string;
   number: number;
@@ -119,8 +143,11 @@ export type QuestionCardItem = {
   options: QuestionOption[];
   correctAnswers: string[]; // option id, text answer, or matching target
   acceptableAnswers?: string[];
+  /** @deprecated Kept for drafts created before multiple evidence spans. */
   passageSpan?: { start: number; end: number; quote?: string };
+  evidenceSpans?: ReadingEvidenceSpan[];
   explanation?: string;
+  reasoningSteps?: string[];
   trapAnalysis?: string;
   vocabularyNotes?: string;
   relatedLessonUrl?: string;

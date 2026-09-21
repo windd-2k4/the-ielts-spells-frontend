@@ -26,6 +26,12 @@ const LearningLibraryPage = lazy(() => import("./pages/LearningLibraryPage")
   .then((module) => ({ default: module.LearningLibraryPage })));
 const TestBankPage = lazy(() => import("./pages/TestBankPage")
   .then((module) => ({ default: module.TestBankPage })));
+const TestAssignmentsPage = lazy(() => import("./pages/TestAssignmentsPage")
+  .then((module) => ({ default: module.TestAssignmentsPage })));
+const AiTestImportPage = lazy(() => import("./pages/AiTestImportPage")
+  .then((module) => ({ default: module.AiTestImportPage })));
+const CrawlHubPage = lazy(() => import("./pages/CrawlHubPage")
+  .then((module) => ({ default: module.CrawlHubPage })));
 const TestBuilderPage = lazy(() => import("./pages/TestBuilderPage")
   .then((module) => ({ default: module.TestBuilderPage })));
 const MediaLibraryPage = lazy(() => import("./pages/MediaLibraryPage")
@@ -111,10 +117,13 @@ export default function App() {
                 <Route path="/courses" element={<CourseManagementPage />} />
                 <Route path="/courses/:courseId" element={<CourseManagementPage />} />
                 <Route path="/classes" element={<Navigate to="/courses" replace />} />
+                <Route path="/test-assignments" element={<TestAssignmentsPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "teacher"]} />}>
                 <Route path="/library" element={<LearningLibraryPage />} />
                 <Route path="/test-bank" element={<TestBankPage />} />
+                <Route path="/test-bank/import-ai" element={<AiTestImportPage />} />
+                <Route path="/test-bank/crawl-hub" element={<CrawlHubPage />} />
                 <Route path="/test-builder/:skill/:testId" element={<TestBuilderPage />} />
                 <Route path="/media" element={<MediaLibraryPage />} />
               </Route>

@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { BookOpenText, ArrowRight, Clock, CheckCircle } from "@phosphor-icons/react";
-import { getReadingAssignments } from "@/features/reading/readingApi";
+import { useRouter } from "next/navigation";
+import { BookOpenText, ArrowRight, Clock, CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
+import { getReadingAssignments, startOrResumeReadingAttempt } from "@/features/reading/readingApi";
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { StudentEmptyState } from "@/features/student-hub/StudentEmptyState";
 
 export default function StudentAssignmentsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<StudentReadingAssignment[]>([]);
+  const [error, setError] = useState("");
+  const [startingId, setStartingId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -19,8 +22,8 @@ export default function StudentAssignmentsPage() {
         if (active && Array.isArray(data)) {
           setAssignments(data);
         }
-      } catch (err) {
-        console.info("Assignments page fetch notice:", err);
+      } catch (failure) {
+        if (active) setError(failure instanceof Error ? failure.message : "Không tải được danh sách bài tập.");
       } finally {
         if (active) setLoading(false);
       }
@@ -31,17 +34,36 @@ export default function StudentAssignmentsPage() {
     };
   }, []);
 
+  async function openAssignment(assignmentId: string) {
+    setStartingId(assignmentId);
+    setError("");
+    try {
+      const attempt = await startOrResumeReadingAttempt(assignmentId);
+      router.push(`/student/reading/attempts/${attempt.attemptId}`);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Không thể mở bài tập này.");
+    } finally {
+      setStartingId("");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between pb-4 border-b border-[#F3E8C4]">
         <div>
-          <h2 className="text-xl font-black text-[#1E1B18] font-display">Bài Tập Của Tôi</h2>
+          <h2 className="text-xl font-black text-[#1E1B18] font-display">Bài tập của tôi</h2>
           <p className="text-xs text-[#857F7A]">
             Danh sách toàn bộ bài tập và đề kiểm tra được giảng viên giao cho bạn
           </p>
         </div>
       </div>
+
+      {error ? (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+          <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />{error}
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="space-y-3">
@@ -90,14 +112,15 @@ export default function StudentAssignmentsPage() {
                 </div>
 
                 <div className="pt-2 border-t border-[#F3E8C4] flex items-center justify-end">
-                  <Link
-                    href="/student/reading"
-                    className="px-4 py-2 rounded-xl bg-[#894C5B] text-white font-extrabold text-xs hover:bg-[#723c4a] transition-all flex items-center gap-1.5 shadow-xs"
-                  >
-                    {isSubmitted ? (
+                  <button type="button" disabled={startingId === item.assignmentId || isSubmitted}
+                    onClick={() => void openAssignment(item.assignmentId)}
+                    className="flex min-h-11 items-center gap-1.5 rounded-xl bg-[#894C5B] px-4 py-2 text-xs font-extrabold text-white shadow-xs transition-all hover:bg-[#723c4a] focus:outline-none focus:ring-2 focus:ring-[#C85F78] disabled:cursor-not-allowed disabled:opacity-55">
+                    {startingId === item.assignmentId ? (
+                      <><CircleNotch size={16} className="animate-spin" /><span>Đang mở bài</span></>
+                    ) : isSubmitted ? (
                       <>
                         <CheckCircle size={16} weight="fill" className="text-[#F5C842]" />
-                        <span>Mở danh sách bài</span>
+                        <span>Đã hết lượt làm</span>
                       </>
                     ) : (
                       <>
@@ -105,7 +128,7 @@ export default function StudentAssignmentsPage() {
                         <ArrowRight size={14} weight="bold" />
                       </>
                     )}
-                  </Link>
+                  </button>
                 </div>
               </div>
             );

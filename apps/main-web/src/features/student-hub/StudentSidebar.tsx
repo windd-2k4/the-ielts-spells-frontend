@@ -9,8 +9,8 @@ import styles from "./StudentHubLayout.module.css";
 const groups = [
   { title: "Không gian học tập", items: [
     { href: "/student", label: "Tổng quan", icon: SquaresFour },
-    { href: "/student/assignments", label: "Bài tập được giao", icon: BookOpenText },
-    { href: "/student/practice", label: "Luyện tập kỹ năng", icon: PencilSimpleLine },
+    { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
+    { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
     { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },
     { href: "/student/schedule", label: "Lịch học", icon: CalendarCheck },
   ] },
@@ -57,4 +57,3 @@ export function StudentSidebar() {
     </aside>
   );
 }
-

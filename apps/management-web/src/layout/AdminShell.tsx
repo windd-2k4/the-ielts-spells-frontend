@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, SignOut,
+  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, PaperPlaneTilt, SignOut,
   SlidersHorizontal, Student, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
@@ -60,6 +60,7 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
     items: [
       { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin"] },
       { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin"] },
+      { to: "/test-assignments", label: "Giao đề", icon: PaperPlaneTilt, roles: ["admin"] },
     ],
   },
   {

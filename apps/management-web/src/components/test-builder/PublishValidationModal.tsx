@@ -11,6 +11,7 @@ import type {
   PassageSection,
   QuestionGroupItem,
   QuestionCardItem,
+  ReadingEvidenceSpan,
   QuestionTypeFormat,
   TestBankItem,
   TestValidationResult,
@@ -68,10 +69,41 @@ function readPassageSpan(value: unknown): QuestionCardItem["passageSpan"] {
   };
 }
 
+function readEvidenceSpans(value: unknown, legacyValue: unknown, questionId: string): ReadingEvidenceSpan[] {
+  const legacy = readPassageSpan(legacyValue);
+  const sources: Record<string, unknown>[] = Array.isArray(value)
+    ? value.filter(isRecord)
+    : legacy
+    ? [{ start: legacy.start, end: legacy.end, quote: legacy.quote }]
+    : [];
+  return sources.map((source, index) => {
+    const mode = source.mode === "WHOLE_PARAGRAPH"
+      ? "WHOLE_PARAGRAPH"
+      : source.mode === "NO_DIRECT_EVIDENCE"
+      ? "NO_DIRECT_EVIDENCE"
+      : "DIRECT_QUOTE";
+    const start = typeof source.start === "number" && Number.isFinite(source.start) ? source.start : null;
+    const end = typeof source.end === "number" && Number.isFinite(source.end) ? source.end : null;
+    return {
+      id: typeof source.id === "string" && source.id.trim() ? source.id : `validation-evidence-${questionId}-${index + 1}`,
+      start: mode === "NO_DIRECT_EVIDENCE" ? null : start,
+      end: mode === "NO_DIRECT_EVIDENCE" ? null : end,
+      quote: mode === "NO_DIRECT_EVIDENCE" ? "" : typeof source.quote === "string" ? source.quote : "",
+      prefix: typeof source.prefix === "string" ? source.prefix : undefined,
+      suffix: typeof source.suffix === "string" ? source.suffix : undefined,
+      paragraphKey: typeof source.paragraphKey === "string" ? source.paragraphKey : undefined,
+      label: typeof source.label === "string" ? source.label : undefined,
+      mode,
+    } satisfies ReadingEvidenceSpan;
+  });
+}
+
 function readQuestions(value: unknown): QuestionCardItem[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).map((question) => ({
-    id: typeof question.id === "string" ? question.id : "question",
+  return value.filter(isRecord).map((question, index) => {
+    const id = typeof question.id === "string" ? question.id : `question-${index + 1}`;
+    return {
+    id,
     number: typeof question.number === "number" ? question.number : 0,
     typeFormat: isQuestionType(question.typeFormat) ? question.typeFormat : "FILL_IN_BLANK",
     prompt: typeof question.prompt === "string" ? question.prompt : "",
@@ -79,14 +111,38 @@ function readQuestions(value: unknown): QuestionCardItem[] {
     correctAnswers: Array.isArray(question.correctAnswers) ? question.correctAnswers.map(String) : [],
     acceptableAnswers: Array.isArray(question.acceptableAnswers) ? question.acceptableAnswers.map(String) : [],
     explanation: typeof question.explanation === "string" ? question.explanation : "",
+    reasoningSteps: Array.isArray(question.reasoningSteps)
+      ? question.reasoningSteps.filter((step): step is string => typeof step === "string")
+      : [],
     trapAnalysis: typeof question.trapAnalysis === "string" ? question.trapAnalysis : "",
     vocabularyNotes: typeof question.vocabularyNotes === "string" ? question.vocabularyNotes : "",
     teacherNote: typeof question.teacherNote === "string" ? question.teacherNote : "",
     passageSpan: readPassageSpan(question.passageSpan),
+    evidenceSpans: readEvidenceSpans(question.evidenceSpans, question.passageSpan, id),
     isComplete: Boolean(question.isComplete),
     hasError: Boolean(question.hasError),
     errorMessage: typeof question.errorMessage === "string" ? question.errorMessage : undefined,
-  }));
+    };
+  });
+}
+
+function evidenceSpansForQuestion(question: QuestionCardItem): ReadingEvidenceSpan[] {
+  if (Array.isArray(question.evidenceSpans) && question.evidenceSpans.length > 0) return question.evidenceSpans;
+  if (!question.passageSpan) return [];
+  return [{
+    id: `legacy-evidence-${question.id}`,
+    start: question.passageSpan.start,
+    end: question.passageSpan.end,
+    quote: question.passageSpan.quote ?? "",
+    mode: "DIRECT_QUOTE",
+  }];
+}
+
+function hasEvidenceRange(evidence: ReadingEvidenceSpan) {
+  return typeof evidence.start === "number"
+    && typeof evidence.end === "number"
+    && evidence.start >= 0
+    && evidence.end > evidence.start;
 }
 
 function readGroups(value: unknown): QuestionGroupItem[] {
@@ -324,6 +380,52 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
               targetId: question.id,
             });
           }
+          const questionEvidence = evidenceSpansForQuestion(question);
+          const hasNoDirectEvidence = questionEvidence.some((evidence) => evidence.mode === "NO_DIRECT_EVIDENCE");
+          if (!question.explanation?.trim()) {
+            issues.push({
+              id: `${question.id}-solution`,
+              severity: hasNoDirectEvidence ? "ERROR" : "WARNING",
+              sectionTitle: group.title,
+              questionNo: question.number,
+              message: hasNoDirectEvidence
+                ? "Khi không có trích dẫn trực tiếp, cần giải thích rõ lý do trong lời giải."
+                : "Câu hỏi chưa có lời giải cho học viên.",
+              targetId: question.id,
+            });
+          }
+          if (questionEvidence.length === 0) {
+            issues.push({
+              id: `${question.id}-evidence-empty`,
+              severity: "WARNING",
+              sectionTitle: group.title,
+              questionNo: question.number,
+              message: "Chưa gắn bằng chứng trong Passage.",
+              targetId: question.id,
+            });
+          }
+          questionEvidence.forEach((evidence) => {
+            if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !hasEvidenceRange(evidence)) {
+              issues.push({
+                id: `${question.id}-evidence-${evidence.id}-range`,
+                severity: "ERROR",
+                sectionTitle: group.title,
+                questionNo: question.number,
+                message: "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
+                targetId: question.id,
+              });
+            }
+            if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !evidence.quote.trim()) {
+              issues.push({
+                id: `${question.id}-evidence-${evidence.id}-quote`,
+                severity: "ERROR",
+                sectionTitle: group.title,
+                questionNo: question.number,
+                message: "Một bằng chứng chưa có đoạn trích. Hãy gắn lại vị trí trong Passage.",
+                targetId: question.id,
+              });
+            }
+          });
           if (group.typeFormat === "MULTIPLE_ANSWERS"
             && question.correctAnswers.length !== (group.requiredAnswerCount ?? 2)) {
             issues.push({
