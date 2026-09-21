@@ -8,20 +8,20 @@
 .heroTrack {
   position: relative;
   height: 190vh;
-  margin: 10px -16px 48px;
+  margin: -14px -16px 48px;
   pointer-events: none;
 }
 
 @media (max-width: 1199px) {
   .heroTrack {
-    margin: 8px -10px 40px;
+    margin: -12px -10px 40px;
     height: 180vh;
   }
 }
 
 @media (max-width: 767px) {
   .heroTrack {
-    margin: 6px -4px 32px;
+    margin: -8px -4px 32px;
     height: 160vh;
   }
 }
@@ -29,7 +29,7 @@
 .heroSticky {
   position: sticky;
   top: 96px;
-  height: min(calc(100vh - 124px), 740px);
+  height: min(calc(100vh - 120px), 740px);
   min-height: 520px;
   width: 100%;
   border-radius: 22px;
@@ -54,8 +54,8 @@
 
 @media (max-width: 1199px) {
   .heroSticky {
-    top: 88px;
-    height: min(calc(100vh - 110px), 680px);
+    top: 86px;
+    height: min(calc(100vh - 108px), 680px);
     border-radius: 20px;
   }
 }

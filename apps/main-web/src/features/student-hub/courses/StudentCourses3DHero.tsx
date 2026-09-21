@@ -45,7 +45,7 @@ export function StudentCourses3DHero({
       const rect = trackRef.current.getBoundingClientRect();
       const isMobile = window.innerWidth <= 767;
       const isTablet = window.innerWidth <= 1199;
-      const stickyOffset = isMobile ? 76 : isTablet ? 88 : 96;
+      const stickyOffset = isMobile ? 76 : isTablet ? 86 : 96;
       const stickyHeight = stickyRef.current?.offsetHeight ?? (window.innerHeight * 0.72);
       const pinDistance = rect.height - stickyHeight;
       if (pinDistance <= 0) return;
@@ -93,7 +93,7 @@ export function StudentCourses3DHero({
       const rect = trackRef.current.getBoundingClientRect();
       const isMobile = window.innerWidth <= 767;
       const isTablet = window.innerWidth <= 1199;
-      const stickyOffset = isMobile ? 76 : isTablet ? 88 : 96;
+      const stickyOffset = isMobile ? 76 : isTablet ? 86 : 96;
       const stickyHeight = stickyRef.current?.offsetHeight ?? (window.innerHeight * 0.72);
       const pinDistance = rect.height - stickyHeight;
       const targetY = window.scrollY + (rect.top - stickyOffset) + pinDistance * 0.72;
