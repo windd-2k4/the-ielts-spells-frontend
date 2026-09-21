@@ -2,6 +2,25 @@
 
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { apiFetch } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+
+export interface DatabaseCourseItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  level: string | null;
+  skillPair: "LISTENING_READING" | "SPEAKING_WRITING";
+  targetBand: number | null;
+  totalSessions: number | null;
+  tuitionAmount: number | null;
+  capacity: number | null;
+  startsOn: string;
+  endsOn: string | null;
+  status: "PLANNED" | "OPEN" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  isPublic: boolean;
+  isActive: boolean;
+}
 
 export type StudentEnrollmentStatus = "PENDING" | "ACTIVE" | "PAUSED" | "COMPLETED";
 export type StudentAttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "EXPIRED";
@@ -130,3 +149,43 @@ export function updateStudentTargetBand(targetBand: number) {
     },
   );
 }
+
+export async function fetchSystemCourses(): Promise<DatabaseCourseItem[]> {
+  try {
+    const { data, error } = await supabase
+      .from("courses")
+      .select(
+        "id, code, name, description, level, skill_pair, target_band, total_sessions, tuition_amount, capacity, starts_on, ends_on, status, is_public, is_active"
+      )
+      .eq("is_public", true)
+      .eq("is_active", true)
+      .order("starts_on", { ascending: true });
+
+    if (error || !data) {
+      console.warn("fetchSystemCourses warning:", error?.message);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      code: item.code,
+      name: item.name,
+      description: item.description ?? null,
+      level: item.level ?? null,
+      skillPair: item.skill_pair,
+      targetBand: item.target_band != null ? Number(item.target_band) : null,
+      totalSessions: item.total_sessions != null ? Number(item.total_sessions) : null,
+      tuitionAmount: item.tuition_amount != null ? Number(item.tuition_amount) : null,
+      capacity: item.capacity != null ? Number(item.capacity) : null,
+      startsOn: item.starts_on,
+      endsOn: item.ends_on ?? null,
+      status: item.status,
+      isPublic: item.is_public,
+      isActive: item.is_active,
+    }));
+  } catch (err) {
+    console.error("fetchSystemCourses error:", err);
+    return [];
+  }
+}
+
