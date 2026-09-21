@@ -12,6 +12,8 @@ const ActivateAccountPage = lazy(() => import("./pages/ActivateAccountPage")
   .then((module) => ({ default: module.ActivateAccountPage })));
 const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage")
   .then((module) => ({ default: module.AuthCallbackPage })));
+const BillingPage = lazy(() => import("./pages/BillingPage")
+  .then((module) => ({ default: module.BillingPage })));
 const CourseManagementPage = lazy(() => import("./pages/CourseManagementPage")
   .then((module) => ({ default: module.CourseManagementPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage")
@@ -131,6 +133,7 @@ export default function App() {
                 <Route path="/students" element={<StudentsPage />} />
                 <Route path="/students/:studentId" element={<StudentDetailPage />} />
                 <Route path="/enrollments" element={<EnrollmentsPage />} />
+                <Route path="/billing" element={<BillingPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin"]} />}>
                 <Route path="/staff" element={<StaffAdminPage />} />
