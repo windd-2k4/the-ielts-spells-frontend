@@ -164,12 +164,8 @@ export function StudentCourses3DHero({
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight font-serif">
-            Khám Phá Kho Tàng Khóa Học
+            Cast The Spells, Claim The Band
           </h1>
-
-          <p className="mt-2 text-xs sm:text-sm text-amber-100/75 max-w-xl mx-auto font-sans font-light">
-            Cuộn xuống hoặc nhấp vào quyển sách phép để lật mở lộ trình học thuật và bứt phá Band điểm mục tiêu.
-          </p>
         </div>
 
         {/* Floating Parallax Spell Pills (Left & Right) */}

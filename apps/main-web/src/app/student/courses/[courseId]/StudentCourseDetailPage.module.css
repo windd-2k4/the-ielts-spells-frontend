@@ -1,0 +1,933 @@
+/* ==========================================================================
+   StudentCourseDetailPage.module.css
+   Lumina Dashboard UI Architecture for Course Detail Workspace
+   Palette: Navy-900 (#0b1437), Navy-800 (#1b2559), Secondary-gray (#a3aed0),
+            Secondary-light (#f4f7fe), Brand Wine (#894c5b)
+   ========================================================================== */
+
+.viewportWrapper {
+  background-color: #f4f7fe;
+  min-height: 100vh;
+  padding: 24px 28px 48px;
+  color: #1b2559;
+  font-family: var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+.dashboardContainer {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+/* ==========================================================================
+   HEADER SECTION
+   ========================================================================== */
+.headerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 2px;
+}
+
+.headerLeft {
+  display: grid;
+  gap: 4px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #707eae;
+}
+
+.breadcrumbLink {
+  color: #707eae;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.breadcrumbLink:hover {
+  color: #1b2559;
+}
+
+.breadcrumbCurrent {
+  color: #1b2559;
+  font-weight: 600;
+}
+
+.headerTitle {
+  font-family: var(--font-display, Outfit, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 30px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  color: #1b2559;
+  line-height: 1.15;
+}
+
+.headerTitle em {
+  color: #894c5b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  margin-right: 0.18em;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Lumina Search & Utility Capsule */
+.utilityCapsule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0px 3px 20px rgba(112, 144, 176, 0.08);
+}
+
+.searchInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #f4f7fe;
+  color: #8f9bba;
+  font-size: 13px;
+}
+
+.searchInputWrapper input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: #1b2559;
+  font-size: 12.5px;
+  width: 140px;
+}
+
+.searchInputWrapper input::placeholder {
+  color: #8f9bba;
+}
+
+.utilityIconBtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #a3aed0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.utilityIconBtn:hover {
+  color: #1b2559;
+  background: #f4f7fe;
+}
+
+.notificationDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ee5d50;
+  border: 1.5px solid #ffffff;
+}
+
+/* ==========================================================================
+   ROW 1: GREETING & PAYROLL / COCKPIT & TARGET CARD
+   ========================================================================== */
+.rowOne {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+/* Left Greeting Card (Span 2 in 3-col logic) */
+.greetingCard {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px 32px;
+  box-shadow: 0px 3px 20px rgba(112, 144, 176, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.greetingMain {
+  display: grid;
+  gap: 12px;
+  max-width: 540px;
+}
+
+.onlineBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onlineBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e6f9f0;
+  color: #05cd99;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.onlineBadge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #05cd99;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+.currentDateText {
+  color: #a3aed0;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.greetingHeading {
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  color: #1b2559;
+  line-height: 1.15;
+}
+
+.greetingSubtext {
+  font-size: 13.5px;
+  color: #a3aed0;
+  line-height: 1.6;
+}
+
+.greetingButtonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.primaryNavyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 14px;
+  background: #0b1437;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0px 10px 24px rgba(11, 20, 55, 0.2);
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.primaryNavyBtn:hover {
+  background: #894c5b;
+  transform: translateY(-2px);
+}
+
+.secondaryWhiteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1b2559;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid #e0e5f2;
+  cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.secondaryWhiteBtn:hover {
+  background: #f4f7fe;
+  transform: translateY(-1px);
+}
+
+/* Circular Punch-Out Visual in Lumina Card */
+.punchVisualContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  flex-shrink: 0;
+}
+
+.punchBlurBlob {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: #eef2ff;
+  filter: blur(16px);
+  z-index: 1;
+}
+
+.punchCircleButton {
+  position: relative;
+  z-index: 2;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e0e5f2;
+  box-shadow: 0px 18px 40px rgba(112, 144, 176, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.punchCircleButton:hover {
+  transform: scale(1.05);
+}
+
+.punchIcon {
+  color: #0b1437;
+}
+
+.punchLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #a3aed0;
+  text-transform: uppercase;
+}
+
+.punchTimer {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1b2559;
+  font-family: ui-monospace, monospace;
+}
+
+/* Right Payroll / Target Band Card */
+.payrollCard {
+  background: #0b1437;
+  border-radius: 20px;
+  padding: 26px 28px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0px 18px 40px rgba(11, 20, 55, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.payrollCardBlob {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  filter: blur(20px);
+  pointer-events: none;
+}
+
+.payrollTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.payrollLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a3aed0;
+}
+
+.payrollCardIcon {
+  color: #a3aed0;
+}
+
+.payrollAmount {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  margin: 6px 0 16px;
+}
+
+/* Mini Bar Chart */
+.miniChartContainer {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 60px;
+  margin-bottom: 20px;
+}
+
+.miniBar {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  transition: background-color 180ms ease, height 300ms ease;
+}
+
+.miniBar:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.miniBarActive {
+  background: #4318ff;
+  box-shadow: 0px 4px 18px rgba(67, 24, 255, 0.65);
+}
+
+.payrollActionBtn {
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.payrollActionBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ==========================================================================
+   ROW 2: QUICK STATS (4-COLUMN GRID)
+   ========================================================================== */
+.quickStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.statCard {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px 22px;
+  box-shadow: 0px 3px 20px rgba(112, 144, 176, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 200ms ease;
+}
+
+.statCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0px 12px 30px rgba(112, 144, 176, 0.15);
+}
+
+.statIconCircle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.statIconBlue {
+  background: #f4f7fe;
+  color: #4318ff;
+}
+
+.statIconOrange {
+  background: #fef4e8;
+  color: #ffb547;
+}
+
+.statIconPurple {
+  background: #f6f3ff;
+  color: #7551ff;
+}
+
+.statIconCyan {
+  background: #e6f9f0;
+  color: #05cd99;
+}
+
+.statContent {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #a3aed0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 750;
+  color: #1b2559;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   ROW 3: DETAILS CARDS (3-COLUMN GRID)
+   ========================================================================== */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.05fr);
+  gap: 20px;
+}
+
+.detailCard {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0px 3px 20px rgba(112, 144, 176, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.detailCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.detailCardHeading {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #1b2559;
+}
+
+.detailCardAction {
+  color: #4318ff;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.detailCardAction:hover {
+  text-decoration: underline;
+}
+
+/* --- Card 1: Work Location Details --- */
+.locationNestedBlock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f4f7fe;
+  margin-bottom: 18px;
+}
+
+.locationInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.locationPinCircle {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #4318ff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0px 3px 12px rgba(112, 144, 176, 0.08);
+}
+
+.locationName {
+  font-size: 14px;
+  font-weight: 750;
+  color: #1b2559;
+}
+
+.locationCity {
+  font-size: 11.5px;
+  color: #a3aed0;
+}
+
+.locationBadge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #e6f9f0;
+  color: #05cd99;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.timeLogList {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.timeLogRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.timeLogLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a3aed0;
+}
+
+.timeLogVal {
+  font-weight: 700;
+  color: #1b2559;
+}
+
+.overtimeStatusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid #f4f7fe;
+  margin-top: auto;
+  font-size: 12px;
+  color: #a3aed0;
+  font-weight: 600;
+}
+
+.overtimeStatusBadge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #e6f9f0;
+  color: #05cd99;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* --- Card 2: Schedule List --- */
+.scheduleList {
+  display: grid;
+  gap: 14px;
+}
+
+.scheduleItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f8f9fe;
+}
+
+.scheduleItem:last-child {
+  border-bottom: 0;
+}
+
+.scheduleDateSquare {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.dateNavy {
+  background: #f4f7fe;
+  color: #0b1437;
+}
+
+.datePurple {
+  background: #f6f3ff;
+  color: #7551ff;
+}
+
+.dateOrange {
+  background: #fef4e8;
+  color: #ffb547;
+}
+
+.dateMonth {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dateDay {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.scheduleBody {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.scheduleTitle {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #1b2559;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scheduleMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #a3aed0;
+}
+
+/* --- Card 3: Priority Tasks --- */
+.taskList {
+  display: grid;
+  gap: 14px;
+}
+
+.taskItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.taskCheckboxWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.customCheckbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid #a3aed0;
+  display: grid;
+  place-items: center;
+  margin-top: 2px;
+  flex-shrink: 0;
+  transition: all 160ms ease;
+}
+
+.taskCompleted .customCheckbox {
+  background: #0b1437;
+  border-color: #0b1437;
+  color: #ffffff;
+}
+
+.taskTextStack {
+  display: grid;
+  gap: 2px;
+}
+
+.taskTitle {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #1b2559;
+  line-height: 1.35;
+}
+
+.taskCompleted .taskTitle {
+  text-decoration: line-through;
+  color: #a3aed0;
+}
+
+.taskSub {
+  font-size: 11.5px;
+  color: #a3aed0;
+}
+
+.priorityRedDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ee5d50;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+/* --- Full Syllabus & Policy Accordion / Drawer Section --- */
+.fullCurriculumSection {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 26px 30px;
+  box-shadow: 0px 3px 20px rgba(112, 144, 176, 0.08);
+  display: grid;
+  gap: 20px;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f4f7fe;
+  padding-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #1b2559;
+}
+
+.curriculumPhaseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.curriculumPhaseCard {
+  border: 1px solid #f4f7fe;
+  border-radius: 16px;
+  padding: 18px;
+  background: #fafbfe;
+  display: grid;
+  gap: 12px;
+}
+
+.curriculumPhaseTitle {
+  font-size: 14px;
+  font-weight: 750;
+  color: #1b2559;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.curriculumSessionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 12px;
+  border: 1px solid #eef2fa;
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .rowOne {
+    grid-template-columns: 1fr;
+  }
+  .detailsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .detailsGrid > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .quickStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+  .detailsGrid > :last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .viewportWrapper {
+    padding: 16px 14px 36px;
+  }
+  .headerBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .utilityCapsule {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .greetingCard {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .punchVisualContainer {
+    align-self: center;
+  }
+  .quickStatsGrid {
+    grid-template-columns: 1fr;
+  }
+}

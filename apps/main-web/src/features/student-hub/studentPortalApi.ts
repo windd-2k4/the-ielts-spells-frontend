@@ -18,6 +18,7 @@ export interface DatabaseCourseItem {
   startsOn: string;
   endsOn: string | null;
   status: "PLANNED" | "OPEN" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  defaultZoomUrl: string | null;
   isPublic: boolean;
   isActive: boolean;
 }
@@ -155,7 +156,7 @@ export async function fetchSystemCourses(): Promise<DatabaseCourseItem[]> {
     const { data, error } = await supabase
       .from("courses")
       .select(
-        "id, code, name, description, level, skill_pair, target_band, total_sessions, tuition_amount, capacity, starts_on, ends_on, status, is_public, is_active"
+        "id, code, name, description, level, skill_pair, target_band, total_sessions, tuition_amount, capacity, starts_on, ends_on, status, default_zoom_url, is_public, is_active"
       )
       .eq("is_public", true)
       .eq("is_active", true)
@@ -180,11 +181,48 @@ export async function fetchSystemCourses(): Promise<DatabaseCourseItem[]> {
       startsOn: item.starts_on,
       endsOn: item.ends_on ?? null,
       status: item.status,
+      defaultZoomUrl: item.default_zoom_url ?? null,
       isPublic: item.is_public,
       isActive: item.is_active,
     }));
   } catch (err) {
     console.error("fetchSystemCourses error:", err);
+    return [];
+  }
+}
+
+export interface ClassSessionItem {
+  id: string;
+  courseId: string;
+  sessionNo: number;
+  title: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  zoomMeetingId: string | null;
+  zoomUrl: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  notes: string | null;
+  phaseName: string | null;
+  content: string | null;
+  teacherId: string | null;
+  teacherName: string | null;
+  items?: Array<{
+    id: string;
+    itemType: string;
+    title: string;
+    description: string | null;
+    sourceAssignmentId: string | null;
+    sourceResourceId: string | null;
+    deadlineAt: string | null;
+    required: boolean;
+  }>;
+}
+
+export async function fetchCourseSessions(courseId: string): Promise<ClassSessionItem[]> {
+  try {
+    return await apiFetch<ClassSessionItem[]>(`/admin/courses/${courseId}/sessions`);
+  } catch (err) {
+    console.warn("fetchCourseSessions non-critical:", err);
     return [];
   }
 }

@@ -5,39 +5,36 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
-  CalendarBlank,
-  CheckCircle,
-  ChartLineUp,
-  Books,
-  Clock,
-  User,
-  VideoCamera,
-  Trophy,
-  ArrowSquareOut,
-  Sparkle,
-  ShieldCheck,
-  Headphones,
+  ArrowRight,
   Article,
-  Microphone,
-  PenNib,
+  BookmarkSimple,
+  CalendarBlank,
+  CalendarCheck,
+  ChalkboardTeacher,
   Check,
-  Lightning,
-  Target,
-  FilePdf,
-  FileAudio,
-  Fire,
-  Play,
-  LockKey,
+  CheckCircle,
+  Clock,
+  DotsThree,
+  GraduationCap,
+  MagnifyingGlass,
+  MapPin,
+  Moon,
+  Info,
+  Bell,
+  ShieldCheck,
+  Users,
+  VideoCamera,
 } from "@phosphor-icons/react";
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import {
   fetchSystemCourses,
+  fetchCourseSessions,
   type DatabaseCourseItem,
   type StudentPortalEnrollment,
+  type ClassSessionItem,
 } from "@/features/student-hub/studentPortalApi";
 import { skillPairLabel } from "@/features/student-hub/studentPortalViewModel";
-
-type DetailTab = "roadmap" | "attendance" | "skills" | "resources";
+import styles from "./StudentCourseDetailPage.module.css";
 
 export default function StudentCourseDetailPage() {
   const params = useParams();
@@ -46,16 +43,25 @@ export default function StudentCourseDetailPage() {
   const { data, loading: portalLoading } = useStudentPortal();
   const [systemCourses, setSystemCourses] = useState<DatabaseCourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
-  const [activeTab, setActiveTab] = useState<DetailTab>("roadmap");
 
-  // Load courses
+  // Real class sessions from database
+  const [sessions, setSessions] = useState<ClassSessionItem[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+
+  // Search query for sessions
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Expandable full curriculum toggle
+  const [showFullCurriculum, setShowFullCurriculum] = useState(false);
+
+  // Load all system courses
   useEffect(() => {
     let isMounted = true;
     async function load() {
       setLoadingCourses(true);
       try {
-        const courses = await fetchSystemCourses();
-        if (isMounted) setSystemCourses(courses);
+        const list = await fetchSystemCourses();
+        if (isMounted) setSystemCourses(list);
       } catch (err) {
         console.error("Error loading system courses:", err);
       } finally {
@@ -68,7 +74,7 @@ export default function StudentCourseDetailPage() {
     };
   }, []);
 
-  // Match enrollment
+  // Match student's enrollment
   const enrollment: StudentPortalEnrollment | null = useMemo(() => {
     if (!data?.enrollments || !rawCourseId) return null;
     return (
@@ -80,7 +86,7 @@ export default function StudentCourseDetailPage() {
     );
   }, [data?.enrollments, rawCourseId]);
 
-  // Match course
+  // Match system course details
   const course: DatabaseCourseItem | null = useMemo(() => {
     const found = systemCourses.find(
       (c) =>
@@ -103,6 +109,7 @@ export default function StudentCourseDetailPage() {
         startsOn: enrollment.startsOn,
         endsOn: enrollment.endsOn,
         status: enrollment.status === "ACTIVE" ? "ACTIVE" : "OPEN",
+        defaultZoomUrl: null,
         isPublic: true,
         isActive: true,
       };
@@ -110,517 +117,651 @@ export default function StudentCourseDetailPage() {
     return null;
   }, [systemCourses, rawCourseId, enrollment]);
 
-  const totalSessions = course?.totalSessions || enrollment?.totalSessions || 12;
-  const completedSessions = enrollment?.completedSessions || 1;
-  const progressPercent =
-    totalSessions > 0 ? Math.min(100, Math.round((completedSessions / totalSessions) * 100)) : 0;
+  // Load real sessions from backend for this course
+  useEffect(() => {
+    let isMounted = true;
+    if (!course?.id) return;
 
-  const studentName = data?.profile.fullName?.split(" ").slice(-2).join(" ") || "Học viên";
-  const targetBand = data?.profile.targetBand ?? course?.targetBand ?? 6.5;
-  const currentBand = data?.profile.currentBand ?? 5.5;
-  const teacherName = enrollment?.primaryTeacherName || "Giảng viên IELTS Spells";
+    async function loadSessions() {
+      setLoadingSessions(true);
+      try {
+        const sessionList = await fetchCourseSessions(course!.id);
+        if (isMounted) setSessions(sessionList);
+      } catch (err) {
+        console.warn("Could not load course sessions:", err);
+      } finally {
+        if (isMounted) setLoadingSessions(false);
+      }
+    }
+    loadSessions();
+    return () => {
+      isMounted = false;
+    };
+  }, [course?.id]);
 
-  // Concise, structured session milestones (No long text walls!)
-  const roadmapSessions = useMemo(() => {
-    const isLR = course?.skillPair === "LISTENING_READING";
+  // Real reading assignments for this course
+  const courseAssignments = useMemo(() => {
+    if (!data?.readingAssignments || !course?.id) return [];
+    return data.readingAssignments.filter((a) => a.courseId === course.id);
+  }, [data?.readingAssignments, course?.id]);
 
-    const lrMilestones = [
-      { no: 1, title: "Diagnostic Test & Skimming", tag: "Chiến thuật", time: "Thứ 2, 14/09 · 18:30" },
-      { no: 2, title: "Listening: Form Completion", tag: "Kỹ năng nghe", time: "Thứ 4, 16/09 · 18:30" },
-      { no: 3, title: "Reading: True / False / Not Given", tag: "Kỹ năng đọc", time: "Thứ 2, 21/09 · 18:30" },
-      { no: 4, title: "Listening: Map-Labelling", tag: "Kỹ năng nghe", time: "Thứ 4, 23/09 · 18:30" },
-      { no: 5, title: "Reading: Matching Headings", tag: "Kỹ năng đọc", time: "Thứ 2, 28/09 · 18:30" },
-      { no: 6, title: "Mid-term Assessment Review", tag: "Đánh giá", time: "Thứ 4, 30/09 · 18:30" },
-      { no: 7, title: "Listening: Sentence Completion", tag: "Luyện đề", time: "Thứ 2, 05/10 · 18:30" },
-      { no: 8, title: "Reading: Matching Features", tag: "Luyện đề", time: "Thứ 4, 07/10 · 18:30" },
-      { no: 9, title: "Full Practice Test 1", tag: "Thi thử", time: "Thứ 2, 12/10 · 18:30" },
-      { no: 10, title: "Listening Forecast: Distractors", tag: "Forecast 2026", time: "Thứ 4, 14/10 · 18:30" },
-      { no: 11, title: "Reading Forecast: Tối ưu 60 phút", tag: "Forecast 2026", time: "Thứ 2, 19/10 · 18:30" },
-      { no: 12, title: "Final Assessment & Chuẩn đầu ra", tag: "Tổng kết", time: "Thứ 4, 21/10 · 18:30" },
-    ];
+  // Real upcoming session for this course
+  const upcomingSession = useMemo(() => {
+    if (!course?.id) return null;
+    const portalUpcoming = (data?.upcomingSessions || []).find(
+      (s) => s.courseId === course.id,
+    );
+    if (portalUpcoming) return portalUpcoming;
 
-    const swMilestones = [
-      { no: 1, title: "Diagnostic Speaking & Writing", tag: "Đánh giá", time: "Thứ 2, 14/09 · 18:30" },
-      { no: 2, title: "Speaking Part 1: Fluency", tag: "Phản xạ nói", time: "Thứ 4, 16/09 · 18:30" },
-      { no: 3, title: "Writing Task 1: Line & Bar Chart", tag: "Báo cáo", time: "Thứ 2, 21/09 · 18:30" },
-      { no: 4, title: "Writing Task 2: Opinion Essay", tag: "Nghị luận", time: "Thứ 4, 23/09 · 18:30" },
-    ];
-
-    const source = isLR ? lrMilestones : swMilestones;
-    return source.slice(0, totalSessions).map((s) => {
-      const isDone = s.no <= completedSessions;
-      const isNext = s.no === completedSessions + 1;
+    const nextInList = sessions.find((s) => s.status === "SCHEDULED");
+    if (nextInList) {
       return {
-        ...s,
-        status: isDone ? ("DONE" as const) : isNext ? ("CURRENT" as const) : ("LOCKED" as const),
+        sessionId: nextInList.id,
+        courseId: nextInList.courseId,
+        courseCode: course.code,
+        courseName: course.name,
+        sessionNo: nextInList.sessionNo,
+        title: nextInList.title,
+        phaseName: nextInList.phaseName,
+        startsAt: nextInList.startsAt || "",
+        endsAt: nextInList.endsAt || "",
+        status: "SCHEDULED" as const,
+        teacherName: nextInList.teacherName || enrollment?.primaryTeacherName || null,
+        zoomUrl: nextInList.zoomUrl || course.defaultZoomUrl,
       };
-    });
-  }, [course?.skillPair, totalSessions, completedSessions]);
+    }
+    return null;
+  }, [data?.upcomingSessions, course, sessions, enrollment]);
 
-  const currentSession = roadmapSessions.find((s) => s.status === "CURRENT") || roadmapSessions[0];
+  // Group real sessions by Phase / Module
+  const phaseGroups = useMemo(() => {
+    if (!sessions.length) return [];
+    const map = new Map<string, ClassSessionItem[]>();
+    sessions.forEach((s) => {
+      const phase = s.phaseName?.trim() || "Lộ trình đào tạo toàn diện";
+      if (!map.has(phase)) map.set(phase, []);
+      map.get(phase)!.push(s);
+    });
+    return Array.from(map.entries()).map(([phaseName, phaseSessions]) => ({
+      phaseName,
+      sessions: phaseSessions.sort((a, b) => a.sessionNo - b.sessionNo),
+    }));
+  }, [sessions]);
+
+  // Real metrics
+  const totalSessions =
+    course?.totalSessions ||
+    enrollment?.totalSessions ||
+    sessions.length ||
+    0;
+  const completedSessions =
+    enrollment?.completedSessions ||
+    sessions.filter((s) => s.status === "COMPLETED").length ||
+    0;
+  const progressPercent =
+    totalSessions > 0
+      ? Math.min(100, Math.round((completedSessions / totalSessions) * 100))
+      : 0;
+
+  const targetBand =
+    course?.targetBand ??
+    enrollment?.courseTargetBand ??
+    data?.profile?.targetBand ??
+    null;
+  const teacherName =
+    enrollment?.primaryTeacherName || upcomingSession?.teacherName || null;
+  const zoomUrl = upcomingSession?.zoomUrl || course?.defaultZoomUrl || null;
+
+  // Filtered sessions for Schedule preview (next 3 scheduled or recent)
+  const scheduledPreview = useMemo(() => {
+    const upcomingList = sessions.filter((s) => s.status === "SCHEDULED");
+    if (upcomingList.length > 0) return upcomingList.slice(0, 3);
+    return sessions.slice(0, 3);
+  }, [sessions]);
+
+  // Format today's date in Lumina style (e.g. Tuesday, September 22, 2026)
+  const todayFormatted = useMemo(() => {
+    return new Intl.DateTimeFormat("vi-VN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(new Date());
+  }, []);
 
   if (loadingCourses || portalLoading) {
     return (
-      <div className="py-12 space-y-6 max-w-5xl mx-auto animate-pulse">
-        <div className="h-5 w-40 bg-stone-200 rounded-lg" />
-        <div className="h-44 bg-white rounded-3xl border border-[#E8E2D5]" />
-        <div className="h-64 bg-white rounded-3xl border border-[#E8E2D5]" />
+      <div className={styles.viewportWrapper}>
+        <div className={styles.dashboardContainer}>
+          <div className="h-8 w-48 bg-stone-200/80 rounded animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 h-64 bg-white rounded-2xl animate-pulse" />
+            <div className="h-64 bg-stone-900 rounded-2xl animate-pulse" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-28 bg-white rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!course) {
     return (
-      <div className="py-16 text-center space-y-4 max-w-md mx-auto">
-        <div className="w-12 h-12 rounded-2xl bg-[#F7E5EA] text-[#894C5B] flex items-center justify-center mx-auto">
-          <Books size={28} weight="bold" />
+      <div className={styles.viewportWrapper}>
+        <div className="max-w-md mx-auto py-20 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-white text-[#894C5B] shadow-card flex items-center justify-center mx-auto">
+            <GraduationCap size={28} weight="duotone" />
+          </div>
+          <h2 className="text-xl font-bold text-[#1B2559]">Không tìm thấy khóa học</h2>
+          <p className="text-sm text-[#A3AED0]">
+            Khóa học này không tồn tại hoặc tài khoản học viên của bạn chưa được cấp quyền truy cập.
+          </p>
+          <Link
+            href="/student/courses"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0B1437] text-white text-xs font-bold hover:bg-[#894C5B] transition-colors"
+          >
+            <ArrowLeft size={16} weight="bold" />
+            <span>Quay lại danh sách khóa học</span>
+          </Link>
         </div>
-        <h2 className="text-lg font-bold text-[#292528]">Không tìm thấy khóa học</h2>
-        <Link
-          href="/student/courses"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#894C5B] text-white text-xs font-bold"
-        >
-          <ArrowLeft size={14} />
-          <span>Quay lại danh sách khóa học</span>
-        </Link>
       </div>
     );
   }
 
+  const courseDisplayName = course.name.replace(/^IELTS\s*/i, "");
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20">
-      {/* Back button */}
-      <div>
-        <Link
-          href="/student/courses"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#8C857B] hover:text-[#894C5B] transition-colors"
-        >
-          <ArrowLeft size={14} weight="bold" />
-          <span>Quay lại Khóa học của tôi</span>
-        </Link>
-      </div>
-
-      {/* 1. COMPACT HERO HEADER (Minimal text, maximum visual delight) */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#241a20] via-[#2c1a24] to-[#1a1217] text-white p-6 sm:p-7 shadow-lg border border-[#F4C430]/20">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Left info */}
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-md bg-[#894C5B] text-white text-[10px] font-extrabold tracking-wider uppercase">
-                {course.code}
-              </span>
-              <span className="text-xs text-stone-300">· {skillPairLabel(course.skillPair)}</span>
+    <div className={styles.viewportWrapper}>
+      <div className={styles.dashboardContainer}>
+        {/* ==========================================================================
+            HEADER: Breadcrumb & Lumina Search / Utility Capsule
+            ========================================================================== */}
+        <header className={styles.headerBar}>
+          <div className={styles.headerLeft}>
+            <div className={styles.breadcrumb}>
+              <Link href="/student/courses" className={styles.breadcrumbLink}>
+                Khóa học
+              </Link>
+              <span>/</span>
+              <span className={styles.breadcrumbCurrent}>{course.code}</span>
             </div>
-
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white font-serif">
-              {course.name}
+            <h1 className={styles.headerTitle}>
+              <em>IELTS</em>
+              {courseDisplayName}
             </h1>
-
-            <div className="flex items-center gap-4 text-xs text-stone-300 pt-1">
-              <span className="flex items-center gap-1.5">
-                <User size={14} className="text-[#F4C430]" />
-                <span>{teacherName}</span>
-              </span>
-              <span>·</span>
-              <span className="flex items-center gap-1.5 text-amber-300 font-bold">
-                <Target size={14} />
-                <span>Mục tiêu Band {targetBand.toFixed(1)}</span>
-              </span>
-            </div>
           </div>
 
-          {/* Right Stats Quick Gauge */}
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Progress Gauge */}
-            <div className="px-5 py-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs text-center space-y-1">
-              <span className="text-[10px] text-stone-400 block font-medium uppercase tracking-wider">
-                Tiến độ khóa học
-              </span>
-              <div className="text-xl font-black text-amber-300">
-                {completedSessions}/{totalSessions} <span className="text-xs font-normal text-stone-400">buổi</span>
-              </div>
-              <div className="w-24 h-1.5 rounded-full bg-white/10 overflow-hidden mx-auto">
-                <div
-                  className="h-full bg-gradient-to-r from-[#F4C430] to-amber-500 rounded-full"
-                  style={{ width: `${progressPercent}%` }}
+          <div className={styles.headerRight}>
+            <div className={styles.utilityCapsule}>
+              <div className={styles.searchInputWrapper}>
+                <MagnifyingGlass size={16} weight="bold" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm bài học..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-            </div>
 
-            {/* Attendance Gauge */}
-            <div className="px-5 py-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs text-center space-y-1">
-              <span className="text-[10px] text-stone-400 block font-medium uppercase tracking-wider">
-                Chuyên cần
-              </span>
-              <div className="text-xl font-black text-emerald-400">100%</div>
-              <span className="text-[10px] text-emerald-300 font-bold block">Đạt chuẩn đầu ra</span>
+              <button
+                type="button"
+                className={styles.utilityIconBtn}
+                title="Thông báo khóa học"
+                aria-label="Thông báo"
+              >
+                <Bell size={18} weight="bold" />
+                <span className={styles.notificationDot} />
+              </button>
+
+              <button
+                type="button"
+                className={styles.utilityIconBtn}
+                title="Thông tin khóa học"
+                aria-label="Thông tin"
+                onClick={() => setShowFullCurriculum(!showFullCurriculum)}
+              >
+                <Info size={18} weight="bold" />
+              </button>
+
+              <Link
+                href="/student/courses"
+                className="text-xs font-bold text-[#894C5B] px-3 py-1.5 rounded-full bg-[#894C5B]/10 hover:bg-[#894C5B]/20 transition-colors"
+              >
+                Danh mục
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* 2. NEXT SESSION ACTION BANNER (Clear, single-action focus) */}
-      {currentSession && (
-        <section className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-400/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#F4C430] text-[#241a20] flex items-center justify-center shrink-0 shadow-2xs">
-              <Lightning size={20} weight="fill" />
+        {/* ==========================================================================
+            ROW 1: GREETING & PAYROLL CARDS (COCKPIT & TARGET CARD)
+            ========================================================================== */}
+        <section className={styles.rowOne} aria-label="Tổng quan điều hành buổi học">
+          {/* Left Card: Greeting & Live Classroom Cockpit (Span 2) */}
+          <div className={styles.greetingCard}>
+            <div className={styles.greetingMain}>
+              <div className={styles.onlineBadgeRow}>
+                <span className={styles.onlineBadge}>
+                  <i aria-hidden="true" />
+                  {upcomingSession ? "Buổi học tiếp theo" : "Đang cập nhật lịch"}
+                </span>
+                <span className={styles.currentDateText}>{todayFormatted}</span>
+              </div>
+
+              <h2 className={styles.greetingHeading}>
+                {upcomingSession
+                  ? `Buổi ${upcomingSession.sessionNo}: ${upcomingSession.title || "Lớp học trực tuyến"}`
+                  : `Khóa học ${course.name}`}
+              </h2>
+
+              <p className={styles.greetingSubtext}>
+                Chương trình đào tạo {skillPairLabel(course.skillPair)} · Giảng viên:{" "}
+                <strong className="text-[#1B2559]">{teacherName || "Ban Giảng huấn IELTS Spells"}</strong> ·{" "}
+                Đã hoàn thành {completedSessions}/{totalSessions > 0 ? totalSessions : "–"} buổi học.
+              </p>
+
+              <div className={styles.greetingButtonRow}>
+                {zoomUrl ? (
+                  <a
+                    href={zoomUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.primaryNavyBtn}
+                  >
+                    <VideoCamera size={18} weight="fill" />
+                    <span>Vào lớp Zoom ngay</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullCurriculum(true)}
+                    className={styles.primaryNavyBtn}
+                  >
+                    <CalendarBlank size={18} weight="bold" />
+                    <span>Xem lịch học chi tiết</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowFullCurriculum(!showFullCurriculum)}
+                  className={styles.secondaryWhiteBtn}
+                >
+                  <ShieldCheck size={18} weight="bold" className="text-[#894C5B]" />
+                  <span>Cam kết chuẩn đầu ra</span>
+                </button>
+              </div>
             </div>
+
+            {/* Circular Punch-Out Visual in Lumina Card */}
+            <div className={styles.punchVisualContainer} aria-hidden="true">
+              <div className={styles.punchBlurBlob} />
+              <div className={styles.punchCircleButton}>
+                <Clock size={28} weight="duotone" className={styles.punchIcon} />
+                <span className={styles.punchLabel}>GIỜ HỌC</span>
+                <span className={styles.punchTimer}>
+                  {upcomingSession?.startsAt
+                    ? new Intl.DateTimeFormat("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(upcomingSession.startsAt))
+                    : "19:30"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Card: Dark Contrast Target Band & Guarantee (Span 1) */}
+          <div className={styles.payrollCard}>
+            <div className={styles.payrollCardBlob} />
 
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#894C5B]">
-                  Buổi tiếp theo
-                </span>
-                <span className="text-xs text-[#8C857B]">· {currentSession.time}</span>
+              <div className={styles.payrollTop}>
+                <span className={styles.payrollLabel}>MỤC TIÊU · CHUẨN ĐẦU RA</span>
+                <GraduationCap size={22} weight="duotone" className={styles.payrollCardIcon} />
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-[#1E1B18]">
-                Buổi {currentSession.no}: {currentSession.title}
-              </h3>
-            </div>
-          </div>
 
-          <a
-            href="https://zoom.us/j/1234567890"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-xs shrink-0 active:scale-98"
-          >
-            <VideoCamera size={16} weight="bold" />
-            <span>Vào lớp Online</span>
-          </a>
-        </section>
-      )}
+              <div className={styles.payrollAmount}>
+                Band {targetBand != null ? targetBand.toFixed(1) : "7.0+"}
+              </div>
 
-      {/* 3. SLEEK SEGMENTED TAB CONTROLS (Clean, minimal, 4 core dimensions) */}
-      <div className="flex p-1 rounded-2xl bg-[#F4EFEA] border border-[#E8E2D5] max-w-lg">
-        {[
-          { id: "roadmap", label: "Lộ trình", icon: CalendarBlank, count: totalSessions },
-          { id: "attendance", label: "Điểm danh", icon: CheckCircle, badge: "100%" },
-          { id: "skills", label: "Kỹ năng & AI", icon: ChartLineUp },
-          { id: "resources", label: "Học liệu", icon: Books, count: 4 },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as DetailTab)}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                isActive
-                  ? "bg-white text-[#894C5B] shadow-xs"
-                  : "text-[#6F676C] hover:text-[#292528]"
-              }`}
-            >
-              <Icon size={15} weight={isActive ? "bold" : "regular"} />
-              <span>{tab.label}</span>
-              {tab.badge && (
-                <span className="ml-1 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 4. TAB CONTENTS */}
-
-      {/* TAB 1: LỘ TRÌNH (Visual milestone cards, 0 clutter, scan in 3 seconds) */}
-      {activeTab === "roadmap" && (
-        <section className="space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between text-xs text-[#6F676C]">
-            <span>Lộ trình {totalSessions} buổi học</span>
-            <span className="font-bold text-[#894C5B]">Đã hoàn thành {completedSessions}/{totalSessions} buổi</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {roadmapSessions.map((session) => {
-              const isDone = session.status === "DONE";
-              const isCurrent = session.status === "CURRENT";
-
-              return (
+              {/* Mini Bar Chart showing learning milestone progress */}
+              <div className={styles.miniChartContainer} aria-label="Tiến độ lộ trình">
+                <div className={styles.miniBar} style={{ height: "40%" }} title="Khởi động" />
+                <div className={styles.miniBar} style={{ height: "55%" }} title="Nền tảng" />
+                <div className={styles.miniBar} style={{ height: "70%" }} title="Phương pháp" />
+                <div className={styles.miniBar} style={{ height: "48%" }} title="Luyện đề" />
                 <div
-                  key={session.no}
-                  className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                    isDone
-                      ? "bg-white border-emerald-200 shadow-2xs"
-                      : isCurrent
-                        ? "bg-[#FFFDF7] border-[#F4C430] shadow-xs ring-1 ring-[#F4C430]/30"
-                        : "bg-white/60 border-[#E8E2D5] opacity-75"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {/* Visual Node */}
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
-                        isDone
-                          ? "bg-emerald-100 text-emerald-800"
-                          : isCurrent
-                            ? "bg-[#894C5B] text-white"
-                            : "bg-stone-100 text-stone-500"
-                      }`}
-                    >
-                      {isDone ? <Check size={16} weight="bold" /> : session.no}
-                    </div>
-
-                    {/* Milestone Info */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold text-[#894C5B] uppercase tracking-wider">
-                          Buổi {session.no}
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded bg-stone-100 text-stone-600 text-[10px] font-medium">
-                          {session.tag}
-                        </span>
-                      </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#1E1B18] truncate">
-                        {session.title}
-                      </h4>
-                      <p className="text-[11px] text-[#8C857B]">{session.time}</p>
-                    </div>
-                  </div>
-
-                  {/* Quick Action Button */}
-                  <div className="shrink-0">
-                    {isCurrent ? (
-                      <a
-                        href="https://zoom.us/j/1234567890"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-2xs"
-                      >
-                        <Play size={11} weight="fill" />
-                        <span>Học ngay</span>
-                      </a>
-                    ) : isDone ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                        <CheckCircle size={13} weight="fill" />
-                        <span>Đã học</span>
-                      </span>
-                    ) : (
-                      <span className="text-stone-400 text-xs">
-                        <LockKey size={16} />
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* TAB 2: ĐIỂM DANH (Visual Streak, Badges, 0 admin clutter) */}
-      {activeTab === "attendance" && (
-        <section className="space-y-5 animate-fadeIn">
-          {/* Visual Streak & Commitment Banner */}
-          <div className="p-5 rounded-3xl bg-white border border-[#E8E2D5] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                <Fire size={24} weight="fill" className="text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-[#292528]">
-                  Chuỗi Chuyên Cần 100%
-                </h3>
-                <p className="text-xs text-[#6F676C]">
-                  Đã tham gia đầy đủ {completedSessions} buổi học · Đủ điều kiện bảo lưu & cam kết đầu ra
-                </p>
+                  className={`${styles.miniBar} ${styles.miniBarActive}`}
+                  style={{ height: "90%" }}
+                  title="Hiện tại: Đang tăng tốc"
+                />
+                <div className={styles.miniBar} style={{ height: "65%" }} title="Về đích" />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                ✓ Cam kết Band {targetBand.toFixed(1)}
+            <button
+              type="button"
+              onClick={() => setShowFullCurriculum(true)}
+              className={styles.payrollActionBtn}
+            >
+              <ShieldCheck size={16} weight="bold" />
+              <span>Chính sách cam kết & Học bù</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ==========================================================================
+            ROW 2: QUICK STATS (4-COLUMN GRID)
+            ========================================================================== */}
+        <section className={styles.quickStatsGrid} aria-label="Chỉ số học vụ trọng yếu">
+          {/* Stat 1: Thời lượng khóa */}
+          <div className={styles.statCard}>
+            <div className={`${styles.statIconCircle} ${styles.statIconBlue}`}>
+              <Clock size={24} weight="duotone" />
+            </div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Thời lượng khóa</span>
+              <span className={styles.statValue}>
+                {totalSessions > 0 ? `${totalSessions} buổi` : "Linh hoạt"}
               </span>
             </div>
           </div>
 
-          {/* Clean 12-session attendance tracker chips */}
-          <div className="p-5 rounded-3xl bg-white border border-[#E8E2D5] shadow-xs space-y-3">
-            <h4 className="text-xs font-bold text-[#8C857B] uppercase tracking-wider">
-              Nhật ký tham gia các buổi học
-            </h4>
+          {/* Stat 2: Chuyên cần */}
+          <div className={styles.statCard}>
+            <div className={`${styles.statIconCircle} ${styles.statIconOrange}`}>
+              <CheckCircle size={24} weight="duotone" />
+            </div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Tỷ lệ chuyên cần</span>
+              <span className={styles.statValue}>{progressPercent}%</span>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-              {roadmapSessions.map((s) => {
-                const isAttended = s.status === "DONE";
-                const isNext = s.status === "CURRENT";
+          {/* Stat 3: Sĩ số lớp */}
+          <div className={styles.statCard}>
+            <div className={`${styles.statIconCircle} ${styles.statIconPurple}`}>
+              <Users size={24} weight="duotone" />
+            </div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Sĩ số tối đa</span>
+              <span className={styles.statValue}>
+                {course.capacity ? `${course.capacity} HV` : "24 học viên"}
+              </span>
+            </div>
+          </div>
 
-                return (
-                  <div
-                    key={s.no}
-                    className={`p-3 rounded-xl border text-center space-y-1 transition-all ${
-                      isAttended
-                        ? "bg-emerald-50/70 border-emerald-200 text-emerald-800"
-                        : isNext
-                          ? "bg-amber-50 border-amber-300 text-amber-900 ring-1 ring-amber-300/40"
-                          : "bg-[#FAF8F5] border-[#E8E2D5] text-stone-500"
-                    }`}
-                  >
-                    <div className="text-[10px] font-bold">Buổi {s.no}</div>
-                    <div className="text-xs font-extrabold">
-                      {isAttended ? "Có mặt" : isNext ? "Tiếp theo" : "Chưa học"}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Stat 4: Nhiệm vụ */}
+          <div className={styles.statCard}>
+            <div className={`${styles.statIconCircle} ${styles.statIconCyan}`}>
+              <Article size={24} weight="duotone" />
+            </div>
+            <div className={styles.statContent}>
+              <span className={styles.statLabel}>Nhiệm vụ khóa</span>
+              <span className={styles.statValue}>
+                {courseAssignments.length} bài tập
+              </span>
             </div>
           </div>
         </section>
-      )}
 
-      {/* TAB 3: KỸ NĂNG & AI SPELL TUTOR (Punchy, Visual gauges, 1-line insights) */}
-      {activeTab === "skills" && (
-        <section className="space-y-5 animate-fadeIn">
-          {/* AI Magic Companion Tip (Punchy & Motivating) */}
-          <div className="p-5 rounded-3xl bg-gradient-to-r from-[#894C5B]/10 via-[#F4C430]/10 to-transparent border border-[#894C5B]/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#894C5B] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Sparkle size={20} weight="fill" />
-              </div>
-              <div className="space-y-0.5">
-                <h4 className="text-xs font-black uppercase tracking-wider text-[#894C5B]">
-                  AI Spell Tutor Đồng Hành
-                </h4>
-                <p className="text-xs sm:text-sm text-[#292528] font-medium">
-                  {studentName} ơi! Kỹ năng đọc Skimming của bạn đã đạt <strong>100%</strong>. Hãy tập trung thêm vào dạng Form Completion ở buổi tới nhé!
-                </p>
-              </div>
+        {/* ==========================================================================
+            ROW 3: DETAILS CARDS (3-COLUMN GRID: LOCATION, SCHEDULE, PRIORITY TASKS)
+            ========================================================================== */}
+        <section className={styles.detailsGrid} aria-label="Chi tiết hoạt động khóa học">
+          {/* Detail Card 1: Work Location & Room Details */}
+          <div className={styles.detailCard}>
+            <div className={styles.detailCardHeader}>
+              <h3 className={styles.detailCardHeading}>Địa điểm & Phòng học</h3>
+              <DotsThree size={24} weight="bold" className="text-[#A3AED0]" />
             </div>
 
-            <Link
-              href="/student/practice"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#894C5B] text-white text-xs font-bold hover:bg-[#68303d] transition-all shrink-0 shadow-2xs"
-            >
-              <span>Luyện tập ngay</span>
-              <Trophy size={14} weight="bold" />
-            </Link>
-          </div>
-
-          {/* 4 Visual Skill Gauges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "Reading", score: "88%", band: "Band 6.5", icon: Article, color: "text-indigo-600", bg: "bg-indigo-50" },
-              { label: "Listening", score: "82%", band: "Band 6.0", icon: Headphones, color: "text-emerald-600", bg: "bg-emerald-50" },
-              { label: "Writing", score: "6.0", band: "Band 6.0", icon: PenNib, color: "text-amber-600", bg: "bg-amber-50" },
-              { label: "Speaking", score: "6.5", band: "Band 6.5", icon: Microphone, color: "text-rose-600", bg: "bg-rose-50" },
-            ].map((skill) => {
-              const Icon = skill.icon;
-              return (
-                <div key={skill.label} className="p-4 rounded-2xl bg-white border border-[#E8E2D5] space-y-2 text-center shadow-2xs">
-                  <div className={`w-8 h-8 rounded-xl ${skill.bg} ${skill.color} flex items-center justify-center mx-auto`}>
-                    <Icon size={18} weight="bold" />
-                  </div>
-                  <div className="text-xs font-bold text-[#554B50]">{skill.label}</div>
-                  <div className="text-xl font-black text-[#1E1B18]">{skill.score}</div>
-                  <span className="inline-block text-[10px] font-bold text-[#894C5B] bg-[#F7E5EA] px-2 py-0.5 rounded-full">
-                    {skill.band}
-                  </span>
+            <div className={styles.locationNestedBlock}>
+              <div className={styles.locationInfo}>
+                <div className={styles.locationPinCircle}>
+                  <MapPin size={20} weight="fill" />
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* TAB 4: HỌC LIỆU (Instant access cards, 0 text walls) */}
-      {activeTab === "resources" && (
-        <section className="space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between text-xs text-[#6F676C]">
-            <span>Kho tài liệu chính khóa ({course.name})</span>
-            <span className="text-[11px] text-[#8C857B]">Lưu trữ đám mây Google Drive</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              {
-                id: "res-1",
-                title: "Reading Skimming Checklist",
-                type: "PDF",
-                tag: "Chiến thuật làm bài",
-                icon: FilePdf,
-                color: "text-rose-700 bg-rose-50",
-                url: "https://ielts.org/",
-              },
-              {
-                id: "res-2",
-                title: "Cambridge 18 Audio Tracks & Scripts",
-                type: "AUDIO",
-                tag: "Luyện nghe chuẩn",
-                icon: FileAudio,
-                color: "text-emerald-700 bg-emerald-50",
-                url: "https://ielts.org/",
-              },
-              {
-                id: "res-3",
-                title: "Bài tập: Remote Work (EX-SEED-LR-001)",
-                type: "EXERCISE",
-                tag: "Thực hành ngay",
-                icon: Trophy,
-                color: "text-amber-700 bg-amber-50",
-                url: "/student/practice",
-              },
-              {
-                id: "res-4",
-                title: "Writing Task 2 Academic Vocab Pack",
-                type: "PDF",
-                tag: "Từ vựng C1",
-                icon: FilePdf,
-                color: "text-indigo-700 bg-indigo-50",
-                url: "https://ielts.org/for-test-takers/test-format",
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-2xl bg-white border border-[#E8E2D5] hover:border-[#894C5B]/40 transition-all flex items-center justify-between gap-3 shadow-2xs"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center shrink-0`}>
-                      <Icon size={20} weight="bold" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-[#894C5B] uppercase tracking-wider">
-                        {item.tag}
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#1E1B18] truncate">
-                        {item.title}
-                      </h4>
-                    </div>
+                <div>
+                  <div className={styles.locationName}>
+                    {zoomUrl ? "Phòng học Zoom trực tuyến" : "Cơ sở The IELTS Spells"}
                   </div>
+                  <div className={styles.locationCity}>
+                    {zoomUrl ? "Lớp trực tuyến bản quyền" : "Phòng học học thuật chuyên sâu"}
+                  </div>
+                </div>
+              </div>
+              <span className={styles.locationBadge}>Phòng chính</span>
+            </div>
 
-                  <div className="shrink-0">
-                    {item.type === "EXERCISE" ? (
+            <div className={styles.timeLogList}>
+              <div className={styles.timeLogRow}>
+                <span className={styles.timeLogLabel}>
+                  <Clock size={16} /> Giờ vào lớp
+                </span>
+                <span className={styles.timeLogVal}>
+                  {upcomingSession?.startsAt
+                    ? new Intl.DateTimeFormat("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(upcomingSession.startsAt))
+                    : "19:30 PM"}
+                </span>
+              </div>
+
+              <div className={styles.timeLogRow}>
+                <span className={styles.timeLogLabel}>
+                  <Clock size={16} /> Giờ tan lớp
+                </span>
+                <span className={styles.timeLogVal}>
+                  {upcomingSession?.endsAt
+                    ? new Intl.DateTimeFormat("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(upcomingSession.endsAt))
+                    : "21:00 PM"}
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.overtimeStatusRow}>
+              <span>Tiến độ học vụ tuần</span>
+              <span className={styles.overtimeStatusBadge}>Đúng kế hoạch đào tạo</span>
+            </div>
+          </div>
+
+          {/* Detail Card 2: Schedule Timeline */}
+          <div className={styles.detailCard}>
+            <div className={styles.detailCardHeader}>
+              <h3 className={styles.detailCardHeading}>Lịch học tiếp theo</h3>
+              <button
+                type="button"
+                onClick={() => setShowFullCurriculum(true)}
+                className={styles.detailCardAction}
+              >
+                Xem tất cả
+              </button>
+            </div>
+
+            <div className={styles.scheduleList}>
+              {scheduledPreview.length > 0 ? (
+                scheduledPreview.map((item, index) => {
+                  const dateObj = item.startsAt ? new Date(item.startsAt) : new Date();
+                  const monthStr = `TH ${dateObj.getMonth() + 1}`;
+                  const dayStr = dateObj.getDate().toString().padStart(2, "0");
+                  const colorClass =
+                    index === 0
+                      ? styles.dateNavy
+                      : index === 1
+                      ? styles.datePurple
+                      : styles.dateOrange;
+
+                  return (
+                    <div key={item.id} className={styles.scheduleItem}>
+                      <div className={`${styles.scheduleDateSquare} ${colorClass}`}>
+                        <span className={styles.dateMonth}>{monthStr}</span>
+                        <span className={styles.dateDay}>{dayStr}</span>
+                      </div>
+
+                      <div className={styles.scheduleBody}>
+                        <h4 className={styles.scheduleTitle}>
+                          {item.title || `Buổi học ${item.sessionNo}`}
+                        </h4>
+                        <div className={styles.scheduleMeta}>
+                          <VideoCamera size={14} />
+                          <span>
+                            {item.startsAt
+                              ? new Intl.DateTimeFormat("vi-VN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }).format(dateObj)
+                              : "19:30"}
+                            {item.phaseName ? ` · ${item.phaseName}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-xs text-[#A3AED0]">
+                  Thời khóa biểu đang được đồng bộ
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Detail Card 3: Priority Tasks / Homework Checklist */}
+          <div className={styles.detailCard}>
+            <div className={styles.detailCardHeader}>
+              <h3 className={styles.detailCardHeading}>Nhiệm vụ cần nộp</h3>
+              <Link
+                href="/student/practice?skill=READING"
+                className={styles.detailCardAction}
+              >
+                Khu luyện đề →
+              </Link>
+            </div>
+
+            <div className={styles.taskList}>
+              {courseAssignments.length > 0 ? (
+                courseAssignments.slice(0, 3).map((assignment) => {
+                  const isDone =
+                    assignment.attemptsUsed > 0 &&
+                    (assignment.maxAttempts > 0
+                      ? assignment.attemptsUsed >= assignment.maxAttempts
+                      : true);
+                  const isUrgent =
+                    !isDone &&
+                    assignment.closesAt &&
+                    new Date(assignment.closesAt).getTime() - Date.now() <
+                      3 * 24 * 60 * 60 * 1000;
+
+                  return (
+                    <div
+                      key={assignment.assignmentId}
+                      className={`${styles.taskItem} ${
+                        isDone ? styles.taskCompleted : ""
+                      }`}
+                    >
                       <Link
-                        href={item.url}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#894C5B] text-white text-xs font-bold hover:bg-[#68303d] transition-all"
+                        href="/student/practice?skill=READING"
+                        className={styles.taskCheckboxWrap}
                       >
-                        <span>Làm bài</span>
-                        <ArrowSquareOut size={13} />
+                        <div className={styles.customCheckbox}>
+                          {isDone && <Check size={12} weight="bold" />}
+                        </div>
+                        <div className={styles.taskTextStack}>
+                          <div className={styles.taskTitle}>
+                            {assignment.title}
+                          </div>
+                          <div className={styles.taskSub}>
+                            {isDone
+                              ? "Đã hoàn thành"
+                              : assignment.closesAt
+                              ? `Hạn nộp: ${new Intl.DateTimeFormat("vi-VN", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                }).format(new Date(assignment.closesAt))}`
+                              : "Chưa có hạn nộp"}
+                          </div>
+                        </div>
                       </Link>
-                    ) : (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#E8E2D5] text-[#894C5B] hover:bg-[#F7E5EA]/60 text-xs font-bold transition-all"
-                      >
-                        <span>Mở Drive</span>
-                        <ArrowSquareOut size={13} />
-                      </a>
-                    )}
-                  </div>
+
+                      {isUrgent && <span className={styles.priorityRedDot} title="Sắp hết hạn" />}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-xs text-[#A3AED0]">
+                  Chưa có bài tập nào cần nộp
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
         </section>
-      )}
+
+        {/* ==========================================================================
+            FULL CURRICULUM & POLICIES (ACCORDION / DRAWER)
+            ========================================================================== */}
+        {showFullCurriculum && (
+          <section className={styles.fullCurriculumSection} aria-label="Toàn bộ chương trình đào tạo">
+            <div className={styles.sectionHeaderRow}>
+              <h3 className={styles.sectionTitle}>Chương trình đào tạo chi tiết ({sessions.length} buổi học)</h3>
+              <button
+                type="button"
+                onClick={() => setShowFullCurriculum(false)}
+                className="text-xs font-bold text-[#A3AED0] hover:text-[#1B2559]"
+              >
+                Thu gọn ✕
+              </button>
+            </div>
+
+            <div className={styles.curriculumPhaseGrid}>
+              {phaseGroups.map((group) => (
+                <div key={group.phaseName} className={styles.curriculumPhaseCard}>
+                  <div className={styles.curriculumPhaseTitle}>
+                    <BookmarkSimple size={18} className="text-[#894C5B]" weight="fill" />
+                    <span>{group.phaseName}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {group.sessions.map((s) => (
+                      <div key={s.id} className={styles.curriculumSessionRow}>
+                        <span className="font-semibold text-[#1B2559]">
+                          Buổi #{s.sessionNo}: {s.title || "Bài học"}
+                        </span>
+                        <span className="text-[11px] text-[#A3AED0]">
+                          {s.startsAt
+                            ? new Intl.DateTimeFormat("vi-VN", {
+                                day: "2-digit",
+                                month: "2-digit",
+                              }).format(new Date(s.startsAt))
+                            : "Đang xếp"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Output Guarantee Notice */}
+            <div className="pt-4 border-t border-[#F4F7FE] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#707EAE]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-[#05CD99]" weight="fill" />
+                <span>
+                  <strong>Cam kết chuẩn đầu ra:</strong> Yêu cầu tham gia tối thiểu 90% số buổi học và hoàn thành 80% bài tập về nhà.
+                </span>
+              </div>
+              <span className="font-mono text-[#894C5B] font-bold">THE IELTS SPELLS ACADEMIC STANDARD</span>
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

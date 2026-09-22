@@ -82,7 +82,7 @@ export function StudentCoursesCuratedTrack({
             <Sparkle size={13} weight="fill" className="text-[#894C5B]" />
             <span>Lộ Trình Gợi Ý</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#292528] tracking-tight font-serif">
+          <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1E1B18]">
             Khóa Học Nổi Bật Trong Hệ Thống
           </h2>
         </div>
@@ -109,7 +109,7 @@ export function StudentCoursesCuratedTrack({
             <Sparkle size={13} weight="fill" className="text-[#894C5B]" />
             <span>Lộ Trình Gợi Ý</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#292528] tracking-tight font-serif">
+          <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1E1B18]">
             Khóa Học Nổi Bật Trong Hệ Thống
           </h2>
           <p className="mt-1 text-sm text-[#6F676C]">
@@ -167,14 +167,14 @@ export function StudentCoursesCuratedTrack({
           return (
             <div
               key={course.id}
-              className="group relative flex-none w-[320px] sm:w-[380px] snap-start rounded-3xl overflow-hidden bg-white border border-[#E8E2D5] shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-[#894C5B]"
+              className="group relative flex-none w-[320px] sm:w-[380px] snap-start rounded-3xl overflow-hidden bg-white border border-[#E8E2D5] shadow-xs transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-[#C98A98] hover:shadow-[0_12px_28px_-6px_rgba(137,76,91,0.14),0_6px_12px_-4px_rgba(30,27,24,0.04)]"
             >
               {/* Card Image Banner */}
               <div className="relative h-48 w-full overflow-hidden bg-stone-900">
                 <img
                   src={imgUrl}
                   alt={course.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-95"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
@@ -198,7 +198,7 @@ export function StudentCoursesCuratedTrack({
                   <span className="text-[11px] font-bold text-amber-300 tracking-wide uppercase">
                     {course.targetBand != null ? `Mục tiêu Band ${course.targetBand.toFixed(1)}` : "Linh hoạt"}
                   </span>
-                  <h3 className="text-base sm:text-lg font-bold text-white line-clamp-1">
+                  <h3 className="font-display text-base sm:text-lg font-bold text-white line-clamp-1 drop-shadow-sm">
                     {course.name}
                   </h3>
                 </div>
@@ -253,7 +253,7 @@ export function StudentCoursesCuratedTrack({
                 <button
                   type="button"
                   onClick={() => onSelectCourse(course)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#894C5B] text-white text-xs font-bold shadow-2xs hover:bg-[#68303d] active:scale-98 transition-all"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#894C5B] text-white text-xs font-bold transition-colors duration-200 hover:bg-[#68303d] active:scale-98"
                 >
                   <span>Xem chi tiết khóa học</span>
                   <ArrowRight size={13} weight="bold" />
