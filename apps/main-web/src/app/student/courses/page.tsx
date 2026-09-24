@@ -125,7 +125,7 @@ export default function StudentCoursesPage() {
                 <GraduationCap size={14} weight="fill" className="text-[#894C5B]" />
                 <span>Ghi danh & Học vụ</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#292528] tracking-tight font-serif">
+              <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1E1B18]">
                 Khóa Học Của Tôi
               </h2>
               <p className="mt-1 text-sm text-[#6F676C]">

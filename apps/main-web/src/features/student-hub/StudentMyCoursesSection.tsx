@@ -127,17 +127,17 @@ export function StudentMyCoursesSection({
               <div
                 key={course.id}
                 id={`course-${course.courseId}`}
-                className="group relative flex flex-col justify-between rounded-3xl overflow-hidden bg-white border border-[#E8E2D5] shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-[#894C5B]"
+                className="group relative flex flex-col justify-between rounded-3xl overflow-hidden bg-white border border-[#E8E2D5] shadow-xs transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-[#C98A98] hover:shadow-[0_12px_28px_-6px_rgba(137,76,91,0.14),0_6px_12px_-4px_rgba(30,27,24,0.04)]"
               >
                 {/* Top Image Banner */}
                 <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-stone-900">
                   <img
                     src={imgUrl}
                     alt={course.courseTitle}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-95"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
 
                   {/* Top Badges */}
                   <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
@@ -155,7 +155,7 @@ export function StudentMyCoursesSection({
                         ? `MỤC TIÊU BAND ${course.targetBand.toFixed(1)}`
                         : "LỘ TRÌNH ĐÀO TẠO"}
                     </span>
-                    <h3 className="mt-0.5 text-base sm:text-lg font-bold text-white line-clamp-1 drop-shadow-sm font-serif">
+                    <h3 className="mt-0.5 font-display text-base sm:text-lg font-bold text-white line-clamp-1 drop-shadow-sm">
                       {course.courseTitle}
                     </h3>
                   </div>
@@ -245,7 +245,7 @@ export function StudentMyCoursesSection({
                             onSelectCourse(course.courseId);
                           }
                         }}
-                        className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#894C5B] text-white text-xs font-bold shadow-2xs hover:bg-[#68303d] active:scale-98 transition-all"
+                        className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#894C5B] text-white text-xs font-bold transition-colors duration-200 hover:bg-[#68303d] active:scale-98"
                       >
                         <span>Xem chi tiết khóa học</span>
                         <ArrowRight size={13} weight="bold" />
