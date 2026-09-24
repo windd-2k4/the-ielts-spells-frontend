@@ -44,6 +44,13 @@
   }
 }
 
+/* Vietnamese-compliant Invoice Typography (Prevents Georgia/system serif diacritic spacing bugs) */
+.font-invoice,
+.font-serif {
+  font-family: "Times New Roman", Times, serif !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
 /* Original Auth Shell Styles */
 .auth-shell {
   min-height: 100dvh;

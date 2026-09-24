@@ -81,7 +81,9 @@ export default {
         "headline-lg": ["Plus Jakarta Sans"],
         "headline-md": ["Plus Jakarta Sans"],
         "headline-lg-mobile": ["Plus Jakarta Sans"],
-        "body-md": ["Be Vietnam Pro"]
+        "body-md": ["Be Vietnam Pro"],
+        "serif": ["Times New Roman", "Times", "serif"],
+        "invoice": ["Times New Roman", "Times", "serif"]
       },
       fontSize: {
         "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
