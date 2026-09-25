@@ -8,43 +8,36 @@ import {
 } from "@/features/student-hub/StudentMyCoursesSection";
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import {
-  fetchSystemCourses,
-  type DatabaseCourseItem,
+  fetchStudentCourses,
+  type StudentCourseItem,
 } from "@/features/student-hub/studentPortalApi";
-import { formatDateTime, skillPairLabel } from "@/features/student-hub/studentPortalViewModel";
+import { formatDateTime, skillPairLabel, studentPortalErrorMessage } from "@/features/student-hub/studentPortalViewModel";
 import { StudentCourses3DHero } from "@/features/student-hub/courses/StudentCourses3DHero";
 import { StudentCoursesCuratedTrack } from "@/features/student-hub/courses/StudentCoursesCuratedTrack";
-import { GraduationCap } from "@phosphor-icons/react";
+import { ArrowClockwise, GraduationCap, WarningCircle } from "@phosphor-icons/react";
 
 export default function StudentCoursesPage() {
   const router = useRouter();
   const { data, loading: portalLoading } = useStudentPortal();
-  const [systemCourses, setSystemCourses] = useState<DatabaseCourseItem[]>([]);
+  const [systemCourses, setSystemCourses] = useState<StudentCourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
 
-  // Fetch real courses from system database
-  useEffect(() => {
-    let isMounted = true;
-    async function loadCourses() {
-      setLoadingCourses(true);
-      try {
-        const courses = await fetchSystemCourses();
-        if (isMounted) {
-          setSystemCourses(courses);
-        }
-      } catch (err) {
-        console.error("Error loading system courses:", err);
-      } finally {
-        if (isMounted) {
-          setLoadingCourses(false);
-        }
-      }
+  const loadCourses = useCallback(async () => {
+    setLoadingCourses(true);
+    setCoursesError(null);
+    try {
+      setSystemCourses(await fetchStudentCourses());
+    } catch (error) {
+      setCoursesError(studentPortalErrorMessage(error, "Không thể tải danh sách khóa học. Vui lòng thử lại."));
+    } finally {
+      setLoadingCourses(false);
     }
-    loadCourses();
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadCourses();
+  }, [loadCourses]);
 
   // Map enrolled courses from student portal DB overview
   const enrolledCourses: CourseEnrollmentItem[] = useMemo(() => {
@@ -82,7 +75,7 @@ export default function StudentCoursesPage() {
   }, [data?.enrollments]);
 
   // Only suggest courses that the student has NOT enrolled in yet
-  const unenrolledCourses: DatabaseCourseItem[] = useMemo(() => {
+  const unenrolledCourses: StudentCourseItem[] = useMemo(() => {
     return systemCourses.filter(
       (course) =>
         !enrolledCourseIds.has(course.id) &&
@@ -95,7 +88,7 @@ export default function StudentCoursesPage() {
     return new Set((data?.recommendedCourses ?? []).map((rc) => rc.code));
   }, [data?.recommendedCourses]);
 
-  const handleSelectCourse = useCallback((course: DatabaseCourseItem) => {
+  const handleSelectCourse = useCallback((course: StudentCourseItem) => {
     router.push(`/student/courses/${course.id}`);
   }, [router]);
 
@@ -117,6 +110,14 @@ export default function StudentCoursesPage() {
 
       {/* Main Content Area */}
       <div id="courses-catalog" className="space-y-16 pt-2">
+        {coursesError && (
+          <div role="alert" className="flex items-center justify-between gap-4 rounded-2xl border border-[#EAC2CD] bg-[#FFF7F9] p-4 text-sm text-[#6F303E]">
+            <span className="flex items-center gap-2"><WarningCircle size={20} weight="fill" />{coursesError}</span>
+            <button type="button" disabled={loadingCourses} onClick={() => void loadCourses()} className="inline-flex shrink-0 items-center gap-2 font-bold text-[#894C5B]">
+              <ArrowClockwise size={16} />{loadingCourses ? "Đang tải" : "Thử lại"}
+            </button>
+          </div>
+        )}
         {/* SECTION 1: KHÓA HỌC CỦA TÔI */}
         <section id="my-courses" className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -142,13 +143,15 @@ export default function StudentCoursesPage() {
         </section>
 
         {/* SECTION 2: KHÓA HỌC NỔI BẬT TRONG HỆ THỐNG (Chỉ hiển thị các khóa học chưa tham gia) */}
-        <div id="curated-courses">
-          <StudentCoursesCuratedTrack
-            courses={unenrolledCourses}
-            recommendedCodes={recommendedCodesSet}
-            onSelectCourse={handleSelectCourse}
-          />
-        </div>
+        {(!coursesError || systemCourses.length > 0) && (
+          <div id="curated-courses">
+            <StudentCoursesCuratedTrack
+              courses={unenrolledCourses}
+              recommendedCodes={recommendedCodesSet}
+              onSelectCourse={handleSelectCourse}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,18 @@
+import { ApiClientError } from "@ielts/api-client";
 import type {
   StudentPortalEnrollment,
   StudentPortalOverview,
 } from "./studentPortalApi";
 import type { RoadmapMilestoneItem } from "./StudentRoadmapMilestones";
+
+export function studentPortalErrorMessage(error: unknown, fallback = "Không thể tải dữ liệu học tập. Vui lòng thử lại.") {
+  if (error instanceof ApiClientError) {
+    if (error.status === 401) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    if (error.status === 403) return "Tài khoản chưa có quyền truy cập dữ liệu này.";
+    return error.message;
+  }
+  return fallback;
+}
 
 export function formatBand(value: number | null) {
   return value == null ? "Chưa xác định" : value.toFixed(1);

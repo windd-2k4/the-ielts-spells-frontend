@@ -11,7 +11,7 @@ import {
   CalendarBlank,
   CurrencyCircleDollar,
 } from "@phosphor-icons/react";
-import type { DatabaseCourseItem } from "../studentPortalApi";
+import type { StudentCourseItem } from "../studentPortalApi";
 
 // High-fidelity academic image mapping for courses
 const SKILL_IMAGES: Record<string, string> = {
@@ -24,9 +24,9 @@ const SKILL_IMAGES: Record<string, string> = {
 };
 
 interface StudentCoursesCuratedTrackProps {
-  courses: DatabaseCourseItem[];
+  courses: StudentCourseItem[];
   recommendedCodes?: Set<string>;
-  onSelectCourse: (course: DatabaseCourseItem) => void;
+  onSelectCourse: (course: StudentCourseItem) => void;
 }
 
 export function StudentCoursesCuratedTrack({
