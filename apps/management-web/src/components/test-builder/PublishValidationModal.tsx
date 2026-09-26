@@ -408,10 +408,12 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !hasEvidenceRange(evidence)) {
               issues.push({
                 id: `${question.id}-evidence-${evidence.id}-range`,
-                severity: "ERROR",
+                severity: evidence.quote.trim() ? "WARNING" : "ERROR",
                 sectionTitle: group.title,
                 questionNo: question.number,
-                message: "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
+                message: evidence.quote.trim()
+                  ? "Bằng chứng chưa được gắn vị trí chính xác trên Passage."
+                  : "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
                 targetId: question.id,
               });
             }

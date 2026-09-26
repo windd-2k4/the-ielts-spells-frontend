@@ -314,21 +314,115 @@ function selectedSinglePassageNo(content: Record<string, unknown>) {
   return match ? Number(match[1]) : 1;
 }
 
+function findQuoteInPlainText(source: string, quote: string): { start: number; end: number } | null {
+  const cleanQuote = quote.replace(/^["“'‘]|["”'’]$/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!cleanQuote) return null;
+  const normSource = source.replace(/\s+/g, " ").toLowerCase();
+  let normIdx = normSource.indexOf(cleanQuote);
+  if (normIdx < 0 && cleanQuote.length > 50) {
+    normIdx = normSource.indexOf(cleanQuote.slice(0, 50));
+  }
+  if (normIdx < 0) return null;
+
+  let normCursor = 0;
+  let start = -1;
+  let end = -1;
+  let inSpace = false;
+  let matched = 0;
+  const targetLen = Math.min(cleanQuote.length, normSource.length - normIdx);
+
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    const isSpace = /\s/.test(c);
+    if (isSpace) {
+      if (!inSpace) {
+        if (normCursor === normIdx && start < 0) start = i;
+        if (normCursor >= normIdx && matched < targetLen) {
+          matched++;
+          end = i + 1;
+        }
+        normCursor++;
+        inSpace = true;
+      }
+    } else {
+      inSpace = false;
+      if (normCursor === normIdx && start < 0) start = i;
+      if (normCursor >= normIdx && matched < targetLen) {
+        matched++;
+        end = i + 1;
+      }
+      normCursor++;
+    }
+    if (matched >= targetLen) break;
+  }
+  return start >= 0 && end > start ? { start, end } : null;
+}
+
+function autoResolveEvidenceOffsets(
+  groups: QuestionGroupItem[],
+  passageContent: string,
+): QuestionGroupItem[] {
+  if (!passageContent.trim()) return groups;
+  let plainText = "";
+  if (typeof document !== "undefined") {
+    const div = document.createElement("div");
+    div.innerHTML = passageContent;
+    plainText = div.textContent ?? "";
+  } else {
+    plainText = passageContent.replace(/<[^>]+>/g, " ");
+  }
+  if (!plainText.trim()) return groups;
+
+  return groups.map((group) => ({
+    ...group,
+    questions: group.questions.map((question) => {
+      if (!question.evidenceSpans || question.evidenceSpans.length === 0) return question;
+      let updated = false;
+      const spans = question.evidenceSpans.map((evidence) => {
+        if (evidence.mode === "NO_DIRECT_EVIDENCE" || hasEvidenceRange(evidence) || !evidence.quote.trim()) {
+          return evidence;
+        }
+        const range = findQuoteInPlainText(plainText, evidence.quote);
+        if (range) {
+          updated = true;
+          return {
+            ...evidence,
+            start: range.start,
+            end: range.end,
+          };
+        }
+        return evidence;
+      });
+      if (!updated) return question;
+      return {
+        ...question,
+        evidenceSpans: spans,
+        passageSpan: legacyPassageSpanFromEvidence(spans),
+      };
+    }),
+  }));
+}
+
 function normalizePassages(content: Record<string, unknown>, test?: TestBankItem): PassageSection[] {
   const fullTest = isFullReadingTest(content, test);
   const singlePassageNo = selectedSinglePassageNo(content);
   const rawPassages = content.passages;
   if (Array.isArray(rawPassages)) {
-    const passages = rawPassages.filter(isRecord).map((passage, index) => ({
-      id: typeof passage.id === "string" ? passage.id : newId("passage"),
-      passageNo: typeof passage.passageNo === "number" ? passage.passageNo : index + 1,
-      title: typeof passage.title === "string" ? passage.title : `Reading Passage ${index + 1}`,
-      content: typeof passage.content === "string" ? passage.content : "",
-      teacherAnnotations: Array.isArray(passage.teacherAnnotations)
-        ? passage.teacherAnnotations as PassageSection["teacherAnnotations"]
-        : [],
-      questionGroups: toQuestionGroups(passage.questionGroups),
-    }));
+    const passages = rawPassages.filter(isRecord).map((passage, index) => {
+      const passageContent = typeof passage.content === "string" ? passage.content : "";
+      const rawGroups = toQuestionGroups(passage.questionGroups);
+      const questionGroups = autoResolveEvidenceOffsets(rawGroups, passageContent);
+      return {
+        id: typeof passage.id === "string" ? passage.id : newId("passage"),
+        passageNo: typeof passage.passageNo === "number" ? passage.passageNo : index + 1,
+        title: typeof passage.title === "string" ? passage.title : `Reading Passage ${index + 1}`,
+        content: passageContent,
+        teacherAnnotations: Array.isArray(passage.teacherAnnotations)
+          ? passage.teacherAnnotations as PassageSection["teacherAnnotations"]
+          : [],
+        questionGroups,
+      };
+    });
     if (passages.length > 0) {
       const sorted = passages.sort((a, b) => a.passageNo - b.passageNo);
       if (fullTest) return sorted.slice(0, 3);
@@ -341,13 +435,18 @@ function normalizePassages(content: Record<string, unknown>, test?: TestBankItem
   if (isRecord(legacyPassageContent)) {
     const legacyGroups = toQuestionGroups(content.questionGroups);
     const passages = [1, 2, 3]
-      .map((passageNo) => ({
-        ...emptyPassage(passageNo),
-        content: typeof legacyPassageContent[String(passageNo)] === "string"
+      .map((passageNo) => {
+        const passageContent = typeof legacyPassageContent[String(passageNo)] === "string"
           ? legacyPassageContent[String(passageNo)] as string
-          : "",
-        questionGroups: passageNo === 1 ? legacyGroups : [],
-      }))
+          : "";
+        const rawGroups = passageNo === 1 ? legacyGroups : [];
+        const questionGroups = autoResolveEvidenceOffsets(rawGroups, passageContent);
+        return {
+          ...emptyPassage(passageNo),
+          content: passageContent,
+          questionGroups,
+        };
+      })
       .filter((passage) => passage.content || passage.questionGroups.length > 0);
     if (passages.length > 0) {
       if (fullTest) return passages;
