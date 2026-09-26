@@ -11,7 +11,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import { StudentPageHeader } from "./StudentPageHeader";
-import { formatDateTime, groupQuestionLabel, requestMessage } from "./readingFormat";
+import {
+  answerValues,
+  buildReadingOptionMap,
+  formatDateTime,
+  formatReadingAnswerList,
+  groupQuestionLabel,
+  requestMessage,
+} from "./readingFormat";
 import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
 
 type QuestionFilter = "ALL" | "CORRECT" | "INCORRECT" | "UNANSWERED";
@@ -47,6 +54,8 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const optionMap = useMemo(() => buildReadingOptionMap(attempt?.sections), [attempt]);
 
   const typeBreakdown = useMemo(() => {
     if (!result) return [];
@@ -305,14 +314,28 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                    {q.correctAnswers.length > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
-                        <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                          {q.correctAnswers.join(", ")}
-                        </span>
-                      </div>
-                    ) : <div />}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {q.correctAnswers.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
+                          <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                            {formatReadingAnswerList(q.correctAnswers, optionMap)}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {!q.correct && q.answered ? (() => {
+                        const studentResp = attempt?.responses.find((r) => r.questionKey === q.questionKey);
+                        const studentVals = answerValues(studentResp?.answer);
+                        if (studentVals.length === 0) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200 font-medium">
+                            <span>Bạn chọn:</span>
+                            <span className="font-bold">{formatReadingAnswerList(studentVals, optionMap)}</span>
+                          </div>
+                        );
+                      })() : null}
+                    </div>
 
                     {(Array.isArray(q.evidenceSpans) && q.evidenceSpans.length > 0) || q.evidenceSpan ? (
                       <Link

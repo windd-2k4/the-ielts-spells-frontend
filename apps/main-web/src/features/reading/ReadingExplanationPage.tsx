@@ -18,8 +18,10 @@ import {
   type ReadingFontScale,
 } from "./readingFontScale";
 import {
-  allReadingQuestions, answerValues, groupQuestionLabel,
-  optionLabel, questionOptions, requestMessage,
+  allReadingQuestions, answerValues, buildReadingOptionMap,
+  formatReadingAnswerList, formatReadingAnswerValue, groupQuestionLabel,
+  optionLabel, questionOptions, ReadingOptionMapContext, requestMessage,
+  useReadingOptionMap,
 } from "./readingFormat";
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import styles from "./ReadingExplanationPage.module.css";
@@ -120,6 +122,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
   const questionItems = useMemo(() => attempt ? allReadingQuestions(attempt.sections) : [], [attempt]);
   const questionByKey = useMemo(() => new Map(questionItems.map((item) => [item.question.key, item])), [questionItems]);
   const resultByKey = useMemo(() => new Map((result?.questions ?? []).map((q) => [q.questionKey, q])), [result]);
+  const optionMap = useMemo(() => buildReadingOptionMap(attempt?.sections), [attempt]);
 
   const selectedResult = resultByKey.get(selectedKey) ?? result?.questions[0] ?? null;
   const selectedMeta = selectedResult ? questionByKey.get(selectedResult.questionKey) : undefined;
@@ -182,7 +185,11 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
     }
   }
 
-  const locateEvidence = useCallback((questionKey: string, evidenceId?: string) => {
+  const locateEvidence = useCallback((questionKey: string, evidenceId?: string, isToggle = false) => {
+    if (isToggle && selectedKey === questionKey && isExplanationOpen && !evidenceId) {
+      setIsExplanationOpen(false);
+      return;
+    }
     setSelectedKey(questionKey);
     setIsExplanationOpen(true);
     if (evidenceId) {
@@ -221,7 +228,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
         });
       }
     }, 120);
-  }, [attempt, activeSectionIndex]);
+  }, [attempt, activeSectionIndex, selectedKey, isExplanationOpen]);
 
   if (loading) {
     return (
@@ -272,8 +279,9 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
   const themeClass = colorTheme === "sepia" ? styles.themeSepia : colorTheme === "dark" ? styles.themeDark : styles.themeStandard;
 
   return (
-    <div className={styles.shell}>
-      <a href="#reading-explanations" className="student-skip-link">Đến phần giải thích</a>
+    <ReadingOptionMapContext.Provider value={optionMap}>
+      <div className={`${styles.shell} ${themeClass}`}>
+        <a href="#reading-explanations" className="student-skip-link">Đến phần giải thích</a>
 
       {/* Compact review toolbar */}
       <header className={styles.header}>
@@ -382,7 +390,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
         </article>
 
         {/* Right Pane: clean IELTS review view with bottom explanation drawer */}
-        <aside ref={answersPaneRef} className={styles.answersPane} aria-label="Danh sách câu hỏi và lời giải">
+        <aside ref={answersPaneRef} className={`${styles.answersPane} ${themeClass}`} aria-label="Danh sách câu hỏi và lời giải">
           <div className={styles.questionsScrollArea}>
             <div className={styles.questionsInner}>
               
@@ -632,6 +640,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
         </Link>
       </footer>
     </div>
+    </ReadingOptionMapContext.Provider>
   );
 }
 
@@ -652,8 +661,9 @@ function QuestionReviewCard({
   isSelected: boolean;
   isExplanationOpen?: boolean;
   onSelect: () => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
+  const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
@@ -725,7 +735,7 @@ function QuestionReviewCard({
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLocateEvidence?.(question.key);
+                      onLocateEvidence?.(question.key, undefined, true);
                     }}
                     title="Xem vị trí bằng chứng và lời giải"
                     aria-label={`Xem giải thích câu ${question.number}`}
@@ -804,7 +814,7 @@ function QuestionReviewCard({
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLocateEvidence?.(question.key);
+                      onLocateEvidence?.(question.key, undefined, true);
                     }}
                     title="Xem vị trí bằng chứng và lời giải"
                     aria-label={`Xem giải thích câu ${question.number}`}
@@ -827,7 +837,9 @@ function QuestionReviewCard({
         ? group.sharedOptions
         : group.questions.flatMap((q) => q.options);
     const matchedOption = bankOptions.find((o) => o.key === studentAnswerText || o.code === studentAnswerText);
-    const displayLabel = matchedOption ? optionLabel(matchedOption.code, matchedOption.text) : studentAnswerText;
+    const displayLabel = matchedOption
+      ? optionLabel(matchedOption.code, matchedOption.text)
+      : (formatReadingAnswerValue(studentAnswerText, optionMap) || studentAnswerText);
 
     return (
       <article
@@ -863,7 +875,7 @@ function QuestionReviewCard({
             {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
               <div className={styles.matchingCorrectCallout}>
                 <span>💡 Đáp án chuẩn:</span>
-                <strong>{qResult.correctAnswers.join(", ")}</strong>
+                <strong>{formatReadingAnswerList(qResult.correctAnswers, optionMap)}</strong>
               </div>
             ) : null}
           </div>
@@ -875,7 +887,7 @@ function QuestionReviewCard({
             }`}
             onClick={(e) => {
               e.stopPropagation();
-              onLocateEvidence?.(question.key);
+              onLocateEvidence?.(question.key, undefined, true);
             }}
             title="Xem vị trí bằng chứng và lời giải"
             aria-label={`Xem giải thích câu ${question.number}`}
@@ -910,7 +922,7 @@ function QuestionReviewCard({
           {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
             <div className={styles.correctAnswerRow}>
               <span>Đáp án chuẩn:</span>
-              <strong>{qResult.correctAnswers.join(", ")}</strong>
+              <strong>{formatReadingAnswerList(qResult.correctAnswers, optionMap)}</strong>
             </div>
           ) : null}
         </div>
@@ -922,7 +934,7 @@ function QuestionReviewCard({
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            onLocateEvidence?.(question.key);
+            onLocateEvidence?.(question.key, undefined, true);
           }}
           title="Xem vị trí bằng chứng và lời giải"
           aria-label={`Xem giải thích câu ${question.number}`}
@@ -952,8 +964,9 @@ function GapInlineReviewSlot({
   isSelected: boolean;
   isExplanationOpen?: boolean;
   onSelect: () => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
+  const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
@@ -993,7 +1006,7 @@ function GapInlineReviewSlot({
       {(isIncorrect || isUnanswered) && qResult?.correctAnswers && qResult.correctAnswers.length > 0 ? (
         <span className={styles.gapInlineCorrectTag} title="Đáp án chuẩn">
           <Lightbulb size={12} weight="fill" />
-          <span>{qResult.correctAnswers.join(" / ")}</span>
+          <span>{formatReadingAnswerList(qResult.correctAnswers, optionMap, " / ")}</span>
         </span>
       ) : null}
 
@@ -1005,7 +1018,7 @@ function GapInlineReviewSlot({
         style={{ width: "22px", height: "22px", minWidth: "22px", margin: "0 2px" }}
         onClick={(e) => {
           e.stopPropagation();
-          onLocateEvidence?.(question.key);
+          onLocateEvidence?.(question.key, undefined, true);
         }}
         title="Xem vị trí bằng chứng và lời giải"
         aria-label={`Xem giải thích câu ${question.number}`}
@@ -1052,7 +1065,7 @@ function GapFillReviewCard({
   selectedKey: string;
   isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1239,7 +1252,7 @@ function TableReviewCard({
   selectedKey: string;
   isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1391,7 +1404,7 @@ function FlowChartReviewCard({
   selectedKey: string;
   isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1524,7 +1537,7 @@ function DiagramReviewCard({
   selectedKey: string;
   isExplanationOpen?: boolean;
   onSelectQuestion: (questionKey: string) => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
   const imageUrl =
     typeof group.answerConfig?.imageUrl === "string"
@@ -1602,8 +1615,9 @@ function ShortAnswerReviewCard({
   isSelected: boolean;
   isExplanationOpen?: boolean;
   onSelect: () => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
+  const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
@@ -1636,7 +1650,7 @@ function ShortAnswerReviewCard({
           {(isIncorrect || isUnanswered) && qResult?.correctAnswers?.length ? (
             <div className={styles.correctAnswerRow}>
               <span>Đáp án chuẩn:</span>
-              <strong>{qResult.correctAnswers.join(" / ")}</strong>
+              <strong>{formatReadingAnswerList(qResult.correctAnswers, optionMap, " / ")}</strong>
             </div>
           ) : null}
         </div>
@@ -1648,7 +1662,7 @@ function ShortAnswerReviewCard({
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            onLocateEvidence?.(question.key);
+            onLocateEvidence?.(question.key, undefined, true);
           }}
           title="Xem vị trí bằng chứng và lời giải"
           aria-label={`Xem giải thích câu ${question.number}`}
@@ -1672,9 +1686,10 @@ function QuestionExplanationPanel({
   studentAnswerText: string;
   focusedEvidenceId: string | null;
   onFocusEvidence: (evidenceId: string) => void;
-  onLocateEvidence?: (questionKey: string, evidenceId?: string) => void;
+  onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
   onClose?: () => void;
 }) {
+  const optionMap = useReadingOptionMap();
   const solution = result.solution ?? null;
   const explanation = solution?.explanation ?? result.explanation;
   const reasoningSteps = solution?.reasoningSteps?.filter((step) => step.trim()) ?? [];
@@ -1710,12 +1725,18 @@ function QuestionExplanationPanel({
           </span>
 
           <span className={styles.drawerAnswerInfo}>
-            Đáp án: <strong>{result.correctAnswers.join(", ") || "—"}</strong>
+            Đáp án: <strong>{formatReadingAnswerList(result.correctAnswers, optionMap) || "—"}</strong>
           </span>
 
           {studentAnswerText && !isCorrect ? (
             <span className={styles.drawerStudentAnswerInfo}>
-              (Bạn chọn: <span className="font-bold text-rose-700">{studentAnswerText}</span>)
+              (Bạn chọn:{" "}
+              <span className="font-bold text-rose-700">
+                {studentAnswerText
+                  .split(", ")
+                  .map((v) => formatReadingAnswerValue(v, optionMap))
+                  .join(", ")}
+              </span>)
             </span>
           ) : null}
         </div>
