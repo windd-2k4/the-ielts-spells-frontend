@@ -2,12 +2,21 @@
 
 import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup, ReadingQuestionResult, ReadingSection, StudentReadingAttempt } from "@ielts/contracts";
 import {
-  ArrowDown, ArrowLeft, ArrowSquareOut, ChatCircleDots, Check, CheckCircle, CircleNotch, Eye, Highlighter,
-  Info, Lightbulb, ListBullets, MagnifyingGlass, MapPin, MinusCircle, Moon, Sparkle, Sun, TreeStructure, X, XCircle,
+  ArrowDown, ArrowLeft, ArrowSquareOut, CaretDown, CaretUp, ChatCircleDots, Check, CheckCircle, CircleNotch, Eye,
+  FastForward, FileText, Headphones, Highlighter, Info, Lightbulb, ListBullets, MagnifyingGlass, MapPin, MinusCircle,
+  Moon, Pause, Play, Rewind, Sparkle, Sun, TreeStructure, X, XCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+
+function formatTime(seconds: number) {
+  const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  const mins = Math.floor(safe / 60).toString().padStart(2, "0");
+  const secs = Math.floor(safe % 60).toString().padStart(2, "0");
+  return `${mins}:${secs}`;
+}
+import { apiBlob } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
 import {
@@ -35,20 +44,37 @@ function hasEvidenceForQuestion(qResult: ReadingQuestionResult | undefined): boo
 
 type ColorTheme = "standard" | "sepia" | "dark";
 
-export function ReadingExplanationPage({ attemptId }: { attemptId: string }) {
+export function ReadingExplanationPage({
+  attemptId,
+  skill = "READING",
+}: {
+  attemptId: string;
+  skill?: "READING" | "LISTENING";
+}) {
   return (
     <StudentSessionGate>
-      <ReadingExplanationContent attemptId={attemptId} />
+      <ReadingExplanationContent attemptId={attemptId} skill={skill} />
     </StudentSessionGate>
   );
 }
 
-function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
+function ReadingExplanationContent({
+  attemptId,
+  skill = "READING",
+}: {
+  attemptId: string;
+  skill?: "READING" | "LISTENING";
+}) {
+  const skillPath = skill.toLowerCase();
+  const skillLabel = skill === "LISTENING" ? "Listening" : "Reading";
+  const sectionPrefix = skill === "LISTENING" ? "Part" : "Passage";
+
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof getReadingAttemptResult>> | null>(null);
   const [selectedKey, setSelectedKey] = useState("");
   const [isExplanationOpen, setIsExplanationOpen] = useState(true);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [showTranscript, setShowTranscript] = useState(false);
   const [focusedEvidenceId, setFocusedEvidenceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -92,8 +118,8 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
     setError("");
     try {
       const [nextAttempt, nextResult] = await Promise.all([
-        getReadingAttempt(attemptId),
-        getReadingAttemptResult(attemptId),
+        getReadingAttempt(attemptId, skillPath),
+        getReadingAttemptResult(attemptId, skillPath),
       ]);
       setAttempt(nextAttempt);
       setResult(nextResult);
@@ -115,7 +141,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [attemptId]);
+  }, [attemptId, skillPath]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -131,12 +157,35 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
   const selectedStudentResp = selectedResult && attempt
     ? attempt.responses.find((r) => r.questionKey === selectedResult.questionKey)
     : undefined;
+
+  const [audioUrl, setAudioUrl] = useState<string>("");
+  useEffect(() => {
+    if (!activeSection?.audioUrl) {
+      setAudioUrl("");
+      return undefined;
+    }
+    let disposed = false;
+    let obj = "";
+    void apiBlob(activeSection.audioUrl)
+      .then((b) => {
+        if (!disposed) {
+          obj = URL.createObjectURL(b);
+          setAudioUrl(obj);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      if (obj) URL.revokeObjectURL(obj);
+    };
+  }, [activeSection?.audioUrl, activeSectionIndex]);
   const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
 
   // Keep the selected question and every authored evidence reference in view without
   // recentering the whole page. The passage HTML is rebuilt before marks are applied,
   // so the document remains pristine when teachers update an explanation.
   useEffect(() => {
+    if (skill === "LISTENING" && !showTranscript) return;
     const root = passageRef.current;
     if (!root || !activeSection) return;
 
@@ -165,7 +214,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
         window.setTimeout(() => scrollInsidePane(answersPane, cardEl), 50);
       }
     }
-  }, [activeSection, focusedEvidenceId, selectedResult, selectedKey]);
+  }, [activeSection, focusedEvidenceId, selectedResult, selectedKey, showTranscript, skill]);
 
   function selectQuestion(questionKey: string) {
     setSelectedKey(questionKey);
@@ -192,6 +241,9 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
     }
     setSelectedKey(questionKey);
     setIsExplanationOpen(true);
+    if (skill === "LISTENING") {
+      setShowTranscript(true);
+    }
     if (evidenceId) {
       setFocusedEvidenceId(evidenceId);
     } else {
@@ -228,7 +280,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
         });
       }
     }, 120);
-  }, [attempt, activeSectionIndex, selectedKey, isExplanationOpen]);
+  }, [attempt, activeSectionIndex, selectedKey, isExplanationOpen, skill]);
 
   if (loading) {
     return (
@@ -286,7 +338,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
       {/* Compact review toolbar */}
       <header className={styles.header}>
         <div className={styles.brand}>
-          <Link href={`/student/reading/attempts/${attemptId}/result`} className={styles.backButton} aria-label="Thoát về trang kết quả">
+          <Link href={`/student/${skillPath}/attempts/${attemptId}/result`} className={styles.backButton} aria-label="Thoát về trang kết quả">
             <ArrowLeft size={18} aria-hidden="true" />
           </Link>
           <div className="min-w-0">
@@ -297,7 +349,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
 
         {/* Passage Navigation Tabs */}
         {attempt.sections.length > 1 ? (
-          <nav className={styles.passageTabs} aria-label="Chọn bài đọc">
+          <nav className={styles.passageTabs} aria-label="Chọn phần bài thi">
             {attempt.sections.map((sec, idx) => (
               <button
                 key={sec.sectionNo ?? idx}
@@ -305,7 +357,7 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                 className={`${styles.passageTab} ${idx === activeSectionIndex ? styles.passageTabActive : ""}`}
                 onClick={() => setActiveSectionIndex(idx)}
               >
-                Passage {sec.sectionNo ?? idx + 1}
+                {sectionPrefix} {sec.sectionNo ?? idx + 1}
               </button>
             ))}
           </nav>
@@ -350,42 +402,223 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
       {/* Sub Info Bar */}
       <div className={styles.sectionBar}>
         <div className={styles.sectionLabel}>
-          <span>READING</span>
-          <strong>Passage {activeSection?.sectionNo ?? activeSectionIndex + 1}: {activeSection?.title ?? "Bài đọc"}</strong>
+          <span>{skill.toUpperCase()}</span>
+          <strong>{sectionPrefix} {activeSection?.sectionNo ?? activeSectionIndex + 1}: {activeSection?.title ?? (skill === "LISTENING" ? "Phần nghe" : "Bài đọc")}</strong>
         </div>
-        <p className={styles.sectionHint}>
-          <Info size={15} weight="fill" aria-hidden="true" />
-          Chọn “Xem giải thích” để đối chiếu vị trí trong bài đọc.
-        </p>
+        {skill === "LISTENING" ? (
+          <button
+            type="button"
+            onClick={() => setShowTranscript((prev) => !prev)}
+            className={`${styles.transcriptQuickToggle} ${showTranscript ? styles.transcriptQuickToggleActive : ""}`}
+            title={showTranscript ? "Ẩn transcript và xem lại đề bài" : "Bật xem transcript lời thoại"}
+          >
+            <FileText size={15} weight={showTranscript ? "bold" : "regular"} />
+            <span>{showTranscript ? "Ẩn Transcript (Xem đề bài)" : "Hiện Transcript"}</span>
+          </button>
+        ) : (
+          <p className={styles.sectionHint}>
+            <Info size={15} weight="fill" aria-hidden="true" />
+            Chọn “Xem giải thích” để đối chiếu vị trí trong bài.
+          </p>
+        )}
         <span className={styles.sectionCount}>{activeQuestions.length} câu hỏi</span>
       </div>
 
-      {/* Main Split Screen Workspace */}
-      <main id="reading-explanations" className={styles.workspace} style={reviewStyle}>
+      {/* Main Split Screen Workspace Container */}
+      <div className={styles.workspaceContainer}>
+        <main id="reading-explanations" className={styles.workspace} style={reviewStyle}>
         
-        {/* Left Pane: Reading Passage */}
-        <article ref={passagePaneRef} className={`${styles.passagePane} ${themeClass}`} aria-label={`Passage ${activeSection?.sectionNo ?? 1}`}>
+        {/* Left Pane: Reading Passage / Audio & Transcript */}
+        <article ref={passagePaneRef} className={`${styles.passagePane} ${themeClass}`} aria-label={`${sectionPrefix} ${activeSection?.sectionNo ?? 1}`}>
           <div className={styles.paneInner}>
-            <p className={styles.passageKicker}>Reading Passage {activeSection?.sectionNo ?? activeSectionIndex + 1}</p>
-            <h2 className={styles.passageTitle}>{activeSection?.title ?? "Reading Passage"}</h2>
+            {skill === "LISTENING" ? (
+              <>
+                {/* Dedicated Listening Audio Player Bar */}
+                {audioUrl ? (
+                  <ListeningAudioPlayer
+                    audioUrl={audioUrl}
+                    audioFilename={activeSection?.audioFilename}
+                    sectionTitle={`Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
+                  />
+                ) : null}
 
-            {/* Compact evidence summary stays visible above the passage. */}
-            {selectedResult && selectedEvidenceSpans.length > 0 ? (
-              <div className={styles.evidenceCard}>
-                <MapPin size={18} weight="fill" aria-hidden="true" />
-                <div>
-                  <strong>Vị trí đối chiếu · Câu {selectedResult.questionNo}</strong>
-                  <blockquote>
-                    {selectedEvidenceSpans[0].quote
-                      ? `“${selectedEvidenceSpans[0].quote}”`
-                      : selectedEvidenceSpans[0].label || "Giáo viên không dùng trích dẫn trực tiếp cho câu này."}
-                    {selectedEvidenceSpans.length > 1 ? ` · +${selectedEvidenceSpans.length - 1} vị trí khác` : ""}
-                  </blockquote>
+                {/* Study4-style Transcript Toggle Link */}
+                <div className={styles.transcriptToggleArea}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTranscript((prev) => !prev)}
+                    className={`${styles.transcriptToggleLink} ${showTranscript ? styles.transcriptToggleLinkActive : ""}`}
+                  >
+                    {showTranscript ? (
+                      <>
+                        <span>Ẩn Transcript (Xem lại đề bài)</span>
+                        <CaretUp size={15} weight="bold" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Hiện Transcript</span>
+                        <CaretDown size={15} weight="bold" />
+                      </>
+                    )}
+                  </button>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    {showTranscript ? "Đang xem lời thoại bài nghe" : "Đang xem nội dung đề bài"}
+                  </span>
                 </div>
-              </div>
-            ) : null}
 
-            <div ref={passageRef} className={styles.passageContent} />
+                {/* Dynamic Display: Đề bài vs Transcript */}
+                {showTranscript ? (
+                  <div className={styles.transcriptDisplayArea}>
+                    <div className={styles.transcriptCardHeader}>
+                      <h3 className={styles.transcriptCardTitle}>
+                        <Sparkle size={16} weight="fill" className="text-amber-500" />
+                        Lời thoại bài nghe (Transcript) · {activeSection?.title ?? `Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
+                      </h3>
+                      <span className={styles.transcriptCardHint}>
+                        {selectedResult ? `Đang đối chiếu vị trí cho Câu ${selectedResult.questionNo}` : "Chọn câu hỏi để xem bằng chứng"}
+                      </span>
+                    </div>
+
+                    {selectedResult && selectedEvidenceSpans.length > 0 ? (
+                      <div className={styles.evidenceCard}>
+                        <MapPin size={18} weight="fill" aria-hidden="true" />
+                        <div>
+                          <strong>Vị trí đối chiếu · Câu {selectedResult.questionNo}</strong>
+                          <blockquote>
+                            {selectedEvidenceSpans[0].quote
+                              ? `“${selectedEvidenceSpans[0].quote}”`
+                              : selectedEvidenceSpans[0].label || "Đoạn lời thoại liên quan"}
+                            {selectedEvidenceSpans.length > 1 ? ` · +${selectedEvidenceSpans.length - 1} vị trí khác` : ""}
+                          </blockquote>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div ref={passageRef} className={styles.passageContent} />
+                  </div>
+                ) : (
+                  <div className={styles.listeningPromptContainer}>
+                    <div className={styles.listeningPromptHeader}>
+                      <span className={styles.promptPartBadge}>PART {activeSection?.sectionNo ?? activeSectionIndex + 1}</span>
+                      <h2 className={styles.promptSectionTitle}>{activeSection?.title ?? `Listening Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}</h2>
+                    </div>
+
+                    {activeSection?.questionGroups.map((group) => (
+                      <div key={group.key} className={styles.promptGroupBlock}>
+                        <div className={styles.promptGroupHeading}>
+                          <span className={styles.promptGroupEyebrow}>{groupQuestionLabel(group)}</span>
+                          <h3 className={styles.promptGroupTitle}>{group.title}</h3>
+                          {group.instructions ? (
+                            <p className={styles.promptGroupInstructions}>{group.instructions}</p>
+                          ) : null}
+                        </div>
+
+                        {group.answerConfig?.gapFillTemplate ? (
+                          <ListeningPromptDisplay
+                            group={group}
+                            selectedKey={selectedKey}
+                            onSelectQuestion={selectQuestion}
+                            resultByKey={resultByKey}
+                          />
+                        ) : null}
+
+                        {group.typeFormat === "TABLE_COMPLETION" ? (
+                          <TableReviewCard
+                            group={group}
+                            resultByKey={resultByKey}
+                            attemptResponses={attempt.responses}
+                            selectedKey={selectedKey}
+                            isExplanationOpen={isExplanationOpen}
+                            onSelectQuestion={selectQuestion}
+                            onLocateEvidence={locateEvidence}
+                          />
+                        ) : null}
+
+                        {group.typeFormat === "FLOW_CHART_COMPLETION" ? (
+                          <FlowChartReviewCard
+                            group={group}
+                            resultByKey={resultByKey}
+                            attemptResponses={attempt.responses}
+                            selectedKey={selectedKey}
+                            isExplanationOpen={isExplanationOpen}
+                            onSelectQuestion={selectQuestion}
+                            onLocateEvidence={locateEvidence}
+                          />
+                        ) : null}
+
+                        {group.typeFormat === "DIAGRAM_LABELING" ? (
+                          <DiagramReviewCard
+                            group={group}
+                            resultByKey={resultByKey}
+                            attemptResponses={attempt.responses}
+                            selectedKey={selectedKey}
+                            isExplanationOpen={isExplanationOpen}
+                            onSelectQuestion={selectQuestion}
+                            onLocateEvidence={locateEvidence}
+                          />
+                        ) : null}
+
+                        {!group.answerConfig?.gapFillTemplate &&
+                         group.typeFormat !== "TABLE_COMPLETION" &&
+                         group.typeFormat !== "FLOW_CHART_COMPLETION" &&
+                         group.typeFormat !== "DIAGRAM_LABELING" ? (
+                          <div className={styles.promptQuestionsOverview}>
+                            {group.questions.map((q) => {
+                              const isSelected = selectedKey === q.key;
+                              return (
+                                <div
+                                  key={q.key}
+                                  className={`${styles.promptQuestionRow} ${isSelected ? styles.promptQuestionRowActive : ""}`}
+                                  onClick={() => selectQuestion(q.key)}
+                                >
+                                  <span className={styles.circleQuestionBadge}>{q.number}</span>
+                                  <p className={styles.promptQuestionText}>{q.prompt || `Câu hỏi ${q.number}`}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Reading Passage View */
+              <>
+                <p className={styles.passageKicker}>{sectionPrefix} {activeSection?.sectionNo ?? activeSectionIndex + 1}</p>
+                <h2 className={styles.passageTitle}>{activeSection?.title ?? `${sectionPrefix} ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}</h2>
+
+                {/* Audio player if audio is present */}
+                {audioUrl ? (
+                  <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 12, background: "var(--review-surface, #fff)", border: "1px solid var(--review-border, #e2e8f0)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, fontWeight: 700 }}>
+                      <Headphones size={16} />
+                      <span>{activeSection?.audioFilename || `Audio ${sectionPrefix} ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}</span>
+                    </div>
+                    <audio controls src={audioUrl} style={{ width: "100%", height: 36 }} />
+                  </div>
+                ) : null}
+
+                {/* Compact evidence summary stays visible above the passage. */}
+                {selectedResult && selectedEvidenceSpans.length > 0 ? (
+                  <div className={styles.evidenceCard}>
+                    <MapPin size={18} weight="fill" aria-hidden="true" />
+                    <div>
+                      <strong>Vị trí đối chiếu · Câu {selectedResult.questionNo}</strong>
+                      <blockquote>
+                        {selectedEvidenceSpans[0].quote
+                          ? `“${selectedEvidenceSpans[0].quote}”`
+                          : selectedEvidenceSpans[0].label || "Giáo viên không dùng trích dẫn trực tiếp cho câu này."}
+                        {selectedEvidenceSpans.length > 1 ? ` · +${selectedEvidenceSpans.length - 1} vị trí khác` : ""}
+                      </blockquote>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div ref={passageRef} className={styles.passageContent} />
+              </>
+            )}
           </div>
         </article>
 
@@ -395,7 +628,41 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
             <div className={styles.questionsInner}>
               
               {/* Question Groups */}
-              {activeSection?.questionGroups.map((group) => {
+              {skill === "LISTENING" ? (
+                activeSection?.questionGroups.map((group) => (
+                  <section key={group.key} className={styles.questionGroup}>
+                    <div className={styles.groupHeading}>
+                      <span className={styles.groupEyebrow}>{groupQuestionLabel(group)}</span>
+                      <h3 className={styles.groupTitle}>{group.title}</h3>
+                      {group.instructions ? <p className={styles.groupInstructions}>{group.instructions}</p> : null}
+                    </div>
+
+                    <div className={styles.questionList}>
+                      {group.questions.map((question) => {
+                        const qResult = resultByKey.get(question.key);
+                        const studentResp = attempt.responses.find((r) => r.questionKey === question.key);
+                        const studentAnswerText = answerValues(studentResp?.answer).join(", ");
+                        const isSelected = question.key === selectedKey;
+
+                        return (
+                          <QuestionReviewCard
+                            key={question.key}
+                            question={question}
+                            group={group}
+                            qResult={qResult}
+                            studentAnswerText={studentAnswerText}
+                            isSelected={isSelected}
+                            isExplanationOpen={isExplanationOpen}
+                            onSelect={() => selectQuestion(question.key)}
+                            onLocateEvidence={locateEvidence}
+                          />
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))
+              ) : (
+                activeSection?.questionGroups.map((group) => {
                 const isTable = group.typeFormat === "TABLE_COMPLETION";
                 const isFlowChart = group.typeFormat === "FLOW_CHART_COMPLETION";
                 const isDiagram = group.typeFormat === "DIAGRAM_LABELING";
@@ -584,7 +851,8 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                     </div>
                   </section>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
 
@@ -598,11 +866,106 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
                 onFocusEvidence={setFocusedEvidenceId}
                 onLocateEvidence={locateEvidence}
                 onClose={() => setIsExplanationOpen(false)}
+                skill={skill}
               />
             </div>
           ) : null}
         </aside>
       </main>
+
+      {/* Right Sidebar: Sticky Review Card (Study4 style) */}
+      <aside className={styles.reviewSidebar} aria-label="Bảng tổng quan kết quả và danh sách câu hỏi">
+        <div className={styles.sidebarCard}>
+          {/* 1. Score Summary */}
+          <div className={styles.sidebarScoreBlock}>
+            <span className={styles.sidebarScoreLabel}>Kết quả làm bài:</span>
+            <div className={styles.sidebarScoreRow}>
+              <span className={styles.sidebarScoreValue}>
+                {result.correctCount}/{totalQuestions} câu đúng
+              </span>
+              <span className={styles.sidebarScoreBadge}>
+                {percentage}%
+              </span>
+            </div>
+          </div>
+
+          {/* 2. Prominent Back to Result Button */}
+          <Link
+            href={`/student/${skillPath}/attempts/${attemptId}/result`}
+            className={styles.sidebarResultBtn}
+          >
+            <ArrowLeft size={16} weight="bold" />
+            QUAY LẠI KẾT QUẢ
+          </Link>
+
+          {/* 3. Hint */}
+          <p className={styles.sidebarHint}>
+            <em>Chú ý: Click vào số thứ tự câu hỏi để xem chi tiết lời giải & đối chiếu vị trí bằng chứng.</em>
+          </p>
+
+          {/* 4. Sections & 5-Column Question Grid */}
+          <div className={styles.sidebarSectionsList}>
+            {attempt.sections.map((section, idx) => {
+              const sectionQuestions = section.questionGroups.flatMap((g) => g.questions);
+              const isCurrentSec = idx === activeSectionIndex;
+              const sectionResults = sectionQuestions
+                .map((q) => resultByKey.get(q.key))
+                .filter((r): r is ReadingQuestionResult => Boolean(r));
+              const secCorrect = sectionResults.filter((r) => r.correct).length;
+
+              return (
+                <div key={section.key || idx} className={styles.sidebarPartSection}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSectionIndex(idx)}
+                    className={`${styles.sidebarPartHeading} ${isCurrentSec ? styles.sidebarPartHeadingActive : ""}`}
+                  >
+                    <span className={styles.sidebarPartName}>
+                      {sectionPrefix} {section.sectionNo ?? idx + 1}
+                    </span>
+                    <span className={styles.sidebarPartBadge}>
+                      {secCorrect}/{sectionQuestions.length} đúng
+                    </span>
+                  </button>
+
+                  <div className={styles.paletteGrid} role="navigation" aria-label={`Bảng câu hỏi ${sectionPrefix} ${section.sectionNo ?? idx + 1}`}>
+                    {sectionQuestions.map((q) => {
+                      const qResult = resultByKey.get(q.key);
+                      const isSelected = q.key === selectedKey;
+                      const isCorrect = qResult?.correct;
+                      const isAnswered = qResult?.answered;
+
+                      let statusClass = styles.paletteSquareUnanswered;
+                      if (isCorrect) statusClass = styles.paletteSquareCorrect;
+                      else if (isAnswered) statusClass = styles.paletteSquareIncorrect;
+
+                      return (
+                        <button
+                          key={q.key}
+                          type="button"
+                          onClick={() => {
+                            selectQuestion(q.key);
+                            locateEvidence(q.key);
+                          }}
+                          className={`${styles.paletteSquare} ${statusClass} ${
+                            isSelected ? styles.paletteSquareActive : ""
+                          }`}
+                          title={`Câu ${q.number}: ${
+                            isCorrect ? "Đúng" : isAnswered ? "Sai" : "Chưa trả lời"
+                          }`}
+                        >
+                          <span className={styles.paletteSquareNumber}>{q.number}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </aside>
+    </div>
 
       {/* Footer Palette Bar */}
       <footer className={styles.footer}>
@@ -634,13 +997,149 @@ function ReadingExplanationContent({ attemptId }: { attemptId: string }) {
           })}
         </nav>
 
-        <Link href={`/student/reading/attempts/${attemptId}/result`} className={styles.resultLink}>
+        <Link href={`/student/${skillPath}/attempts/${attemptId}/result`} className={styles.resultLink}>
           <ArrowLeft size={16} />
           <span>Về kết quả bài làm</span>
         </Link>
       </footer>
     </div>
     </ReadingOptionMapContext.Provider>
+  );
+}
+
+function ListeningAudioPlayer({
+  audioUrl,
+  audioFilename,
+  sectionTitle,
+}: {
+  audioUrl: string;
+  audioFilename?: string | null;
+  sectionTitle?: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.pause();
+    }
+  }, [audioUrl]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      void audioRef.current.play();
+    }
+  };
+
+  const seekTo = (time: number) => {
+    if (!audioRef.current) return;
+    const clamped = Math.max(0, Math.min(time, duration || 0));
+    audioRef.current.currentTime = clamped;
+    setCurrentTime(clamped);
+  };
+
+  const changeSpeed = (spd: number) => {
+    setPlaybackSpeed(spd);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = spd;
+    }
+  };
+
+  return (
+    <div className={styles.listeningAudioBar}>
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          if (Number.isFinite(d)) setDuration(d);
+        }}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+      />
+
+      <div className={styles.audioBarHeader}>
+        <div className={styles.audioBarTitle}>
+          <Headphones size={16} weight="fill" className="text-blue-600" />
+          <span>{audioFilename || sectionTitle || "File nghe Part"}</span>
+        </div>
+        <div className={styles.audioSpeedPicker}>
+          {[0.8, 1.0, 1.25, 1.5].map((spd) => (
+            <button
+              key={spd}
+              type="button"
+              className={`${styles.audioSpeedBtn} ${playbackSpeed === spd ? styles.audioSpeedBtnActive : ""}`}
+              onClick={() => changeSpeed(spd)}
+            >
+              {spd}x
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.audioSeekRow}>
+        <input
+          type="range"
+          min={0}
+          max={Math.max(1, duration)}
+          step={0.1}
+          value={Math.min(currentTime, duration || currentTime)}
+          onChange={(e) => seekTo(Number(e.target.value))}
+          className={styles.audioRange}
+          aria-label="Tiến độ phát audio"
+        />
+        <div className={styles.audioTimeRow}>
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      <div className={styles.audioControlsRow}>
+        <div className={styles.audioBtnGroup}>
+          <button
+            type="button"
+            className={styles.audioSeekBtn}
+            onClick={() => seekTo(currentTime - 5)}
+            title="Lùi 5 giây"
+            aria-label="Lùi 5 giây"
+          >
+            <Rewind size={15} />
+            <span>-5s</span>
+          </button>
+          <button
+            type="button"
+            className={styles.audioPlayBtn}
+            onClick={togglePlay}
+            title={isPlaying ? "Tạm dừng" : "Phát audio"}
+            aria-label={isPlaying ? "Tạm dừng" : "Phát audio"}
+          >
+            {isPlaying ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
+          </button>
+          <button
+            type="button"
+            className={styles.audioSeekBtn}
+            onClick={() => seekTo(currentTime + 5)}
+            title="Tiến 5 giây"
+            aria-label="Tiến 5 giây"
+          >
+            <span>+5s</span>
+            <FastForward size={15} />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1048,6 +1547,103 @@ function parseLineTokensReview(line: string): Array<{ type: "text"; text: string
   }
 
   return tokens;
+}
+
+function ListeningPromptDisplay({
+  group,
+  selectedKey,
+  onSelectQuestion,
+  resultByKey,
+}: {
+  group: ReadingQuestionGroup;
+  selectedKey: string;
+  onSelectQuestion: (key: string) => void;
+  resultByKey: Map<string, ReadingQuestionResult>;
+}) {
+  const rawTemplate =
+    typeof group.answerConfig?.gapFillTemplate === "string"
+      ? group.answerConfig.gapFillTemplate.trim()
+      : "";
+
+  const questionByNumber = useMemo(() => {
+    const map = new Map<number, ReadingQuestion>();
+    group.questions.forEach((q) => {
+      map.set(q.number, q);
+    });
+    return map;
+  }, [group.questions]);
+
+  const templateLines = useMemo(() => {
+    if (!rawTemplate) return [];
+    return rawTemplate.split(/\r?\n/);
+  }, [rawTemplate]);
+
+  if (!rawTemplate) return null;
+
+  return (
+    <div className={styles.listeningPromptCard}>
+      {group.title ? (
+        <h4 className={styles.listeningPromptCardTitle}>{group.title}</h4>
+      ) : null}
+
+      <div className={styles.listeningPromptBody}>
+        {templateLines.map((line, lineIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={lineIdx} style={{ height: "10px" }} />;
+          }
+
+          const isHeading =
+            (trimmed.startsWith("#") ||
+              (trimmed.endsWith(":") && !trimmed.includes("[[") && trimmed.length < 60)) &&
+            !trimmed.startsWith("•") &&
+            !trimmed.startsWith("-");
+
+          if (isHeading) {
+            const headingText = trimmed.replace(/^#+\s*/, "");
+            return (
+              <div key={lineIdx} className={styles.listeningPromptHeading}>
+                {headingText}
+              </div>
+            );
+          }
+
+          const tokens = parseLineTokensReview(line);
+          return (
+            <div key={lineIdx} className={styles.listeningPromptLine}>
+              {tokens.map((token, tokenIdx) => {
+                if (token.type === "text") {
+                  return <span key={tokenIdx}>{token.text}</span>;
+                }
+                const q =
+                  questionByNumber.get(token.questionNo) ??
+                  group.questions[token.questionNo - 1];
+                const isSelected = q && selectedKey === q.key;
+                const qResult = q ? resultByKey.get(q.key) : undefined;
+                const isCorrect = qResult?.correct === true;
+                const isIncorrect = qResult?.answered && !qResult?.correct;
+
+                return (
+                  <button
+                    key={tokenIdx}
+                    type="button"
+                    className={`${styles.listeningPromptSlot} ${isSelected ? styles.listeningPromptSlotActive : ""} ${
+                      isCorrect ? styles.listeningPromptSlotCorrect : isIncorrect ? styles.listeningPromptSlotIncorrect : ""
+                    }`}
+                    onClick={() => q && onSelectQuestion(q.key)}
+                    title={`Câu ${token.questionNo}: ${isCorrect ? "Đúng" : isIncorrect ? "Sai" : "Chưa trả lời"} - Bấm để chọn câu này`}
+                  >
+                    <span className={styles.listeningPromptSlotNumber}>({token.questionNo})</span>
+                    <span className={styles.listeningPromptSlotLine}>________</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function GapFillReviewCard({
@@ -1681,6 +2277,7 @@ function QuestionExplanationPanel({
   onFocusEvidence,
   onLocateEvidence,
   onClose,
+  skill = "READING",
 }: {
   result: ReadingQuestionResult;
   studentAnswerText: string;
@@ -1688,6 +2285,7 @@ function QuestionExplanationPanel({
   onFocusEvidence: (evidenceId: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
   onClose?: () => void;
+  skill?: "READING" | "LISTENING";
 }) {
   const optionMap = useReadingOptionMap();
   const solution = result.solution ?? null;
@@ -1788,11 +2386,11 @@ function QuestionExplanationPanel({
         )}
       </div>
 
-      {/* Section 2: BẰNG CHỨNG TRONG BÀI ĐỌC */}
+      {/* Section 2: BẰNG CHỨNG TRONG BÀI */}
       <div className={styles.drawerSection}>
         <h4 className={styles.drawerSectionTitle}>
           <MapPin size={16} weight="fill" className="text-orange-600" />
-          BẰNG CHỨNG TRONG BÀI ĐỌC
+          {skill === "LISTENING" ? "BẰNG CHỨNG TRONG LỜI THOẠI (TRANSCRIPT)" : "BẰNG CHỨNG TRONG BÀI ĐỌC"}
         </h4>
 
         {evidenceSpans.length > 0 ? (
@@ -1802,7 +2400,7 @@ function QuestionExplanationPanel({
               const isFocused = focusedEvidenceId === evidenceId;
               const quoteText = evidence.quote
                 ? `“${evidence.quote}”`
-                : evidence.label || "Vị trí đoạn văn liên quan trong bài đọc";
+                : evidence.label || (skill === "LISTENING" ? "Vị trí lời thoại liên quan trong bài nghe" : "Vị trí đoạn văn liên quan trong bài đọc");
 
               return (
                 <button
@@ -1813,7 +2411,7 @@ function QuestionExplanationPanel({
                     onFocusEvidence(evidenceId);
                     onLocateEvidence?.(result.questionKey, evidenceId);
                   }}
-                  title="Bấm để di chuyển đến vị trí này trong bài đọc"
+                  title={skill === "LISTENING" ? "Bấm để di chuyển đến vị trí này trong transcript" : "Bấm để di chuyển đến vị trí này trong bài đọc"}
                 >
                   <MapPin size={15} weight="fill" className="text-orange-600 shrink-0 mt-0.5" />
                   <span>

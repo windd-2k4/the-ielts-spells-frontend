@@ -126,11 +126,15 @@ const landingDetails = {
   LISTENING: {
     icon: Headphones,
     code: "02",
-    status: "ĐANG PHÁT TRIỂN",
+    status: "SẴN SÀNG",
     label: "IELTS Listening",
-    description: "Bài luyện nghe theo section và band mục tiêu.",
+    description: "Luyện nghe theo Part 1–4 bám sát định dạng bài thi thật.",
     eyebrow: "NGHE · BẮT NHỊP · THẤU HIỂU",
-    features: [],
+    features: [
+      { icon: ClockCountdown, label: "Đề thi bám sát format thật" },
+      { icon: ChartLineUp, label: "Có chấm điểm và phân tích" },
+      { icon: CheckCircle, label: "Luyện tập linh hoạt" },
+    ],
   },
   WRITING: {
     icon: PencilCircle,
@@ -356,15 +360,16 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
 
   async function start(item: StudentPracticeCatalogItem) {
     if (!item.deliveryReady) return;
+    const skillPath = item.skill.toLowerCase();
     if (item.activeAttemptId) {
-      router.push(`/student/reading/attempts/${item.activeAttemptId}`);
+      router.push(`/student/${skillPath}/attempts/${item.activeAttemptId}`);
       return;
     }
     setStartingId(item.testVersionId);
     setError("");
     try {
-      const attempt = await startOrResumeSelfPractice(item.testVersionId);
-      router.push(`/student/reading/attempts/${attempt.attemptId}`);
+      const attempt = await startOrResumeSelfPractice(item.testVersionId, item.skill);
+      router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể bắt đầu đề này.");
     } finally {
