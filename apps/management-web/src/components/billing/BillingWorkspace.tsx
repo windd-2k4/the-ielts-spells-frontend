@@ -102,7 +102,7 @@ export interface OrderAdminDto {
   invoiceAddress?: string;
   invoiceEmail?: string;
   invoiceId?: string;
-  invoiceStatus?: "PENDING_ISSUE" | "CREATING" | "PROCESSING" | "DRAFT" | "ISSUING" | "ISSUED" | "FAILED" | "UNKNOWN" | "CANCELLED" | "ADJUSTED" | "REPLACED";
+  invoiceStatus?: "PENDING_ISSUE" | "PILOT_PENDING_APPROVAL" | "CREATING" | "PROCESSING" | "DRAFT" | "ISSUING" | "ISSUED" | "FAILED" | "UNKNOWN" | "CANCELLED" | "ADJUSTED" | "REPLACED";
   invoiceErrorCategory?: "RETRYABLE" | "NON_RETRYABLE" | "REQUIRES_ACTION" | "UNDETERMINED" | "RECONCILABLE";
   reconciliationStatus?: "NOT_REQUIRED" | "PENDING" | "RECONCILED" | "FAILED" | "REQUIRES_REVIEW";
   invoiceNumber?: string;
@@ -113,6 +113,7 @@ export interface OrderAdminDto {
   pdfUrl?: string;
   pilotApproved?: boolean;
   createdAt: string;
+  standalonePayment?: boolean;
 }
 
 export interface InvoiceAdminDto {
@@ -136,8 +137,9 @@ export interface InvoiceAdminDto {
   lookupUrl?: string;
   pdfUrl?: string;
   xmlUrl?: string;
-  status: "PENDING_ISSUE" | "CREATING" | "PROCESSING" | "DRAFT" | "ISSUING" | "ISSUED" | "FAILED" | "UNKNOWN" | "CANCELLED" | "ADJUSTED" | "REPLACED";
+  status: "PENDING_ISSUE" | "PILOT_PENDING_APPROVAL" | "CREATING" | "PROCESSING" | "DRAFT" | "ISSUING" | "ISSUED" | "FAILED" | "UNKNOWN" | "CANCELLED" | "ADJUSTED" | "REPLACED";
   isDraft?: boolean;
+  pilotApproved?: boolean;
   createTrackingCode?: string;
   issueTrackingCode?: string;
   provider?: string;
@@ -168,6 +170,9 @@ export interface ReconciliationDto {
   bankBrandName?: string;
   accountNumber?: string;
   status: "SUCCESS" | "STANDALONE_PAYMENT" | "PARTIAL_PAYMENT" | "UNDERPAID" | "OVERPAID" | "UNMATCHED" | "REFUNDED";
+  invoiceId?: string;
+  invoiceStatus?: InvoiceAdminDto["status"];
+  invoicePilotApproved?: boolean;
   reconciliationNote?: string;
   rawPayload?: Record<string, unknown>;
   createdAt: string;
@@ -182,6 +187,16 @@ export interface EinvoiceConnectionTestResult {
   templateCode?: string;
   taxAuthorityApprovedDate?: string;
   remainingQuota?: number;
+}
+
+export interface SandboxSmokeResult {
+  success: boolean;
+  referenceCode: string;
+  steps: Array<{
+    name: string;
+    status: "PASSED" | "FAILED";
+    details: string;
+  }>;
 }
 
 export interface TemplateDto {
@@ -457,8 +472,6 @@ export function BillingWorkspace() {
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStatsDto | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceAdminDto | null>(null);
   const [isExportingInvoices, setIsExportingInvoices] = useState(false);
-  const [cancellingInvoiceId, setCancellingInvoiceId] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
 
   // VIN-HOADON Filter Matrix States (12 fields)
@@ -582,6 +595,8 @@ export function BillingWorkspace() {
   const [transitioningState, setTransitioningState] = useState(false);
   const [testingEinvoice, setTestingEinvoice] = useState(false);
   const [einvoiceTestResult, setEinvoiceTestResult] = useState<EinvoiceConnectionTestResult | null>(null);
+  const [runningSandboxSmoke, setRunningSandboxSmoke] = useState(false);
+  const [sandboxSmokeResult, setSandboxSmokeResult] = useState<SandboxSmokeResult | null>(null);
 
   // Live Providers & Go-Live Readiness State
   const [liveProviders, setLiveProviders] = useState<ProviderAccountDto[]>([]);
@@ -771,13 +786,29 @@ export function BillingWorkspace() {
     }
   };
 
-  const openInvoiceDetailFromOrder = (order: OrderAdminDto) => {
+  const openInvoiceDetailFromOrder = async (order: OrderAdminDto) => {
+    // Static QR rows are virtual order rows. Load the real invoice so the
+    // detail modal can show its exact reference, CQT code and download URLs.
+    if (order.standalonePayment && order.invoiceId) {
+      try {
+        const invoice = await apiFetch<InvoiceAdminDto>(`/admin/billing/invoices/${order.invoiceId}`);
+        setSelectedInvoice(invoice);
+        return;
+      } catch (err: unknown) {
+        setFeedback({
+          type: "error",
+          text: err instanceof Error ? err.message : "Không tải được chi tiết hóa đơn QR tĩnh",
+        });
+        return;
+      }
+    }
+
     setSelectedInvoice({
       id: order.invoiceId ? order.invoiceId.toString() : order.id,
-      orderId: order.id,
+      orderId: order.standalonePayment ? undefined : order.id,
       orderCode: order.orderCode,
-      referenceCode: `INV-${order.orderCode}`,
-      productName: "Đóng học phí đào tạo IELTS",
+      referenceCode: order.standalonePayment ? `QR-TINH-${order.orderCode}` : `INV-${order.orderCode}`,
+      productName: order.courseTitle || "Đóng học phí đào tạo IELTS",
       customerName: order.customerName,
       customerEmail: order.customerEmail,
       amount: order.amount,
@@ -1584,9 +1615,22 @@ export function BillingWorkspace() {
       const res = await apiFetch<ProviderAccountDto[]>("/admin/billing/settings/providers");
       if (Array.isArray(res)) {
         setLiveProviders(res);
+        const firstActive = res.find((provider) => provider.active && provider.templates?.length > 0);
+        if (firstActive && !settings.einvoiceProviderAccountId) {
+          setSettings((prev) => ({
+            ...prev,
+            einvoiceProviderAccountId: firstActive.id,
+            taxAuthorityApprovedDate: firstActive.taxAuthorityApprovedDate,
+            einvoiceTemplateCode: firstActive.templates[0]?.templateCode || prev.einvoiceTemplateCode,
+            einvoiceInvoiceSeries: firstActive.templates[0]?.invoiceSeries || prev.einvoiceInvoiceSeries,
+          }));
+        }
       }
-    } catch (err) {
-      console.warn("Chưa thể tải danh sách providers từ SePay:", err);
+    } catch (err: unknown) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Chưa thể tải Provider Account từ SePay",
+      });
     } finally {
       setLoadingProviders(false);
     }
@@ -1897,24 +1941,6 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
     }
   };
 
-  const handleCancelInvoiceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cancellingInvoiceId || !cancelReason.trim()) return;
-    try {
-      await apiFetch(`/admin/billing/invoices/${cancellingInvoiceId}/cancel`, {
-        method: "POST",
-        body: JSON.stringify({ reason: cancelReason }),
-      });
-      setFeedback({ type: "success", text: "Đã hủy hóa đơn điện tử thành công." });
-      setCancellingInvoiceId(null);
-      setCancelReason("");
-      fetchInvoices();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Lỗi hủy hóa đơn";
-      setFeedback({ type: "error", text: msg });
-    }
-  };
-
   const handleManualMatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!matchingTx || !manualOrderCode.trim()) return;
@@ -1946,10 +1972,10 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
     try {
       const payload: BillingSettingsDto = {
         ...settings,
-        sepayWebhookSecret: editingSepayWebhookSecret && newSepayWebhookSecret.trim() ? newSepayWebhookSecret.trim() : undefined,
-        sepayApiKey: editingSepayApiKey && newSepayApiKey.trim() ? newSepayApiKey.trim() : undefined,
-        einvoiceClientSecret: editingSandboxClientSecret && newSandboxClientSecret.trim() ? newSandboxClientSecret.trim() : undefined,
-        prodClientSecret: editingProdClientSecret && newProdClientSecret.trim() ? newProdClientSecret.trim() : undefined,
+        sepayWebhookSecret: (!settings.sepayWebhookSecretConfigured || editingSepayWebhookSecret) && newSepayWebhookSecret.trim() ? newSepayWebhookSecret.trim() : undefined,
+        sepayApiKey: (!settings.sepayApiKeyConfigured || editingSepayApiKey) && newSepayApiKey.trim() ? newSepayApiKey.trim() : undefined,
+        einvoiceClientSecret: (!settings.einvoiceClientSecretConfigured || editingSandboxClientSecret) && newSandboxClientSecret.trim() ? newSandboxClientSecret.trim() : undefined,
+        prodClientSecret: (!settings.prodClientSecretConfigured || editingProdClientSecret) && newProdClientSecret.trim() ? newProdClientSecret.trim() : undefined,
         einvoiceInvoiceSeries: settings.einvoiceInvoiceSeries || settings.einvoiceSeries,
       };
 
@@ -2010,6 +2036,37 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
     }
   };
 
+  const handleApprovePilotInvoice = async (invoiceId: string) => {
+    setApprovingPilotOrderId(invoiceId);
+    try {
+      const approved = await apiFetch<InvoiceAdminDto>(`/admin/billing/invoices/${invoiceId}/approve-pilot`, {
+        method: "POST",
+      });
+      setSelectedInvoice(approved);
+      setFeedback({ type: "success", text: "Đã duyệt giao dịch QR tĩnh cho đợt Pilot. Worker sẽ phát hành hóa đơn tự động." });
+      await fetchInvoices();
+    } catch (err: unknown) {
+      setFeedback({ type: "error", text: err instanceof Error ? err.message : "Lỗi phê duyệt Pilot cho hóa đơn" });
+    } finally {
+      setApprovingPilotOrderId(null);
+    }
+  };
+
+  const handleApproveStaticQrPilot = async (transactionId: string) => {
+    setApprovingPilotOrderId(transactionId);
+    try {
+      await apiFetch<InvoiceAdminDto>(`/admin/billing/transactions/${transactionId}/approve-pilot-invoice`, {
+        method: "POST",
+      });
+      setFeedback({ type: "success", text: "Đã duyệt hóa đơn QR tĩnh cho Production Pilot." });
+      await fetchReconciliation();
+    } catch (err: unknown) {
+      setFeedback({ type: "error", text: err instanceof Error ? err.message : "Lỗi phê duyệt Pilot cho QR tĩnh" });
+    } finally {
+      setApprovingPilotOrderId(null);
+    }
+  };
+
   const handleTransitionActivationState = async (targetState: string) => {
     let explicitAdminConfirmation = false;
     if (targetState === "PRODUCTION_ACTIVE") {
@@ -2050,22 +2107,39 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
       // First save current inputs so backend tests with the newly entered credentials
       const payload: BillingSettingsDto = {
         ...settings,
-        sepayWebhookSecret: editingSepayWebhookSecret && newSepayWebhookSecret.trim() ? newSepayWebhookSecret.trim() : undefined,
-        sepayApiKey: editingSepayApiKey && newSepayApiKey.trim() ? newSepayApiKey.trim() : undefined,
-        einvoiceClientSecret: editingSandboxClientSecret && newSandboxClientSecret.trim() ? newSandboxClientSecret.trim() : undefined,
-        prodClientSecret: editingProdClientSecret && newProdClientSecret.trim() ? newProdClientSecret.trim() : undefined,
+        sepayWebhookSecret: (!settings.sepayWebhookSecretConfigured || editingSepayWebhookSecret) && newSepayWebhookSecret.trim() ? newSepayWebhookSecret.trim() : undefined,
+        sepayApiKey: (!settings.sepayApiKeyConfigured || editingSepayApiKey) && newSepayApiKey.trim() ? newSepayApiKey.trim() : undefined,
+        einvoiceClientSecret: (!settings.einvoiceClientSecretConfigured || editingSandboxClientSecret) && newSandboxClientSecret.trim() ? newSandboxClientSecret.trim() : undefined,
+        prodClientSecret: (!settings.prodClientSecretConfigured || editingProdClientSecret) && newProdClientSecret.trim() ? newProdClientSecret.trim() : undefined,
         einvoiceInvoiceSeries: settings.einvoiceInvoiceSeries || settings.einvoiceSeries,
       };
 
-      await apiFetch("/admin/billing/settings", {
+      const saved = await apiFetch<BillingSettingsDto>("/admin/billing/settings", {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      setSettings((prev) => ({ ...prev, ...saved }));
+      setEditingSandboxClientSecret(false);
+      setNewSandboxClientSecret("");
       const res = await apiFetch<EinvoiceConnectionTestResult>("/admin/billing/settings/test-einvoice", {
         method: "POST",
       });
       setEinvoiceTestResult(res);
       if (res.success) {
+        if (res.providerAccountId) {
+          const resolvedSettings: BillingSettingsDto = {
+            ...saved,
+            einvoiceProviderAccountId: res.providerAccountId,
+            einvoiceInvoiceSeries: res.invoiceSeries || saved.einvoiceInvoiceSeries,
+            einvoiceTemplateCode: res.templateCode || saved.einvoiceTemplateCode,
+            taxAuthorityApprovedDate: res.taxAuthorityApprovedDate || saved.taxAuthorityApprovedDate,
+          };
+          const persisted = await apiFetch<BillingSettingsDto>("/admin/billing/settings", {
+            method: "PUT",
+            body: JSON.stringify(resolvedSettings),
+          });
+          setSettings((prev) => ({ ...prev, ...persisted }));
+        }
         setFeedback({
           type: "success",
           text: `Kết nối SePay eInvoice thành công! Nhà cung cấp: ${res.providerName || "MatBao"} | Ký hiệu: ${res.invoiceSeries || settings.einvoiceInvoiceSeries || "C26TSE"}`,
@@ -2082,6 +2156,32 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
       setFeedback({ type: "error", text: msg });
     } finally {
       setTestingEinvoice(false);
+    }
+  };
+
+  const handleSandboxSmoke = async () => {
+    if (!window.confirm("Thao tác này sẽ tạo và phát hành 1 hóa đơn thử trên SePay Sandbox. Tiếp tục?")) return;
+    setRunningSandboxSmoke(true);
+    setSandboxSmokeResult(null);
+    try {
+      const result = await apiFetch<SandboxSmokeResult>(
+        "/admin/billing/settings/test-einvoice-sandbox-e2e?confirm=true",
+        { method: "POST" }
+      );
+      setSandboxSmokeResult(result);
+      setFeedback({
+        type: result.success ? "success" : "error",
+        text: result.success
+          ? `E2E Sandbox hoàn tất: ${result.referenceCode}`
+          : `E2E Sandbox thất bại tại bước ${result.steps.find((step) => step.status === "FAILED")?.name || "không xác định"}`,
+      });
+    } catch (err: unknown) {
+      setFeedback({
+        type: "error",
+        text: err instanceof Error ? err.message : "Không thể chạy kiểm thử E2E Sandbox",
+      });
+    } finally {
+      setRunningSandboxSmoke(false);
     }
   };
   const renderStatusBadge = (status: string) => {
@@ -2116,6 +2216,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
             Đang xử lý (Chờ SePay)
+          </span>
+        );
+      case "PILOT_PENDING_APPROVAL":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            Chờ Admin duyệt Pilot
           </span>
         );
       case "UNKNOWN":
@@ -2524,7 +2631,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => setSelectedOrder(ord)}
+                              onClick={() => ord.standalonePayment ? openInvoiceDetailFromOrder(ord) : setSelectedOrder(ord)}
                               className="font-mono font-bold text-primary hover:underline cursor-pointer text-left"
                               title="Xem chi tiết đơn hàng"
                             >
@@ -2534,6 +2641,11 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
                                 <RocketLaunch size={9} weight="bold" />
                                 Pilot
+                              </span>
+                            )}
+                            {ord.standalonePayment && (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-cyan-500/15 text-cyan-700 border border-cyan-500/30">
+                                QR tĩnh
                               </span>
                             )}
                             <button
@@ -2811,7 +2923,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               <div className="absolute right-0 mt-1 hidden group-hover:block z-50 w-52 rounded-xl border border-outline-variant/30 bg-surface p-1.5 shadow-xl text-left text-xs animate-in fade-in duration-100">
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedOrder(ord)}
+                                  onClick={() => ord.standalonePayment ? openInvoiceDetailFromOrder(ord) : setSelectedOrder(ord)}
                                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-on-surface hover:bg-surface-container transition font-medium cursor-pointer"
                                 >
                                   <FileText size={13} className="text-primary" />
@@ -2827,7 +2939,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                     <span>Xem tờ Hóa đơn điện tử</span>
                                   </button>
                                 )}
-                                {!ord.pilotApproved && (
+                                {!ord.standalonePayment && !ord.pilotApproved && (
                                   <button
                                     type="button"
                                     onClick={() => handleApprovePilot(ord.id)}
@@ -2849,7 +2961,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                     <span>Tra cứu SePay online</span>
                                   </a>
                                 )}
-                                {ord.status === "PENDING_PAYMENT" && (
+                                {!ord.standalonePayment && ord.status === "PENDING_PAYMENT" && (
                                   <>
                                     <button
                                       type="button"
@@ -2913,15 +3025,6 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                       <span>{retryingInvoiceId === ord.id ? "Đang xử lý..." : "Thử lại cấp mã CQT"}</span>
                                     </button>
                                   )
-                                )}
-                                {ord.invoiceStatus === "ISSUED" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setCancellingInvoiceId(ord.id)}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition font-medium"
-                                  >
-                                    <span>Hủy hóa đơn CQT</span>
-                                  </button>
                                 )}
                                 <button
                                   type="button"
@@ -3234,6 +3337,21 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               title="Khớp giao dịch vào đơn hàng"
                             >
                               Khớp đơn
+                            </button>
+                          )}
+                          {tx.status === "STANDALONE_PAYMENT"
+                            && settings.activationState === "PRODUCTION_PILOT"
+                            && tx.invoiceStatus === "PILOT_PENDING_APPROVAL"
+                            && !tx.invoicePilotApproved && (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveStaticQrPilot(tx.id)}
+                              disabled={approvingPilotOrderId === tx.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-purple-300 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 disabled:opacity-50"
+                              title="Cho phép phát hành thật hóa đơn của giao dịch QR tĩnh này"
+                            >
+                              <RocketLaunch size={13} weight="bold" />
+                              {approvingPilotOrderId === tx.id ? "Đang duyệt..." : "Duyệt Pilot HĐ"}
                             </button>
                           )}
                         </td>
@@ -3672,10 +3790,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                           type="text"
                           value={settings.einvoiceProviderAccountId || ""}
                           onChange={(e) => setSettings({ ...settings, einvoiceProviderAccountId: e.target.value })}
-                          placeholder="VD: f20729d6-b5d9-11f1-b21a-a6006ab65aca"
+                          placeholder="Được tải tự động từ SePay"
                           className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/50 bg-surface text-sm font-mono text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition"
                         />
                       )}
+                      <p className="mt-1.5 text-[11px] text-on-surface-variant">
+                        Không nhập UUID ví dụ trong tài liệu; hãy dùng nút Làm mới để lấy ID thật từ SePay.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -3714,7 +3835,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   </div>
 
                   {/* Sandbox Test Connection Button & Result */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-outline-variant/20">
+                  <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-t border-outline-variant/20">
                     <button
                       type="button"
                       onClick={handleTestEinvoice}
@@ -3727,6 +3848,19 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         <ArrowClockwise size={16} weight="bold" />
                       )}
                       <span>{testingEinvoice ? "Đang kết nối SePay Sandbox..." : "⚡ Kiểm tra kết nối SePay Sandbox"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSandboxSmoke}
+                      disabled={runningSandboxSmoke || testingEinvoice || (settings.activationState || "SANDBOX") !== "SANDBOX"}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-2xs"
+                    >
+                      {runningSandboxSmoke ? (
+                        <SpinnerGap size={16} className="animate-spin" />
+                      ) : (
+                        <RocketLaunch size={16} weight="bold" />
+                      )}
+                      <span>{runningSandboxSmoke ? "Đang chạy vòng đời E2E..." : "Chạy E2E Sandbox"}</span>
                     </button>
                   </div>
 
@@ -3764,6 +3898,38 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                             )}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {sandboxSmokeResult && (
+                    <div className={`p-4 rounded-xl border text-xs space-y-3 ${
+                      sandboxSmokeResult.success
+                        ? "bg-emerald-500/10 border-emerald-500/30"
+                        : "bg-rose-500/10 border-rose-500/30"
+                    }`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-bold text-sm text-on-surface">
+                          {sandboxSmokeResult.success ? "Vòng đời Sandbox đã hoàn tất" : "Vòng đời Sandbox chưa hoàn tất"}
+                        </div>
+                        <code className="px-2 py-1 rounded bg-surface border border-outline-variant/40 text-[11px]">
+                          {sandboxSmokeResult.referenceCode}
+                        </code>
+                      </div>
+                      <div className="space-y-2">
+                        {sandboxSmokeResult.steps.map((step) => (
+                          <div key={step.name} className="flex items-start gap-2 text-on-surface">
+                            {step.status === "PASSED" ? (
+                              <CheckCircle size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                            ) : (
+                              <WarningCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                            )}
+                            <div>
+                              <span className="font-bold">{step.name}</span>
+                              <span className="opacity-80"> — {step.details}</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -4201,7 +4367,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/50 bg-surface text-sm font-mono text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition"
                 />
                 <div className="text-[11px] text-on-surface-variant leading-relaxed">
-                  Trong giai đoạn <strong>PRODUCTION_PILOT</strong>, chỉ các đơn hàng có mã trong danh sách này HOẶC được quản trị viên bấm nút <strong>"🚀 Duyệt Pilot"</strong> tại tab Đơn Hàng mới được phép gọi API phát hành hóa đơn thật lên CQT.
+                  Trong giai đoạn <strong>PRODUCTION_PILOT</strong>, đơn QR động được duyệt theo đơn hàng; giao dịch QR tĩnh được duyệt theo từng hóa đơn. Chỉ bản ghi đã được quản trị viên bấm <strong>"Duyệt Pilot"</strong> mới được gọi API phát hành hóa đơn thật.
                 </div>
               </div>
 
@@ -4947,16 +5113,15 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   </button>
                 )}
 
-                {selectedInvoice.status === "ISSUED" && (
+                {selectedInvoice.status === "PILOT_PENDING_APPROVAL" && !selectedInvoice.pilotApproved && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setCancellingInvoiceId(selectedInvoice.id);
-                      setSelectedInvoice(null);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition cursor-pointer"
+                    onClick={() => handleApprovePilotInvoice(selectedInvoice.id)}
+                    disabled={approvingPilotOrderId === selectedInvoice.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                   >
-                    <span>Lập đề nghị hủy HĐ</span>
+                    <RocketLaunch size={14} weight="bold" />
+                    <span>{approvingPilotOrderId === selectedInvoice.id ? "Đang duyệt..." : "Duyệt Pilot hóa đơn này"}</span>
                   </button>
                 )}
               </div>
@@ -5071,70 +5236,6 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                 >
                   {isMatching && <SpinnerGap size={14} className="animate-spin" />}
                   <span>Xác nhận khớp & Kích hoạt</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================================= */}
-      {/* MODAL: CANCEL INVOICE */}
-      {/* ======================================================================= */}
-      {cancellingInvoiceId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setCancellingInvoiceId(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600">Thao tác quan trọng</span>
-                <h3 className="text-lg font-bold text-on-surface">Xác nhận Hủy hóa đơn điện tử</h3>
-              </div>
-              <button
-                onClick={() => setCancellingInvoiceId(null)}
-                className="p-1.5 rounded-lg text-on-surface-variant/70 hover:bg-surface-container hover:text-on-surface transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              Hóa đơn sẽ được gửi yêu cầu hủy và lập biên bản giải trình lên Cơ quan Thuế. Thao tác này tuân thủ Nghị định 123/2020/NĐ-CP và không thể hoàn tác.
-            </p>
-
-            <form onSubmit={handleCancelInvoiceSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Lý do hủy hóa đơn *
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Ví dụ: Học viên hủy khóa học hoàn phí, hoặc phát hành lại do sai thông tin đơn vị mua..."
-                  required
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCancellingInvoiceId(null)}
-                  className="px-3.5 py-2 rounded-xl border border-outline-variant/50 bg-surface text-xs font-bold text-on-surface hover:bg-surface-container transition"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 active:scale-95 transition shadow-2xs"
-                >
-                  Xác nhận Hủy Hóa Đơn
                 </button>
               </div>
             </form>
