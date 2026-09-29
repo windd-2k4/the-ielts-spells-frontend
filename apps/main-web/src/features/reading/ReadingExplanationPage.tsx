@@ -33,6 +33,7 @@ import {
   useReadingOptionMap,
 } from "./readingFormat";
 import { ReadingStatePanel } from "./ReadingStatePanel";
+import { AuthenticatedDiagramImage } from "./AuthenticatedDiagramImage";
 import styles from "./ReadingExplanationPage.module.css";
 
 function hasEvidenceForQuestion(qResult: ReadingQuestionResult | undefined): boolean {
@@ -2135,18 +2136,32 @@ function DiagramReviewCard({
   onSelectQuestion: (questionKey: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
 }) {
+  const optionMap = useReadingOptionMap();
+  const rawIllustration = (group.answerConfig?.illustration ?? (group as unknown as { illustration?: unknown }).illustration) as
+    | { fileUrl?: string; altText?: string; filename?: string }
+    | undefined;
   const imageUrl =
-    typeof group.answerConfig?.imageUrl === "string"
-      ? group.answerConfig.imageUrl
-      : typeof group.answerConfig?.diagramUrl === "string"
-      ? group.answerConfig.diagramUrl
-      : undefined;
+    rawIllustration?.fileUrl
+      || (typeof group.answerConfig?.imageUrl === "string" ? group.answerConfig.imageUrl : undefined)
+      || (typeof group.answerConfig?.diagramUrl === "string" ? group.answerConfig.diagramUrl : undefined)
+      || (typeof (group as unknown as { imageUrl?: string }).imageUrl === "string"
+        ? (group as unknown as { imageUrl?: string }).imageUrl
+        : undefined);
+  const imageAlt = rawIllustration?.altText?.trim() || group.title || "Sơ đồ bài thi";
+
+  const hasSharedOptions = group.sharedOptions && group.sharedOptions.length > 0;
+  const optionsWithText = hasSharedOptions
+    ? group.sharedOptions.filter((opt) => opt.text?.trim() && opt.text !== opt.code && !opt.text.startsWith("Vị trí "))
+    : [];
 
   return (
     <div className={styles.diagramReviewCard}>
       {imageUrl ? (
         <div className={styles.diagramReviewImageWrapper}>
-          <img src={imageUrl} alt={group.title} className={styles.diagramReviewImage} />
+          <AuthenticatedDiagramImage src={imageUrl} alt={imageAlt} className={styles.diagramReviewImage} />
+          {rawIllustration?.altText?.trim() ? (
+            <p className={styles.diagramReviewImageCaption}>{rawIllustration.altText}</p>
+          ) : null}
         </div>
       ) : (
         <div className={styles.diagramReviewImageWrapper}>
@@ -2162,7 +2177,10 @@ function DiagramReviewCard({
           const prompt = question.prompt || `Vị trí ${question.number}`;
           const qResult = resultByKey.get(question.key);
           const studentResp = attemptResponses.find((r) => r.questionKey === question.key);
-          const studentAnswerText = answerValues(studentResp?.answer).join(", ");
+          const rawValues = answerValues(studentResp?.answer);
+          const studentAnswerText = rawValues
+            .map((val) => optionMap?.get(val)?.code || val)
+            .join(", ");
           const isSelected = selectedKey === question.key;
 
           return (
@@ -2187,6 +2205,22 @@ function DiagramReviewCard({
           );
         })}
       </div>
+
+      {optionsWithText.length > 0 && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+          <p className="mb-1.5 font-bold uppercase tracking-wide text-slate-500 text-[10px]">
+            Danh sách lựa chọn
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {optionsWithText.map((opt) => (
+              <div key={opt.key || opt.code} className="flex items-center gap-1.5">
+                <strong className="font-bold text-[#ad4c64]">{opt.code}:</strong>
+                <span className="text-slate-700">{opt.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

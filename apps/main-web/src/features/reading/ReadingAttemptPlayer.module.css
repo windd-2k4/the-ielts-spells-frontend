@@ -1829,6 +1829,7 @@
 }
 .diagramImageWrapper {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 16px;
@@ -1839,9 +1840,16 @@
 }
 .diagramImage {
   max-width: 100%;
-  max-height: 380px;
+  max-height: 520px;
   object-fit: contain;
   border-radius: 6px;
+}
+.diagramImageCaption {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--exam-muted);
+  text-align: center;
 }
 .diagramLabelsList {
   display: flex;
@@ -1879,6 +1887,91 @@
   font-size: var(--exam-content-size);
   font-weight: 600;
   color: var(--exam-navy);
+}
+
+/* Diagram Radio Grid (CD-IELTS Standard) */
+.diagramGridWrapper {
+  overflow-x: auto;
+  border: 1.5px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-card-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.diagramGridTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.diagramGridTable th {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 2px solid var(--exam-line);
+  background: var(--exam-soft);
+  color: var(--exam-navy);
+}
+.diagramGridOptionHeader {
+  text-align: center;
+  min-width: 44px;
+  font-weight: 800;
+  color: #8f4458;
+  border-left: 1px solid var(--exam-line);
+}
+.diagramGridRow {
+  border-bottom: 1px solid var(--exam-line);
+  transition: background-color 150ms ease;
+}
+.diagramGridRow:last-child {
+  border-bottom: none;
+}
+.diagramGridRow:hover {
+  background-color: rgba(143, 68, 88, 0.04);
+}
+.diagramGridRowActive {
+  background-color: rgba(143, 68, 88, 0.08);
+}
+.diagramGridPromptCell {
+  padding: 12px 14px;
+  min-width: 180px;
+}
+.diagramGridPromptContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.diagramGridCell {
+  padding: 8px 10px;
+  text-align: center;
+  border-left: 1px solid var(--exam-line);
+  cursor: pointer;
+}
+.diagramGridRadio {
+  width: 18px;
+  height: 18px;
+  accent-color: #8f4458;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.diagramGridLegend {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--exam-soft);
+  border-radius: 8px;
+  border: 1px solid var(--exam-line);
+}
+.diagramGridLegendTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #746a6e;
+  margin-bottom: 6px;
+}
+.diagramGridLegendList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+  font-size: 12px;
 }
 
 /* 11: Short Answer (CD-IELTS Standard) */

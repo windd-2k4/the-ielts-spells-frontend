@@ -350,6 +350,15 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             targetId: group.id,
           });
         }
+        if (group.typeFormat === "DIAGRAM_LABELING" && !group.illustration?.fileUrl) {
+          issues.push({
+            id: `${group.id}-illustration-missing`,
+            severity: "ERROR",
+            sectionTitle: group.title,
+            message: "Dạng bài Diagram / Map Labelling bắt buộc phải tải lên ảnh sơ đồ hoặc bản đồ.",
+            targetId: group.id,
+          });
+        }
         if (group.illustration && !group.illustration.altText.trim()) {
           issues.push({
             id: `${group.id}-illustration-alt`,
@@ -514,6 +523,18 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
       if (part.questionGroups.length === 0) issues.push({ id: `${part.id}-groups`, severity: "ERROR", sectionTitle: `Part ${part.partNo}`, message: "Part chưa có Question Group.", targetId: "listening-question-panel" });
       part.questionGroups.forEach((group) => {
         if (!group.instructions.trim()) issues.push({ id: `${group.id}-instructions`, severity: "WARNING", sectionTitle: group.title, message: "Question Group chưa có instructions.", targetId: group.id });
+        if (group.typeFormat === "DIAGRAM_LABELING" && !group.illustration?.fileUrl) {
+          issues.push({ id: `${group.id}-illustration-missing`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài Diagram / Map Labelling bắt buộc phải tải lên ảnh sơ đồ hoặc bản đồ.", targetId: group.id });
+        }
+        if (group.illustration && !group.illustration.altText.trim()) {
+          issues.push({ id: `${group.id}-illustration-alt`, severity: "WARNING", sectionTitle: group.title, message: "Ảnh hoặc sơ đồ nên có mô tả ngắn.", targetId: group.id });
+        }
+        if (questionTypeUsesWordLimit(group.typeFormat, group.answerSource) && !group.wordLimitRule?.trim()) {
+          issues.push({ id: `${group.id}-word-limit`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài cần có giới hạn từ (Word limit).", targetId: group.id });
+        }
+        if (questionTypeUsesSharedOptions(group.typeFormat, group.answerSource) && !(group.sharedOptions?.some((option) => option.code.trim()))) {
+          issues.push({ id: `${group.id}-options`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài này cần có Option bank dùng chung.", targetId: group.id });
+        }
         if (questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)) {
           const templateIssues = inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length);
           if (group.gapFillTemplate !== undefined && (!group.gapFillTemplate.trim() || templateIssues.missing.length || templateIssues.duplicated.length || templateIssues.invalid.length)) {

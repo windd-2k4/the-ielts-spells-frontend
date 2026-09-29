@@ -477,6 +477,87 @@ function GapTemplate({ group, responses, review, showAnswers, showExplanations, 
   </div>;
 }
 
+function DiagramRadioGrid({ group, responses, review, showAnswers, showExplanations, onAnswer }: {
+  group: QuestionGroupItem;
+  responses: ResponseMap;
+  review: boolean;
+  showAnswers: boolean;
+  showExplanations: boolean;
+  onAnswer: (questionId: string, value: string[]) => void;
+}) {
+  const options = group.sharedOptions ?? [];
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[#DED7DA] bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-[#DED7DA] bg-[#F7F5F4]">
+              <th scope="col" className="px-4 py-3 font-display text-xs font-bold uppercase tracking-wider text-[#6F676C] min-w-[200px]">
+                {group.title || "Questions"}
+              </th>
+              {options.map((opt) => (
+                <th key={opt.id} scope="col" className="px-3 py-3 text-center font-display text-sm font-bold text-[#AD4C64] min-w-[44px]">
+                  {opt.code}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#EBE6E8]">
+            {group.questions.map((question) => {
+              const selectedValue = responses[question.id]?.[0];
+              return (
+                <tr key={question.id} id={`preview-question-${question.id}`} className="hover:bg-[#FDFBFB] transition">
+                  <td className="px-4 py-3 text-xs font-semibold text-[#292528]">
+                    <div className="flex items-center gap-2">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#AD4C64] text-[11px] font-bold text-white">
+                        {question.number}
+                      </span>
+                      <span>{question.prompt || `Vị trí ${question.number}`}</span>
+                    </div>
+                  </td>
+                  {options.map((opt) => {
+                    const checked = selectedValue === opt.id || selectedValue === opt.code;
+                    return (
+                      <td key={opt.id} className="px-3 py-3 text-center">
+                        <label className="inline-flex cursor-pointer items-center justify-center p-1">
+                          <input
+                            type="radio"
+                            name={`grid-${question.id}`}
+                            disabled={review}
+                            checked={checked}
+                            onChange={() => onAnswer(question.id, [opt.id])}
+                            className="size-4 accent-[#AD4C64] cursor-pointer disabled:cursor-default"
+                            aria-label={`Câu ${question.number} chọn ${opt.code}`}
+                          />
+                        </label>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {review && (
+        <div className="space-y-3 border-t border-[#DED7DA] bg-[#FAF8F9] p-4">
+          {group.questions.map((question) => (
+            <div key={question.id} className="rounded-xl border border-[#DED7DA] bg-white p-3">
+              <p className="text-xs font-bold text-[#292528]">
+                Câu {question.number}: {question.prompt || `Vị trí ${question.number}`} —{" "}
+                <span className="text-[#AD4C64]">
+                  Đã chọn: {options.find((o) => o.id === responses[question.id]?.[0] || o.code === responses[question.id]?.[0])?.code || "Chưa chọn"}
+                </span>
+              </p>
+              <ReviewFeedback question={question} group={group} response={responses[question.id] ?? []} showAnswer={showAnswers} showExplanation={showExplanations} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuestionGroup({ group, responses, review, showAnswers, showExplanations, onAnswer }: {
   group: QuestionGroupItem;
   responses: ResponseMap;
@@ -486,11 +567,19 @@ function QuestionGroup({ group, responses, review, showAnswers, showExplanations
   onAnswer: (questionId: string, value: string[]) => void;
 }) {
   const hasGapTemplate = questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && Boolean(group.gapFillTemplate?.trim());
+  const isDiagramGrid = group.typeFormat === "DIAGRAM_LABELING" && Boolean(group.sharedOptions?.length);
+
   return <section className="border-b border-[#DED7DA] pb-7 last:border-0">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-display text-base font-bold text-[#292528]">{group.title}</h3><p className="mt-1 max-w-3xl text-sm leading-6 text-[#6F676C]">{group.instructions || "Chưa có hướng dẫn."}</p>{group.wordLimitRule && <p className="mt-1 text-xs font-bold text-[#AD4C64]">{group.wordLimitRule}</p>}</div><span className="rounded-lg bg-[#F2ECEE] px-2.5 py-1 text-[10px] font-bold text-[#6F676C]">{readingQuestionTypeLabels[group.typeFormat]}</span></div>
-    {group.sharedOptions?.length ? <div className="mt-4 grid gap-2 rounded-xl bg-[#F2ECEE] p-4 sm:grid-cols-2">{group.sharedOptions.map((option) => <p key={option.id} className="text-sm"><strong className="text-[#AD4C64]">{option.code}.</strong> {option.text}</p>)}</div> : null}
+    {!isDiagramGrid && group.sharedOptions?.length ? <div className="mt-4 grid gap-2 rounded-xl bg-[#F2ECEE] p-4 sm:grid-cols-2">{group.sharedOptions.map((option) => <p key={option.id} className="text-sm"><strong className="text-[#AD4C64]">{option.code}.</strong> {option.text}</p>)}</div> : null}
     {group.illustration && <figure className="mt-4"><AuthenticatedMediaImage fileUrl={group.illustration.fileUrl} alt={group.illustration.altText} className="mx-auto max-h-[520px] max-w-full rounded-xl object-contain" />{group.illustration.altText && <figcaption className="mt-2 text-center text-xs text-[#6F676C]">{group.illustration.altText}</figcaption>}</figure>}
-    {hasGapTemplate ? <GapTemplate group={group} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={onAnswer} /> : <div className="mt-4 space-y-4">{group.questions.map((question) => <article key={question.id} id={`preview-question-${question.id}`} className="rounded-2xl bg-[#F7F5F4] p-4"><div className="flex items-start gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#AD4C64] text-xs font-bold text-white">{question.number}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold leading-6 text-[#292528]">{question.prompt || "Câu hỏi chưa có nội dung."}</p><QuestionInput question={question} group={group} response={responses[question.id] ?? []} disabled={review} onChange={(value) => onAnswer(question.id, value)} />{review && <ReviewFeedback question={question} group={group} response={responses[question.id] ?? []} showAnswer={showAnswers} showExplanation={showExplanations} />}</div></div></article>)}</div>}
+    {isDiagramGrid ? (
+      <DiagramRadioGrid group={group} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={onAnswer} />
+    ) : hasGapTemplate ? (
+      <GapTemplate group={group} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={onAnswer} />
+    ) : (
+      <div className="mt-4 space-y-4">{group.questions.map((question) => <article key={question.id} id={`preview-question-${question.id}`} className="rounded-2xl bg-[#F7F5F4] p-4"><div className="flex items-start gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#AD4C64] text-xs font-bold text-white">{question.number}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold leading-6 text-[#292528]">{question.prompt || "Câu hỏi chưa có nội dung."}</p><QuestionInput question={question} group={group} response={responses[question.id] ?? []} disabled={review} onChange={(value) => onAnswer(question.id, value)} />{review && <ReviewFeedback question={question} group={group} response={responses[question.id] ?? []} showAnswer={showAnswers} showExplanation={showExplanations} />}</div></div></article>)}</div>
+    )}
   </section>;
 }
 

@@ -2754,6 +2754,7 @@
 }
 .diagramReviewImageWrapper {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 16px;
@@ -2764,9 +2765,16 @@
 }
 .diagramReviewImage {
   max-width: 100%;
-  max-height: 380px;
+  max-height: 520px;
   object-fit: contain;
   border-radius: 6px;
+}
+.diagramReviewImageCaption {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
 }
 .diagramReviewLabelsList {
   display: flex;
