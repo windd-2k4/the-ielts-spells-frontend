@@ -95,9 +95,35 @@ function emptyPart(partNo: number): ListeningPartSection {
   return { id: newId(`part-${partNo}`), partNo, title: `Listening Part ${partNo}`, transcriptHtml: "", questionGroups: [] };
 }
 
-function normalizeParts(content: Record<string, unknown>): ListeningPartSection[] {
+function detectListeningFormat(content: Record<string, unknown>, test?: TestBankItem | null): string {
+  const tagFormat = test?.tags?.find((t) => ["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(t.toUpperCase()));
+  if (tagFormat) return tagFormat.toUpperCase();
+
+  const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(preset)) return preset;
+
+  const contentFormat = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(contentFormat)) return contentFormat;
+
+  if (test?.testType === "FULL_TEST" || preset === "FULL" || contentFormat === "FULL") {
+    return "FULL";
+  }
+
+  if (Array.isArray(content.parts) && content.parts.length === 1) {
+    const first = content.parts[0];
+    const no = typeof first === "object" && first && "partNo" in first && typeof first.partNo === "number" ? first.partNo : 1;
+    return `SECTION_${no}`;
+  }
+
+  if (test?.tags?.includes("FULL")) return "FULL";
+
+  return "FULL";
+}
+
+function normalizeParts(content: Record<string, unknown>, test?: TestBankItem | null): ListeningPartSection[] {
+  let loaded: ListeningPartSection[] = [];
   if (Array.isArray(content.parts)) {
-    const loaded = content.parts.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item))).map((part, index) => ({
+    loaded = content.parts.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item))).map((part, index) => ({
       id: typeof part.id === "string" ? part.id : newId(`part-${index + 1}`),
       partNo: typeof part.partNo === "number" ? part.partNo : index + 1,
       title: typeof part.title === "string" ? part.title : `Listening Part ${index + 1}`,
@@ -107,15 +133,39 @@ function normalizeParts(content: Record<string, unknown>): ListeningPartSection[
       transcriptHtml: typeof part.transcriptHtml === "string" ? part.transcriptHtml : "",
       questionGroups: normalizeGroups(part.questionGroups),
     }));
+  } else if (typeof content.transcriptText === "string" && content.transcriptText.trim()) {
+    const legacy = content.transcriptText.split("\n").map((line) => `<p>${line || "<br>"}</p>`).join("");
+    loaded = [{
+      ...emptyPart(1), transcriptHtml: legacy,
+      audioDurationSeconds: typeof content.audioDurationSeconds === "number" ? content.audioDurationSeconds : undefined,
+      questionGroups: normalizeGroups(content.questionGroups),
+    }];
+  }
+
+  const format = detectListeningFormat(content, test);
+  const isFull = format === "FULL";
+
+  if (isFull) {
     return [1, 2, 3, 4].map((partNo) => loaded.find((part) => part.partNo === partNo) ?? emptyPart(partNo));
   }
-  const legacy = typeof content.transcriptText === "string"
-    ? content.transcriptText.split("\n").map((line) => `<p>${line || "<br>"}</p>`).join("") : "";
-  return [{
-    ...emptyPart(1), transcriptHtml: legacy,
-    audioDurationSeconds: typeof content.audioDurationSeconds === "number" ? content.audioDurationSeconds : undefined,
-    questionGroups: normalizeGroups(content.questionGroups),
-  }, emptyPart(2), emptyPart(3), emptyPart(4)];
+
+  const targetPartNo = format === "SECTION_2" ? 2
+    : format === "SECTION_3" ? 3
+    : format === "SECTION_4" ? 4
+    : 1;
+
+  const existing = loaded.find((part) => part.partNo === targetPartNo)
+    ?? (loaded.length === 1 ? loaded[0] : loaded.find((p) => p.audioUrl || p.questionGroups.length > 0));
+
+  if (existing) {
+    return [{
+      ...existing,
+      partNo: targetPartNo,
+      title: existing.title || `Listening Part ${targetPartNo}`,
+    }];
+  }
+
+  return [emptyPart(targetPartNo)];
 }
 
 function renumberParts(parts: ListeningPartSection[]) {
@@ -190,16 +240,40 @@ export function ListeningTestBuilder() {
         + (!question.prompt.trim() ? 1 : 0)
         + (!question.correctAnswers.length ? 1 : 0), 0);
     }, 0), testTitle.trim() ? 0 : 1), [parts, testTitle]);
-  const builderTest = useMemo<TestBankItem | null>(() => testRecord ? { ...testRecord, title: testTitle, sectionsCount: parts.length, totalQuestions: allQuestions.length, builderContent: { ...(testRecord.builderContent ?? {}), format: "FULL", parts } } : null, [allQuestions.length, parts, testRecord, testTitle]);
+  const detectedFormat = useMemo(() => detectListeningFormat(testRecord?.builderContent ?? {}, testRecord), [testRecord]);
+  const isFull = detectedFormat === "FULL";
+  const expectedQuestions = isFull ? 40 : detectedFormat === "DICTATION" ? 20 : 10;
+  const builderTest = useMemo<TestBankItem | null>(() => testRecord ? {
+    ...testRecord,
+    title: testTitle,
+    sectionsCount: parts.length,
+    totalQuestions: allQuestions.length,
+    builderContent: {
+      ...(testRecord.builderContent ?? {}),
+      format: detectedFormat,
+      sectionsPreset: detectedFormat,
+      parts,
+    },
+  } : null, [allQuestions.length, detectedFormat, parts, testRecord, testTitle]);
 
   useEffect(() => { recordRef.current = testRecord; }, [testRecord]);
   useEffect(() => {
     if (!testId) return;
     setLoaded(false);
     void apiFetch<TestBankItem>(`/admin/test-bank/${testId}`).then((test) => {
-      setTestRecord(test); setTestTitle(test.title); setParts(renumberParts(normalizeParts(test.builderContent ?? {})));
-      setLastSavedTime(new Date(test.updatedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })); setLoaded(true);
-    }).catch((reason) => { setLoadError(reason instanceof Error ? reason.message : "Không thể tải draft Listening."); setLoaded(true); });
+      setTestRecord(test);
+      setTestTitle(test.title);
+      const normalized = renumberParts(normalizeParts(test.builderContent ?? {}, test));
+      setParts(normalized);
+      if (normalized.length > 0) {
+        setActivePartNo((curr) => normalized.some((p) => p.partNo === curr) ? curr : normalized[0].partNo);
+      }
+      setLastSavedTime(new Date(test.updatedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+      setLoaded(true);
+    }).catch((reason) => {
+      setLoadError(reason instanceof Error ? reason.message : "Không thể tải draft Listening.");
+      setLoaded(true);
+    });
   }, [testId]);
 
   const saveDraft = useCallback(async (silent = false) => {
@@ -207,15 +281,36 @@ export function ListeningTestBuilder() {
     if (!testId || !record || record.status !== "DRAFT") return null;
     if (!silent) setSaveStatus("SAVING");
     try {
-      const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, { method: "PUT", body: JSON.stringify({
-        title: testTitle, description: null, skill: "LISTENING", testType: record.testType,
-        durationMinutes: record.durationMinutes || 40, version: record.version, tags: record.tags,
-        draftRevision: record.draftRevision,
-        builderContent: { ...(record.builderContent ?? {}), format: "FULL", parts },
-      }) });
-      setTestRecord(saved); recordRef.current = saved; setSaveStatus("SAVED"); setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+      const currentFormat = detectListeningFormat(record.builderContent ?? {}, record);
+      const defaultDuration = currentFormat === "FULL" ? 40 : currentFormat === "DICTATION" ? 20 : 10;
+      const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: testTitle,
+          description: null,
+          skill: "LISTENING",
+          testType: record.testType,
+          durationMinutes: record.durationMinutes || defaultDuration,
+          version: record.version,
+          tags: record.tags,
+          draftRevision: record.draftRevision,
+          builderContent: {
+            ...(record.builderContent ?? {}),
+            format: currentFormat,
+            sectionsPreset: currentFormat,
+            parts,
+          },
+        }),
+      });
+      setTestRecord(saved);
+      recordRef.current = saved;
+      setSaveStatus("SAVED");
+      setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
       return saved;
-    } catch { setSaveStatus("ERROR"); return null; }
+    } catch {
+      setSaveStatus("ERROR");
+      return null;
+    }
   }, [parts, testId, testTitle]);
 
   useEffect(() => {
@@ -302,7 +397,7 @@ export function ListeningTestBuilder() {
       <div className="flex items-center gap-2"><span className={`hidden text-[11px] font-semibold lg:inline ${saveStatus === "ERROR" ? "text-[#b4232d]" : "text-[#237653]"}`}>{saveStatus === "ERROR" ? "Lưu thất bại" : `Đã lưu ${lastSavedTime}`}</span>{validationCount > 0 && <span className="hidden rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-[#b4232d] xl:inline">{validationCount} mục cần xử lý</span>}<button type="button" onClick={() => void saveDraft()} disabled={saveStatus === "SAVING"} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold disabled:opacity-50"><FloppyDisk size={16} /> Lưu nháp</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] px-3.5 text-xs font-bold text-[#8f4458]"><Eye size={16} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><ShieldCheck size={16} /> {workflowLabel}</button></div>
     </header>
 
-    <nav className="flex min-h-12 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-5" aria-label="Các phần Listening"><div className="flex gap-1">{parts.map((part) => { const count = part.questionGroups.reduce((sum, group) => sum + group.questions.length, 0); return <button key={part.id} type="button" onClick={() => setActivePartNo(part.partNo)} aria-current={activePartNo === part.partNo ? "page" : undefined} className={`min-h-10 rounded-t-xl px-5 text-xs font-bold ${activePartNo === part.partNo ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E] hover:bg-[#e3dce2]"}`}>Part {part.partNo}<span className="ml-2 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px]">{count}</span></button>; })}</div><span className="hidden text-xs font-semibold text-[#746A6E] lg:inline">Listening Builder · {allQuestions.length}/40 câu</span></nav>
+    <nav className="flex min-h-12 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-5" aria-label="Các phần Listening"><div className="flex gap-1">{parts.map((part) => { const count = part.questionGroups.reduce((sum, group) => sum + group.questions.length, 0); return <button key={part.id} type="button" onClick={() => setActivePartNo(part.partNo)} aria-current={activePartNo === part.partNo ? "page" : undefined} className={`min-h-10 rounded-t-xl px-5 text-xs font-bold ${activePartNo === part.partNo ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E] hover:bg-[#e3dce2]"}`}>Part {part.partNo}<span className="ml-2 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px]">{count}</span></button>; })}</div><span className="hidden text-xs font-semibold text-[#746A6E] lg:inline">Listening Builder · {allQuestions.length}/{expectedQuestions} câu</span></nav>
 
     <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
       <section className="custom-scrollbar min-w-0 overflow-y-auto border-r border-[#e3dce2] bg-white p-5">

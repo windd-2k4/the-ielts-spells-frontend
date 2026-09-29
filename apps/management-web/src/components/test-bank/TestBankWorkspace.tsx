@@ -347,10 +347,12 @@ function isFormatOption(value: string): value is FormatOption {
 
 function formatOf(test: TestBankItem): FormatOption {
   const content = test.builderContent ?? {};
-  const format = typeof content.format === "string" ? content.format.toUpperCase() : "";
-  if (isFormatOption(format)) return format;
+  const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
+  if (isFormatOption(preset)) return preset;
   const tagFormat = test.tags.find((tag) => isFormatOption(tag.toUpperCase()));
   if (tagFormat) return tagFormat.toUpperCase() as FormatOption;
+  const format = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  if (isFormatOption(format)) return format;
   if (test.testType === "FULL_TEST" || test.sectionsCount > 1) return "FULL";
   return "SINGLE";
 }
@@ -497,6 +499,16 @@ function emptySpeakingPart(partNo: 1 | 2 | 3) {
   };
 }
 
+function emptyListeningPart(partNo: number) {
+  return {
+    id: newId(`part-${partNo}`),
+    partNo,
+    title: `Listening Part ${partNo}`,
+    transcriptHtml: "",
+    questionGroups: [],
+  };
+}
+
 function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBankItem[]) {
   const base = {
     format: form.format,
@@ -524,13 +536,19 @@ function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBank
   }
 
   if (form.skill === "LISTENING") {
+    const isFull = form.format === "FULL";
+    const partNo = form.format === "SECTION_2" ? 2
+      : form.format === "SECTION_3" ? 3
+      : form.format === "SECTION_4" ? 4
+      : 1;
+    const parts = isFull
+      ? [1, 2, 3, 4].map(emptyListeningPart)
+      : [emptyListeningPart(partNo)];
     return {
       ...base,
       sectionsPreset: form.format,
-      listeningParts: [],
-      transcriptText: "",
-      questionGroups: [],
-      audioDurationSeconds: 0,
+      format: form.format,
+      parts,
     };
   }
 

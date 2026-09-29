@@ -181,9 +181,34 @@ function readPassages(content: Record<string, unknown>): PassageSection[] {
   return questionGroups.length ? [{ id: "legacy-passage", passageNo: 1, title: "Reading Passage 1", content: "", teacherAnnotations: [], questionGroups }] : [];
 }
 
-function readListeningParts(content: Record<string, unknown>): ListeningPartSection[] {
+function detectListeningFormat(content: Record<string, unknown>, test?: TestBankItem | null): string {
+  const tagFormat = test?.tags?.find((t) => ["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(t.toUpperCase()));
+  if (tagFormat) return tagFormat.toUpperCase();
+
+  const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(preset)) return preset;
+
+  const contentFormat = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(contentFormat)) return contentFormat;
+
+  if (test?.testType === "FULL_TEST" || preset === "FULL" || contentFormat === "FULL") {
+    return "FULL";
+  }
+
+  if (Array.isArray(content.parts) && content.parts.length === 1) {
+    const first = content.parts[0];
+    const no = typeof first === "object" && first && "partNo" in first && typeof first.partNo === "number" ? first.partNo : 1;
+    return `SECTION_${no}`;
+  }
+
+  if (test?.tags?.includes("FULL")) return "FULL";
+
+  return "FULL";
+}
+
+function readListeningParts(content: Record<string, unknown>, test?: TestBankItem): ListeningPartSection[] {
   if (!Array.isArray(content.parts)) return [];
-  return content.parts.filter(isRecord).map((part, index) => ({
+  const rawParts = content.parts.filter(isRecord).map((part, index) => ({
     id: typeof part.id === "string" ? part.id : `part-${index + 1}`,
     partNo: typeof part.partNo === "number" ? part.partNo : index + 1,
     title: typeof part.title === "string" ? part.title : `Listening Part ${index + 1}`,
@@ -193,6 +218,21 @@ function readListeningParts(content: Record<string, unknown>): ListeningPartSect
     transcriptHtml: typeof part.transcriptHtml === "string" ? part.transcriptHtml : "",
     questionGroups: readGroups(part.questionGroups),
   }));
+
+  if (!test) return rawParts;
+
+  const format = detectListeningFormat(content, test);
+  if (format === "FULL") return rawParts;
+
+  const targetPartNo = format === "SECTION_2" ? 2
+    : format === "SECTION_3" ? 3
+    : format === "SECTION_4" ? 4
+    : 1;
+
+  const matchingPart = rawParts.find((p) => p.partNo === targetPartNo)
+    ?? (rawParts.length === 1 ? rawParts[0] : rawParts.find((p) => p.audioUrl || p.questionGroups.length > 0));
+
+  return matchingPart ? [matchingPart] : rawParts;
 }
 
 function readWritingTasks(content: Record<string, unknown>): WritingTaskSection[] {
@@ -488,7 +528,7 @@ function ReadingPreview({ test, responses, review, showAnswers, showExplanations
 }
 
 function ListeningPreview({ test, responses, review, showAnswers, showExplanations, onAnswer }: { test: TestBankItem; responses: ResponseMap; review: boolean; showAnswers: boolean; showExplanations: boolean; onAnswer: (id: string, value: string[]) => void }) {
-  const parts = useMemo(() => readListeningParts(test.builderContent ?? {}), [test.builderContent]);
+  const parts = useMemo(() => readListeningParts(test.builderContent ?? {}, test), [test]);
   const [activeNo, setActiveNo] = useState(parts[0]?.partNo ?? 1);
   const [activeQuestionId, setActiveQuestionId] = useState<string>();
   const part = parts.find((item) => item.partNo === activeNo) ?? parts[0];
@@ -665,7 +705,7 @@ export default function TestPreviewModal({ test, onClose }: Props) {
   const allQuestions = useMemo(() => test.skill === "READING"
     ? readPassages(test.builderContent ?? {}).flatMap((passage) => passage.questionGroups).flatMap((group) => group.questions)
     : test.skill === "LISTENING"
-      ? readListeningParts(test.builderContent ?? {}).flatMap((part) => part.questionGroups).flatMap((group) => group.questions)
+      ? readListeningParts(test.builderContent ?? {}, test).flatMap((part) => part.questionGroups).flatMap((group) => group.questions)
       : [], [test]);
   const answeredCount = allQuestions.filter((question) => responses[question.id]?.some((answer) => answer.trim())).length;
   const writingTasks = useMemo(() => test.skill === "WRITING" ? readWritingTasks(test.builderContent ?? {}) : [], [test]);
