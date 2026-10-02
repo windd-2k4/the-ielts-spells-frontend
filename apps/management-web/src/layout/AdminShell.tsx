@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Books, CaretLeft, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, PaperPlaneTilt, Receipt, SignOut,
+  BookOpenText, Books, CaretLeft, CaretRight, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
   SlidersHorizontal, Student, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
@@ -11,6 +11,7 @@ import logo from "../../assest/logo.jpg";
 type AdminDensity = "auto" | "compact" | "comfortable";
 
 const densityStorageKey = "ielts-management-density";
+const sidebarStorageKey = "ielts-management-sidebar-collapsed";
 const compactViewportQuery = "(min-width: 1024px) and (max-height: 900px)";
 
 const densityOptions: Array<{ value: AdminDensity; label: string }> = [
@@ -25,6 +26,14 @@ function storedDensity(): AdminDensity {
     return value === "compact" || value === "comfortable" ? value : "auto";
   } catch {
     return "auto";
+  }
+}
+
+function storedSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(sidebarStorageKey) === "true";
+  } catch {
+    return false;
   }
 }
 
@@ -61,6 +70,7 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
       { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin"] },
       { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin"] },
       { to: "/test-assignments", label: "Giao đề", icon: PaperPlaneTilt, roles: ["admin"] },
+      { to: "/writing-evaluations", label: "Chấm Writing", icon: NotePencil, roles: ["admin", "teacher"] },
     ],
   },
   {
@@ -87,10 +97,19 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
 export function AdminShell() {
   const { roles, session, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(storedSidebarCollapsed);
   const { density, resolvedDensity, setDensity } = useAdminDensity();
   const location = useLocation();
   const email = session?.user.email ?? "Nhân sự";
   const role = roles[0] ?? "staff";
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(sidebarStorageKey, String(sidebarCollapsed));
+    } catch {
+      // Keep the current-session preference when storage is unavailable.
+    }
+  }, [sidebarCollapsed]);
 
   // Check if current page is full screen builder (e.g. /test-builder/...)
   const isFullScreenBuilder = location.pathname.startsWith("/test-builder");
@@ -108,6 +127,7 @@ export function AdminShell() {
       className="admin-shell flex h-screen overflow-hidden bg-[#F8F6FA] text-on-surface"
       data-density={density}
       data-density-resolved={resolvedDensity}
+      data-sidebar-collapsed={sidebarCollapsed}
     >
       <a
         className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:top-2 focus:left-2 focus:bg-surface focus:px-4 focus:py-2 focus:rounded-xl focus:border focus:border-primary"
@@ -118,14 +138,16 @@ export function AdminShell() {
 
       {/* Sidebar */}
       <aside
+        id="admin-sidebar"
+        aria-label="Thanh điều hướng quản trị"
         className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-y-auto border-r border-outline-variant/60 bg-surface-container transition-transform duration-200 ease-in-out md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="admin-sidebar-brand flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="admin-sidebar-brand-content flex items-center gap-3">
             <img src={logo} alt="Logo" className="w-8 h-8 rounded-lg object-cover shrink-0" />
-            <div>
+            <div className="admin-sidebar-brand-copy">
               <h1 className="font-display text-base font-bold text-primary leading-tight">The IELTS Spells</h1>
               <p className="text-xs text-on-surface-variant font-caption">Quản trị hệ thống</p>
             </div>
@@ -140,7 +162,7 @@ export function AdminShell() {
         </div>
 
         {/* Navigation */}
-        <nav aria-label="Điều hướng quản trị" className="admin-sidebar-nav flex-1">
+        <nav id="admin-sidebar-navigation" aria-label="Điều hướng quản trị" className="admin-sidebar-nav flex-1">
           {navSections.map((section) => {
             const visibleItems = section.items.filter((item) =>
               item.roles.some((r) => roles.includes(r))
@@ -149,7 +171,7 @@ export function AdminShell() {
 
             return (
               <div key={section.title} className="admin-nav-section space-y-1">
-                <span className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-[#746A6E]">
+                <span className="admin-nav-section-title px-3 text-[10px] font-extrabold uppercase tracking-wider text-[#746A6E]">
                   {section.title}
                 </span>
                 {visibleItems.map((item) => {
@@ -159,6 +181,8 @@ export function AdminShell() {
                       key={item.to}
                       to={item.to}
                       onClick={() => setOpen(false)}
+                      aria-label={item.label}
+                      title={sidebarCollapsed ? item.label : undefined}
                       className={({ isActive }) =>
                         `admin-nav-item flex items-center rounded-xl font-label-md text-sm transition-all duration-200 ${
                           isActive
@@ -168,7 +192,7 @@ export function AdminShell() {
                       }
                     >
                       <Icon size={19} className="mr-3 shrink-0" />
-                      <span>{item.label}</span>
+                      <span className="admin-nav-label">{item.label}</span>
                     </NavLink>
                   );
                 })}
@@ -177,13 +201,28 @@ export function AdminShell() {
           })}
         </nav>
 
+        <div className="admin-sidebar-collapse-wrap hidden md:block">
+          <button
+            type="button"
+            className="admin-sidebar-collapse"
+            aria-controls="admin-sidebar-navigation"
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            title={sidebarCollapsed ? "Mở rộng thanh bên" : undefined}
+            onClick={() => setSidebarCollapsed((current) => !current)}
+          >
+            {sidebarCollapsed ? <CaretRight aria-hidden="true" size={18} /> : <CaretLeft aria-hidden="true" size={18} />}
+            <span className="admin-sidebar-collapse-label">Thu gọn</span>
+          </button>
+        </div>
+
         {/* Sidebar Footer */}
         <div className="admin-sidebar-footer mt-auto border-t border-outline-variant/30 pt-4">
           <div className="admin-sidebar-profile flex items-center gap-3 px-5 py-3">
             <span className="admin-sidebar-avatar grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f7e7ec] text-sm font-extrabold uppercase text-[#743447]">
               {email.charAt(0)}
             </span>
-            <div className="flex-1 overflow-hidden">
+            <div className="admin-sidebar-profile-copy flex-1 overflow-hidden">
               <p className="admin-sidebar-user truncate font-label-md text-xs font-semibold text-on-surface">
                 {email.split("@")[0]}
               </p>
@@ -195,10 +234,12 @@ export function AdminShell() {
           <div className="px-2">
             <button
               onClick={() => void signOut()}
+              aria-label="Đăng xuất"
+              title={sidebarCollapsed ? "Đăng xuất" : undefined}
               className="admin-sidebar-signout flex w-full items-center rounded-xl px-3.5 py-2 text-left text-xs font-bold text-error transition-all duration-200 hover:bg-error-container/10"
             >
               <SignOut size={18} className="mr-2.5 shrink-0" />
-              Đăng xuất
+              <span className="admin-sidebar-signout-label">Đăng xuất</span>
             </button>
           </div>
         </div>

@@ -36,6 +36,7 @@ import { PracticeCoverImage } from "@/features/practice/PracticeCoverImage";
 import { getPracticeCatalog } from "@/features/practice/practiceApi";
 import { questionTypeOption, questionTypesBySkill } from "@/features/practice/questionTypeCatalog";
 import { startOrResumeSelfPractice } from "@/features/reading/readingApi";
+import { startOrResumeWritingSelfPractice } from "@/features/writing/writingApi";
 import styles from "./StudentPracticePage.module.css";
 
 const skills = [
@@ -357,14 +358,21 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   async function start(item: StudentPracticeCatalogItem) {
     if (!item.deliveryReady) return;
     if (item.activeAttemptId) {
-      router.push(`/student/reading/attempts/${item.activeAttemptId}`);
+      router.push(item.skill === "WRITING"
+        ? `/student/writing/attempts/${item.activeAttemptId}`
+        : `/student/reading/attempts/${item.activeAttemptId}`);
       return;
     }
     setStartingId(item.testVersionId);
     setError("");
     try {
-      const attempt = await startOrResumeSelfPractice(item.testVersionId);
-      router.push(`/student/reading/attempts/${attempt.attemptId}`);
+      if (item.skill === "WRITING") {
+        const attempt = await startOrResumeWritingSelfPractice(item.testVersionId);
+        router.push(`/student/writing/attempts/${attempt.attemptId}`);
+      } else {
+        const attempt = await startOrResumeSelfPractice(item.testVersionId);
+        router.push(`/student/reading/attempts/${attempt.attemptId}`);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể bắt đầu đề này.");
     } finally {

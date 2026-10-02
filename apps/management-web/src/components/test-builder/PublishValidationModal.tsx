@@ -221,6 +221,18 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const content = test.builderContent ?? {};
 
+  if (isRecord(content.coverImage)
+    && typeof content.coverImage.fileUrl === "string"
+    && (!content.coverImage.altText || typeof content.coverImage.altText !== "string" || !content.coverImage.altText.trim())) {
+    issues.push({
+      id: "test-cover-image-alt",
+      severity: "ERROR",
+      sectionTitle: "Ảnh minh họa đề",
+      message: "Ảnh minh họa toàn đề cần có mô tả để học viên và trình đọc màn hình hiểu nội dung.",
+      targetId: "test-builder-workspace",
+    });
+  }
+
   if (!test.title.trim()) {
     issues.push({
       id: "test-title",
@@ -472,16 +484,22 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
   if (test.skill === "WRITING" && Array.isArray(content.tasks)) {
     const tasks = content.tasks.filter(isRecord);
     if (tasks.length === 0) issues.push({ id: "writing-tasks", severity: "ERROR", sectionTitle: "Cấu trúc Writing", message: "Đề chưa có Writing Task.", targetId: "test-builder-workspace" });
+    const taskNumbers = new Set<number>();
     tasks.forEach((task, index) => {
       const taskNo = task.taskNo === 2 ? 2 : 1;
       const promptHtml = typeof task.promptHtml === "string" ? task.promptHtml : "";
       const minWords = typeof task.minWords === "number" ? task.minWords : 0;
       const timeMinutes = typeof task.suggestedTimeMinutes === "number" ? task.suggestedTimeMinutes : 0;
+      if (taskNumbers.has(taskNo)) issues.push({ id: `writing-${index}-task-number`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Mỗi đề chỉ được có một Task 1 và một Task 2.", targetId: "test-builder-workspace" });
+      taskNumbers.add(taskNo);
       if (!plainTextFromHtml(promptHtml)) issues.push({ id: `writing-${index}-prompt`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Chưa nhập đề bài.", targetId: "test-builder-workspace" });
-      if (minWords <= 0) issues.push({ id: `writing-${index}-words`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Số từ tối thiểu phải lớn hơn 0.", targetId: "test-builder-workspace" });
+      const requiredWords = taskNo === 1 ? 150 : 250;
+      if (minWords < requiredWords) issues.push({ id: `writing-${index}-words`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: `Số từ tối thiểu phải từ ${requiredWords} từ.`, targetId: "test-builder-workspace" });
       if (timeMinutes <= 0) issues.push({ id: `writing-${index}-time`, severity: "ERROR", sectionTitle: `Writing Task ${taskNo}`, message: "Thời gian gợi ý phải lớn hơn 0.", targetId: "test-builder-workspace" });
-      if (taskNo === 1 && !task.imageUrl) issues.push({ id: `writing-${index}-image`, severity: "WARNING", sectionTitle: "Writing Task 1", message: "Task 1 chưa có hình minh họa. Có thể bỏ qua nếu đề chỉ dùng nội dung văn bản.", targetId: "test-builder-workspace" });
+      if (taskNo === 1 && !task.imageUrl) issues.push({ id: `writing-${index}-image`, severity: "ERROR", sectionTitle: "Writing Task 1", message: "Chưa tải biểu đồ, bản đồ hoặc hình quy trình của đề bài.", targetId: "test-builder-workspace" });
+      if (taskNo === 1 && task.imageUrl && (typeof task.imageAltText !== "string" || !task.imageAltText.trim())) issues.push({ id: `writing-${index}-image-alt`, severity: "ERROR", sectionTitle: "Writing Task 1", message: "Chưa nhập mô tả cho hình đề bài.", targetId: "test-builder-workspace" });
     });
+    if (test.testType === "FULL_TEST" && (tasks.length !== 2 || !taskNumbers.has(1) || !taskNumbers.has(2))) issues.push({ id: "writing-full-task-numbers", severity: "ERROR", sectionTitle: "Cấu trúc Writing", message: "Full Writing phải gồm đúng Task 1 và Task 2.", targetId: "test-builder-workspace" });
     return issues;
   }
 

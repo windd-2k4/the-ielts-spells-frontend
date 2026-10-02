@@ -81,7 +81,7 @@ export default function BulkImportWizardModal({ onClose }: Props) {
         await apiFetch("/admin/library/resources", {
           method: "POST",
           body: JSON.stringify({ title: row.title, description: null, skill: row.skill, category: row.category,
-            resourceType: "LINK", scope: "GLOBAL", courseId: null, externalUrl: null, teacherOnly: false, status: "DRAFT" }),
+            resourceType: "DOCUMENT", scope: "GLOBAL", courseId: null, externalUrl: null, teacherOnly: false, status: "DRAFT" }),
         });
         success += 1;
       } catch { failed += 1; }

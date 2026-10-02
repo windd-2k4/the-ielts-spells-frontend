@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import type {
-  ListeningPartSection, MediaAsset, QuestionCardItem, QuestionGroupItem, QuestionOption,
+  ListeningPartSection, MediaAsset, QuestionCardItem, QuestionGroupIllustration, QuestionGroupItem, QuestionOption,
   QuestionTypeFormat, TestBankItem,
 } from "../../library-types";
 import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
@@ -19,6 +19,7 @@ import {
   questionTypeUsesSharedOptions, readingQuestionTypeLabels,
 } from "./readingQuestionGroupConfig";
 import TestPreviewModal from "./TestPreviewModal";
+import TestCoverImageControl, { testCoverImageOf, withTestCoverImage } from "./TestCoverImageControl";
 
 type SaveStatus = "SAVING" | "SAVED" | "ERROR";
 
@@ -154,6 +155,7 @@ export function ListeningTestBuilder() {
   const recordRef = useRef<TestBankItem | null>(null);
   const [testRecord, setTestRecord] = useState<TestBankItem | null>(null);
   const [testTitle, setTestTitle] = useState("");
+  const [coverImage, setCoverImage] = useState<QuestionGroupIllustration>();
   const [parts, setParts] = useState<ListeningPartSection[]>(() => [1, 2, 3, 4].map(emptyPart));
   const [activePartNo, setActivePartNo] = useState(1);
   const [loaded, setLoaded] = useState(false);
@@ -190,14 +192,14 @@ export function ListeningTestBuilder() {
         + (!question.prompt.trim() ? 1 : 0)
         + (!question.correctAnswers.length ? 1 : 0), 0);
     }, 0), testTitle.trim() ? 0 : 1), [parts, testTitle]);
-  const builderTest = useMemo<TestBankItem | null>(() => testRecord ? { ...testRecord, title: testTitle, sectionsCount: parts.length, totalQuestions: allQuestions.length, builderContent: { ...(testRecord.builderContent ?? {}), format: "FULL", parts } } : null, [allQuestions.length, parts, testRecord, testTitle]);
+  const builderTest = useMemo<TestBankItem | null>(() => testRecord ? { ...testRecord, title: testTitle, sectionsCount: parts.length, totalQuestions: allQuestions.length, builderContent: withTestCoverImage({ ...(testRecord.builderContent ?? {}), format: "FULL", parts }, coverImage) } : null, [allQuestions.length, coverImage, parts, testRecord, testTitle]);
 
   useEffect(() => { recordRef.current = testRecord; }, [testRecord]);
   useEffect(() => {
     if (!testId) return;
     setLoaded(false);
     void apiFetch<TestBankItem>(`/admin/test-bank/${testId}`).then((test) => {
-      setTestRecord(test); setTestTitle(test.title); setParts(renumberParts(normalizeParts(test.builderContent ?? {})));
+      setTestRecord(test); setTestTitle(test.title); setParts(renumberParts(normalizeParts(test.builderContent ?? {}))); setCoverImage(testCoverImageOf(test.builderContent));
       setLastSavedTime(new Date(test.updatedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })); setLoaded(true);
     }).catch((reason) => { setLoadError(reason instanceof Error ? reason.message : "Không thể tải draft Listening."); setLoaded(true); });
   }, [testId]);
@@ -211,18 +213,18 @@ export function ListeningTestBuilder() {
         title: testTitle, description: null, skill: "LISTENING", testType: record.testType,
         durationMinutes: record.durationMinutes || 40, version: record.version, tags: record.tags,
         draftRevision: record.draftRevision,
-        builderContent: { ...(record.builderContent ?? {}), format: "FULL", parts },
+        builderContent: withTestCoverImage({ ...(record.builderContent ?? {}), format: "FULL", parts }, coverImage),
       }) });
       setTestRecord(saved); recordRef.current = saved; setSaveStatus("SAVED"); setLastSavedTime(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
       return saved;
     } catch { setSaveStatus("ERROR"); return null; }
-  }, [parts, testId, testTitle]);
+  }, [coverImage, parts, testId, testTitle]);
 
   useEffect(() => {
     if (!loaded || !recordRef.current || recordRef.current.status !== "DRAFT") return undefined;
     const timer = window.setTimeout(() => void saveDraft(true), 1600);
     return () => window.clearTimeout(timer);
-  }, [loaded, parts, saveDraft, testTitle]);
+  }, [coverImage, loaded, parts, saveDraft, testTitle]);
 
   useEffect(() => {
     setCurrentTime(0); setIsPlaying(false); setAudioError("");
@@ -299,7 +301,7 @@ export function ListeningTestBuilder() {
   return <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-[#F8F6FA] text-[#211A1D]">
     <header className="z-30 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#e3dce2] bg-white px-5 py-2 shadow-sm">
       <div className="flex min-w-0 items-center gap-4"><Link to="/test-bank" className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#746A6E] hover:text-[#8f4458]"><ArrowLeft size={16} /> Ngân hàng đề</Link><span className="h-4 w-px bg-[#e3dce2]" /><label className="min-w-0"><span className="sr-only">Tên đề</span><input value={testTitle} onChange={(event) => setTestTitle(event.target.value)} className="min-w-[240px] max-w-[420px] border-b border-transparent font-display text-sm font-bold focus:border-[#8f4458] focus:outline-none" /></label><span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase text-[#746A6E]">{testRecord?.status ?? "DRAFT"}</span></div>
-      <div className="flex items-center gap-2"><span className={`hidden text-[11px] font-semibold lg:inline ${saveStatus === "ERROR" ? "text-[#b4232d]" : "text-[#237653]"}`}>{saveStatus === "ERROR" ? "Lưu thất bại" : `Đã lưu ${lastSavedTime}`}</span>{validationCount > 0 && <span className="hidden rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-[#b4232d] xl:inline">{validationCount} mục cần xử lý</span>}<button type="button" onClick={() => void saveDraft()} disabled={saveStatus === "SAVING"} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold disabled:opacity-50"><FloppyDisk size={16} /> Lưu nháp</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] px-3.5 text-xs font-bold text-[#8f4458]"><Eye size={16} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><ShieldCheck size={16} /> {workflowLabel}</button></div>
+      <div className="flex items-center gap-2"><span className={`hidden text-[11px] font-semibold lg:inline ${saveStatus === "ERROR" ? "text-[#b4232d]" : "text-[#237653]"}`}>{saveStatus === "ERROR" ? "Lưu thất bại" : `Đã lưu ${lastSavedTime}`}</span>{validationCount > 0 && <span className="hidden rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-[#b4232d] xl:inline">{validationCount} mục cần xử lý</span>}<TestCoverImageControl value={coverImage} onChange={setCoverImage} /><button type="button" onClick={() => void saveDraft()} disabled={saveStatus === "SAVING"} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold disabled:opacity-50"><FloppyDisk size={16} /> Lưu nháp</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] px-3.5 text-xs font-bold text-[#8f4458]"><Eye size={16} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><ShieldCheck size={16} /> {workflowLabel}</button></div>
     </header>
 
     <nav className="flex min-h-12 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-5" aria-label="Các phần Listening"><div className="flex gap-1">{parts.map((part) => { const count = part.questionGroups.reduce((sum, group) => sum + group.questions.length, 0); return <button key={part.id} type="button" onClick={() => setActivePartNo(part.partNo)} aria-current={activePartNo === part.partNo ? "page" : undefined} className={`min-h-10 rounded-t-xl px-5 text-xs font-bold ${activePartNo === part.partNo ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E] hover:bg-[#e3dce2]"}`}>Part {part.partNo}<span className="ml-2 rounded-full bg-black/5 px-1.5 py-0.5 text-[10px]">{count}</span></button>; })}</div><span className="hidden text-xs font-semibold text-[#746A6E] lg:inline">Listening Builder · {allQuestions.length}/40 câu</span></nav>

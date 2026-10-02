@@ -30,6 +30,8 @@ const TestBankPage = lazy(() => import("./pages/TestBankPage")
   .then((module) => ({ default: module.TestBankPage })));
 const TestAssignmentsPage = lazy(() => import("./pages/TestAssignmentsPage")
   .then((module) => ({ default: module.TestAssignmentsPage })));
+const WritingEvaluationsPage = lazy(() => import("./pages/WritingEvaluationsPage")
+  .then((module) => ({ default: module.WritingEvaluationsPage })));
 const AiTestImportPage = lazy(() => import("./pages/AiTestImportPage")
   .then((module) => ({ default: module.AiTestImportPage })));
 const CrawlHubPage = lazy(() => import("./pages/CrawlHubPage")
@@ -122,6 +124,7 @@ export default function App() {
                 <Route path="/test-assignments" element={<TestAssignmentsPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "teacher"]} />}>
+                <Route path="/writing-evaluations" element={<WritingEvaluationsPage />} />
                 <Route path="/library" element={<LearningLibraryPage />} />
                 <Route path="/test-bank" element={<TestBankPage />} />
                 <Route path="/test-bank/import-ai" element={<AiTestImportPage />} />

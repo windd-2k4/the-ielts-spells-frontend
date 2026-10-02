@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpenText, ArrowRight, Clock, CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { getReadingAssignments, startOrResumeReadingAttempt } from "@/features/reading/readingApi";
+import { getWritingAssignments, startOrResumeWritingAssignment } from "@/features/writing/writingApi";
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { StudentEmptyState } from "@/features/student-hub/StudentEmptyState";
 
 export default function StudentAssignmentsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [assignments, setAssignments] = useState<StudentReadingAssignment[]>([]);
+  const [assignments, setAssignments] = useState<Array<StudentReadingAssignment & { skill: "READING" | "WRITING" }>>([]);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
 
@@ -18,9 +19,12 @@ export default function StudentAssignmentsPage() {
     let active = true;
     async function loadData() {
       try {
-        const data = await getReadingAssignments();
-        if (active && Array.isArray(data)) {
-          setAssignments(data);
+        const [reading, writing] = await Promise.all([getReadingAssignments(), getWritingAssignments()]);
+        if (active) {
+          setAssignments([
+            ...reading.map((item) => ({ ...item, skill: "READING" as const })),
+            ...writing.map((item) => ({ ...item, skill: "WRITING" as const })),
+          ].sort((a, b) => (b.opensAt ?? "").localeCompare(a.opensAt ?? "")));
         }
       } catch (failure) {
         if (active) setError(failure instanceof Error ? failure.message : "Không tải được danh sách bài tập.");
@@ -34,12 +38,17 @@ export default function StudentAssignmentsPage() {
     };
   }, []);
 
-  async function openAssignment(assignmentId: string) {
-    setStartingId(assignmentId);
+  async function openAssignment(item: StudentReadingAssignment & { skill: "READING" | "WRITING" }) {
+    setStartingId(item.assignmentId);
     setError("");
     try {
-      const attempt = await startOrResumeReadingAttempt(assignmentId);
-      router.push(`/student/reading/attempts/${attempt.attemptId}`);
+      if (item.skill === "WRITING") {
+        const attempt = await startOrResumeWritingAssignment(item.assignmentId);
+        router.push(`/student/writing/attempts/${attempt.attemptId}`);
+      } else {
+        const attempt = await startOrResumeReadingAttempt(item.assignmentId);
+        router.push(`/student/reading/attempts/${attempt.attemptId}`);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể mở bài tập này.");
     } finally {
@@ -92,7 +101,7 @@ export default function StudentAssignmentsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-1 rounded-full bg-[#F7E5EA] text-[#894C5B] text-[11px] font-extrabold">
-                      IELTS Reading
+                      IELTS {item.skill === "WRITING" ? "Writing" : "Reading"}
                     </span>
                     <span className="text-xs font-bold text-[#857F7A] flex items-center gap-1">
                       <Clock size={14} />
@@ -113,7 +122,7 @@ export default function StudentAssignmentsPage() {
 
                 <div className="pt-2 border-t border-[#F3E8C4] flex items-center justify-end">
                   <button type="button" disabled={startingId === item.assignmentId || isSubmitted}
-                    onClick={() => void openAssignment(item.assignmentId)}
+                    onClick={() => void openAssignment(item)}
                     className="flex min-h-11 items-center gap-1.5 rounded-xl bg-[#894C5B] px-4 py-2 text-xs font-extrabold text-white shadow-xs transition-all hover:bg-[#723c4a] focus:outline-none focus:ring-2 focus:ring-[#C85F78] disabled:cursor-not-allowed disabled:opacity-55">
                     {startingId === item.assignmentId ? (
                       <><CircleNotch size={16} className="animate-spin" /><span>Đang mở bài</span></>

@@ -83,7 +83,7 @@ export interface TestAssignment {
   testVersionId: string;
   testTitle: string;
   versionLabel: string;
-  skill: "READING";
+  skill: "READING" | "WRITING";
   courseId: string;
   courseName: string;
   mode: ReadingAssignmentMode;
@@ -262,6 +262,71 @@ export interface SaveReadingResponseItem {
 
 export interface SaveReadingResponsesRequest {
   responses: SaveReadingResponseItem[];
+}
+
+export type WritingAttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "EXPIRED";
+
+export interface WritingTask {
+  taskKey: string;
+  taskNo: number;
+  title: string;
+  promptHtml: string;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  minWords: number;
+  suggestedTimeMinutes: number;
+  responseMode: "FREEFORM" | "STRUCTURED";
+}
+
+export interface SavedWritingResponse {
+  taskKey: string;
+  text: string;
+  wordCount: number;
+  clientRevision: number;
+  answeredAt: string;
+}
+
+export interface StudentWritingAttempt {
+  attemptId: string;
+  assignmentId: string | null;
+  testVersionId: string;
+  status: WritingAttemptStatus;
+  startedAt: string;
+  expiresAt: string;
+  remainingSeconds: number;
+  title: string;
+  description: string | null;
+  allowResultAfterSubmit: boolean;
+  tasks: WritingTask[];
+  responses: SavedWritingResponse[];
+}
+
+export interface SaveWritingResponseItem {
+  taskKey: string;
+  text: string;
+  clientRevision: number;
+}
+
+export interface StudentWritingAssignment extends StudentReadingAssignment {}
+
+export interface WritingEvaluationResult {
+  taskKey: string;
+  status: "PUBLISHED";
+  overallBand: number | null;
+  criterionBands: Record<string, number>;
+  strengths: string[];
+  improvements: string[];
+  publishedAt: string;
+}
+
+export interface WritingAttemptResult {
+  attemptId: string;
+  status: WritingAttemptStatus;
+  submittedAt: string;
+  resultVisible: boolean;
+  tasks: WritingTask[];
+  responses: SavedWritingResponse[];
+  evaluations: WritingEvaluationResult[];
 }
 
 export interface ReadingQuestionResult {

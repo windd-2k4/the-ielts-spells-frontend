@@ -18,6 +18,7 @@ import { useAuth } from "../../auth/AuthContext";
 import type {
   PassageSection,
   QuestionCardItem,
+  QuestionGroupIllustration,
   ReadingEvidenceMode,
   ReadingEvidenceSpan,
   QuestionGroupItem,
@@ -48,6 +49,7 @@ import {
   readingQuestionTypes,
 } from "./readingQuestionGroupConfig";
 import TestPreviewModal from "./TestPreviewModal";
+import TestCoverImageControl, { testCoverImageOf, withTestCoverImage } from "./TestCoverImageControl";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -619,6 +621,7 @@ export function ReadingTestBuilder() {
   const splitWorkspaceRef = useRef<HTMLDivElement>(null);
   const [testRecord, setTestRecord] = useState<TestBankItem | null>(null);
   const [testTitle, setTestTitle] = useState("");
+  const [coverImage, setCoverImage] = useState<QuestionGroupIllustration>();
   const [passages, setPassages] = useState<PassageSection[]>([emptyPassage(1)]);
   const [activePassageId, setActivePassageId] = useState("");
   const [leftWidth, setLeftWidth] = useState(50);
@@ -680,6 +683,7 @@ export function ReadingTestBuilder() {
         const normalized = normalizePassages(test.builderContent ?? {}, test);
         setTestRecord(test);
         setTestTitle(test.title);
+        setCoverImage(testCoverImageOf(test.builderContent));
         setPassages(normalized);
         setActivePassageId(normalized[0]?.id ?? "");
         setSelectedQuestionNo(normalized[0]?.questionGroups[0]?.questions[0]?.number ?? 1);
@@ -703,13 +707,13 @@ export function ReadingTestBuilder() {
       title: testTitle,
       sectionsCount: passages.length,
       totalQuestions,
-      builderContent: {
+      builderContent: withTestCoverImage({
         ...(testRecord.builderContent ?? {}),
         format: testRecord.builderContent?.format ?? (testRecord.testType === "FULL_TEST" ? "FULL" : `PASSAGE_${activePassage.passageNo}`),
         passages,
-      },
+      }, coverImage),
     };
-  }, [activePassage.passageNo, passages, testRecord, testTitle, totalQuestions]);
+  }, [activePassage.passageNo, coverImage, passages, testRecord, testTitle, totalQuestions]);
 
   const validationIssues = useMemo<ValidationIssue[]>(() => {
     const issues: ValidationIssue[] = [];
@@ -909,11 +913,11 @@ export function ReadingTestBuilder() {
           version: record.version,
           tags: record.tags,
           draftRevision: record.draftRevision,
-          builderContent: {
+          builderContent: withTestCoverImage({
             ...(record.builderContent ?? {}),
             format: record.builderContent?.format ?? (record.testType === "FULL_TEST" ? "FULL" : `PASSAGE_${nextPassages[0]?.passageNo ?? 1}`),
             passages: nextPassages,
-          },
+          }, coverImage),
         }),
       });
       setTestRecord(saved);
@@ -925,7 +929,7 @@ export function ReadingTestBuilder() {
       setSaveStatus("ERROR");
       return null;
     }
-  }, [passages, testId, testTitle]);
+  }, [coverImage, passages, testId, testTitle]);
 
   useEffect(() => {
     if (!loaded || !testRecordRef.current || testRecordRef.current.status !== "DRAFT") return undefined;
@@ -934,7 +938,7 @@ export function ReadingTestBuilder() {
       void saveDraft();
     }, 900);
     return () => window.clearTimeout(timeout);
-  }, [loaded, passages, saveDraft, testTitle]);
+  }, [coverImage, loaded, passages, saveDraft, testTitle]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1283,6 +1287,8 @@ export function ReadingTestBuilder() {
               </span>
             )}
           </div>
+
+          <TestCoverImageControl value={coverImage} onChange={setCoverImage} />
 
           <button
             type="button"

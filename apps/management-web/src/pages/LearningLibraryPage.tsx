@@ -14,9 +14,11 @@ export function LearningLibraryPage() {
   return (
     <div className="mx-auto max-w-[1480px] space-y-6">
       {/* Sub-tab Navigation Header */}
-      <div className="flex items-center gap-2 border-b border-[#e3dce2] pb-3">
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-[#e3dce2] pb-3" role="tablist" aria-label="Không gian nội dung đào tạo">
         <button
           onClick={() => setActiveSubTab("HUB")}
+          role="tab"
+          aria-selected={activeSubTab === "HUB"}
           className={`min-h-[38px] rounded-xl px-4 text-xs font-bold transition ${
             activeSubTab === "HUB"
               ? "bg-[#8f4458] text-white shadow-sm"
@@ -27,6 +29,8 @@ export function LearningLibraryPage() {
         </button>
         <button
           onClick={() => setActiveSubTab("MATERIALS")}
+          role="tab"
+          aria-selected={activeSubTab === "MATERIALS"}
           className={`min-h-[38px] rounded-xl px-4 text-xs font-bold transition ${
             activeSubTab === "MATERIALS"
               ? "bg-[#8f4458] text-white shadow-sm"
@@ -37,6 +41,8 @@ export function LearningLibraryPage() {
         </button>
         <button
           onClick={() => setActiveSubTab("TEST_BANK")}
+          role="tab"
+          aria-selected={activeSubTab === "TEST_BANK"}
           className={`min-h-[38px] rounded-xl px-4 text-xs font-bold transition ${
             activeSubTab === "TEST_BANK"
               ? "bg-[#8f4458] text-white shadow-sm"
@@ -47,6 +53,8 @@ export function LearningLibraryPage() {
         </button>
         <button
           onClick={() => setActiveSubTab("MEDIA")}
+          role="tab"
+          aria-selected={activeSubTab === "MEDIA"}
           className={`min-h-[38px] rounded-xl px-4 text-xs font-bold transition ${
             activeSubTab === "MEDIA"
               ? "bg-[#8f4458] text-white shadow-sm"

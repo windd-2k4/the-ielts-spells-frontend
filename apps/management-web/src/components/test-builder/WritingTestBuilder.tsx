@@ -5,12 +5,13 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import type { MediaAsset, TestBankItem, WritingTaskSection } from "../../library-types";
+import type { MediaAsset, QuestionGroupIllustration, TestBankItem, WritingTaskSection } from "../../library-types";
 import { apiFetch, apiUpload } from "../../lib/api";
 import AuthenticatedMediaImage from "./AuthenticatedMediaImage";
 import PublishValidationModal from "./PublishValidationModal";
 import ReadingRichTextEditor from "./ReadingRichTextEditor";
 import TestPreviewModal from "./TestPreviewModal";
+import TestCoverImageControl, { testCoverImageOf, withTestCoverImage } from "./TestCoverImageControl";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -27,7 +28,7 @@ function emptyTask(taskNo: 1 | 2): WritingTaskSection {
     promptHtml: "",
     suggestedTimeMinutes: taskNo === 1 ? 20 : 40,
     minWords: taskNo === 1 ? 150 : 250,
-    responseMode: "STRUCTURED",
+    responseMode: "FREEFORM",
     rubric: {
       taskAchievementWeight: 25,
       coherenceCohesionWeight: 25,
@@ -164,7 +165,7 @@ function TaskImageField({ task, onChange }: { task: WritingTaskSection; onChange
           <div className="min-w-0">
             <p className="truncate text-xs font-bold" title={task.imageFilename}>{task.imageFilename || "Ảnh đề bài"}</p>
             <label className="mt-3 block text-xs font-semibold text-[#6F676C]">
-              Mô tả ảnh cho học viên
+              Mô tả ảnh cho học viên *
               <textarea value={task.imageAltText ?? ""} onChange={(event) => onChange({ ...task, imageAltText: event.target.value })} rows={3} className="mt-1.5 w-full resize-y rounded-xl border border-[#DED7DA] bg-white p-3 text-sm text-[#292528] focus:border-[#C85F78] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA]" placeholder="Mô tả thông tin chính của biểu đồ hoặc hình ảnh" />
             </label>
             <button type="button" onClick={() => onChange({ ...task, imageAssetId: undefined, imageUrl: undefined, imageFilename: undefined, imageAltText: undefined })} className="mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-[#B42335] transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-100"><Trash size={15} /> Gỡ ảnh khỏi đề</button>
@@ -183,6 +184,7 @@ export default function WritingTestBuilder() {
   const [test, setTest] = useState<TestBankItem | null>(null);
   const [title, setTitle] = useState("");
   const [tasks, setTasks] = useState<WritingTaskSection[]>([]);
+  const [coverImage, setCoverImage] = useState<QuestionGroupIllustration>();
   const [activeTaskId, setActiveTaskId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -190,6 +192,7 @@ export default function WritingTestBuilder() {
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+  const pendingSaveRef = useRef(false);
   const canPublish = roles.includes("admin");
   const workflowStatus = canPublish ? "PUBLISHED" : "IN_REVIEW";
   const workflowLabel = canPublish ? "Xuất bản" : "Gửi duyệt";
@@ -210,6 +213,7 @@ export default function WritingTestBuilder() {
         setTest(record);
         setTitle(record.title);
         setTasks(normalized);
+        setCoverImage(testCoverImageOf(record.builderContent));
         setActiveTaskId(normalized[0]?.id ?? "");
       })
       .catch((reason: Error) => { if (active) setError(reason.message); })
@@ -225,13 +229,13 @@ export default function WritingTestBuilder() {
     sectionsCount: tasks.length,
     totalQuestions: tasks.length,
     durationMinutes,
-    builderContent: {
+    builderContent: withTestCoverImage({
       ...(test.builderContent ?? {}),
       format: tasks.length === 2 ? "FULL" : `TASK_${tasks[0]?.taskNo ?? 1}`,
       sectionsPreset: tasks.length === 2 ? "FULL" : `TASK_${tasks[0]?.taskNo ?? 1}`,
       tasks,
-    },
-  } : null, [durationMinutes, tasks, test, title]);
+    }, coverImage),
+  } : null, [coverImage, durationMinutes, tasks, test, title]);
 
   function updateTask(next: WritingTaskSection) {
     setTasks((current) => current.map((task) => task.id === next.id ? next : task));
@@ -239,6 +243,7 @@ export default function WritingTestBuilder() {
 
   async function saveDraft() {
     if (saving || !testId || !test || test.status !== "DRAFT" || !draftTest) return null;
+    pendingSaveRef.current = false;
     setSaving(true);
     setError("");
     try {
@@ -268,10 +273,14 @@ export default function WritingTestBuilder() {
   }
 
   useEffect(() => {
-    if (loading || !test || test.status !== "DRAFT") return undefined;
+    if (!loading) pendingSaveRef.current = true;
+  }, [coverImage, loading, tasks, title]);
+
+  useEffect(() => {
+    if (loading || saving || !pendingSaveRef.current || !test || test.status !== "DRAFT") return undefined;
     const timeout = window.setTimeout(() => { void saveDraft(); }, 1600);
     return () => window.clearTimeout(timeout);
-  }, [loading, tasks, title]);
+  }, [coverImage, loading, saving, tasks, title]);
 
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#F7F5F4]"><p className="flex items-center gap-2 text-sm font-semibold text-[#6F676C]"><SpinnerGap size={20} className="animate-spin" /> Đang tải đề Writing...</p></div>;
   if (!test || !activeTask || !draftTest) return <div className="grid min-h-screen place-items-center bg-[#F7F5F4] p-6"><div className="max-w-md text-center"><WarningCircle size={32} className="mx-auto text-[#B42335]" /><h1 className="mt-3 font-display text-xl font-bold">Không thể mở Writing Builder</h1><p className="mt-2 text-sm text-[#6F676C]">{error || "Đề chưa có cấu hình Writing hợp lệ."}</p><Link to="/test-bank" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#AD4C64] px-4 text-sm font-bold text-white">Quay lại ngân hàng đề</Link></div></div>;
@@ -290,9 +299,10 @@ export default function WritingTestBuilder() {
         </div>
         <div className="flex items-center gap-2">
           {lastSavedAt && <span className="hidden items-center gap-1 text-[11px] font-semibold text-[#247052] xl:flex"><CheckCircle size={15} /> Đã lưu {lastSavedAt}</span>}
+          <TestCoverImageControl value={coverImage} onChange={setCoverImage} />
           <button type="button" onClick={() => void saveDraft()} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#DED7DA] bg-white px-3 text-xs font-bold transition hover:-translate-y-0.5 hover:border-[#C85F78] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA] disabled:opacity-50"><FloppyDisk size={17} />{saving ? "Đang lưu" : "Lưu nháp"}</button>
           <button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#AD4C64] px-3 text-xs font-bold text-[#AD4C64] transition hover:-translate-y-0.5 hover:bg-[#F7E5EA] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA]"><Eye size={17} /> Xem trước</button>
-          <button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#AD4C64] px-4 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#943B52] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA]"><ShieldCheck size={17} /> {workflowLabel}</button>
+          <button type="button" disabled={saving} onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#AD4C64] px-4 text-xs font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#943B52] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA] disabled:cursor-not-allowed disabled:opacity-50"><ShieldCheck size={17} /> {workflowLabel}</button>
         </div>
       </header>
 
@@ -339,7 +349,7 @@ export default function WritingTestBuilder() {
 
           <label className="flex items-start justify-between gap-4 rounded-2xl border border-[#DED7DA] p-4"><span><strong className="block text-sm">Cho phép AI hỗ trợ chấm</strong><span className="mt-1 block text-xs leading-5 text-[#6F676C]">Lưu cấu hình để dịch vụ đánh giá sử dụng khi đã được kết nối.</span></span><input type="checkbox" checked={Boolean(activeTask.enableAiAssessment)} onChange={(event) => updateTask({ ...activeTask, enableAiAssessment: event.target.checked })} className="mt-1 size-5 accent-[#C85F78]" /></label>
 
-          <section className="rounded-2xl border border-[#DED7DA] p-4"><h3 className="text-sm font-bold">Kiểm tra nhanh</h3><ul className="mt-3 space-y-2 text-xs"><li className={`flex items-center gap-2 ${plainText(activeTask.promptHtml) ? "text-[#247052]" : "text-[#B42335]"}`}>{plainText(activeTask.promptHtml) ? <CheckCircle size={16} /> : <WarningCircle size={16} />} Đã nhập đề bài</li><li className={`flex items-center gap-2 ${activeTask.taskNo === 2 || activeTask.imageUrl ? "text-[#247052]" : "text-[#B42335]"}`}>{activeTask.taskNo === 2 || activeTask.imageUrl ? <CheckCircle size={16} /> : <WarningCircle size={16} />} {activeTask.taskNo === 1 ? "Đã có hình minh họa" : "Task 2 không yêu cầu hình"}</li><li className={`flex items-center gap-2 ${activeTask.minWords > 0 ? "text-[#247052]" : "text-[#B42335]"}`}>{activeTask.minWords > 0 ? <CheckCircle size={16} /> : <WarningCircle size={16} />} Đã đặt số từ tối thiểu</li></ul></section>
+          <section className="rounded-2xl border border-[#DED7DA] p-4"><h3 className="text-sm font-bold">Kiểm tra nhanh</h3><ul className="mt-3 space-y-2 text-xs"><li className={`flex items-center gap-2 ${plainText(activeTask.promptHtml) ? "text-[#247052]" : "text-[#B42335]"}`}>{plainText(activeTask.promptHtml) ? <CheckCircle size={16} /> : <WarningCircle size={16} />} Đã nhập đề bài</li><li className={`flex items-center gap-2 ${activeTask.taskNo === 2 || activeTask.imageUrl ? "text-[#247052]" : "text-[#B42335]"}`}>{activeTask.taskNo === 2 || activeTask.imageUrl ? <CheckCircle size={16} /> : <WarningCircle size={16} />} {activeTask.taskNo === 1 ? "Đã có hình đề bài" : "Task 2 không yêu cầu hình"}</li>{activeTask.taskNo === 1 && <li className={`flex items-center gap-2 ${activeTask.imageAltText?.trim() ? "text-[#247052]" : "text-[#B42335]"}`}>{activeTask.imageAltText?.trim() ? <CheckCircle size={16} /> : <WarningCircle size={16} />} Đã mô tả hình cho học viên</li>}<li className={`flex items-center gap-2 ${activeTask.minWords > 0 ? "text-[#247052]" : "text-[#B42335]"}`}>{activeTask.minWords > 0 ? <CheckCircle size={16} /> : <WarningCircle size={16} />} Đã đặt số từ tối thiểu</li></ul></section>
         </aside>
       </main>
 
