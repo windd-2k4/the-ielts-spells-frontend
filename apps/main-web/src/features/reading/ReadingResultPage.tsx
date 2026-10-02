@@ -94,7 +94,8 @@ function ReadingResultContent({
     }
 
     for (const q of result.questions) {
-      const typeName = typeLabelMap.get(q.questionKey) || "Câu hỏi Reading";
+      const fallbackLabel = skill === "LISTENING" ? "Listening Questions" : "Reading Questions";
+      const typeName = typeLabelMap.get(q.questionKey) || fallbackLabel;
       const current = map.get(typeName) || { typeName, total: 0, correct: 0, incorrect: 0, unanswered: 0 };
       current.total += 1;
       if (!q.answered) {

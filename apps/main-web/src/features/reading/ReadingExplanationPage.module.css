@@ -1165,32 +1165,38 @@
 /* Highlight Evidence Mark */
 .evidenceMark {
   border-radius: 4px;
-  outline: 2px solid rgba(16, 185, 129, 0.4);
-  background: #a7f3d0;
-  color: #064e3b;
+  outline: 2px solid #38bdf8;
+  background: #e0f2fe;
+  color: #0369a1;
   font-weight: 700;
-  box-shadow: 0 0 0 3px rgba(167, 243, 208, 0.4);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
   padding: 2px 4px;
 }
 
 .themeDark .evidenceMark {
-  background: #065f46;
-  color: #ecfdf5;
-  outline-color: #10b981;
+  background: #075985;
+  color: #f0f9ff;
+  outline-color: #38bdf8;
+}
+
+.themeSepia .evidenceMark {
+  background: #dbeafe;
+  color: #0c4a6e;
+  outline-color: #0284c7;
 }
 
 @keyframes evidencePulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-    background: #6ee7b7;
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+    background: #bae6fd;
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-    background: #a7f3d0;
+    box-shadow: 0 0 0 10px rgba(56, 189, 248, 0);
+    background: #e0f2fe;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-    background: #a7f3d0;
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+    background: #e0f2fe;
   }
 }
 
@@ -2832,134 +2838,229 @@
    ======================================================== */
 
 .listeningAudioBar {
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 14px;
-  transition: all 150ms ease;
-}
-
-.audioBarHeader {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.audioBarTitle {
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 750;
-  color: #1e293b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 100%;
 }
 
-.audioSpeedPicker {
+.audioSeekWrapper {
+  width: 100%;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.audioSpeedBtn {
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 750;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
-  cursor: pointer;
-  transition: all 120ms ease;
-}
-
-.audioSpeedBtn:hover {
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-.audioSpeedBtnActive {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.audioSeekRow {
-  margin-bottom: 8px;
+  margin-top: 2px;
 }
 
 .audioRange {
   width: 100%;
+  height: 5px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--seek-percent, 0%),
+    #e2e8f0 var(--seek-percent, 0%),
+    #e2e8f0 100%
+  );
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.audioRange:hover {
   height: 6px;
-  border-radius: 3px;
-  accent-color: #2563eb;
+}
+
+.audioRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ff6026;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.audioRange:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.audioRange::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ff6026;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.audioMainRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.audioLeftGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.audioTimeText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.volumeIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.volumeIconBtn:hover {
+  color: #ff6026;
+  transform: scale(1.1);
+}
+
+.volumeSliderWrapper {
+  display: inline-flex;
+  align-items: center;
+  width: 68px;
+}
+
+.volumeRange {
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--volume-percent, 80%),
+    #cbd5e1 var(--volume-percent, 80%),
+    #cbd5e1 100%
+  );
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
   cursor: pointer;
 }
 
-.audioTimeRow {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 650;
-  color: #64748b;
-  margin-top: 4px;
+.volumeRange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s ease;
 }
 
-.audioControlsRow {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.volumeRange:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
 }
 
-.audioBtnGroup {
+.volumeRange::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  border: none;
+}
+
+.audioCenterGroup {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.audioPlayBtn {
-  display: grid;
-  place-items: center;
+.audioCircleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.audioCircleBtn:hover {
+  color: #ff6026;
+  transform: scale(1.1);
+}
+
+.audioOrangePlayBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 38px;
   height: 38px;
-  border-radius: 999px;
-  background: #2563eb;
+  border-radius: 50%;
+  background: #ff6026;
   color: #ffffff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
-  transition: all 120ms ease;
+  box-shadow: 0 2px 8px rgba(255, 96, 38, 0.35);
+  transition: all 0.15s ease;
 }
 
-.audioPlayBtn:hover {
-  background: #1d4ed8;
-  transform: scale(1.04);
+.audioOrangePlayBtn:hover {
+  background: #ea580c;
+  transform: scale(1.06);
 }
 
-.audioSeekBtn {
+.audioRightGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audioSpeedPill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 8px;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 9999px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 750;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 120ms ease;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.audioSeekBtn:hover {
-  border-color: #2563eb;
-  color: #2563eb;
-  background: #eff6ff;
+.audioSpeedPill:hover {
+  border-color: #ff6026;
+  color: #ff6026;
 }
 
 /* Transcript Toggle Row */
@@ -3249,15 +3350,50 @@
 
 /* Theme variations for listening */
 .themeSepia .listeningAudioBar {
-  background: #f5e9d4;
-  border-color: #dfd0b7;
+  background: transparent;
+  border-color: transparent;
 }
 
-.themeSepia .audioSpeedBtn,
-.themeSepia .audioSeekBtn {
+.themeSepia .audioTimeText,
+.themeSepia .volumeIconBtn,
+.themeSepia .audioCircleBtn {
+  color: #4a3e35;
+}
+
+.themeSepia .volumeIconBtn:hover,
+.themeSepia .audioCircleBtn:hover {
+  color: #ff6026;
+}
+
+.themeSepia .audioSpeedPill {
   background: #fdf8ee;
   border-color: #dfd0b7;
   color: #4a3e35;
+}
+
+.themeSepia .audioSpeedPill:hover {
+  border-color: #ff6026;
+  color: #ff6026;
+}
+
+.themeSepia .volumeRange {
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--volume-percent, 80%),
+    #dfd0b7 var(--volume-percent, 80%),
+    #dfd0b7 100%
+  );
+}
+
+.themeSepia .audioRange {
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--seek-percent, 0%),
+    #dfd0b7 var(--seek-percent, 0%),
+    #dfd0b7 100%
+  );
 }
 
 .themeSepia .transcriptToggleArea {
@@ -3278,8 +3414,50 @@
 }
 
 .themeDark .listeningAudioBar {
-  background: #1e293b;
+  background: transparent;
+  border-color: transparent;
+}
+
+.themeDark .audioTimeText,
+.themeDark .volumeIconBtn,
+.themeDark .audioCircleBtn {
+  color: #cbd5e1;
+}
+
+.themeDark .volumeIconBtn:hover,
+.themeDark .audioCircleBtn:hover {
+  color: #ff6026;
+}
+
+.themeDark .audioSpeedPill {
+  background: #0f172a;
   border-color: #334155;
+  color: #cbd5e1;
+}
+
+.themeDark .audioSpeedPill:hover {
+  border-color: #ff6026;
+  color: #ff6026;
+}
+
+.themeDark .volumeRange {
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--volume-percent, 80%),
+    #334155 var(--volume-percent, 80%),
+    #334155 100%
+  );
+}
+
+.themeDark .audioRange {
+  background: linear-gradient(
+    to right,
+    #ff6026 0%,
+    #ff6026 var(--seek-percent, 0%),
+    #334155 var(--seek-percent, 0%),
+    #334155 100%
+  );
 }
 
 .themeDark .audioBarTitle,
@@ -3289,13 +3467,6 @@
 .themeDark .listeningPromptHeading,
 .themeDark .transcriptCardTitle {
   color: #f1f5f9;
-}
-
-.themeDark .audioSpeedBtn,
-.themeDark .audioSeekBtn {
-  background: #0f172a;
-  border-color: #334155;
-  color: #cbd5e1;
 }
 
 .themeDark .transcriptToggleArea {
@@ -3329,6 +3500,248 @@
 .themeDark .promptQuestionRow {
   background: #0f172a;
   border-color: #334155;
+}
+
+/* ========================================================
+   Sticky Listening Audio Player & CD-IELTS Inline Slots
+   ======================================================== */
+.listeningAudioStickyBottom {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  padding: 10px 18px;
+}
+
+.themeDark .listeningAudioStickyBottom {
+  background: #1e293b;
+  border-top-color: #334155;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.themeSepia .listeningAudioStickyBottom {
+  background: #fbf3e4;
+  border-top-color: #dfd0b7;
+}
+
+.listeningGapSlot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+  margin: 0 4px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  transition: all 150ms ease;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.listeningGapSlot:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.listeningGapSlotActive {
+  background: #f0f9ff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2.5px rgba(56, 189, 248, 0.25) !important;
+}
+
+.viewPositionBadge {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.15);
+  font-size: 11px;
+  font-weight: 750;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  animation: badgePop 150ms ease-out;
+}
+
+.viewPositionBadge::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+}
+
+@keyframes badgePop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.slotPlayBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 120ms ease;
+  padding: 0;
+}
+
+.slotPlayBtn:hover {
+  background: #2563eb;
+  transform: scale(1.08);
+}
+
+.slotQuestionNo {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  min-width: 14px;
+  text-align: center;
+}
+
+.slotResultCorrect {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #16a34a;
+  font-weight: 750;
+  font-size: 13px;
+}
+
+.slotResultIncorrect {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.slotStudentWrong {
+  color: #e11d48;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: line-through;
+}
+
+.slotWrongX {
+  color: #e11d48;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.slotArrow {
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.slotCorrectTarget {
+  color: #16a34a;
+  font-weight: 800;
+}
+
+.slotMagnifierBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  background: #18181b;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 120ms ease;
+  padding: 0;
+}
+
+.slotMagnifierBtn:hover {
+  background: #0284c7;
+  transform: scale(1.08);
+}
+
+.slotMagnifierBtnActive {
+  background: #0284c7 !important;
+  box-shadow: 0 0 0 2px #bae6fd !important;
+}
+
+/* Theme overrides for slots */
+.themeDark .listeningGapSlot {
+  background: #1e293b;
+  border-color: #334155;
+}
+.themeDark .listeningGapSlot:hover {
+  background: #334155;
+  border-color: #475569;
+}
+.themeDark .listeningGapSlotActive {
+  background: #0f172a !important;
+  border-color: #38bdf8 !important;
+}
+.themeDark .slotQuestionNo {
+  color: #f1f5f9;
+}
+.themeDark .viewPositionBadge {
+  background: #1e293b;
+  color: #fb923c;
+  border-color: #9a3412;
+}
+.themeDark .viewPositionBadge::after {
+  border-color: #1e293b transparent transparent transparent;
+}
+.themeDark .slotMagnifierBtn {
+  background: #334155;
+}
+
+.themeSepia .listeningGapSlot {
+  background: #f5e9d4;
+  border-color: #dfd0b7;
+}
+.themeSepia .listeningGapSlot:hover {
+  background: #efe1c7;
+}
+.themeSepia .listeningGapSlotActive {
+  background: #fdf8ee !important;
+  border-color: #874136 !important;
+}
+.themeSepia .slotQuestionNo {
+  color: #2b251e;
+}
+.themeSepia .viewPositionBadge {
+  background: #fdf8ee;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+.themeSepia .viewPositionBadge::after {
+  border-color: #fdf8ee transparent transparent transparent;
 }
 
 
