@@ -284,26 +284,30 @@ function longestContextMatch(left: string, right: string, fromEnd: boolean) {
 function resolveEvidenceOffsets(root: HTMLElement, evidence: ReadingEvidenceAnchor) {
   const recordedStart = evidence.start;
   const recordedEnd = evidence.end;
-  if (typeof recordedStart !== "number" || typeof recordedEnd !== "number" || recordedEnd <= recordedStart) {
-    return null;
-  }
-
   const source = root.textContent ?? "";
   const quote = evidence.quote?.trim() ?? "";
-  if (!quote) return { start: recordedStart, end: recordedEnd };
 
-  const offsetQuote = source.slice(recordedStart, recordedEnd);
-  if (normalizeEvidenceText(offsetQuote) === normalizeEvidenceText(quote)) {
-    return { start: recordedStart, end: recordedEnd };
+  if (typeof recordedStart === "number" && typeof recordedEnd === "number" && recordedEnd > recordedStart) {
+    if (!quote) return { start: recordedStart, end: recordedEnd };
+    const offsetQuote = source.slice(recordedStart, recordedEnd);
+    if (normalizeEvidenceText(offsetQuote) === normalizeEvidenceText(quote)) {
+      return { start: recordedStart, end: recordedEnd };
+    }
   }
+
+  if (!quote) return null;
 
   const sourceIndex = normalizedTextWithOffsets(source);
   const normalizedQuote = normalizeEvidenceText(quote);
   const normalizedPrefix = normalizeEvidenceText(evidence.prefix ?? "");
   const normalizedSuffix = normalizeEvidenceText(evidence.suffix ?? "");
-  const candidates = findAllOccurrences(sourceIndex.normalized, normalizedQuote);
+  let candidates = findAllOccurrences(sourceIndex.normalized, normalizedQuote);
+  if (!candidates.length && normalizedQuote.length > 50) {
+    candidates = findAllOccurrences(sourceIndex.normalized, normalizedQuote.slice(0, 50));
+  }
   if (!candidates.length) return null;
 
+  const recordedBaseline = typeof recordedStart === "number" ? recordedStart : 0;
   const bestStart = candidates.reduce((best, candidate) => {
     const candidateEnd = candidate + normalizedQuote.length;
     const left = sourceIndex.normalized.slice(Math.max(0, candidate - normalizedPrefix.length), candidate);
@@ -314,14 +318,15 @@ function resolveEvidenceOffsets(root: HTMLElement, evidence: ReadingEvidenceAnch
 
     const candidateScore = longestContextMatch(left, normalizedPrefix, true) * 3
       + longestContextMatch(right, normalizedSuffix, false) * 3
-      - Math.min(Math.abs((sourceIndex.starts[candidate] ?? 0) - recordedStart) / 1000, 2);
+      - Math.min(Math.abs((sourceIndex.starts[candidate] ?? 0) - recordedBaseline) / 1000, 2);
     const bestScore = longestContextMatch(bestLeft, normalizedPrefix, true) * 3
       + longestContextMatch(bestRight, normalizedSuffix, false) * 3
-      - Math.min(Math.abs((sourceIndex.starts[best] ?? 0) - recordedStart) / 1000, 2);
+      - Math.min(Math.abs((sourceIndex.starts[best] ?? 0) - recordedBaseline) / 1000, 2);
     return candidateScore > bestScore ? candidate : best;
   });
 
-  const normalizedEnd = bestStart + normalizedQuote.length - 1;
+  const matchLen = Math.min(normalizedQuote.length, sourceIndex.normalized.length - bestStart);
+  const normalizedEnd = bestStart + matchLen - 1;
   const start = sourceIndex.starts[bestStart];
   const end = sourceIndex.ends[normalizedEnd];
   return typeof start === "number" && typeof end === "number" && end > start ? { start, end } : null;

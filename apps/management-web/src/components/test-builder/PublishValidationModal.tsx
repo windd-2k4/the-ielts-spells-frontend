@@ -199,9 +199,34 @@ function readPassages(content: Record<string, unknown>): PassageSection[] {
   return [];
 }
 
-function readListeningParts(content: Record<string, unknown>): ListeningPartSection[] {
+function detectListeningFormat(content: Record<string, unknown>, test?: TestBankItem | null): string {
+  const tagFormat = test?.tags?.find((t) => ["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(t.toUpperCase()));
+  if (tagFormat) return tagFormat.toUpperCase();
+
+  const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(preset)) return preset;
+
+  const contentFormat = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  if (["SECTION_1", "SECTION_2", "SECTION_3", "SECTION_4", "DICTATION"].includes(contentFormat)) return contentFormat;
+
+  if (test?.testType === "FULL_TEST" || preset === "FULL" || contentFormat === "FULL") {
+    return "FULL";
+  }
+
+  if (Array.isArray(content.parts) && content.parts.length === 1) {
+    const first = content.parts[0];
+    const no = typeof first === "object" && first && "partNo" in first && typeof first.partNo === "number" ? first.partNo : 1;
+    return `SECTION_${no}`;
+  }
+
+  if (test?.tags?.includes("FULL")) return "FULL";
+
+  return "FULL";
+}
+
+function readListeningParts(content: Record<string, unknown>, test?: TestBankItem): ListeningPartSection[] {
   if (!Array.isArray(content.parts)) return [];
-  return content.parts.filter(isRecord).map((part, index) => ({
+  const rawParts = content.parts.filter(isRecord).map((part, index) => ({
     id: typeof part.id === "string" ? part.id : `listening-part-${index + 1}`,
     partNo: typeof part.partNo === "number" ? part.partNo : index + 1,
     title: typeof part.title === "string" ? part.title : `Listening Part ${index + 1}`,
@@ -211,6 +236,21 @@ function readListeningParts(content: Record<string, unknown>): ListeningPartSect
     transcriptHtml: typeof part.transcriptHtml === "string" ? part.transcriptHtml : "",
     questionGroups: readGroups(part.questionGroups),
   }));
+
+  if (!test) return rawParts;
+
+  const format = detectListeningFormat(content, test);
+  if (format === "FULL") return rawParts;
+
+  const targetPartNo = format === "SECTION_2" ? 2
+    : format === "SECTION_3" ? 3
+    : format === "SECTION_4" ? 4
+    : 1;
+
+  const matchingPart = rawParts.find((p) => p.partNo === targetPartNo)
+    ?? (rawParts.length === 1 ? rawParts[0] : rawParts.find((p) => p.audioUrl || p.questionGroups.length > 0));
+
+  return matchingPart ? [matchingPart] : rawParts;
 }
 
 function plainTextFromHtml(value: string) {
@@ -322,6 +362,15 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             targetId: group.id,
           });
         }
+        if (group.typeFormat === "DIAGRAM_LABELING" && !group.illustration?.fileUrl) {
+          issues.push({
+            id: `${group.id}-illustration-missing`,
+            severity: "ERROR",
+            sectionTitle: group.title,
+            message: "Dạng bài Diagram / Map Labelling bắt buộc phải tải lên ảnh sơ đồ hoặc bản đồ.",
+            targetId: group.id,
+          });
+        }
         if (group.illustration && !group.illustration.altText.trim()) {
           issues.push({
             id: `${group.id}-illustration-alt`,
@@ -420,10 +469,12 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
             if (evidence.mode !== "NO_DIRECT_EVIDENCE" && !hasEvidenceRange(evidence)) {
               issues.push({
                 id: `${question.id}-evidence-${evidence.id}-range`,
-                severity: "ERROR",
+                severity: evidence.quote.trim() ? "WARNING" : "ERROR",
                 sectionTitle: group.title,
                 questionNo: question.number,
-                message: "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
+                message: evidence.quote.trim()
+                  ? "Bằng chứng chưa được gắn vị trí chính xác trên Passage."
+                  : "Một bằng chứng có vị trí không hợp lệ. Hãy gắn lại đoạn Passage.",
                 targetId: question.id,
               });
             }
@@ -456,16 +507,46 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
   }
 
   if (test.skill === "LISTENING") {
-    const parts = readListeningParts(content);
+    const parts = readListeningParts(content, test);
     const questions = parts.flatMap((part) => part.questionGroups).flatMap((group) => group.questions);
-    if (parts.length !== 4) issues.push({ id: "listening-parts", severity: "ERROR", sectionTitle: "Cấu trúc Listening", message: "Full Listening cần có đúng 4 Part.", targetId: "listening-question-panel" });
-    if (questions.length !== 40) issues.push({ id: "listening-question-count", severity: "WARNING", sectionTitle: "Cấu trúc Listening", message: `Đề hiện có ${questions.length}/40 câu hỏi.`, targetId: "listening-question-panel" });
+    const format = detectListeningFormat(content, test);
+    const isFullListening = format === "FULL";
+
+    if (isFullListening) {
+      if (parts.length !== 4) issues.push({ id: "listening-parts", severity: "ERROR", sectionTitle: "Cấu trúc Listening", message: "Full Listening cần có đúng 4 Part.", targetId: "listening-question-panel" });
+      if (questions.length !== 40) issues.push({ id: "listening-question-count", severity: "WARNING", sectionTitle: "Cấu trúc Listening", message: `Đề hiện có ${questions.length}/40 câu hỏi.`, targetId: "listening-question-panel" });
+    } else {
+      if (parts.length === 0) issues.push({ id: "listening-empty", severity: "ERROR", sectionTitle: "Cấu trúc Listening", message: "Đề Listening chưa có Part nào.", targetId: "listening-question-panel" });
+      if (questions.length === 0) issues.push({ id: "listening-no-questions", severity: "ERROR", sectionTitle: "Câu hỏi", message: "Đề Listening cần có ít nhất một câu hỏi trước khi xuất bản.", targetId: "listening-question-panel" });
+      const expectedQuestions = format === "DICTATION" ? 20 : 10;
+      if (questions.length > 0 && questions.length !== expectedQuestions) {
+        issues.push({
+          id: "listening-section-question-count",
+          severity: "WARNING",
+          sectionTitle: "Số lượng câu hỏi",
+          message: `Section này hiện có ${questions.length}/${expectedQuestions} câu hỏi. Có thể bỏ qua nếu bạn chủ ý tạo số câu khác.`,
+          targetId: "listening-question-panel",
+        });
+      }
+    }
     parts.forEach((part) => {
       if (!part.audioUrl) issues.push({ id: `${part.id}-audio`, severity: "ERROR", sectionTitle: `Part ${part.partNo}`, message: "Chưa tải audio cho Part này.", targetId: "listening-question-panel" });
       if (!plainTextFromHtml(part.transcriptHtml)) issues.push({ id: `${part.id}-transcript`, severity: "WARNING", sectionTitle: `Part ${part.partNo}`, message: "Chưa nhập transcript.", targetId: "listening-question-panel" });
       if (part.questionGroups.length === 0) issues.push({ id: `${part.id}-groups`, severity: "ERROR", sectionTitle: `Part ${part.partNo}`, message: "Part chưa có Question Group.", targetId: "listening-question-panel" });
       part.questionGroups.forEach((group) => {
         if (!group.instructions.trim()) issues.push({ id: `${group.id}-instructions`, severity: "WARNING", sectionTitle: group.title, message: "Question Group chưa có instructions.", targetId: group.id });
+        if (group.typeFormat === "DIAGRAM_LABELING" && !group.illustration?.fileUrl) {
+          issues.push({ id: `${group.id}-illustration-missing`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài Diagram / Map Labelling bắt buộc phải tải lên ảnh sơ đồ hoặc bản đồ.", targetId: group.id });
+        }
+        if (group.illustration && !group.illustration.altText.trim()) {
+          issues.push({ id: `${group.id}-illustration-alt`, severity: "WARNING", sectionTitle: group.title, message: "Ảnh hoặc sơ đồ nên có mô tả ngắn.", targetId: group.id });
+        }
+        if (questionTypeUsesWordLimit(group.typeFormat, group.answerSource) && !group.wordLimitRule?.trim()) {
+          issues.push({ id: `${group.id}-word-limit`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài cần có giới hạn từ (Word limit).", targetId: group.id });
+        }
+        if (questionTypeUsesSharedOptions(group.typeFormat, group.answerSource) && !(group.sharedOptions?.some((option) => option.code.trim()))) {
+          issues.push({ id: `${group.id}-options`, severity: "ERROR", sectionTitle: group.title, message: "Dạng bài này cần có Option bank dùng chung.", targetId: group.id });
+        }
         if (questionTypeUsesGapTemplate(group.typeFormat, group.answerSource)) {
           const templateIssues = inspectGapFillTemplate(group.gapFillTemplate ?? "", group.questions.length);
           if (group.gapFillTemplate !== undefined && (!group.gapFillTemplate.trim() || templateIssues.missing.length || templateIssues.duplicated.length || templateIssues.invalid.length)) {

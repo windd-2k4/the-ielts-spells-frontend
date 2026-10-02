@@ -1,7 +1,7 @@
 import { Check, Headphones, X } from "@phosphor-icons/react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { QuestionTypeFormat, SharedOptionItem } from "../../library-types";
+import type { QuestionGroupAnswerSource, QuestionTypeFormat, SharedOptionItem } from "../../library-types";
 import {
   createDefaultSharedOptions,
   defaultWordLimit,
@@ -20,6 +20,7 @@ export type ListeningQuestionGroupDraft = {
   sharedOptions: SharedOptionItem[];
   allowOptionReused: boolean;
   linkedAudioTimestamp?: string;
+  answerSource?: QuestionGroupAnswerSource;
 };
 
 type Props = {
@@ -57,7 +58,7 @@ const listeningInstructions: Partial<Record<QuestionTypeFormat, string>> = {
   SUMMARY_COMPLETION: "Complete the summary below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
   SENTENCE_COMPLETION: "Complete the sentences below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
   SHORT_ANSWER: "Answer the questions below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
-  DIAGRAM_LABELING: "Label the plan, map or diagram below. Write the correct answer for each question.",
+  DIAGRAM_LABELING: "Label the map below. Write the correct letter, A-H, next to Questions.",
 };
 
 function optionsToText(options: SharedOptionItem[]) {
@@ -82,6 +83,7 @@ export default function ListeningQuestionGroupDialog({
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [typeFormat, setTypeFormat] = useState<QuestionTypeFormat>("NOTE_COMPLETION");
+  const [diagramSubtype, setDiagramSubtype] = useState<"MATCHING" | "COMPLETION">("MATCHING");
   const [title, setTitle] = useState("");
   const [questionCount, setQuestionCount] = useState(5);
   const [instructions, setInstructions] = useState(listeningInstructions.NOTE_COMPLETION ?? "");
@@ -94,8 +96,14 @@ export default function ListeningQuestionGroupDialog({
 
   const safeCount = Math.min(20, Math.max(1, questionCount || 1));
   const endQuestionNo = startQuestionNo + safeCount - 1;
-  const usesSharedOptions = questionTypeUsesSharedOptions(typeFormat, "PASSAGE");
-  const usesWordLimit = questionTypeUsesWordLimit(typeFormat, "PASSAGE");
+
+  const effectiveAnswerSource: QuestionGroupAnswerSource =
+    typeFormat === "DIAGRAM_LABELING"
+      ? diagramSubtype === "MATCHING" ? "OPTION_BANK" : "PASSAGE"
+      : "PASSAGE";
+
+  const usesSharedOptions = questionTypeUsesSharedOptions(typeFormat, effectiveAnswerSource);
+  const usesWordLimit = questionTypeUsesWordLimit(typeFormat, effectiveAnswerSource);
   const definition = getReadingQuestionTypeDefinition(typeFormat);
   const usableOptions = useMemo(() => sharedOptionsText.split("\n").map((line) => line.trim()).filter(Boolean).length, [sharedOptionsText]);
   const canCreate = instructions.trim() && (!usesSharedOptions || usableOptions >= 2);
@@ -103,6 +111,7 @@ export default function ListeningQuestionGroupDialog({
   useEffect(() => {
     if (!open) return;
     setTypeFormat("NOTE_COMPLETION");
+    setDiagramSubtype("MATCHING");
     setTitle("");
     setQuestionCount(5);
     setLinkTimestamp(true);
@@ -111,13 +120,26 @@ export default function ListeningQuestionGroupDialog({
 
   useEffect(() => {
     if (!open) return;
-    setInstructions(listeningInstructions[typeFormat] ?? definition.defaultInstructions);
-    setWordLimitRule(defaultWordLimit(typeFormat));
+    if (typeFormat === "DIAGRAM_LABELING") {
+      if (diagramSubtype === "MATCHING") {
+        setInstructions(`Label the map below. Write the correct letter, A-H, next to Questions ${startQuestionNo}–${endQuestionNo}.`);
+        setWordLimitRule("");
+        const options = createDefaultSharedOptions("DIAGRAM_LABELING", createId);
+        setSharedOptionsText(optionsToText(options));
+      } else {
+        setInstructions("Label the plan, map or diagram below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.");
+        setWordLimitRule("NO MORE THAN TWO WORDS AND/OR A NUMBER");
+        setSharedOptionsText("");
+      }
+    } else {
+      setInstructions(listeningInstructions[typeFormat] ?? definition.defaultInstructions);
+      setWordLimitRule(defaultWordLimit(typeFormat));
+      const options = usesSharedOptions ? createDefaultSharedOptions(typeFormat, createId) : [];
+      setSharedOptionsText(optionsToText(options));
+    }
     setRequiredAnswerCount(definition.defaultRequiredAnswerCount ?? 2);
-    const options = usesSharedOptions ? createDefaultSharedOptions(typeFormat, createId) : [];
-    setSharedOptionsText(optionsToText(options));
     setAllowOptionReused(typeFormat === "MATCHING_FEATURES");
-  }, [createId, definition.defaultInstructions, definition.defaultRequiredAnswerCount, open, typeFormat, usesSharedOptions]);
+  }, [createId, definition.defaultInstructions, definition.defaultRequiredAnswerCount, diagramSubtype, endQuestionNo, open, startQuestionNo, typeFormat, usesSharedOptions]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -148,6 +170,7 @@ export default function ListeningQuestionGroupDialog({
       sharedOptions: usesSharedOptions ? parseOptions(sharedOptionsText, createId) : [],
       allowOptionReused: usesSharedOptions && allowOptionReused,
       linkedAudioTimestamp: linkTimestamp ? linkedAudioTimestamp : undefined,
+      answerSource: effectiveAnswerSource,
     });
   }
 
@@ -176,6 +199,59 @@ export default function ListeningQuestionGroupDialog({
                   </button>;
                 })}
               </div>
+
+              {typeFormat === "DIAGRAM_LABELING" && (
+                <div className="mt-4 rounded-2xl border-2 border-[#8f4458]/25 bg-[#fff8fa] p-4">
+                  <span className="block text-xs font-extrabold uppercase tracking-wide text-[#8f4458]">
+                    Chọn phân loại đề Map / Diagram
+                  </span>
+                  <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setDiagramSubtype("MATCHING")}
+                      className={`flex flex-col rounded-xl border p-3 text-left transition ${
+                        diagramSubtype === "MATCHING"
+                          ? "border-[#8f4458] bg-white shadow-sm ring-2 ring-[#8f4458]/20"
+                          : "border-[#e3dce2] bg-white/70 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`grid size-5 place-items-center rounded-full text-xs font-bold ${
+                          diagramSubtype === "MATCHING" ? "bg-[#8f4458] text-white" : "border border-[#cfc5ca] text-transparent"
+                        }`}>
+                          ✓
+                        </span>
+                        <strong className="text-xs text-[#211A1D]">Nối chữ cái A–H (Radio Grid)</strong>
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-4 text-[#746A6E]">
+                        Bản đồ có ký hiệu chữ cái A, B, C, D... Học viên tích chọn chữ cái trên bảng ma trận hàng/cột (chuẩn thi CD-IELTS).
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDiagramSubtype("COMPLETION")}
+                      className={`flex flex-col rounded-xl border p-3 text-left transition ${
+                        diagramSubtype === "COMPLETION"
+                          ? "border-[#8f4458] bg-white shadow-sm ring-2 ring-[#8f4458]/20"
+                          : "border-[#e3dce2] bg-white/70 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`grid size-5 place-items-center rounded-full text-xs font-bold ${
+                          diagramSubtype === "COMPLETION" ? "bg-[#8f4458] text-white" : "border border-[#cfc5ca] text-transparent"
+                        }`}>
+                          ✓
+                        </span>
+                        <strong className="text-xs text-[#211A1D]">Điền từ vào bản đồ (Completion)</strong>
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-4 text-[#746A6E]">
+                        Bản đồ đánh số các vị trí. Học viên nghe và tự gõ từ cần điền vào từng câu theo giới hạn Word limit.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-5 grid gap-4 rounded-2xl border border-[#e3dce2] bg-[#f8f6fa] p-4 md:grid-cols-[minmax(0,1fr)_150px]">
                 <label><span className="mb-1.5 block text-[11px] font-bold text-[#746A6E]">Tiêu đề group</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={`Questions ${startQuestionNo}–${endQuestionNo}`} className="min-h-11 w-full rounded-xl border border-[#e3dce2] bg-white px-3.5 text-sm focus:border-[#8f4458] focus:outline-none" /></label>

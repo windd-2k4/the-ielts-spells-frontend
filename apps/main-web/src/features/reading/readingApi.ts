@@ -9,58 +9,60 @@ import type {
 } from "@ielts/contracts";
 import { apiFetch } from "@/lib/api";
 
-const readingPath = "/student/reading";
+function resolvePath(skill?: string) {
+  return skill && skill.toLowerCase() === "listening" ? "/student/listening" : "/student/reading";
+}
 
 export function getReadingAssignments() {
-  return apiFetch<StudentReadingAssignment[]>(`${readingPath}/assignments`);
+  return apiFetch<StudentReadingAssignment[]>("/student/reading/assignments");
 }
 
 export function getPublishedReadingTests() {
-  return apiFetch<StudentReadingCatalogItem[]>(`${readingPath}/catalog`);
+  return apiFetch<StudentReadingCatalogItem[]>("/student/reading/catalog");
 }
 
-export function startOrResumeSelfPractice(testVersionId: string) {
-  return apiFetch<StudentReadingAttempt>(`${readingPath}/catalog/${testVersionId}/attempts`, {
+export function startOrResumeSelfPractice(testVersionId: string, skill: string = "reading") {
+  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/catalog/${testVersionId}/attempts`, {
     method: "POST",
   });
 }
 
 export function startOrResumeReadingAttempt(assignmentId: string) {
-  return apiFetch<StudentReadingAttempt>(`${readingPath}/assignments/${assignmentId}/attempts`, {
+  return apiFetch<StudentReadingAttempt>(`/student/reading/assignments/${assignmentId}/attempts`, {
     method: "POST",
   });
 }
 
-export function getReadingAttempt(attemptId: string) {
-  return apiFetch<StudentReadingAttempt>(`${readingPath}/attempts/${attemptId}`);
+export function getReadingAttempt(attemptId: string, skill: string = "reading") {
+  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/attempts/${attemptId}`);
 }
 
-export function saveReadingResponses(attemptId: string, request: SaveReadingResponsesRequest) {
-  return apiFetch<StudentReadingAttempt>(`${readingPath}/attempts/${attemptId}/responses`, {
+export function saveReadingResponses(attemptId: string, request: SaveReadingResponsesRequest, skill: string = "reading") {
+  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/attempts/${attemptId}/responses`, {
     method: "PUT",
     body: JSON.stringify(request),
   });
 }
 
-export function saveReadingAnnotation(attemptId: string, annotationId: string, request: SaveReadingAnnotationRequest) {
-  return apiFetch<ReadingAnnotation>(`${readingPath}/attempts/${attemptId}/annotations/${annotationId}`, {
+export function saveReadingAnnotation(attemptId: string, annotationId: string, request: SaveReadingAnnotationRequest, skill: string = "reading") {
+  return apiFetch<ReadingAnnotation>(`${resolvePath(skill)}/attempts/${attemptId}/annotations/${annotationId}`, {
     method: "PUT",
     body: JSON.stringify(request),
   });
 }
 
-export function deleteReadingAnnotation(attemptId: string, annotationId: string) {
-  return apiFetch<void>(`${readingPath}/attempts/${attemptId}/annotations/${annotationId}`, {
+export function deleteReadingAnnotation(attemptId: string, annotationId: string, skill: string = "reading") {
+  return apiFetch<void>(`${resolvePath(skill)}/attempts/${attemptId}/annotations/${annotationId}`, {
     method: "DELETE",
   });
 }
 
-export function submitReadingAttempt(attemptId: string) {
-  return apiFetch<ReadingAttemptResult>(`${readingPath}/attempts/${attemptId}/submit`, {
+export function submitReadingAttempt(attemptId: string, skill: string = "reading") {
+  return apiFetch<ReadingAttemptResult>(`${resolvePath(skill)}/attempts/${attemptId}/submit`, {
     method: "POST",
   });
 }
 
-export function getReadingAttemptResult(attemptId: string) {
-  return apiFetch<ReadingAttemptResult>(`${readingPath}/attempts/${attemptId}/result`);
+export function getReadingAttemptResult(attemptId: string, skill: string = "reading") {
+  return apiFetch<ReadingAttemptResult>(`${resolvePath(skill)}/attempts/${attemptId}/result`);
 }

@@ -197,6 +197,9 @@ export interface ReadingSection {
   title: string;
   contentHtml: string | null;
   questionGroups: ReadingQuestionGroup[];
+  audioUrl?: string | null;
+  audioFilename?: string | null;
+  audioDurationSeconds?: number | null;
 }
 
 export interface SavedReadingResponse {

@@ -4,6 +4,7 @@ import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup as ReadingQue
 import { ArrowDown, CheckSquare, Flag, Lightbulb, ListBullets, TextT, TreeStructure, X } from "@phosphor-icons/react";
 import { Fragment, useMemo, useState } from "react";
 import { answerValues, groupQuestionLabel, optionLabel, questionOptions } from "./readingFormat";
+import { AuthenticatedDiagramImage } from "./AuthenticatedDiagramImage";
 import styles from "./ReadingAttemptPlayer.module.css";
 
 type ReadingQuestionGroupProps = {
@@ -1270,12 +1271,22 @@ function DiagramLabelingGroup({
       ? group.answerConfig.wordLimitRule
       : undefined;
 
+  const rawIllustration = (group.answerConfig?.illustration ?? (group as unknown as { illustration?: unknown }).illustration) as
+    | { fileUrl?: string; altText?: string; filename?: string }
+    | undefined;
   const imageUrl =
-    typeof group.answerConfig?.imageUrl === "string"
-      ? group.answerConfig.imageUrl
-      : typeof group.answerConfig?.diagramUrl === "string"
-      ? group.answerConfig.diagramUrl
-      : undefined;
+    rawIllustration?.fileUrl
+      || (typeof group.answerConfig?.imageUrl === "string" ? group.answerConfig.imageUrl : undefined)
+      || (typeof group.answerConfig?.diagramUrl === "string" ? group.answerConfig.diagramUrl : undefined)
+      || (typeof (group as unknown as { imageUrl?: string }).imageUrl === "string"
+        ? (group as unknown as { imageUrl?: string }).imageUrl
+        : undefined);
+  const imageAlt = rawIllustration?.altText?.trim() || group.title || "Sơ đồ bài thi";
+
+  const hasSharedOptions = group.sharedOptions && group.sharedOptions.length > 0;
+  const optionsWithText = hasSharedOptions
+    ? group.sharedOptions.filter((opt) => opt.text?.trim() && opt.text !== opt.code && !opt.text.startsWith("Vị trí "))
+    : [];
 
   return (
     <section className={styles.questionGroup} aria-labelledby={`group-${group.key}`}>
@@ -1297,7 +1308,10 @@ function DiagramLabelingGroup({
       <div className={styles.diagramCard}>
         {imageUrl ? (
           <div className={styles.diagramImageWrapper}>
-            <img src={imageUrl} alt={group.title} className={styles.diagramImage} />
+            <AuthenticatedDiagramImage src={imageUrl} alt={imageAlt} className={styles.diagramImage} />
+            {rawIllustration?.altText?.trim() ? (
+              <p className={styles.diagramImageCaption}>{rawIllustration.altText}</p>
+            ) : null}
           </div>
         ) : (
           <div className={styles.diagramImageWrapper}>
@@ -1308,31 +1322,129 @@ function DiagramLabelingGroup({
           </div>
         )}
 
-        <div className={styles.diagramLabelsList}>
-          {group.questions.map((question) => {
-            const prompt = question.prompt || `Vị trí ${question.number}`;
-            return (
-              <div
-                key={question.key}
-                id={`reading-question-${question.key}`}
-                className={styles.diagramLabelRow}
-                onClick={() => onQuestionFocus(question.key)}
-              >
-                <span className={styles.diagramLabelIndex}>{question.number}</span>
-                <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
-                <GapInlineSlot
-                  question={question}
-                  answer={answers[question.key]}
-                  onAnswer={onAnswer}
-                  active={activeQuestionKey === question.key}
-                  flagged={flaggedKeys.has(question.key)}
-                  onFocus={onQuestionFocus}
-                  onToggleFlag={onToggleFlag}
-                />
+        {hasSharedOptions ? (
+          <>
+            <div className={styles.diagramGridWrapper}>
+              <table className={styles.diagramGridTable}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={styles.diagramGridPromptCell}>
+                      {group.title || "Questions"}
+                    </th>
+                    {group.sharedOptions.map((opt) => (
+                      <th key={opt.key || opt.code} scope="col" className={styles.diagramGridOptionHeader}>
+                        {opt.code}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.questions.map((question) => {
+                    const currentValues = answerValues(answers[question.key]);
+                    const selectedVal = currentValues[0];
+                    const isActive = activeQuestionKey === question.key;
+                    const isFlagged = flaggedKeys.has(question.key);
+                    const prompt = question.prompt || `Vị trí ${question.number}`;
+
+                    return (
+                      <tr
+                        key={question.key}
+                        id={`reading-question-${question.key}`}
+                        className={`${styles.diagramGridRow} ${isActive ? styles.diagramGridRowActive : ""}`}
+                        onClick={() => onQuestionFocus(question.key)}
+                      >
+                        <td className={styles.diagramGridPromptCell}>
+                          <div className={styles.diagramGridPromptContent}>
+                            <span className={styles.diagramLabelIndex}>{question.number}</span>
+                            <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFlag(question.key);
+                              }}
+                              className={`p-1 rounded transition ${isFlagged ? "text-amber-500" : "text-slate-300 hover:text-slate-400"}`}
+                              title={isFlagged ? "Bỏ đánh dấu" : "Đánh dấu xem lại"}
+                              aria-label={`Đánh dấu câu ${question.number}`}
+                            >
+                              <Flag size={14} weight={isFlagged ? "fill" : "regular"} />
+                            </button>
+                          </div>
+                        </td>
+                        {group.sharedOptions.map((opt) => {
+                          const isChecked = selectedVal === opt.key || selectedVal === opt.code;
+                          return (
+                            <td
+                              key={opt.key || opt.code}
+                              className={styles.diagramGridCell}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onQuestionFocus(question.key);
+                                onAnswer(question.key, { value: opt.key });
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name={`diagram-grid-${question.key}`}
+                                checked={isChecked}
+                                onChange={() => {
+                                  onQuestionFocus(question.key);
+                                  onAnswer(question.key, { value: opt.key });
+                                }}
+                                className={styles.diagramGridRadio}
+                                aria-label={`Câu ${question.number} chọn ${opt.code}`}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {optionsWithText.length > 0 && (
+              <div className={styles.diagramGridLegend}>
+                <p className={styles.diagramGridLegendTitle}>Danh sách lựa chọn</p>
+                <div className={styles.diagramGridLegendList}>
+                  {optionsWithText.map((opt) => (
+                    <div key={opt.key || opt.code} className="flex items-center gap-1.5">
+                      <strong className="text-[#8f4458] font-bold">{opt.code}:</strong>
+                      <span>{opt.text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </>
+        ) : (
+          <div className={styles.diagramLabelsList}>
+            {group.questions.map((question) => {
+              const prompt = question.prompt || `Vị trí ${question.number}`;
+              return (
+                <div
+                  key={question.key}
+                  id={`reading-question-${question.key}`}
+                  className={styles.diagramLabelRow}
+                  onClick={() => onQuestionFocus(question.key)}
+                >
+                  <span className={styles.diagramLabelIndex}>{question.number}</span>
+                  <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
+                  <GapInlineSlot
+                    question={question}
+                    answer={answers[question.key]}
+                    onAnswer={onAnswer}
+                    active={activeQuestionKey === question.key}
+                    flagged={flaggedKeys.has(question.key)}
+                    onFocus={onQuestionFocus}
+                    onToggleFlag={onToggleFlag}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );
