@@ -1,6 +1,5 @@
 "use client";
 
-import { ApiClientError } from "@ielts/api-client";
 import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +17,7 @@ import {
   updateStudentTargetBand,
   type StudentPortalOverview,
 } from "./studentPortalApi";
+import { studentPortalErrorMessage } from "./studentPortalViewModel";
 
 interface StudentPortalContextValue {
   data: StudentPortalOverview | null;
@@ -28,15 +28,6 @@ interface StudentPortalContextValue {
 }
 
 const StudentPortalContext = createContext<StudentPortalContextValue | null>(null);
-
-function readableError(error: unknown) {
-  if (error instanceof ApiClientError) {
-    if (error.status === 401) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-    if (error.status === 403) return "Tài khoản chưa có quyền truy cập góc học tập.";
-    return error.message;
-  }
-  return "Không thể tải dữ liệu học tập. Vui lòng thử lại.";
-}
 
 export function StudentPortalProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -52,7 +43,7 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
     try {
       setData(await getStudentPortalOverview());
     } catch (loadError) {
-      setError(readableError(loadError));
+      setError(studentPortalErrorMessage(loadError));
     } finally {
       setLoading(false);
     }
@@ -95,7 +86,7 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
           });
         return null;
       } catch (saveError) {
-        return readableError(saveError);
+        return studentPortalErrorMessage(saveError);
       }
     },
   }), [data, error, loading, refresh, sessionLoading]);

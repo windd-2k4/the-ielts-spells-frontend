@@ -93,7 +93,7 @@ export default function ReadingQuestionSolutionEditor({
     if (question.correctAnswers.length === 0) parts.push("đáp án");
     if (!hasText(question.explanation)) parts.push("lời giải");
     const hasUsableEvidence = evidenceSpans.some((evidence) => (
-      evidence.mode === "NO_DIRECT_EVIDENCE" || (hasValidRange(evidence) && hasText(evidence.quote))
+      evidence.mode === "NO_DIRECT_EVIDENCE" || hasText(evidence.quote)
     ));
     if (!hasUsableEvidence) parts.push("bằng chứng");
     return parts;
@@ -381,9 +381,19 @@ export default function ReadingQuestionSolutionEditor({
 
                   {!noDirectEvidence && (
                     <div className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] ${
-                      validRange ? "bg-emerald-50/70 text-emerald-900" : "bg-rose-50 text-[#9f2330]"
+                      validRange
+                        ? "bg-emerald-50/70 text-emerald-900"
+                        : evidence.quote
+                        ? "bg-amber-50 text-[#8a6000]"
+                        : "bg-rose-50 text-[#9f2330]"
                     }`}>
-                      <span>{validRange ? "Đã lưu vị trí trong Passage." : "Vị trí không còn hợp lệ hoặc chưa được chọn."}</span>
+                      <span>
+                        {validRange
+                          ? "Đã lưu vị trí trong Passage."
+                          : evidence.quote
+                          ? "Trích dẫn đã có nội dung; có thể gắn vị trí chính xác trên Passage."
+                          : "Vị trí không còn hợp lệ hoặc chưa được chọn."}
+                      </span>
                       <button
                         type="button"
                         onClick={() => onRequestEvidenceCapture(evidence.id)}

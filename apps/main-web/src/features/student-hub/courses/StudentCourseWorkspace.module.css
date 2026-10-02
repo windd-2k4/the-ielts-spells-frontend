@@ -1,0 +1,787 @@
+/* =============================================================================
+   Student Course Detail Workspace - Professional EdTech Design System
+   ============================================================================= */
+
+.workspacePage {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  color: #292528;
+  padding-bottom: 60px;
+}
+
+.workspacePage :where(a, button) {
+  cursor: pointer;
+}
+
+/* 1. Header Banner */
+.courseHeader {
+  padding: 28px 32px 30px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #261f23 0%, #352a2f 60%, #46343b 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(38, 31, 35, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.headerGlow {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(231, 150, 169, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #d8cfd2;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 16px;
+  transition: all 180ms ease;
+}
+
+.backLink:hover {
+  color: #ffffff;
+  transform: translateX(-3px);
+}
+
+.headerContent {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 36px;
+  align-items: end;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.codeBadge {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #fce7ec;
+  font-family: monospace;
+}
+
+.skillBadge {
+  background: rgba(137, 76, 91, 0.45);
+  border: 1px solid rgba(231, 150, 169, 0.3);
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.targetBadge {
+  background: #e796a9;
+  color: #292326;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.courseHeader h1 {
+  font-size: clamp(24px, 3.2vw, 36px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin: 0 0 10px;
+}
+
+.courseHeader p {
+  color: #d8cfd2;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 680px;
+  margin: 0 0 16px;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 12.5px;
+  color: #d8cfd2;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metaItem strong {
+  color: #ffffff;
+}
+
+/* Header Progress Block */
+.headerProgressCard {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 20px 22px;
+  backdrop-filter: blur(10px);
+}
+
+.progressLabelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #d8cfd2;
+}
+
+.progressLabelRow strong {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.trackOuter {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.trackInner {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #e796a9 0%, #f472b6 100%);
+  transition: width 400ms ease;
+}
+
+.progressSubRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #d8cfd2;
+}
+
+/* 2. Hero: Việc cần làm tiếp theo */
+.nextActionHero {
+  margin-top: 22px;
+  background: #ffffff;
+  border: 2px solid #894C5B;
+  border-radius: 22px;
+  padding: 24px 28px;
+  box-shadow: 0 10px 30px rgba(137, 76, 91, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.nextActionKickerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.kickerTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #894C5B;
+}
+
+.priorityBadge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+.priorityHigh {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.priorityMedium {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.priorityLow {
+  background: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+
+.nextActionMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.nextActionTitle {
+  font-size: 20px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.nextActionDesc {
+  color: #6F676C;
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.nextActionCtaBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: #894C5B;
+  color: #ffffff;
+  padding: 13px 26px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  box-shadow: 0 6px 18px rgba(137, 76, 91, 0.25);
+  transition: all 180ms ease;
+  white-space: nowrap;
+}
+
+.nextActionCtaBtn:hover {
+  background: #733c49;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(137, 76, 91, 0.35);
+}
+
+.nextActionRulesStrip {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0ebe8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ruleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #6F676C;
+  background: #fbf9f8;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #ede8e5;
+}
+
+.ruleChipActive {
+  background: #fdf2f4;
+  color: #894C5B;
+  border-color: #f7d7df;
+  font-weight: 700;
+}
+
+/* 3. Navigation Tabs */
+.tabNavStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 28px 0 20px;
+  border-bottom: 2px solid #ede8e5;
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.navTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 12px 12px 0 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #6F676C;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
+
+.navTabBtn:hover {
+  color: #894C5B;
+  background: rgba(137, 76, 91, 0.04);
+}
+
+.navTabBtnActive {
+  color: #894C5B;
+  border-bottom-color: #894C5B;
+  background: rgba(137, 76, 91, 0.05);
+}
+
+.tabCountPill {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  background: #ede8e5;
+  color: #6F676C;
+}
+
+.navTabBtnActive .tabCountPill {
+  background: #894C5B;
+  color: #ffffff;
+}
+
+/* 4. Tab 1: Bento Grid */
+.bentoGrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+}
+
+.bentoCol8 {
+  grid-column: span 8;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bentoCol4 {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bentoCol12 {
+  grid-column: span 12;
+}
+
+.bentoCol6 {
+  grid-column: span 6;
+}
+
+/* Standard Card */
+.card {
+  background: #ffffff;
+  border: 1px solid #E8E2D5;
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #292528;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.cardSubtitle {
+  font-size: 12px;
+  color: #6F676C;
+  margin: 2px 0 0;
+}
+
+/* Next Class Card */
+.nextClassBox {
+  background: linear-gradient(135deg, #fdf8f9 0%, #fbf4f6 100%);
+  border: 1.5px solid #f5dce3;
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+
+.nextClassTimeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.timeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #894C5B;
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #f3d4dc;
+}
+
+.zoomBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 160ms ease;
+}
+
+.zoomBtn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.nextClassSessionTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 4px;
+}
+
+.prepList {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  color: #554d52;
+}
+
+.prepList li {
+  margin-bottom: 4px;
+}
+
+/* Weaknesses Card */
+.weaknessAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.weaknessIcon {
+  color: #ef4444;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.weaknessText h4 {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #991b1b;
+  margin: 0 0 2px;
+}
+
+.weaknessText p {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.emptyStateClean {
+  text-align: center;
+  padding: 24px 16px;
+  color: #6F676C;
+  font-size: 13px;
+}
+
+.emptyStateClean svg {
+  margin: 0 auto 8px;
+  color: #10b981;
+}
+
+/* 5. Tab 2: Lộ trình khóa học (Timeline) */
+.roadmapTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sessionCard {
+  background: #ffffff;
+  border: 1px solid #E8E2D5;
+  border-radius: 18px;
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  transition: border-color 160ms ease;
+}
+
+.sessionCard:hover {
+  border-color: #894C5B;
+}
+
+.sessionIndex {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: #f7f3f5;
+  color: #894C5B;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 850;
+  font-size: 16px;
+  border: 1px solid #eddfe3;
+}
+
+.sessionIndex small {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #a87985;
+}
+
+.sessionMain h3 {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 4px;
+}
+
+.sessionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #6F676C;
+}
+
+.sessionStatusPill {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.statusCompleted {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.statusScheduled {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.statusCancelled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 6. Tab 3: Kho học liệu (Library) */
+.libraryFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filterPill {
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6F676C;
+  background: #ffffff;
+  border: 1px solid #E8E2D5;
+  transition: all 160ms ease;
+}
+
+.filterPill:hover,
+.filterPillActive {
+  background: #894C5B;
+  color: #ffffff;
+  border-color: #894C5B;
+}
+
+.resourceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.resourceCard {
+  background: #ffffff;
+  border: 1px solid #E8E2D5;
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: all 180ms ease;
+}
+
+.resourceCard:hover {
+  transform: translateY(-2px);
+  border-color: #894C5B;
+  box-shadow: 0 8px 24px rgba(137, 76, 91, 0.08);
+}
+
+.resTypeIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f7f3f5;
+  color: #894C5B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.resourceCard h4 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 4px;
+  line-height: 1.35;
+}
+
+.resDownloadBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #894C5B;
+  background: #fbf7f8;
+  border: 1px solid #f3dce2;
+  text-decoration: none;
+  transition: all 160ms ease;
+}
+
+.resDownloadBtn:hover {
+  background: #894C5B;
+  color: #ffffff;
+}
+
+/* 7. Tab 4: Study Log Table */
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #E8E2D5;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.studyLogTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.studyLogTable th {
+  padding: 12px 16px;
+  background: #faf7f8;
+  font-weight: 800;
+  color: #6F676C;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #E8E2D5;
+}
+
+.studyLogTable td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3eee9;
+  color: #292528;
+}
+
+.studyLogTable tr:last-child td {
+  border-bottom: none;
+}
+
+.sourceBadgeVerified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.sourceBadgeReported {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .headerContent {
+    grid-template-columns: 1fr;
+  }
+  .bentoCol8, .bentoCol4, .bentoCol6 {
+    grid-column: span 12;
+  }
+  .nextActionMain {
+    grid-template-columns: 1fr;
+  }
+  .sessionCard {
+    grid-template-columns: 48px 1fr;
+  }
+}

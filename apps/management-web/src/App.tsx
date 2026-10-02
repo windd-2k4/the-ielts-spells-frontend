@@ -12,6 +12,8 @@ const ActivateAccountPage = lazy(() => import("./pages/ActivateAccountPage")
   .then((module) => ({ default: module.ActivateAccountPage })));
 const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage")
   .then((module) => ({ default: module.AuthCallbackPage })));
+const BillingPage = lazy(() => import("./pages/BillingPage")
+  .then((module) => ({ default: module.BillingPage })));
 const CourseManagementPage = lazy(() => import("./pages/CourseManagementPage")
   .then((module) => ({ default: module.CourseManagementPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage")
@@ -28,6 +30,8 @@ const TestBankPage = lazy(() => import("./pages/TestBankPage")
   .then((module) => ({ default: module.TestBankPage })));
 const TestAssignmentsPage = lazy(() => import("./pages/TestAssignmentsPage")
   .then((module) => ({ default: module.TestAssignmentsPage })));
+const WritingEvaluationsPage = lazy(() => import("./pages/WritingEvaluationsPage")
+  .then((module) => ({ default: module.WritingEvaluationsPage })));
 const AiTestImportPage = lazy(() => import("./pages/AiTestImportPage")
   .then((module) => ({ default: module.AiTestImportPage })));
 const CrawlHubPage = lazy(() => import("./pages/CrawlHubPage")
@@ -120,6 +124,7 @@ export default function App() {
                 <Route path="/test-assignments" element={<TestAssignmentsPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "teacher"]} />}>
+                <Route path="/writing-evaluations" element={<WritingEvaluationsPage />} />
                 <Route path="/library" element={<LearningLibraryPage />} />
                 <Route path="/test-bank" element={<TestBankPage />} />
                 <Route path="/test-bank/import-ai" element={<AiTestImportPage />} />
@@ -131,6 +136,7 @@ export default function App() {
                 <Route path="/students" element={<StudentsPage />} />
                 <Route path="/students/:studentId" element={<StudentDetailPage />} />
                 <Route path="/enrollments" element={<EnrollmentsPage />} />
+                <Route path="/billing" element={<BillingPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin"]} />}>
                 <Route path="/staff" element={<StaffAdminPage />} />

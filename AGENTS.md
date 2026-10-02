@@ -45,6 +45,15 @@ Never use `git reset --hard`, `git checkout --`, broad recursive deletion, or ge
 - Avoid giant page files. Split by business feature, not arbitrary visual fragments. Keep forms, modals, tables, and test-builder panels cohesive.
 - Use stable IDs from the API as React keys. Never use array indexes for reorderable questions, passages, files, or sessions.
 
+### Fast organization rule
+
+- Keep the first implementation in the existing feature owner. Split only when code gains a second independent responsibility, is reused, or cannot be understood without scrolling across unrelated concerns.
+- Route/page files compose the screen. Move transport, auth, error normalization, and reusable domain transformations out of JSX; keep small route-only helpers colocated.
+- Prefer feature-local components, hooks, and types. Promote code to `packages/*` only after two apps genuinely use it.
+- Search before adding a file or abstraction. Reuse the nearest established pattern and avoid barrels, wrapper layers, and one-use interfaces created only for symmetry.
+- Preserve loading, empty, and error as distinct states. Never convert a failed business-data request into `[]`, `null`, or plausible fallback content.
+- Refactor the smallest stable boundary needed for the task. Do not reorganize unrelated folders or split short components solely to meet a line-count target.
+
 ## 4. Contract-first cross-repository workflow
 
 For any real backend-backed feature, follow this sequence:

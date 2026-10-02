@@ -408,32 +408,131 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
 
     {saveError ? <div className={styles.saveError} role="alert"><WarningCircle size={18} weight="fill" aria-hidden="true" />{saveError}<button type="button" onClick={() => void flushRef.current()}>Thử lưu lại</button></div> : null}
 
-    <main id="reading-workspace" ref={workspaceRef} className={styles.workspace} style={workspaceStyle}>
-      <article className={`${styles.passagePane} ${fontClass}`} aria-label={`Reading Passage ${activeSection.sectionNo}`}>
-        <div className={styles.paneInner}>
-          <p className={styles.passageKicker}>Reading Passage {activeSection.sectionNo}</p>
-          <h1>{activeSection.title}</h1>
-          {activeSection.contentHtml ? <ReadingAnnotations
-            attemptId={attemptId}
-            sectionKey={activeSection.key}
-            html={activeSection.contentHtml}
-            contentClassName={styles.passageContent}
-            annotations={annotations}
-            notesOpen={notesOpen}
-            onNotesOpenChange={setNotesOpen}
-            onAnnotationsChange={setAnnotations}
-          /> : <p className={styles.emptyPassage}>Passage này chưa có nội dung.</p>}
-        </div>
-      </article>
+    <div className={styles.workspaceContainer}>
+      <main id="reading-workspace" ref={workspaceRef} className={styles.workspace} style={workspaceStyle}>
+        <article className={`${styles.passagePane} ${fontClass}`} aria-label={`Reading Passage ${activeSection.sectionNo}`}>
+          <div className={styles.paneInner}>
+            <p className={styles.passageKicker}>Reading Passage {activeSection.sectionNo}</p>
+            <h1>{activeSection.title}</h1>
+            {activeSection.contentHtml ? <ReadingAnnotations
+              attemptId={attemptId}
+              sectionKey={activeSection.key}
+              html={activeSection.contentHtml}
+              contentClassName={styles.passageContent}
+              annotations={annotations}
+              notesOpen={notesOpen}
+              onNotesOpenChange={setNotesOpen}
+              onAnnotationsChange={setAnnotations}
+            /> : <p className={styles.emptyPassage}>Passage này chưa có nội dung.</p>}
+          </div>
+        </article>
 
-      <button type="button" className={styles.divider} onPointerDown={startDividerDrag} aria-label="Kéo để thay đổi độ rộng bài đọc và câu hỏi"><ArrowsHorizontal size={18} aria-hidden="true" /></button>
+        <button type="button" className={styles.divider} onPointerDown={startDividerDrag} aria-label="Kéo để thay đổi độ rộng bài đọc và câu hỏi"><ArrowsHorizontal size={18} aria-hidden="true" /></button>
 
-      <section className={`${styles.questionsPane} ${fontClass}`} aria-label={`Câu hỏi passage ${activeSection.sectionNo}`}>
-        <div className={styles.paneInner}>
-          {activeSection.questionGroups.map((group) => <ReadingQuestionGroup key={group.key} group={group} answers={answers} onAnswer={updateAnswer} activeQuestionKey={activeQuestionKey} flaggedKeys={flaggedKeys} onQuestionFocus={setActiveQuestionKey} onToggleFlag={toggleFlag} />)}
+        <section className={`${styles.questionsPane} ${fontClass}`} aria-label={`Câu hỏi passage ${activeSection.sectionNo}`}>
+          <div className={styles.paneInner}>
+            {activeSection.questionGroups.map((group) => <ReadingQuestionGroup key={group.key} group={group} answers={answers} onAnswer={updateAnswer} activeQuestionKey={activeQuestionKey} flaggedKeys={flaggedKeys} onQuestionFocus={setActiveQuestionKey} onToggleFlag={toggleFlag} />)}
+          </div>
+        </section>
+      </main>
+
+      {/* Right Sidebar: Sticky Exam Card (Study4 style) */}
+      <aside className={styles.examSidebar} aria-label="Bảng điều khiển bài thi">
+        <div className={styles.sidebarCard}>
+          {/* 1. Timer */}
+          <div className={styles.sidebarTimerBlock}>
+            <span className={styles.sidebarTimerLabel}>Thời gian làm bài:</span>
+            <span className={`${styles.sidebarTimerValue} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`}>
+              <Clock size={18} weight="bold" />
+              {formatDuration(remainingSeconds)}
+            </span>
+          </div>
+
+          {/* 2. Prominent Submit Button */}
+          <button
+            type="button"
+            onClick={() => setShowSubmitConfirmation(true)}
+            disabled={isSubmitting}
+            className={styles.sidebarSubmitBtn}
+          >
+            <PaperPlaneTilt size={16} weight="fill" />
+            NỘP BÀI
+          </button>
+
+          {/* 3. Autosave info & Hint */}
+          <div className={styles.sidebarMeta}>
+            <div className={styles.sidebarSaveRow}>
+              {saveState === "saving" ? (
+                <CircleNotch size={14} className={styles.spin} />
+              ) : (
+                <CheckCircle size={14} weight="fill" color="#10b981" />
+              )}
+              <span>
+                {saveState === "saving"
+                  ? "Đang lưu bài làm..."
+                  : saveState === "saved"
+                  ? "Đã lưu tự động"
+                  : "Tự động lưu bài làm"}
+              </span>
+            </div>
+            <p className={styles.sidebarHint}>
+              <em>Chú ý: bạn có thể click vào số thứ tự câu hỏi trong bài để đánh dấu review</em>
+            </p>
+          </div>
+
+          {/* 4. Passages & 5-Column Question Grid */}
+          <div className={styles.sidebarSectionsList}>
+            {attempt.sections.map((section) => {
+              const sectionQuestions = section.questionGroups.flatMap((g) => g.questions);
+              const isCurrentSec = section.key === activeSection.key;
+              const answeredSecCount = sectionQuestions.filter((q) => isAnswered(answers[q.key])).length;
+
+              return (
+                <div key={section.key} className={styles.sidebarPartSection}>
+                  <button
+                    type="button"
+                    onClick={() => selectSection(section)}
+                    className={`${styles.sidebarPartHeading} ${isCurrentSec ? styles.sidebarPartHeadingActive : ""}`}
+                  >
+                    <span className={styles.sidebarPartName}>Passage {section.sectionNo}</span>
+                    <span className={styles.sidebarPartBadge}>
+                      {answeredSecCount}/{sectionQuestions.length}
+                    </span>
+                  </button>
+
+                  <div className={styles.paletteGrid} role="navigation" aria-label={`Bảng câu hỏi Passage ${section.sectionNo}`}>
+                    {sectionQuestions.map((q) => {
+                      const answered = isAnswered(answers[q.key]);
+                      const active = q.key === activeQuestionKey;
+                      const flagged = flaggedKeys.has(q.key);
+
+                      return (
+                        <button
+                          key={q.key}
+                          type="button"
+                          onClick={() => goToQuestion(section, q)}
+                          className={`${styles.paletteSquare} ${
+                            answered ? styles.paletteSquareAnswered : ""
+                          } ${active ? styles.paletteSquareActive : ""} ${
+                            flagged ? styles.paletteSquareFlagged : ""
+                          }`}
+                          title={`Câu ${q.number}${flagged ? " (Đã đánh dấu review)" : answered ? " (Đã làm)" : " (Chưa làm)"}`}
+                        >
+                          <span className={styles.paletteSquareNumber}>{q.number}</span>
+                          {flagged ? (
+                            <Flag size={8} weight="fill" className={styles.paletteSquareFlag} />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </section>
-    </main>
+      </aside>
+    </div>
 
     <footer className={styles.examFooter}>
       <nav className={styles.sectionTabs} aria-label="Chọn passage">

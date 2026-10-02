@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup, ReadingSection, StudentReadingAssignment } from "@ielts/contracts";
 import { ApiClientError } from "@ielts/api-client";
 
@@ -85,13 +86,79 @@ export function questionOptions(question: ReadingQuestion, group: ReadingQuestio
   return [];
 }
 
-export function optionLabel(code: string | null, text: string) {
+export function optionLabel(code: string | null | undefined, text: string | null | undefined) {
   const normalizedCode = code?.trim();
-  const normalizedText = text.trim();
-  if (!normalizedCode || normalizedCode === normalizedText) {
+  const normalizedText = text?.trim() ?? "";
+  if (!normalizedCode) {
+    return normalizedText;
+  }
+  if (!normalizedText || normalizedCode.toLowerCase() === normalizedText.toLowerCase()) {
+    return normalizedCode;
+  }
+  const codePrefixes = [
+    normalizedCode + ".",
+    normalizedCode + ")",
+    normalizedCode + ":",
+    normalizedCode + " -",
+    normalizedCode + " ",
+  ];
+  if (codePrefixes.some((prefix) => normalizedText.startsWith(prefix))) {
     return normalizedText;
   }
   return `${normalizedCode}. ${normalizedText}`;
+}
+
+export type ReadingOptionMap = Map<string, { code: string | null; text: string }>;
+
+export function buildReadingOptionMap(
+  sections: ReadingSection[] | undefined | null
+): ReadingOptionMap {
+  const map: ReadingOptionMap = new Map();
+  if (!sections) return map;
+  for (const section of sections) {
+    for (const group of section.questionGroups ?? []) {
+      for (const opt of group.sharedOptions ?? []) {
+        if (opt.key) map.set(opt.key, opt);
+      }
+      for (const question of group.questions ?? []) {
+        for (const opt of question.options ?? []) {
+          if (opt.key) map.set(opt.key, opt);
+        }
+      }
+    }
+  }
+  return map;
+}
+
+export const ReadingOptionMapContext = createContext<ReadingOptionMap | null>(null);
+
+export function useReadingOptionMap(): ReadingOptionMap | null {
+  return useContext(ReadingOptionMapContext);
+}
+
+export function formatReadingAnswerValue(
+  value: string | undefined | null,
+  optionMap?: ReadingOptionMap | null
+): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (optionMap && optionMap.has(trimmed)) {
+    const opt = optionMap.get(trimmed)!;
+    return optionLabel(opt.code, opt.text);
+  }
+  return trimmed;
+}
+
+export function formatReadingAnswerList(
+  values: string[] | undefined | null,
+  optionMap?: ReadingOptionMap | null,
+  separator = ", "
+): string {
+  if (!values || values.length === 0) return "";
+  return values
+    .map((val) => formatReadingAnswerValue(val, optionMap))
+    .filter(Boolean)
+    .join(separator);
 }
 
 export function assignmentAvailability(assignment: StudentReadingAssignment, now = Date.now()) {

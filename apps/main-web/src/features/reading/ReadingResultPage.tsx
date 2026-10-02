@@ -4,23 +4,50 @@ import type { ReadingAttemptResult, StudentReadingAttempt } from "@ielts/contrac
 import {
   ArrowLeft, CheckCircle, CircleNotch, Clock, ClockCountdown,
   FileText, ListChecks, Sparkle, Trophy, X, XCircle, ArrowRight, CaretDown,
-  MinusCircle, Lightbulb
+  MinusCircle, Lightbulb, MagnifyingGlass, MapPin
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import { StudentPageHeader } from "./StudentPageHeader";
-import { formatDateTime, groupQuestionLabel, requestMessage } from "./readingFormat";
+import {
+  answerValues,
+  buildReadingOptionMap,
+  formatDateTime,
+  formatReadingAnswerList,
+  groupQuestionLabel,
+  requestMessage,
+} from "./readingFormat";
 import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
 
 type QuestionFilter = "ALL" | "CORRECT" | "INCORRECT" | "UNANSWERED";
 
-export function ReadingResultPage({ attemptId }: { attemptId: string }) {
-  return <StudentSessionGate><ReadingResultContent attemptId={attemptId} /></StudentSessionGate>;
+export function ReadingResultPage({
+  attemptId,
+  skill = "READING",
+}: {
+  attemptId: string;
+  skill?: "READING" | "LISTENING";
+}) {
+  return (
+    <StudentSessionGate>
+      <ReadingResultContent attemptId={attemptId} skill={skill} />
+    </StudentSessionGate>
+  );
 }
 
-function ReadingResultContent({ attemptId }: { attemptId: string }) {
+function ReadingResultContent({
+  attemptId,
+  skill = "READING",
+}: {
+  attemptId: string;
+  skill?: "READING" | "LISTENING";
+}) {
+  const skillPath = skill.toLowerCase();
+  const skillLabel = skill === "LISTENING" ? "Listening" : "Reading";
+  const catalogUrl = `/student/practice?skill=${skill}`;
+
   const [result, setResult] = useState<ReadingAttemptResult | null>(null);
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,8 +59,8 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
     setError("");
     try {
       const [res, att] = await Promise.all([
-        getReadingAttemptResult(attemptId),
-        getReadingAttempt(attemptId).catch(() => null),
+        getReadingAttemptResult(attemptId, skillPath),
+        getReadingAttempt(attemptId, skillPath).catch(() => null),
       ]);
       setResult(res);
       setAttempt(att);
@@ -42,11 +69,13 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [attemptId]);
+  }, [attemptId, skillPath]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const optionMap = useMemo(() => buildReadingOptionMap(attempt?.sections), [attempt]);
 
   const typeBreakdown = useMemo(() => {
     if (!result) return [];
@@ -86,7 +115,7 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
   }
 
   if (error || !result) {
-    return <main className="grid min-h-dvh place-items-center bg-slate-50 px-4"><div className="w-full max-w-xl"><ReadingStatePanel title="Chưa thể xem kết quả" message={error || "Kết quả chưa sẵn sàng."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /><Link href={`/student/reading/attempts/${attemptId}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-[#8f4458] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]">Quay lại bài làm</Link></div></main>;
+    return <main className="grid min-h-dvh place-items-center bg-slate-50 px-4"><div className="w-full max-w-xl"><ReadingStatePanel title="Chưa thể xem kết quả" message={error || "Kết quả chưa sẵn sàng."} actionLabel="Thử lại" onAction={() => void load()} tone="error" /><Link href={catalogUrl} className="mt-4 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-[#8f4458] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]">Quay lại danh sách bài thi {skillLabel}</Link></div></main>;
   }
 
   const totalQuestions = result.correctCount + result.incorrectCount + result.unansweredCount;
@@ -105,24 +134,24 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
   if (percentage === 100) {
     mascotTitle = "Xuất sắc tuyệt đối! Bạn đã chinh phục trọn vẹn bài thi cùng The IELTS Spells!";
   } else if (percentage >= 80) {
-    mascotTitle = "Kết quả tuyệt vời! Kỹ năng Reading của bạn rất ấn tượng cùng The IELTS Spells!";
+    mascotTitle = `Kết quả tuyệt vời! Kỹ năng ${skillLabel} của bạn rất ấn tượng cùng The IELTS Spells!`;
   } else if (percentage >= 50) {
     mascotTitle = "Kết quả tốt! Bình tĩnh cùng luyện tập tiếp với The IELTS Spells nhé!";
   }
 
   return <div className="min-h-dvh bg-[#f8fafc] text-slate-800">
-    <a href="#reading-result" className="student-skip-link">Đến kết quả bài thi Reading</a>
+    <a href="#test-result" className="student-skip-link">Đến kết quả bài thi {skillLabel}</a>
 
     {/* Clean Top Navigation Bar */}
     <div className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <Link href="/student/reading" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Thoát về danh sách đề">
+          <Link href={catalogUrl} className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Thoát về danh sách đề">
             <X size={18} />
           </Link>
           <span className="text-xs font-extrabold uppercase tracking-wider text-[#8f4458]">The IELTS Spells</span>
           <span className="hidden text-slate-300 sm:inline">|</span>
-          <span className="hidden truncate text-sm font-semibold text-slate-700 sm:inline max-w-md">{attempt?.title ?? "Kết quả bài Reading"}</span>
+          <span className="hidden truncate text-sm font-semibold text-slate-700 sm:inline max-w-md">{attempt?.title ?? `Kết quả bài ${skillLabel}`}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Nộp lúc: {formatDateTime(result.submittedAt)}</span>
@@ -208,7 +237,7 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
 
               <div className="pt-2 text-center">
                 <Link
-                  href={`/student/reading/attempts/${attemptId}/explanations#question-${result.questions[0]?.questionKey ?? "overview"}`}
+                  href={`/student/${skillPath}/attempts/${attemptId}/explanations#question-${result.questions[0]?.questionKey ?? "overview"}`}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 py-2 text-xs font-extrabold text-slate-700 transition hover:border-[#8f4458] hover:bg-[#8f4458] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]"
                 >
                   Xem giải thích <span className="rounded-full bg-[#8f4458] px-2 py-0.5 text-[10px] font-black uppercase text-white">FREE</span>
@@ -304,14 +333,41 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
                     <QuestionStatusBadge correct={q.correct} answered={q.answered} score={q.score} maxScore={q.maxScore} />
                   </div>
 
-                  {q.correctAnswers.length > 0 && (
-                    <div className="mt-3 flex items-start gap-2 text-sm">
-                      <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
-                      <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                        {q.correctAnswers.join(", ")}
-                      </span>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {q.correctAnswers.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700 shrink-0">Đáp án chuẩn:</span>
+                          <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                            {formatReadingAnswerList(q.correctAnswers, optionMap)}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {!q.correct && q.answered ? (() => {
+                        const studentResp = attempt?.responses.find((r) => r.questionKey === q.questionKey);
+                        const studentVals = answerValues(studentResp?.answer);
+                        if (studentVals.length === 0) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200 font-medium">
+                            <span>Bạn chọn:</span>
+                            <span className="font-bold">{formatReadingAnswerList(studentVals, optionMap)}</span>
+                          </div>
+                        );
+                      })() : null}
                     </div>
-                  )}
+
+                    {(Array.isArray(q.evidenceSpans) && q.evidenceSpans.length > 0) || q.evidenceSpan ? (
+                      <Link
+                        href={`/student/${skillPath}/attempts/${attemptId}/explanations#question-${q.questionKey}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50/80 px-2.5 py-1 text-xs font-bold text-orange-800 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        title="Di chuyển tới đoạn bằng chứng được highlight trong bài"
+                      >
+                        <MagnifyingGlass size={13} weight="bold" />
+                        <span>Xem vị trí</span>
+                      </Link>
+                    ) : null}
+                  </div>
 
                   {q.explanation && (
                     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700">
@@ -335,11 +391,11 @@ function ReadingResultContent({ attemptId }: { attemptId: string }) {
       {/* Return to Practice Button */}
       <div className="pt-4 text-center">
         <Link
-          href="/student/reading"
+          href={catalogUrl}
           className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#8f4458] px-6 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#743447] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]"
         >
           <ArrowLeft size={18} />
-          Về danh sách bài thi Reading
+          Về danh sách bài thi {skillLabel}
         </Link>
       </div>
 

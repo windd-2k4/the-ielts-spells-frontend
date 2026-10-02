@@ -178,11 +178,12 @@ export const readingQuestionTypeDefinitions: ReadingQuestionTypeDefinition[] = [
   {
     type: "DIAGRAM_LABELING",
     label: "Diagram Label Completion",
-    shortLabel: "Gắn nhãn sơ đồ",
+    shortLabel: "Gắn nhãn sơ đồ / Bản đồ",
     category: "COMPLETION",
-    description: "Gắn đáp án vào các vị trí được đánh số trên hình hoặc sơ đồ.",
-    defaultInstructions: "Label the diagram below. Choose words from the passage for each answer.",
+    description: "Gắn đáp án vào các vị trí được đánh số trên hình hoặc sơ đồ (Điền từ hoặc Chọn chữ cái A–H).",
+    defaultInstructions: "Label the map or diagram below.",
     usesWordLimit: true,
+    supportsOptionBank: true,
     defaultAnswerSource: "PASSAGE",
   },
 ];
@@ -219,7 +220,6 @@ const gapTemplateTypes = new Set<QuestionTypeFormat>([
   "NOTE_COMPLETION",
   "TABLE_COMPLETION",
   "FLOW_CHART_COMPLETION",
-  "DIAGRAM_LABELING",
 ]);
 
 export function questionTypeUsesGapTemplate(type: QuestionTypeFormat, answerSource?: QuestionGroupAnswerSource) {
@@ -238,6 +238,9 @@ export function createDefaultSharedOptions(type: QuestionTypeFormat, createId: (
   }
   if (type === "MATCHING_INFORMATION") {
     return ["A", "B", "C", "D", "E"].map((code) => ({ id: createId(), code, text: `Paragraph ${code}` }));
+  }
+  if (type === "DIAGRAM_LABELING") {
+    return ["A", "B", "C", "D", "E", "F", "G", "H"].map((code) => ({ id: createId(), code, text: `Vị trí ${code}` }));
   }
   return ["A", "B", "C", "D"].map((code) => ({ id: createId(), code, text: "" }));
 }

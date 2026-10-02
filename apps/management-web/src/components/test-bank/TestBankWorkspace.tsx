@@ -17,7 +17,10 @@ import {
   Exam,
   Eye,
   GitMerge,
+  GridFour,
   Headphones,
+  Image as ImageIcon,
+  List,
   ListChecks,
   ListNumbers,
   MagnifyingGlass,
@@ -53,6 +56,7 @@ import { apiFetch } from "../../lib/api";
 import type {
   ContentLifecycleStatus,
   PassageSection,
+  QuestionGroupIllustration,
   QuestionGroupItem,
   TestBankItem,
   TestSkill,
@@ -61,6 +65,8 @@ import type {
 } from "../../library-types";
 import PublishValidationModal from "../test-builder/PublishValidationModal";
 import TestPreviewModal from "../test-builder/TestPreviewModal";
+import AuthenticatedMediaImage from "../test-builder/AuthenticatedMediaImage";
+import AiImportCoverImageField from "./AiImportCoverImageField";
 
 type Props = {
   onOpenBulkImport: () => void;
@@ -320,6 +326,21 @@ function dateLabel(value: string) {
   return date.toLocaleDateString("vi-VN");
 }
 
+function coverImageOf(test: TestBankItem): QuestionGroupIllustration | undefined {
+  const value = test.builderContent?.coverImage;
+  if (!value || typeof value !== "object") return undefined;
+  const image = value as Record<string, unknown>;
+  if (typeof image.assetId !== "string" || typeof image.fileUrl !== "string" || typeof image.filename !== "string" || typeof image.altText !== "string") return undefined;
+  return {
+    assetId: image.assetId,
+    fileUrl: image.fileUrl,
+    filename: image.filename,
+    altText: image.altText,
+    width: typeof image.width === "number" ? image.width : undefined,
+    height: typeof image.height === "number" ? image.height : undefined,
+  };
+}
+
 function normalizeToken(value: string) {
   return value.toLowerCase().replace(/[_/–—-]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -347,12 +368,33 @@ function isFormatOption(value: string): value is FormatOption {
 
 function formatOf(test: TestBankItem): FormatOption {
   const content = test.builderContent ?? {};
-  const format = typeof content.format === "string" ? content.format.toUpperCase() : "";
-  if (isFormatOption(format)) return format;
+  const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
+  if (isFormatOption(preset)) return preset;
   const tagFormat = test.tags.find((tag) => isFormatOption(tag.toUpperCase()));
   if (tagFormat) return tagFormat.toUpperCase() as FormatOption;
+  const format = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  if (isFormatOption(format)) return format;
   if (test.testType === "FULL_TEST" || test.sectionsCount > 1) return "FULL";
   return "SINGLE";
+}
+
+function usesWritingTaskImage(skill: TestSkill, format: FormatOption) {
+  return skill === "WRITING" && (format === "TASK_1" || format === "FULL");
+}
+
+function writingTaskImageOf(test: TestBankItem) {
+  const tasks = test.builderContent?.tasks;
+  if (!Array.isArray(tasks)) return undefined;
+  const task = tasks.find((value, index) => (
+    isRecord(value) && (value.taskNo === 1 || (value.taskNo !== 2 && index === 0))
+  ));
+  if (!isRecord(task) || typeof task.imageUrl !== "string" || !task.imageUrl) return undefined;
+  return {
+    fileUrl: task.imageUrl,
+    altText: typeof task.imageAltText === "string" && task.imageAltText.trim()
+      ? task.imageAltText
+      : `Hình minh họa Writing Task 1 của đề ${test.title}`,
+  };
 }
 
 function readPassages(content?: Record<string, unknown>): PassageSection[] {
@@ -497,12 +539,24 @@ function emptySpeakingPart(partNo: 1 | 2 | 3) {
   };
 }
 
-function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBankItem[]) {
+function emptyListeningPart(partNo: number) {
+  return {
+    id: newId(`part-${partNo}`),
+    partNo,
+    title: `Listening Part ${partNo}`,
+    transcriptHtml: "",
+    questionGroups: [],
+  };
+}
+
+function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBankItem[], coverImage?: QuestionGroupIllustration) {
+  const taskImageIsContent = usesWritingTaskImage(form.skill, form.format);
   const base = {
     format: form.format,
     expectedQuestions: expectedQuestionCount(form.skill, form.format),
     authoringSkill: form.skill,
     createdFrom: "TEST_BANK_CREATE_MODAL",
+    ...(coverImage && !taskImageIsContent ? { coverImage } : {}),
   };
 
   if (form.skill === "READING") {
@@ -524,13 +578,19 @@ function buildBuilderContent(form: CreateTestForm, selectedSourceTests: TestBank
   }
 
   if (form.skill === "LISTENING") {
+    const isFull = form.format === "FULL";
+    const partNo = form.format === "SECTION_2" ? 2
+      : form.format === "SECTION_3" ? 3
+      : form.format === "SECTION_4" ? 4
+      : 1;
+    const parts = isFull
+      ? [1, 2, 3, 4].map(emptyListeningPart)
+      : [emptyListeningPart(partNo)];
     return {
       ...base,
       sectionsPreset: form.format,
-      listeningParts: [],
-      transcriptText: "",
-      questionGroups: [],
-      audioDurationSeconds: 0,
+      format: form.format,
+      parts,
     };
   }
 
@@ -806,14 +866,21 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const [skillFilter, setSkillFilter] = useState<TestSkill | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<ContentLifecycleStatus | "ALL">("ALL");
   const [formatFilter, setFormatFilter] = useState<FormatOption>("ALL");
+  const [viewMode, setViewMode] = useState<"GRID" | "LIST">("LIST");
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>([]);
   const [publishingTest, setPublishingTest] = useState<TestBankItem | null>(null);
   const [previewTest, setPreviewTest] = useState<TestBankItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [createForm, setCreateForm] = useState<CreateTestForm>(defaultCreateForm);
+  const [createCoverImage, setCreateCoverImage] = useState<QuestionGroupIllustration>();
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [coverEditorTest, setCoverEditorTest] = useState<TestBankItem | null>(null);
+  const [coverDraft, setCoverDraft] = useState<QuestionGroupIllustration>();
+  const [coverError, setCoverError] = useState("");
+  const [savingCover, setSavingCover] = useState(false);
+  const [revisingTestId, setRevisingTestId] = useState<string>();
   const canPublish = roles.includes("admin");
 
   useEffect(() => {
@@ -879,6 +946,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const selectedSourceTests = selectedSourceIds
     .map((id) => readingSingleSources.find((test) => test.id === id))
     .filter((test): test is TestBankItem => Boolean(test));
+  const createUsesWritingTaskImage = usesWritingTaskImage(createForm.skill, createForm.format);
 
   function handleSelectSkillFormat(skill: AuthoringSkill, format: FormatOption) {
     setSkillFilter(skill);
@@ -921,12 +989,17 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   function closeCreateModal() {
     setShowCreateModal(false);
     setCreateForm(defaultCreateForm);
+    setCreateCoverImage(undefined);
     setSelectedSourceIds([]);
     setCreating(false);
   }
 
   async function handleCreateTest() {
     if (!createForm.title.trim()) return;
+    if (!createUsesWritingTaskImage && createCoverImage && !createCoverImage.altText.trim()) {
+      setError("Hãy thêm mô tả cho ảnh minh họa trước khi tạo đề.");
+      return;
+    }
     setCreating(true);
     setError("");
     try {
@@ -941,7 +1014,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           durationMinutes: createForm.durationMinutes,
           version: "v1.0",
           tags,
-          builderContent: buildBuilderContent(createForm, selectedSourceTests),
+          builderContent: buildBuilderContent(createForm, selectedSourceTests, createCoverImage),
         }),
       });
       setTests((current) => [created, ...current]);
@@ -966,6 +1039,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
 
   async function handleCreateRevision(test: TestBankItem) {
     setError("");
+    setRevisingTestId(test.id);
     try {
       const draft = await apiFetch<TestBankItem>(`/admin/test-bank/${test.id}/revisions`, {
         method: "POST",
@@ -975,6 +1049,8 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       navigate(`/test-builder/${draft.skill.toLowerCase()}/${draft.id}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể tạo bản chỉnh sửa từ phiên bản đã xuất bản.");
+    } finally {
+      setRevisingTestId(undefined);
     }
   }
 
@@ -989,6 +1065,132 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể trả đề về nháp.");
     }
+  }
+
+  function openCoverEditor(test: TestBankItem) {
+    setCoverEditorTest(test);
+    setCoverDraft(coverImageOf(test));
+    setCoverError("");
+  }
+
+  async function saveCoverImage() {
+    if (!coverEditorTest) return;
+    if (coverDraft && !coverDraft.altText.trim()) {
+      setCoverError("Hãy thêm mô tả ngắn cho ảnh minh họa.");
+      return;
+    }
+    const builderContent = { ...(coverEditorTest.builderContent ?? {}) };
+    if (coverDraft) builderContent.coverImage = coverDraft;
+    else delete builderContent.coverImage;
+
+    setSavingCover(true);
+    setCoverError("");
+    try {
+      const updated = await apiFetch<TestBankItem>(`/admin/test-bank/${coverEditorTest.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: coverEditorTest.title,
+          description: coverEditorTest.description ?? null,
+          skill: coverEditorTest.skill,
+          testType: coverEditorTest.testType,
+          durationMinutes: coverEditorTest.durationMinutes,
+          version: coverEditorTest.version,
+          tags: coverEditorTest.tags,
+          draftRevision: coverEditorTest.draftRevision,
+          builderContent,
+        }),
+      });
+      setTests((current) => current.map((test) => test.id === updated.id ? updated : test));
+      setCoverEditorTest(null);
+      setCoverDraft(undefined);
+    } catch (reason) {
+      setCoverError(reason instanceof Error ? reason.message : "Không thể lưu ảnh minh họa.");
+    } finally {
+      setSavingCover(false);
+    }
+  }
+
+  function renderTestActions(test: TestBankItem) {
+    const actionClass = "grid h-11 w-11 shrink-0 place-items-center rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30";
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => setPreviewTest(test)}
+          className={`${actionClass} text-[#746A6E] hover:bg-[#f1eef4]`}
+          title="Xem trước"
+          aria-label={`Xem trước ${test.title}`}
+        >
+          <Eye size={17} />
+        </button>
+        {test.status === "DRAFT" && (
+          <Link
+            to={`/test-builder/${test.skill.toLowerCase()}/${test.id}`}
+            className={`${actionClass} text-[#8f4458] hover:bg-[#f7e7ec]`}
+            title="Mở Test Builder"
+            aria-label={`Mở Test Builder cho ${test.title}`}
+          >
+            <NotePencil size={17} />
+          </Link>
+        )}
+        {test.status === "PUBLISHED" && (
+          <button
+            type="button"
+            onClick={() => void handleCreateRevision(test)}
+            disabled={revisingTestId === test.id}
+            className={`${actionClass} text-[#8f4458] hover:bg-[#f7e7ec]`}
+            title="Tạo bản chỉnh sửa để cập nhật ảnh và nội dung"
+            aria-label={`Tạo bản chỉnh sửa để cập nhật ảnh và nội dung cho ${test.title}`}
+          >
+            {revisingTestId === test.id ? <SpinnerGap size={17} className="animate-spin" /> : <NotePencil size={17} />}
+          </button>
+        )}
+        {test.status === "DRAFT" && (
+          <button
+            type="button"
+            onClick={() => setPublishingTest(test)}
+            className={`${actionClass} text-[#237653] hover:bg-emerald-50`}
+            title={canPublish ? "Xuất bản" : "Gửi duyệt"}
+            aria-label={`${canPublish ? "Xuất bản" : "Gửi duyệt"} ${test.title}`}
+          >
+            <ShieldCheck size={17} />
+          </button>
+        )}
+        {test.status === "IN_REVIEW" && canPublish && (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleReturnToDraft(test)}
+              className={`${actionClass} text-[#8f4458] hover:bg-[#f7e7ec]`}
+              title="Trả về nháp"
+              aria-label={`Trả ${test.title} về nháp`}
+            >
+              <PencilSimpleLine size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPublishingTest(test)}
+              className={`${actionClass} text-[#237653] hover:bg-emerald-50`}
+              title="Duyệt và xuất bản"
+              aria-label={`Duyệt và xuất bản ${test.title}`}
+            >
+              <ShieldCheck size={17} />
+            </button>
+          </>
+        )}
+        {test.status !== "ARCHIVED" && (
+          <button
+            type="button"
+            onClick={() => void handleArchive(test)}
+            className={`${actionClass} text-[#b4232d] hover:bg-rose-50`}
+            title="Archive đề"
+            aria-label={`Archive ${test.title}`}
+          >
+            <Trash size={17} />
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1218,142 +1420,279 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                   {loading ? "Đang tải..." : `Hiển thị ${filteredTests.length} đề`}
                 </p>
               </div>
-              <span className="rounded-full bg-[#f7e7ec] px-3 py-1 text-[11px] font-bold text-[#8f4458]">
-                API-backed
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="hidden text-xs font-bold text-[#746A6E] sm:inline">Hiển thị:</span>
+                <div className="inline-flex rounded-xl border border-[#e3dce2] bg-white p-0.5" role="group" aria-label="Chế độ hiển thị ngân hàng đề">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("LIST")}
+                    aria-pressed={viewMode === "LIST"}
+                    className={`grid h-11 w-11 place-items-center rounded-lg transition ${viewMode === "LIST" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"}`}
+                    title="Hiển thị dạng danh sách"
+                    aria-label="Hiển thị dạng danh sách"
+                  >
+                    <List size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("GRID")}
+                    aria-pressed={viewMode === "GRID"}
+                    className={`grid h-11 w-11 place-items-center rounded-lg transition ${viewMode === "GRID" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"}`}
+                    title="Hiển thị dạng lưới"
+                    aria-label="Hiển thị dạng lưới"
+                  >
+                    <GridFour size={18} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-collapse text-left text-xs">
-                <thead>
-                  <tr className="bg-[#f1eef4] text-[11px] font-bold uppercase tracking-wider text-[#746A6E]">
-                    <th className="p-3.5">Mã &amp; tên đề</th>
-                    <th className="p-3.5">Kỹ năng</th>
-                    <th className="p-3.5">Cấu trúc</th>
-                    <th className="p-3.5">Số câu</th>
-                    <th className="p-3.5">Thời lượng</th>
-                    <th className="p-3.5">Phiên bản</th>
-                    <th className="p-3.5">Cập nhật</th>
-                    <th className="p-3.5">Trạng thái</th>
-                    <th className="p-3.5 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#e3dce2]">
-                  {loading && (
-                    <tr>
-                      <td colSpan={9} className="p-10 text-center text-[#746A6E]">
-                        <SpinnerGap className="mr-2 inline animate-spin" />
-                        Đang tải dữ liệu...
-                      </td>
+            {viewMode === "LIST" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1040px] table-fixed border-collapse text-left text-xs">
+                  <caption className="sr-only">Danh sách đề thi trong ngân hàng đề</caption>
+                  <colgroup>
+                    <col className="w-[38%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-y border-[#e3dce2] bg-[#f4f0f3] text-[11px] font-bold uppercase tracking-[0.08em] text-[#746A6E]">
+                      <th scope="col" className="px-5 py-3">Đề thi</th>
+                      <th scope="col" className="px-4 py-3">Phân loại</th>
+                      <th scope="col" className="px-4 py-3">Quy mô</th>
+                      <th scope="col" className="px-4 py-3">Phiên bản</th>
+                      <th scope="col" className="px-4 py-3">Trạng thái</th>
+                      <th scope="col" className="px-4 py-3 text-right">Thao tác</th>
                     </tr>
-                  )}
-                  {!loading && filteredTests.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-10 text-center text-[#746A6E]">
-                        Chưa có đề thi phù hợp với bộ lọc hiện tại.
-                      </td>
-                    </tr>
-                  )}
-                  {filteredTests.map((test) => (
-                    <tr key={test.id} className="transition hover:bg-[#f8f6fa]/80">
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-3">
-                          {renderSkillAvatar(test.skill)}
-                          <div className="min-w-0">
-                            <span className="font-bold text-[#8f4458]">{test.code}</span>
-                            <p className="max-w-[320px] truncate font-bold text-[#211A1D]">{test.title}</p>
-                            {renderTags(test.tags)}
+                  </thead>
+                  <tbody className="divide-y divide-[#e3dce2] bg-white">
+                    {loading && (
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-[#746A6E]">
+                          <SpinnerGap className="mr-2 inline animate-spin" />
+                          Đang tải dữ liệu...
+                        </td>
+                      </tr>
+                    )}
+                    {!loading && filteredTests.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-[#746A6E]">
+                          Chưa có đề thi phù hợp với bộ lọc hiện tại.
+                        </td>
+                      </tr>
+                    )}
+                    {!loading && filteredTests.map((test) => {
+                      const format = formatOf(test);
+                      const usesTaskImage = usesWritingTaskImage(test.skill, format);
+                      const thumbnailImage = usesTaskImage ? writingTaskImageOf(test) : coverImageOf(test);
+                      const thumbnail = thumbnailImage ? (
+                        <AuthenticatedMediaImage
+                          fileUrl={thumbnailImage.fileUrl}
+                          alt={thumbnailImage.altText || `Ảnh minh họa đề ${test.title}`}
+                          className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <span className="flex h-full flex-col items-center justify-center gap-1 bg-[#f4f0f3] text-[#8f4458]">
+                          <ImageIcon size={20} weight="duotone" />
+                          <span className="text-[10px] font-bold">
+                            {test.status === "DRAFT" ? "Thêm ảnh" : "Chưa có ảnh"}
+                          </span>
+                        </span>
+                      );
+                      const thumbnailClass = "group relative block h-[72px] w-24 shrink-0 overflow-hidden rounded-xl border border-[#e3dce2] bg-[#f4f0f3] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]";
+
+                      return (
+                        <tr key={test.id} className="align-middle transition-colors hover:bg-[#faf8f9]">
+                          <td className="px-5 py-3.5">
+                            <div className="flex min-w-0 items-center gap-3.5">
+                              {test.status === "DRAFT" ? (
+                                usesTaskImage ? (
+                                  <Link
+                                    to={`/test-builder/writing/${test.id}`}
+                                    className={thumbnailClass}
+                                    aria-label={`${thumbnailImage ? "Sửa" : "Thêm"} ảnh đề bài Writing Task 1 cho ${test.title}`}
+                                  >
+                                    {thumbnail}
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => openCoverEditor(test)}
+                                    className={thumbnailClass}
+                                    aria-label={`${thumbnailImage ? "Thay" : "Thêm"} ảnh minh họa cho ${test.title}`}
+                                  >
+                                    {thumbnail}
+                                  </button>
+                                )
+                              ) : test.status === "PUBLISHED" ? (
+                                <button
+                                  type="button"
+                                  disabled={revisingTestId === test.id}
+                                  onClick={() => void handleCreateRevision(test)}
+                                  className={`${thumbnailClass} disabled:cursor-wait disabled:opacity-70`}
+                                  aria-label={`Tạo bản chỉnh sửa để ${thumbnailImage ? "thay" : "thêm"} ảnh cho ${test.title}`}
+                                >
+                                  {thumbnail}
+                                  {revisingTestId === test.id && (
+                                    <span className="absolute inset-0 grid place-items-center bg-white/80 text-[#8f4458]">
+                                      <SpinnerGap size={20} className="animate-spin" />
+                                    </span>
+                                  )}
+                                </button>
+                              ) : (
+                                <div className={thumbnailClass}>{thumbnail}</div>
+                              )}
+
+                              <div className="min-w-0">
+                                <span className="block truncate text-[11px] font-extrabold tracking-[0.04em] text-[#8f4458]">{test.code}</span>
+                                <p className="mt-0.5 line-clamp-2 max-w-[360px] font-display text-sm font-extrabold leading-5 text-[#211A1D]" title={test.title}>{test.title}</p>
+                                {renderTags(test.tags)}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex flex-col items-start gap-2">
+                              {renderSkillBadge(test.skill)}
+                              {renderFormatBadge(test)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="block font-bold text-[#211A1D]">{test.totalQuestions} câu</span>
+                            <span className="mt-1 block font-medium text-[#746A6E]">{test.durationMinutes} phút</span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="block font-bold text-[#8f4458]">{test.publishedVersion?.versionLabel ?? test.version}</span>
+                            <span className="mt-1 block font-medium text-[#746A6E]">{dateLabel(test.updatedAt)}</span>
+                          </td>
+                          <td className="px-4 py-3.5">{statusBadge(test.status)}</td>
+                          <td className="px-4 py-3.5 text-right">{renderTestActions(test)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-4">
+                {loading && (
+                  <div className="grid min-h-48 place-items-center text-sm font-semibold text-[#746A6E]">
+                    <span><SpinnerGap className="mr-2 inline animate-spin" />Đang tải dữ liệu...</span>
+                  </div>
+                )}
+                {!loading && filteredTests.length === 0 && (
+                  <div className="grid min-h-48 place-items-center text-sm text-[#746A6E]">
+                    Chưa có đề thi phù hợp với bộ lọc hiện tại.
+                  </div>
+                )}
+                {!loading && filteredTests.length > 0 && (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {filteredTests.map((test) => {
+                      const format = formatOf(test);
+                      const usesTaskImage = usesWritingTaskImage(test.skill, format);
+                      const thumbnailImage = usesTaskImage ? writingTaskImageOf(test) : coverImageOf(test);
+                      const coverContent = thumbnailImage ? (
+                        <AuthenticatedMediaImage
+                          fileUrl={thumbnailImage.fileUrl}
+                          alt={thumbnailImage.altText || `Ảnh minh họa đề ${test.title}`}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <span className="flex h-full flex-col items-center justify-center gap-2 bg-[#f4f0f3] text-[#8f4458]">
+                          <ImageIcon size={26} weight="duotone" />
+                          <span className="text-[11px] font-bold">
+                            {usesTaskImage && test.status === "DRAFT"
+                              ? "Thêm ảnh trong Writing Builder"
+                              : test.status === "DRAFT" ? "Thêm ảnh minh họa" : "Chưa có ảnh minh họa"}
+                          </span>
+                        </span>
+                      );
+
+                      return (
+                        <article key={test.id} className="flex h-full min-h-[330px] flex-col overflow-hidden rounded-2xl border border-[#e3dce2] bg-white transition-colors hover:border-[#8f4458]/45 hover:shadow-sm">
+                          <div className="relative h-32 overflow-hidden border-b border-[#e3dce2]">
+                            {test.status === "DRAFT" ? (
+                              usesTaskImage ? (
+                                <Link
+                                  to={`/test-builder/writing/${test.id}`}
+                                  className="group block h-full w-full overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8f4458]"
+                                  aria-label={`${thumbnailImage ? "Sửa" : "Thêm"} ảnh đề bài Writing Task 1 cho ${test.title}`}
+                                >
+                                  {coverContent}
+                                  {thumbnailImage && (
+                                    <span className="absolute bottom-2 right-2 rounded-lg bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                                      Sửa trong Builder
+                                    </span>
+                                  )}
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openCoverEditor(test)}
+                                  className="group block h-full w-full overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8f4458]"
+                                  aria-label={thumbnailImage ? `Thay ảnh minh họa cho ${test.title}` : `Thêm ảnh minh họa cho ${test.title}`}
+                                >
+                                  {coverContent}
+                                  {thumbnailImage && (
+                                    <span className="absolute bottom-2 right-2 rounded-lg bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                                      Thay ảnh
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            ) : test.status === "PUBLISHED" ? (
+                              <button
+                                type="button"
+                                disabled={revisingTestId === test.id}
+                                onClick={() => void handleCreateRevision(test)}
+                                className="group block h-full w-full overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8f4458] disabled:cursor-wait"
+                                aria-label={`Tạo bản chỉnh sửa để ${thumbnailImage ? "thay" : "thêm"} ảnh cho ${test.title}`}
+                              >
+                                {coverContent}
+                                <span className="absolute bottom-2 right-2 rounded-lg bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm transition group-hover:bg-[#743447] group-focus-visible:bg-[#743447]">
+                                  {revisingTestId === test.id ? "Đang tạo bản nháp..." : "Tạo bản chỉnh sửa"}
+                                </span>
+                              </button>
+                            ) : (
+                              <div className="group h-full w-full">{coverContent}</div>
+                            )}
+                            {usesTaskImage && thumbnailImage && (
+                              <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-1 text-[10px] font-bold text-[#743447] backdrop-blur-sm">
+                                Ảnh đề bài
+                              </span>
+                            )}
+                            <span className="absolute right-3 top-3">{statusBadge(test.status)}</span>
                           </div>
-                        </div>
-                      </td>
-                      <td className="p-3.5">{renderSkillBadge(test.skill)}</td>
-                      <td className="p-3.5">{renderFormatBadge(test)}</td>
-                      <td className="p-3.5 font-bold text-[#211A1D]">{test.totalQuestions} câu</td>
-                      <td className="p-3.5 font-medium text-[#746A6E]">{test.durationMinutes} phút</td>
-                      <td className="p-3.5 font-bold text-[#8f4458]">{test.publishedVersion?.versionLabel ?? test.version}</td>
-                      <td className="p-3.5 text-[#746A6E]">{dateLabel(test.updatedAt)}</td>
-                      <td className="p-3.5">{statusBadge(test.status)}</td>
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewTest(test)}
-                            className="rounded-lg p-1.5 text-[#746A6E] hover:bg-[#f1eef4]"
-                            title="Xem trước"
-                            aria-label={`Xem trước ${test.title}`}
-                          >
-                            <Eye size={16} />
-                          </button>
-                          {test.status === "DRAFT" && <Link
-                            to={`/test-builder/${test.skill.toLowerCase()}/${test.id}`}
-                            className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
-                            title="Mở Test Builder"
-                            aria-label={`Mở Test Builder cho ${test.title}`}
-                          >
-                            <NotePencil size={16} />
-                          </Link>}
-                          {test.status === "PUBLISHED" && (
-                            <button
-                              type="button"
-                              onClick={() => void handleCreateRevision(test)}
-                              className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
-                              title="Tạo bản chỉnh sửa"
-                              aria-label={`Tạo bản chỉnh sửa cho ${test.title}`}
-                            >
-                              <NotePencil size={16} />
-                            </button>
-                          )}
-                          {test.status === "DRAFT" && (
-                            <button
-                              type="button"
-                              onClick={() => setPublishingTest(test)}
-                              className="rounded-lg p-1.5 text-[#237653] hover:bg-emerald-50"
-                              title={canPublish ? "Xuất bản" : "Gửi duyệt"}
-                              aria-label={`${canPublish ? "Xuất bản" : "Gửi duyệt"} ${test.title}`}
-                            >
-                              <ShieldCheck size={16} />
-                            </button>
-                          )}
-                          {test.status === "IN_REVIEW" && canPublish && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void handleReturnToDraft(test)}
-                                className="rounded-lg p-1.5 text-[#8f4458] hover:bg-[#f7e7ec]"
-                                title="Trả về nháp"
-                                aria-label={`Trả ${test.title} về nháp`}
-                              >
-                                <PencilSimpleLine size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPublishingTest(test)}
-                                className="rounded-lg p-1.5 text-[#237653] hover:bg-emerald-50"
-                                title="Duyệt và xuất bản"
-                                aria-label={`Duyệt và xuất bản ${test.title}`}
-                              >
-                                <ShieldCheck size={16} />
-                              </button>
-                            </>
-                          )}
-                          {test.status !== "ARCHIVED" && (
-                            <button
-                              type="button"
-                              onClick={() => void handleArchive(test)}
-                              className="rounded-lg p-1.5 text-[#b4232d] hover:bg-rose-50"
-                              title="Archive đề"
-                              aria-label={`Archive ${test.title}`}
-                            >
-                              <Trash size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+
+                          <div className="flex flex-1 flex-col p-4">
+                            <span className="truncate text-[11px] font-bold text-[#8f4458]">{test.code}</span>
+                            <h3 className="mt-1 line-clamp-2 min-h-10 font-display text-sm font-extrabold leading-5 text-[#211A1D]" title={test.title}>
+                              {test.title}
+                            </h3>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {renderSkillBadge(test.skill)}
+                              {renderFormatBadge(test)}
+                            </div>
+
+                            <p className="mt-3 text-[11px] font-medium text-[#746A6E]">
+                              {test.totalQuestions} câu <span aria-hidden="true">·</span> {test.durationMinutes} phút <span aria-hidden="true">·</span> Cập nhật {dateLabel(test.updatedAt)}
+                            </p>
+
+                            <div className="mt-auto flex items-center justify-end border-t border-[#e3dce2] pt-3">
+                              {renderTestActions(test)}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -1546,6 +1885,35 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                     className="w-full rounded-xl border border-[#e3dce2] p-3 text-sm focus:border-[#8f4458] focus:outline-none"
                   />
                 </div>
+
+                {createUsesWritingTaskImage ? (
+                  <section className="flex items-start gap-3 rounded-[22px] border border-[#DED7DA] bg-[#F7F5F4] p-5" aria-labelledby="writing-task-image-note">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#F7E5EA] text-[#AD4C64]">
+                      <ImageIcon size={22} weight="duotone" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h2 id="writing-task-image-note" className="font-display text-base font-bold text-[#292528]">Ảnh đề bài Task 1</h2>
+                      <p className="mt-1 text-xs leading-5 text-[#6F676C]">
+                        Sau khi tạo draft, hãy tải biểu đồ, bản đồ hoặc quy trình trong Writing Builder. Hệ thống sẽ tự dùng chính ảnh đó làm thumbnail ngoài Ngân hàng đề.
+                      </p>
+                    </div>
+                  </section>
+                ) : (
+                  <>
+                    <AiImportCoverImageField
+                      value={createCoverImage}
+                      onChange={(value) => {
+                        setCreateCoverImage(value);
+                        setError("");
+                      }}
+                    />
+                    {createCoverImage && !createCoverImage.altText.trim() && (
+                      <p className="text-xs font-semibold text-red-600" role="alert">
+                        Hãy thêm mô tả ngắn cho ảnh minh họa.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
               <aside className="space-y-4">
@@ -1596,11 +1964,73 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               <button
                 type="button"
                 onClick={() => void handleCreateTest()}
-                disabled={!createForm.title.trim() || createForm.durationMinutes <= 0 || creating}
+                disabled={!createForm.title.trim() || createForm.durationMinutes <= 0 || creating || Boolean(!createUsesWritingTaskImage && createCoverImage && !createCoverImage.altText.trim())}
                 className="inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {creating ? <SpinnerGap size={16} className="animate-spin" /> : <Plus size={16} weight="bold" />}
                 {creating ? "Đang tạo..." : "Tạo draft & mở builder"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {coverEditorTest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cover-editor-title">
+          <div className="custom-scrollbar max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[24px] bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-[#e3dce2] p-6">
+              <div className="min-w-0">
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#8f4458]">Ảnh nhận diện đề</span>
+                <h3 id="cover-editor-title" className="mt-1 truncate font-display text-xl font-extrabold text-[#211A1D]">
+                  {coverEditorTest.title}
+                </h3>
+                <p className="mt-1 text-sm text-[#746A6E]">Ảnh ngang, rõ chủ đề sẽ giúp giáo viên tìm đúng đề nhanh hơn.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCoverEditorTest(null);
+                  setCoverDraft(undefined);
+                  setCoverError("");
+                }}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#e3dce2] text-[#746A6E] hover:bg-[#f1eef4]"
+                aria-label="Đóng chỉnh sửa ảnh minh họa"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="p-6">
+              <AiImportCoverImageField
+                value={coverDraft}
+                onChange={(value) => {
+                  setCoverDraft(value);
+                  setCoverError("");
+                }}
+              />
+              {coverError && <p className="mt-3 text-xs font-semibold text-red-600" role="alert">{coverError}</p>}
+            </div>
+
+            <footer className="flex items-center justify-between gap-3 border-t border-[#e3dce2] p-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setCoverEditorTest(null);
+                  setCoverDraft(undefined);
+                  setCoverError("");
+                }}
+                className="min-h-[42px] rounded-xl border border-[#e3dce2] px-4 text-xs font-bold text-[#211A1D] hover:bg-[#f1eef4]"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveCoverImage()}
+                disabled={savingCover || Boolean(coverDraft && !coverDraft.altText.trim())}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingCover ? <SpinnerGap size={16} className="animate-spin" /> : <ImageIcon size={16} weight="bold" />}
+                {savingCover ? "Đang lưu..." : "Lưu ảnh minh họa"}
               </button>
             </footer>
           </div>

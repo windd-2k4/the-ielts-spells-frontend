@@ -1,4 +1,4 @@
-import type { LibrarySkill } from "../../library-types";
+import type { LearningResourceType, LibrarySkill } from "../../library-types";
 
 export const SKILLS: { id: LibrarySkill; label: string; note: string }[] = [
   { id: "LISTENING", label: "Listening", note: "Audio, bộ đề, key, vocab và phương pháp nghe" },
@@ -40,7 +40,30 @@ export const RESOURCE_TYPES = [
   ["ANSWER_KEY", "Answer key"], ["VOCABULARY", "Vocabulary"],
 ].map(([value, label]) => ({ value, label }));
 
-export function categoryLabel(skill: LibrarySkill, value: string) {
-  return CATEGORIES[skill].find(item => item.value === value)?.label ?? value;
+export const RESOURCE_TYPE_LABELS: Record<LearningResourceType, string> = {
+  DOCUMENT: "Tài liệu",
+  AUDIO: "Audio",
+  VIDEO: "Video",
+  DRIVE_LINK: "Liên kết",
+  TEACHER_NOTE: "Ghi chú giáo viên",
+  ANSWER_KEY: "Đáp án",
+  VOCABULARY: "Từ vựng",
+};
+
+export const SKILL_LABELS: Record<LibrarySkill, string> = Object.fromEntries(
+  SKILLS.map(skill => [skill.id, skill.label]),
+) as Record<LibrarySkill, string>;
+
+export const ALL_CATEGORIES = Array.from(
+  new Map(
+    Object.values(CATEGORIES)
+      .flat()
+      .map(category => [category.value, category.label]),
+  ),
+).map(([value, label]) => ({ value, label }));
+
+export function categoryLabel(skill: LibrarySkill | string, value: string) {
+  const options = CATEGORIES[skill as LibrarySkill] ?? Object.values(CATEGORIES).flat();
+  return options.find(item => item.value === value)?.label ?? value;
 }
 

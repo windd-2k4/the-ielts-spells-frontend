@@ -29,7 +29,6 @@
 
 .main {
   width: 100%;
-  max-width: 1500px;
   min-height: calc(100dvh - 126px);
   margin: 0 auto;
   padding: 30px 34px 64px;

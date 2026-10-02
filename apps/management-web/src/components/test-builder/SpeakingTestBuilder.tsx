@@ -7,11 +7,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import type {
   IELTSSpeakingRubric, SpeakingHintOption, SpeakingHintStep,
-  SpeakingPartSection, SpeakingQuestionItem, TestBankItem,
+  QuestionGroupIllustration, SpeakingPartSection, SpeakingQuestionItem, TestBankItem,
 } from "../../library-types";
 import { apiFetch } from "../../lib/api";
 import PublishValidationModal from "./PublishValidationModal";
 import TestPreviewModal from "./TestPreviewModal";
+import TestCoverImageControl, { testCoverImageOf, withTestCoverImage } from "./TestCoverImageControl";
 
 const DEFAULT_RUBRIC: IELTSSpeakingRubric = {
   fluencyCoherenceWeight: 25,
@@ -182,6 +183,7 @@ export default function SpeakingTestBuilder() {
   const { roles } = useAuth();
   const [test, setTest] = useState<TestBankItem | null>(null);
   const [title, setTitle] = useState("");
+  const [coverImage, setCoverImage] = useState<QuestionGroupIllustration>();
   const [parts, setParts] = useState<SpeakingPartSection[]>([]);
   const [activePartId, setActivePartId] = useState("");
   const [activeQuestionId, setActiveQuestionId] = useState("");
@@ -199,7 +201,7 @@ export default function SpeakingTestBuilder() {
       .then((record) => {
         if (!active) return;
         const normalized = normalizeParts(record);
-        setTest(record); setTitle(record.title); setParts(normalized);
+        setTest(record); setTitle(record.title); setParts(normalized); setCoverImage(testCoverImageOf(record.builderContent));
         setActivePartId(normalized[0]?.id ?? "");
         setActiveQuestionId(normalized[0]?.questions?.[0]?.id ?? "");
       })
@@ -215,8 +217,8 @@ export default function SpeakingTestBuilder() {
   const durationMinutes = Math.max(1, Math.ceil(parts.reduce((sum, part) => sum + Math.max(0, part.preparationTimeSeconds) + Math.max(0, part.answerTimeSeconds) * Math.max(1, part.questions?.length ?? part.followUpQuestions.length), 0) / 60));
   const draftTest = useMemo<TestBankItem | null>(() => test ? ({
     ...test, title, sectionsCount: parts.length, totalQuestions, durationMinutes,
-    builderContent: { ...(test.builderContent ?? {}), format: parts.length === 3 ? "FULL" : `PART_${parts[0]?.partNo ?? 1}`, sectionsPreset: parts.length === 3 ? "FULL" : `PART_${parts[0]?.partNo ?? 1}`, parts },
-  }) : null, [durationMinutes, parts, test, title, totalQuestions]);
+    builderContent: withTestCoverImage({ ...(test.builderContent ?? {}), format: parts.length === 3 ? "FULL" : `PART_${parts[0]?.partNo ?? 1}`, sectionsPreset: parts.length === 3 ? "FULL" : `PART_${parts[0]?.partNo ?? 1}`, parts }, coverImage),
+  }) : null, [coverImage, durationMinutes, parts, test, title, totalQuestions]);
   const canPublish = roles.includes("admin");
   const workflowStatus = canPublish ? "PUBLISHED" : "IN_REVIEW";
   const workflowLabel = canPublish ? "Xuất bản" : "Gửi duyệt";
@@ -248,7 +250,7 @@ export default function SpeakingTestBuilder() {
     if (loading || !test || test.status !== "DRAFT") return undefined;
     const timeout = window.setTimeout(() => { void saveDraft(); }, 1600);
     return () => window.clearTimeout(timeout);
-  }, [loading, parts, title]);
+  }, [coverImage, loading, parts, title]);
 
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#F7F5F4]"><p className="flex items-center gap-2 text-sm font-semibold text-[#6F676C]"><SpinnerGap size={20} className="animate-spin" /> Đang tải đề Speaking...</p></div>;
   if (!test || !activePart || !draftTest) return <div className="grid min-h-screen place-items-center bg-[#F7F5F4] p-6 text-center"><div><WarningCircle size={32} className="mx-auto text-[#B42335]" /><h1 className="mt-3 text-xl font-bold">Không thể mở Speaking Builder</h1><p className="mt-2 text-sm text-[#6F676C]">{error || "Đề chưa có cấu hình hợp lệ."}</p><Link to="/test-bank" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#AD4C64] px-4 text-sm font-bold text-white">Quay lại ngân hàng đề</Link></div></div>;
@@ -258,7 +260,7 @@ export default function SpeakingTestBuilder() {
   return <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#F7F5F4] text-[#292528]">
     <header className="z-30 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#DED7DA] bg-white px-4 py-2 lg:px-6">
       <div className="flex min-w-0 items-center gap-3"><Link to="/test-bank" aria-label="Quay lại ngân hàng đề" className="grid size-11 shrink-0 place-items-center rounded-xl text-[#6F676C] hover:bg-[#F2ECEE] focus:outline-none focus:ring-2 focus:ring-[#C85F78]"><ArrowLeft size={19} /></Link><div className="min-w-0"><input value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Tên đề Speaking" className="w-full min-w-0 border-b border-transparent bg-transparent text-base font-bold focus:border-[#C85F78] focus:outline-none sm:min-w-80" /><p className="text-[11px] text-[#6F676C]">Speaking Builder • {parts.length === 3 ? "Full test" : `Part ${activePart.partNo}`} • {totalQuestions} câu</p></div></div>
-      <div className="flex items-center gap-2">{lastSavedAt && <span className="hidden items-center gap-1 text-[11px] font-semibold text-[#247052] xl:flex"><CheckCircle size={15} /> Đã lưu {lastSavedAt}</span>}<button type="button" onClick={() => void saveDraft()} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#DED7DA] px-3 text-xs font-bold disabled:opacity-50"><FloppyDisk size={17} />{saving ? "Đang lưu" : "Lưu nháp"}</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#AD4C64] px-3 text-xs font-bold text-[#AD4C64]"><Eye size={17} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#AD4C64] px-4 text-xs font-bold text-white"><ShieldCheck size={17} /> {workflowLabel}</button></div>
+      <div className="flex items-center gap-2">{lastSavedAt && <span className="hidden items-center gap-1 text-[11px] font-semibold text-[#247052] xl:flex"><CheckCircle size={15} /> Đã lưu {lastSavedAt}</span>}<TestCoverImageControl value={coverImage} onChange={setCoverImage} /><button type="button" onClick={() => void saveDraft()} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#DED7DA] px-3 text-xs font-bold disabled:opacity-50"><FloppyDisk size={17} />{saving ? "Đang lưu" : "Lưu nháp"}</button><button type="button" onClick={() => setShowPreview(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#AD4C64] px-3 text-xs font-bold text-[#AD4C64]"><Eye size={17} /> Xem trước</button><button type="button" onClick={() => { void saveDraft().then((saved) => { if (saved) setShowValidation(true); }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#AD4C64] px-4 text-xs font-bold text-white"><ShieldCheck size={17} /> {workflowLabel}</button></div>
     </header>
     <nav aria-label="Các phần Speaking" className="flex h-12 shrink-0 items-end gap-1 overflow-x-auto border-b border-[#DED7DA] bg-[#F2ECEE] px-5">{parts.map((part) => <button key={part.id} type="button" onClick={() => { setActivePartId(part.id); setActiveQuestionId(part.questions?.[0]?.id ?? ""); }} aria-current={part.id === activePart.id ? "page" : undefined} className={`min-h-10 rounded-t-xl px-5 text-xs font-bold ${part.id === activePart.id ? "bg-white text-[#AD4C64]" : "text-[#6F676C]"}`}>Part {part.partNo}</button>)}</nav>
     {error && <div role="alert" className="flex shrink-0 items-center gap-2 border-b border-rose-200 bg-rose-50 px-5 py-2 text-xs font-semibold text-[#B42335]"><WarningCircle size={16} />{error}</div>}

@@ -3,6 +3,23 @@
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { apiFetch } from "@/lib/api";
 
+export interface StudentCourseItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  level: string | null;
+  skillPair: "LISTENING_READING" | "SPEAKING_WRITING";
+  targetBand: number | null;
+  totalSessions: number | null;
+  tuitionAmount: number | null;
+  capacity: number | null;
+  startsOn: string;
+  endsOn: string | null;
+  status: "PLANNED" | "OPEN" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  defaultZoomUrl: string | null;
+}
+
 export type StudentEnrollmentStatus = "PENDING" | "ACTIVE" | "PAUSED" | "COMPLETED";
 export type StudentAttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "EXPIRED";
 
@@ -130,3 +147,164 @@ export function updateStudentTargetBand(targetBand: number) {
     },
   );
 }
+
+export function fetchStudentCourses() {
+  return apiFetch<StudentCourseItem[]>("/student/portal/courses");
+}
+
+export interface StudentCourseSessionItem {
+  id: string;
+  courseId: string;
+  sessionNo: number;
+  title: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  zoomUrl: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  phaseName: string | null;
+  teacherName: string | null;
+}
+
+export function fetchStudentCourseSessions(courseId: string) {
+  return apiFetch<StudentCourseSessionItem[]>(`/student/portal/courses/${courseId}/sessions`);
+}
+
+export interface CourseWorkspaceData {
+  course: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    level: string | null;
+    skillPair: "LISTENING_READING" | "SPEAKING_WRITING";
+    targetBand: number | null;
+    totalSessions: number | null;
+    tuitionAmount: number | null;
+    capacity: number | null;
+    startsOn: string;
+    endsOn: string | null;
+    status: string;
+    defaultZoomUrl: string | null;
+    primaryTeacherName: string | null;
+  };
+  enrollment: {
+    enrollmentId: string;
+    status: string;
+    completedSessions: number;
+    totalSessions: number;
+    plannedExamMonth: string | null;
+    actualExamDate: string | null;
+    examRegistrationStatus: string;
+  };
+  nextAction: {
+    actionType: string;
+    title: string;
+    description: string;
+    deadline: string | null;
+    priority: "HIGH" | "MEDIUM" | "LOW";
+    ctaLabel: string;
+    ctaUrl: string;
+    contextBadge: string;
+  };
+  nextSession: {
+    sessionId: string;
+    sessionNo: number;
+    title: string | null;
+    phaseName: string | null;
+    startsAt: string | null;
+    endsAt: string | null;
+    teacherName: string | null;
+    zoomUrl: string | null;
+    prepMaterials: string[];
+    prerequisiteTasks: string[];
+  } | null;
+  sessions: {
+    id: string;
+    sessionNo: number;
+    title: string | null;
+    phaseName: string | null;
+    startsAt: string | null;
+    endsAt: string | null;
+    status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
+    teacherName: string | null;
+    zoomUrl: string | null;
+    materials: {
+      id: string;
+      title: string;
+      resourceType: string;
+      fileRole: string;
+      externalUrl: string | null;
+    }[];
+    assignments: {
+      id: string;
+      title: string;
+      status: string;
+      score: number | null;
+      maxScore: number | null;
+    }[];
+  }[];
+  resources: {
+    id: string;
+    code: string;
+    title: string;
+    skill: string;
+    resourceType: string;
+    fileRole: string;
+    externalUrl: string | null;
+    category: string | null;
+    sessionNo: number | null;
+  }[];
+  skills: {
+    overallBand: number | null;
+    targetBand: number | null;
+    readingAccuracy: number | null;
+    listeningAccuracy: number | null;
+    writingBandScore: number | null;
+    speakingBandScore: number | null;
+    totalCompletedTests: number;
+    totalQuestionsAnswered: number;
+  };
+  studyLogs: {
+    id: string;
+    testTitle: string;
+    skill: string;
+    completedAt: string | null;
+    score: number | null;
+    maxScore: number | null;
+    correctCount: number | null;
+    totalQuestions: number | null;
+    source: string;
+    platform: string;
+    reviewUrl: string;
+  }[];
+  weaknesses: {
+    questionType: string;
+    errorCount: number;
+    recommendation: string;
+    skill: string;
+  }[];
+  goalProgress: {
+    weeklyCompletedCount: number;
+    weeklyTarget: number;
+    onTimeRate: number;
+    sessionAttendanceRate: number;
+    currentStreakDays: number;
+  };
+  teacherFeedback: {
+    id: string;
+    teacherName: string;
+    reviewedAt: string;
+    status: string;
+    verifiedScore: number | null;
+    feedback: string | null;
+    isRevisionRequired: boolean;
+    priority: string;
+    isRead: boolean;
+  }[];
+}
+
+export function fetchStudentCourseWorkspace(courseId: string) {
+  return apiFetch<CourseWorkspaceData>(`/student/portal/courses/${courseId}/workspace`);
+}
+
+

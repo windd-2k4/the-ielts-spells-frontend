@@ -99,6 +99,7 @@ function WorkspaceSkeleton() {
 export function TestAssignmentWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTestId = searchParams.get("testId") ?? "";
+  const [skill, setSkill] = useState<"READING" | "WRITING">(searchParams.get("skill") === "WRITING" ? "WRITING" : "READING");
   const [courses, setCourses] = useState<Course[]>([]);
   const [tests, setTests] = useState<TestBankItem[]>([]);
   const [assignments, setAssignments] = useState<TestAssignment[]>([]);
@@ -117,12 +118,12 @@ export function TestAssignmentWorkspace() {
   const [success, setSuccess] = useState("");
 
   const eligibleCourses = useMemo(
-    () => courses.filter((course) => course.isActive && course.skillPair === "LISTENING_READING"),
-    [courses],
+    () => courses.filter((course) => course.isActive && course.skillPair === (skill === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING")),
+    [courses, skill],
   );
   const publishedTests = useMemo(
-    () => tests.filter((test) => test.status === "PUBLISHED" && test.publishedVersion),
-    [tests],
+    () => tests.filter((test) => test.skill === skill && test.status === "PUBLISHED" && test.publishedVersion),
+    [skill, tests],
   );
   const selectedCourse = eligibleCourses.find((course) => course.id === selectedCourseId) ?? null;
   const selectedTest = publishedTests.find((test) => test.id === selectedTestId) ?? null;
@@ -171,14 +172,12 @@ export function TestAssignmentWorkspace() {
     try {
       const [coursePage, testPage] = await Promise.all([
         apiFetch<Page<Course>>("/admin/courses?active=true&size=100&sort=startsOn,desc"),
-        apiFetch<Page<TestBankItem>>("/admin/test-bank?skill=READING&status=PUBLISHED&size=100"),
+        apiFetch<Page<TestBankItem>>("/admin/test-bank?status=PUBLISHED&size=200"),
       ]);
       setCourses(coursePage.content);
       setTests(testPage.content);
 
-      const availableCourses = coursePage.content.filter(
-        (course) => course.isActive && course.skillPair === "LISTENING_READING",
-      );
+      const availableCourses = coursePage.content.filter((course) => course.isActive && course.skillPair === (skill === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING"));
       const nextCourseId = selectedCourseId && availableCourses.some((course) => course.id === selectedCourseId)
         ? selectedCourseId
         : availableCourses[0]?.id ?? "";
@@ -189,7 +188,7 @@ export function TestAssignmentWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [loadAssignments, selectedCourseId]);
+  }, [loadAssignments, selectedCourseId, skill]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -215,6 +214,22 @@ export function TestAssignmentWorkspace() {
     void loadAssignments(courseId);
   }
 
+  function changeSkill(next: "READING" | "WRITING") {
+    setSkill(next);
+    setSelectedTestId("");
+    setTestQuery("");
+    setSuccess("");
+    const nextCourses = courses.filter((course) => course.isActive && course.skillPair === (next === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING"));
+    const nextCourseId = nextCourses[0]?.id ?? "";
+    setSelectedCourseId(nextCourseId);
+    const params = new URLSearchParams(searchParams);
+    params.set("skill", next);
+    params.delete("testId");
+    nextCourseId ? params.set("courseId", nextCourseId) : params.delete("courseId");
+    setSearchParams(params, { replace: true });
+    void loadAssignments(nextCourseId);
+  }
+
   function selectTest(testId: string) {
     setSelectedTestId(testId);
     setSuccess("");
@@ -225,7 +240,7 @@ export function TestAssignmentWorkspace() {
 
   function validateComposer() {
     if (!selectedCourseId) return "Vui lòng chọn khóa học nhận đề.";
-    if (!selectedTest?.publishedVersion) return "Vui lòng chọn một đề Reading đã xuất bản.";
+    if (!selectedTest?.publishedVersion) return `Vui lòng chọn một đề ${skill === "WRITING" ? "Writing" : "Reading"} đã xuất bản.`;
     const maxAttempts = Number(composer.maxAttempts);
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
       return "Số lượt làm phải từ 1 đến 10.";
@@ -336,11 +351,14 @@ export function TestAssignmentWorkspace() {
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-primary">Vận hành học vụ</p>
             <h1 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.02em] text-on-surface sm:text-3xl">
-              Giao đề Reading
+              Giao đề {skill === "WRITING" ? "Writing" : "Reading"}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
               Chọn đúng phiên bản đã xuất bản, thiết lập thời gian và kiểm soát cách học viên xem kết quả.
             </p>
+            <div className="mt-4 inline-flex rounded-xl border border-outline-variant bg-surface-container-low p-1" aria-label="Kỹ năng cần giao">
+              {(["READING", "WRITING"] as const).map((value) => <button key={value} type="button" onClick={() => changeSkill(value)} aria-pressed={skill === value} className={`min-h-9 rounded-lg px-4 text-xs font-extrabold transition ${skill === value ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface"}`}>{value === "READING" ? "Reading" : "Writing"}</button>)}
+            </div>
           </div>
         </div>
 
@@ -359,7 +377,7 @@ export function TestAssignmentWorkspace() {
             ))}
           </select>
           {eligibleCourses.length === 0 && (
-            <span className="mt-2 block text-xs text-error">Chưa có khóa Listening + Reading đang hoạt động.</span>
+            <span className="mt-2 block text-xs text-error">Chưa có khóa {skill === "WRITING" ? "Speaking + Writing" : "Listening + Reading"} đang hoạt động.</span>
           )}
         </label>
       </header>
@@ -411,7 +429,7 @@ export function TestAssignmentWorkspace() {
               <span className="text-xs font-bold text-primary">{filteredTests.length} đề</span>
             </div>
             <label className="relative mt-4 block">
-              <span className="sr-only">Tìm đề Reading</span>
+              <span className="sr-only">Tìm đề {skill === "WRITING" ? "Writing" : "Reading"}</span>
               <MagnifyingGlass aria-hidden="true" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
               <input
                 value={testQuery}
@@ -422,13 +440,13 @@ export function TestAssignmentWorkspace() {
             </label>
           </div>
 
-          <div className="custom-scrollbar max-h-[470px] overflow-y-auto p-3" aria-label="Đề Reading đã xuất bản">
+          <div className="custom-scrollbar max-h-[470px] overflow-y-auto p-3" aria-label={`Đề ${skill === "WRITING" ? "Writing" : "Reading"} đã xuất bản`}>
             {filteredTests.length === 0 ? (
               <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
                 <div>
                   <BookOpenText size={30} weight="duotone" className="mx-auto text-primary" />
                   <h3 className="mt-3 font-display text-base font-bold text-on-surface">Không có đề phù hợp</h3>
-                  <p className="mt-1 text-sm text-on-surface-variant">Hãy xuất bản đề Reading trong Ngân hàng đề trước khi giao.</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">Hãy xuất bản đề {skill === "WRITING" ? "Writing" : "Reading"} trong Ngân hàng đề trước khi giao.</p>
                 </div>
               </div>
             ) : filteredTests.map((test) => {
@@ -451,7 +469,7 @@ export function TestAssignmentWorkspace() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-extrabold text-on-surface">{test.title}</span>
                     <span className="mt-1 block text-xs text-on-surface-variant">
-                      {test.code} · {test.totalQuestions} câu · {test.durationMinutes} phút
+                      {test.code} · {skill === "WRITING" ? `${test.sectionsCount} task` : `${test.totalQuestions} câu`} · {test.durationMinutes} phút
                     </span>
                     <span className="mt-2 inline-flex rounded-full bg-surface-container px-2 py-1 text-[11px] font-bold text-primary">
                       {test.publishedVersion?.versionLabel}

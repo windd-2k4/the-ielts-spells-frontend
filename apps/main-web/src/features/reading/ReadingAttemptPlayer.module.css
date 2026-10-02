@@ -427,6 +427,32 @@
   text-decoration: underline;
 }
 
+.workspaceContainer {
+  display: grid;
+  grid-template-columns: 1fr 244px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .workspaceContainer {
+    grid-template-columns: 1fr;
+  }
+  .examSidebar {
+    display: none !important;
+  }
+  .examFooter {
+    display: grid !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .examFooter {
+    display: none !important;
+  }
+}
+
 /* Main Split Workspace */
 .workspace {
   display: grid;
@@ -748,6 +774,217 @@
   margin-top: 6px;
   color: var(--exam-muted);
   font-size: calc(var(--exam-content-size) - 4px);
+}
+
+/* Sticky Exam Control & Palette Sidebar */
+.examSidebar {
+  background: var(--exam-bg-main);
+  border-left: 1px solid var(--exam-line);
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarCard {
+  background: var(--exam-card-bg);
+  border: 1px solid var(--exam-line);
+  border-radius: 12px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.sidebarTimerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebarTimerLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--exam-muted);
+}
+
+.sidebarTimerValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--exam-ink);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.sidebarSubmitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--exam-card-bg);
+  border: 1.5px solid var(--exam-accent);
+  color: var(--exam-accent);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.sidebarSubmitBtn:hover:not(:disabled) {
+  background: var(--exam-accent);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(143, 68, 88, 0.25);
+  transform: translateY(-1px);
+}
+
+.sidebarSubmitBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sidebarMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--exam-line);
+}
+
+.sidebarSaveRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--exam-muted);
+}
+
+.sidebarHint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #d97706;
+}
+
+.sidebarSectionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sidebarPartSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebarPartHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 120ms ease;
+}
+
+.sidebarPartHeading:hover {
+  background: var(--exam-soft);
+}
+
+.sidebarPartHeadingActive {
+  background: var(--exam-accent-soft);
+  border-color: var(--exam-accent-border);
+}
+
+.sidebarPartName {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--exam-ink);
+}
+
+.sidebarPartBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--exam-soft);
+  color: var(--exam-muted);
+}
+
+.sidebarPartHeadingActive .sidebarPartBadge {
+  background: var(--exam-card-bg);
+  color: var(--exam-accent);
+}
+
+/* 5-Column Question Square Grid */
+.paletteGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.paletteSquare {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+  min-height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--exam-line);
+  background: var(--exam-card-bg);
+  color: var(--exam-ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: all 120ms ease;
+}
+
+.paletteSquare:hover {
+  border-color: var(--exam-accent);
+  color: var(--exam-accent);
+  transform: translateY(-1px);
+}
+
+.paletteSquareAnswered {
+  background: var(--exam-accent-soft);
+  border-color: var(--exam-accent-border);
+  color: var(--exam-accent);
+  font-weight: 800;
+}
+
+.paletteSquareActive {
+  outline: 2px solid var(--exam-accent);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(143, 68, 88, 0.2);
+}
+
+.paletteSquareFlagged {
+  border-color: #f59e0b;
+}
+
+.paletteSquareFlag {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #f59e0b;
 }
 
 /* Bottom Navigation Footer Bar (CD-IELTS Authentic Navbar) */
@@ -1592,6 +1829,7 @@
 }
 .diagramImageWrapper {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 16px;
@@ -1602,9 +1840,16 @@
 }
 .diagramImage {
   max-width: 100%;
-  max-height: 380px;
+  max-height: 520px;
   object-fit: contain;
   border-radius: 6px;
+}
+.diagramImageCaption {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--exam-muted);
+  text-align: center;
 }
 .diagramLabelsList {
   display: flex;
@@ -1642,6 +1887,91 @@
   font-size: var(--exam-content-size);
   font-weight: 600;
   color: var(--exam-navy);
+}
+
+/* Diagram Radio Grid (CD-IELTS Standard) */
+.diagramGridWrapper {
+  overflow-x: auto;
+  border: 1.5px solid var(--exam-line);
+  border-radius: 10px;
+  background: var(--exam-card-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.diagramGridTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.diagramGridTable th {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 2px solid var(--exam-line);
+  background: var(--exam-soft);
+  color: var(--exam-navy);
+}
+.diagramGridOptionHeader {
+  text-align: center;
+  min-width: 44px;
+  font-weight: 800;
+  color: #8f4458;
+  border-left: 1px solid var(--exam-line);
+}
+.diagramGridRow {
+  border-bottom: 1px solid var(--exam-line);
+  transition: background-color 150ms ease;
+}
+.diagramGridRow:last-child {
+  border-bottom: none;
+}
+.diagramGridRow:hover {
+  background-color: rgba(143, 68, 88, 0.04);
+}
+.diagramGridRowActive {
+  background-color: rgba(143, 68, 88, 0.08);
+}
+.diagramGridPromptCell {
+  padding: 12px 14px;
+  min-width: 180px;
+}
+.diagramGridPromptContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.diagramGridCell {
+  padding: 8px 10px;
+  text-align: center;
+  border-left: 1px solid var(--exam-line);
+  cursor: pointer;
+}
+.diagramGridRadio {
+  width: 18px;
+  height: 18px;
+  accent-color: #8f4458;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.diagramGridLegend {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--exam-soft);
+  border-radius: 8px;
+  border: 1px solid var(--exam-line);
+}
+.diagramGridLegendTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #746a6e;
+  margin-bottom: 6px;
+}
+.diagramGridLegendList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+  font-size: 12px;
 }
 
 /* 11: Short Answer (CD-IELTS Standard) */

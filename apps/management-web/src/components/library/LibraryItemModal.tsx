@@ -2,7 +2,7 @@ import { X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { Course } from "../../academic-types";
 import type {
-  ContentLifecycleStatus, LearningResource, LibraryItem, LibraryScope, LibrarySkill, LibraryView, ResourceSourceType, VisibilityPermission,
+  ContentLifecycleStatus, LearningResource, LearningResourceType, LibraryItem, LibraryScope, LibrarySkill, LibraryView, ResourceSourceType, VisibilityPermission,
 } from "../../library-types";
 import { isResource } from "../../library-types";
 import { apiFetch, apiUpload } from "../../lib/api";
@@ -18,6 +18,15 @@ type Props = {
   onClose: () => void;
   onSaved: () => Promise<void>;
 };
+
+function resourceTypeFromFile(file: File | null): LearningResourceType {
+  if (!file) return "DOCUMENT";
+  const mime = file.type.toLowerCase();
+  const filename = file.name.toLowerCase();
+  if (mime.startsWith("audio/") || /\.(mp3|wav|m4a|ogg)$/.test(filename)) return "AUDIO";
+  if (mime.startsWith("video/") || /\.(mp4|mov|webm)$/.test(filename)) return "VIDEO";
+  return "DOCUMENT";
+}
 
 export default function LibraryItemModal({
   open, view, skill: initialSkill, item, courseId: defaultCourseId, courses, onClose, onSaved,
@@ -69,7 +78,14 @@ export default function LibraryItemModal({
     setSelectedCourseId(item.courseId ?? "");
 
     if (isResource(item)) {
-      setSourceType(item.sourceType || (item.externalUrl ? "DRIVE_LINK" : "FILE_UPLOAD"));
+      setSourceType(
+        item.sourceType
+          || (item.resourceType === "DRIVE_LINK"
+            ? "DRIVE_LINK"
+            : item.resourceType === "TEACHER_NOTE"
+              ? "RICH_TEXT"
+              : "FILE_UPLOAD"),
+      );
       setExternalUrl(item.externalUrl ?? "");
       setRichTextContent(item.richTextContent ?? "");
       setDescription(item.description ?? "");
@@ -107,6 +123,15 @@ export default function LibraryItemModal({
       const endpoint = view === "RESOURCES" ? "resources" : "exercises";
       const path = item ? `/admin/library/${endpoint}/${item.id}` : `/admin/library/${endpoint}`;
       const method = item ? "PUT" : "POST";
+      const resourceType = sourceType === "DRIVE_LINK"
+        ? "DRIVE_LINK"
+        : sourceType === "RICH_TEXT"
+          ? "TEACHER_NOTE"
+          : selectedFile
+            ? resourceTypeFromFile(selectedFile)
+              : item && isResource(item)
+                ? item.resourceType
+                : "DOCUMENT";
       const common = {
         title: title.trim(),
         skill,
@@ -121,7 +146,7 @@ export default function LibraryItemModal({
             description: sourceType === "RICH_TEXT"
               ? [description.trim(), richTextContent.trim()].filter(Boolean).join("\n\n")
               : description.trim() || null,
-            resourceType: sourceType === "FILE_UPLOAD" ? "FILE" : sourceType === "DRIVE_LINK" ? "LINK" : "ARTICLE",
+            resourceType,
             externalUrl: sourceType === "DRIVE_LINK" ? externalUrl.trim() : null,
             teacherOnly: teacherOnly || visibilityPermission === "TEACHER_ONLY",
           }

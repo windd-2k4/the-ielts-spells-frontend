@@ -7,17 +7,25 @@ export type ContentLifecycleStatus = "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCH
 export type LibraryView = "RESOURCES" | "EXERCISES";
 
 export type ResourceSourceType = "FILE_UPLOAD" | "DRIVE_LINK" | "RICH_TEXT";
+export type LearningResourceType =
+  | "DOCUMENT"
+  | "AUDIO"
+  | "VIDEO"
+  | "DRIVE_LINK"
+  | "TEACHER_NOTE"
+  | "ANSWER_KEY"
+  | "VOCABULARY";
 export type VisibilityPermission = "TEACHER_ONLY" | "STUDENT_AFTER_ASSIGN" | "STUDENT_AFTER_SUBMIT";
 
 export type LearningResource = {
   id: string;
   code: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   skill: LibrarySkill;
   category: string;
-  resourceType: string;
-  sourceType: ResourceSourceType;
+  resourceType: LearningResourceType;
+  sourceType?: ResourceSourceType;
   scope: LibraryScope;
   courseId: string | null;
   courseName?: string | null;
@@ -25,9 +33,9 @@ export type LearningResource = {
   richTextContent?: string | null;
   teacherOnly: boolean;
   visibilityPermission: VisibilityPermission;
-  tags: string[];
+  tags?: string[];
   status: ContentLifecycleStatus;
-  usageCount: number;
+  usageCount?: number;
   referencedCourses?: { id: string; name: string }[];
   createdBy: string;
   updatedBy?: string;
@@ -39,7 +47,7 @@ export type LearningResource = {
 export type LearningResourceFile = {
   id: string;
   resourceId: string;
-  fileRole: "MAIN" | "KEY" | "TRANSCRIPT" | "VOCAB" | "AUDIO" | "THUMBNAIL" | "ATTACHMENT";
+  fileRole: "MAIN" | "ANSWER_KEY" | "TRANSCRIPT" | "VOCABULARY" | "AUDIO" | "THUMBNAIL" | "SUPPORTING";
   originalFilename: string;
   mimeType: string;
   sizeBytes: number;
@@ -68,7 +76,7 @@ export type ExerciseTemplate = {
   content: Record<string, unknown>;
   answerKey: Record<string, unknown>;
   status: ContentLifecycleStatus;
-  usageCount: number;
+  usageCount?: number;
   createdBy: string;
   updatedBy?: string;
   createdAt: string;
@@ -294,6 +302,7 @@ export type TestBankItem = {
   id: string;
   code: string;
   title: string;
+  description?: string | null;
   skill: TestSkill;
   testType: TestType;
   sectionsCount: number;
