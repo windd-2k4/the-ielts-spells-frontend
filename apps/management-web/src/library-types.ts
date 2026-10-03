@@ -154,6 +154,8 @@ export type QuestionCardItem = {
   /** @deprecated Kept for drafts created before multiple evidence spans. */
   passageSpan?: { start: number; end: number; quote?: string };
   evidenceSpans?: ReadingEvidenceSpan[];
+  linkedAudioTimestamp?: string; // "01:23"
+  evidenceQuote?: string; // quote from transcript for highlighting
   explanation?: string;
   reasoningSteps?: string[];
   trapAnalysis?: string;
@@ -198,6 +200,8 @@ export type QuestionGroupItem = {
   gapFillLayout?: "PARAGRAPH" | "LIST";
   illustration?: QuestionGroupIllustration;
   linkedAudioTimestamp?: string; // "02:15"
+  questionTimestamps?: Record<string, string>;
+  questionEvidenceQuotes?: Record<string, string>;
   questions: QuestionCardItem[];
   isCollapsed?: boolean;
 };
@@ -323,6 +327,13 @@ export type TestBankItem = {
   builderContent?: Record<string, unknown>;
   draftRevision: number;
   publishedVersion?: TestVersionSummary | null;
+};
+
+export type TestBankSummary = Omit<TestBankItem, "builderContent" | "passages" | "listeningParts" | "writingTasks" | "speakingParts"> & {
+  format?: string | null;
+  questionTypes: string[];
+  coverImage?: QuestionGroupIllustration | null;
+  writingTaskImage?: { fileUrl: string; altText?: string | null } | null;
 };
 
 export type TestVersionSummary = {

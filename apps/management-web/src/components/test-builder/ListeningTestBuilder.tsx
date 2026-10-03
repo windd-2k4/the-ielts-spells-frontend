@@ -1,5 +1,5 @@
 import {
-  ArrowLeft, CaretDown, CaretUp, Copy, Eye, FastForward, FileAudio, FloppyDisk,
+  ArrowLeft, CaretDown, CaretUp, Clock, Copy, Eye, FastForward, FileAudio, FloppyDisk,
   Pause, Play, Plus, Rewind, ShieldCheck, SpinnerGap, Trash, UploadSimple, WarningCircle,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,7 +9,7 @@ import type {
   ListeningPartSection, MediaAsset, QuestionCardItem, QuestionGroupIllustration, QuestionGroupItem, QuestionOption,
   QuestionTypeFormat, TestBankItem,
 } from "../../library-types";
-import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
+import { apiFetch, apiMediaUrl, apiUpload, revokeMediaUrl } from "../../lib/api";
 import ListeningQuestionGroupDialog, { type ListeningQuestionGroupDraft } from "./ListeningQuestionGroupDialog";
 import GapFillGroupEditor, { gapFillPrompt, gapFillTemplateFromQuestions, inspectGapFillTemplate } from "./GapFillGroupEditor";
 import PublishValidationModal from "./PublishValidationModal";
@@ -59,6 +59,8 @@ function normalizeQuestion(question: Partial<QuestionCardItem>, number: number, 
     options: Array.isArray(question.options) ? question.options : [],
     correctAnswers: answers,
     acceptableAnswers: Array.isArray(question.acceptableAnswers) ? question.acceptableAnswers.map(String) : [],
+    linkedAudioTimestamp: typeof question.linkedAudioTimestamp === "string" ? question.linkedAudioTimestamp : undefined,
+    evidenceQuote: typeof question.evidenceQuote === "string" ? question.evidenceQuote : undefined,
     explanation: typeof question.explanation === "string" ? question.explanation : "",
     teacherNote: typeof question.teacherNote === "string" ? question.teacherNote : "",
     isComplete: Boolean(prompt.trim() && answers.length),
@@ -106,7 +108,11 @@ function normalizeGroups(value: unknown): QuestionGroupItem[] {
       gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
       gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
       illustration: readGroupIllustration(group.illustration),
-      linkedAudioTimestamp: group.linkedAudioTimestamp, questions, isCollapsed: Boolean(group.isCollapsed),
+      linkedAudioTimestamp: group.linkedAudioTimestamp,
+      questionTimestamps: typeof group.questionTimestamps === "object" && group.questionTimestamps ? (group.questionTimestamps as Record<string, string>) : undefined,
+      questionEvidenceQuotes: typeof group.questionEvidenceQuotes === "object" && group.questionEvidenceQuotes ? (group.questionEvidenceQuotes as Record<string, string>) : undefined,
+      questions,
+      isCollapsed: Boolean(group.isCollapsed),
     };
   });
 }
@@ -336,6 +342,32 @@ export function ListeningTestBuilder() {
     try {
       const currentFormat = detectListeningFormat(record.builderContent ?? {}, record);
       const defaultDuration = currentFormat === "FULL" ? 40 : currentFormat === "DICTATION" ? 20 : 10;
+      const partsToSave = parts.map((part) => ({
+        ...part,
+        questionGroups: part.questionGroups.map((group) => {
+          const questionTimestamps: Record<string, string> = {
+            ...(group.questionTimestamps ?? {}),
+          };
+          const questionEvidenceQuotes: Record<string, string> = {
+            ...(group.questionEvidenceQuotes ?? {}),
+          };
+          group.questions.forEach((q) => {
+            if (q.linkedAudioTimestamp?.trim()) {
+              questionTimestamps[String(q.number)] = q.linkedAudioTimestamp.trim();
+              questionTimestamps[q.id] = q.linkedAudioTimestamp.trim();
+            }
+            if (q.evidenceQuote?.trim()) {
+              questionEvidenceQuotes[String(q.number)] = q.evidenceQuote.trim();
+              questionEvidenceQuotes[q.id] = q.evidenceQuote.trim();
+            }
+          });
+          return {
+            ...group,
+            questionTimestamps,
+            questionEvidenceQuotes,
+          };
+        }),
+      }));
       const saved = await apiFetch<TestBankItem>(`/admin/test-bank/${testId}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -351,7 +383,7 @@ export function ListeningTestBuilder() {
             ...(record.builderContent ?? {}),
             format: currentFormat,
             sectionsPreset: currentFormat,
-            parts,
+            parts: partsToSave,
           }, coverImage),
         }),
       });
@@ -376,8 +408,8 @@ export function ListeningTestBuilder() {
     setCurrentTime(0); setIsPlaying(false); setAudioError("");
     if (!activePart?.audioUrl) { setAudioObjectUrl(""); return undefined; }
     let disposed = false; let url = "";
-    void apiBlob(activePart.audioUrl).then((blob) => { if (!disposed) { url = URL.createObjectURL(blob); setAudioObjectUrl(url); } }).catch((reason) => setAudioError(reason instanceof Error ? reason.message : "Không thể tải audio."));
-    return () => { disposed = true; if (url) URL.revokeObjectURL(url); };
+    void apiMediaUrl(activePart.audioUrl).then((resolvedUrl) => { if (!disposed) { url = resolvedUrl; setAudioObjectUrl(url); } }).catch((reason) => setAudioError(reason instanceof Error ? reason.message : "Không thể tải audio."));
+    return () => { disposed = true; if (url) revokeMediaUrl(url); };
   }, [activePart?.audioUrl, activePartNo]);
   useEffect(() => { if (audioRef.current) audioRef.current.playbackRate = playbackSpeed; }, [playbackSpeed]);
 
@@ -581,7 +613,128 @@ export function ListeningTestBuilder() {
               </div>
             )}
             {questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && <div className="mt-4"><GapFillGroupEditor title={group.title} template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)} layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)} questions={group.questions} onTemplateChange={(template) => updateGroup(group.id, (value) => ({ ...value, gapFillTemplate: template, questions: value.questions.map((question, index) => normalizeQuestion({ ...question, prompt: gapFillPrompt(template, index + 1, value.title) }, question.number, question.typeFormat)) }))} onLayoutChange={(layout) => updateGroup(group.id, (value) => ({ ...value, gapFillLayout: layout }))} onAnswerChange={(questionId, correctAnswers, acceptableAnswers) => updateQuestion(group.id, questionId, (question) => normalizeQuestion({ ...question, correctAnswers, acceptableAnswers }, question.number, question.typeFormat))} /></div>}
-            <div className="mt-4 space-y-3">{group.questions.map((question) => <div key={question.id} id={question.id} className={`rounded-xl border p-4 ${question.hasError ? "border-rose-200 bg-rose-50/30" : "border-[#e3dce2]"}`}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="grid size-8 place-items-center rounded-lg bg-[#8f4458] text-xs font-bold text-white">{question.number}</span><span className="text-xs font-bold">Câu {question.number}</span>{question.hasError && <span className="text-[10px] font-bold text-[#b4232d]">{question.errorMessage}</span>}</div><button type="button" onClick={() => removeQuestion(group.id, question.id)} aria-label={`Xóa câu ${question.number}`} className="grid size-9 place-items-center rounded-lg text-[#b4232d]"><Trash size={15} /></button></div>{!questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && <><label className="mt-3 block"><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">{group.typeFormat === "DIAGRAM_LABELING" ? (group.answerSource === "OPTION_BANK" ? "Tên địa điểm / câu hỏi" : "Tên vị trí hoặc mô tả cần điền") : "Nội dung câu hỏi"}</span><textarea rows={2} value={question.prompt} onChange={(event) => updateQuestion(group.id, question.id, (value) => normalizeQuestion({ ...value, prompt: event.target.value }, value.number, value.typeFormat))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none" placeholder={group.typeFormat === "DIAGRAM_LABELING" ? (group.answerSource === "OPTION_BANK" ? "VD: scarecrow, Cafe, Black Barn..." : "VD: 11 scarecrow, Vị trí 12...") : "Nhập câu hỏi, form, note hoặc vị trí cần điền..."} /></label><AnswerEditor group={group} question={question} onChange={(value) => updateQuestion(group.id, question.id, () => value)} /></>}<div className="mt-3 grid gap-3 border-t border-[#e3dce2] pt-3 md:grid-cols-2"><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Giải thích đáp án</span><textarea rows={2} value={question.explanation ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, explanation: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label><label><span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Teacher note</span><textarea rows={2} value={question.teacherNote ?? ""} onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, teacherNote: event.target.value }))} className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs" /></label></div></div>)}</div><button type="button" onClick={() => addQuestion(group)} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e3dce2] px-3 text-xs font-bold text-[#8f4458]"><Plus size={15} /> Thêm câu hỏi</button></>}
+            <div className="mt-4 space-y-3">
+              {group.questions.map((question) => (
+                <div
+                  key={question.id}
+                  id={question.id}
+                  className={`rounded-xl border p-4 ${question.hasError ? "border-rose-200 bg-rose-50/30" : "border-[#e3dce2]"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="grid size-8 place-items-center rounded-lg bg-[#8f4458] text-xs font-bold text-white">
+                        {question.number}
+                      </span>
+                      <span className="text-xs font-bold">Câu {question.number}</span>
+                      {question.hasError && (
+                        <span className="text-[10px] font-bold text-[#b4232d]">{question.errorMessage}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeQuestion(group.id, question.id)}
+                      aria-label={`Xóa câu ${question.number}`}
+                      className="grid size-9 place-items-center rounded-lg text-[#b4232d]"
+                    >
+                      <Trash size={15} />
+                    </button>
+                  </div>
+
+                  {!questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) && (
+                    <>
+                      <label className="mt-3 block">
+                        <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">
+                          {group.typeFormat === "DIAGRAM_LABELING"
+                            ? (group.answerSource === "OPTION_BANK" ? "Tên địa điểm / câu hỏi" : "Tên vị trí hoặc mô tả cần điền")
+                            : "Nội dung câu hỏi"}
+                        </span>
+                        <textarea
+                          rows={2}
+                          value={question.prompt}
+                          onChange={(event) =>
+                            updateQuestion(group.id, question.id, (value) =>
+                              normalizeQuestion({ ...value, prompt: event.target.value }, value.number, value.typeFormat)
+                            )
+                          }
+                          className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none"
+                          placeholder={
+                            group.typeFormat === "DIAGRAM_LABELING"
+                              ? (group.answerSource === "OPTION_BANK" ? "VD: scarecrow, Cafe, Black Barn..." : "VD: 11 scarecrow, Vị trí 12...")
+                              : "Nhập câu hỏi, form, note hoặc vị trí cần điền..."
+                          }
+                        />
+                      </label>
+                      <AnswerEditor group={group} question={question} onChange={(value) => updateQuestion(group.id, question.id, () => value)} />
+                    </>
+                  )}
+
+                  {/* Audio Timestamp & Evidence Quote Tracking */}
+                  <div className="mt-3 grid gap-3 border-t border-[#e3dce2] pt-3 md:grid-cols-[180px_minmax(0,1fr)]">
+                    <div>
+                      <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Mốc audio câu {question.number}</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          value={question.linkedAudioTimestamp ?? ""}
+                          onChange={(event) =>
+                            updateQuestion(group.id, question.id, (value) => ({ ...value, linkedAudioTimestamp: event.target.value }))
+                          }
+                          className="min-h-9 w-full rounded-lg border border-[#e3dce2] px-2.5 text-xs font-bold tabular-nums focus:border-[#8f4458] focus:outline-none"
+                          placeholder="00:00"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateQuestion(group.id, question.id, (value) => ({
+                              ...value,
+                              linkedAudioTimestamp: formatTime(currentTime),
+                            }))
+                          }
+                          title="Lấy mốc thời gian audio đang phát hiện tại"
+                          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-[#8f4458] bg-[#fbf5f7] px-2 text-[10px] font-bold text-[#8f4458] hover:bg-[#f7e7ec]"
+                        >
+                          <Clock size={13} /> {formatTime(currentTime)}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Đoạn trích transcript (Bằng chứng highlight)</span>
+                      <input
+                        value={question.evidenceQuote ?? ""}
+                        onChange={(event) =>
+                          updateQuestion(group.id, question.id, (value) => ({ ...value, evidenceQuote: event.target.value }))
+                        }
+                        className="min-h-9 w-full rounded-lg border border-[#e3dce2] px-2.5 text-xs focus:border-[#8f4458] focus:outline-none"
+                        placeholder="Dán câu tiếng Anh trong transcript để kính lúp highlight..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 grid gap-3 md:grid-cols-2">
+                    <label>
+                      <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Giải thích đáp án (Chi tiết / dịch nghĩa)</span>
+                      <textarea
+                        rows={2}
+                        value={question.explanation ?? ""}
+                        onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, explanation: event.target.value }))}
+                        placeholder="Giải thích tại sao chọn đáp án này, bẫy từ vựng..."
+                        className="w-full rounded-xl border border-[#e3dce2] p-2.5 text-xs"
+                      />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Teacher note (Nội bộ)</span>
+                      <textarea
+                        rows={2}
+                        value={question.teacherNote ?? ""}
+                        onChange={(event) => updateQuestion(group.id, question.id, (value) => ({ ...value, teacherNote: event.target.value }))}
+                        placeholder="Ghi chú nội bộ cho giáo viên..."
+                        className="w-full rounded-xl border border-[#e3dce2] p-2.5 text-xs"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div><button type="button" onClick={() => addQuestion(group)} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e3dce2] px-3 text-xs font-bold text-[#8f4458]"><Plus size={15} /> Thêm câu hỏi</button></>}
         </article>)}</div>}
       </section>
     </main>

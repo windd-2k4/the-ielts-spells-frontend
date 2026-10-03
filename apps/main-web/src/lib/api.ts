@@ -36,3 +36,21 @@ export async function apiBlob(path: string): Promise<Blob> {
   if (!response.ok) throw new Error("Không thể tải ảnh minh họa.");
   return response.blob();
 }
+
+export async function apiMediaUrl(path: string): Promise<string> {
+  if (/^https?:\/\//i.test(path)) return path;
+  const signedPath = path.replace(/\/content(?:\?.*)?$/, "/signed-url");
+  if (signedPath !== path) {
+    try {
+      const result = await apiFetch<{ url: string }>(signedPath);
+      if (result.url) return result.url;
+    } catch {
+      // Local storage and older backends still use the authenticated content endpoint.
+    }
+  }
+  return URL.createObjectURL(await apiBlob(path));
+}
+
+export function revokeMediaUrl(url: string) {
+  if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+}

@@ -4,7 +4,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { MediaAsset } from "../../library-types";
 import type { Page } from "../../academic-types";
-import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
+import { apiFetch, apiMediaUrl, apiUpload, revokeMediaUrl } from "../../lib/api";
 
 export function MediaLibraryWorkspace() {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -45,10 +45,9 @@ export function MediaLibraryWorkspace() {
 
   async function openAsset(asset: MediaAsset) {
     try {
-      const blob = await apiBlob(asset.fileUrl);
-      const url = URL.createObjectURL(blob);
+      const url = await apiMediaUrl(asset.fileUrl);
       window.open(url, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      window.setTimeout(() => revokeMediaUrl(url), 60_000);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể mở file"); }
   }
 

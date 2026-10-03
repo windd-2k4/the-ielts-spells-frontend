@@ -4,12 +4,13 @@ import type { ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingRespons
 import {
   ArrowLeft, CaretDown, CaretUp, CheckCircle, CircleNotch, Clock, Eye, EyeSlash,
   FastForward, FileAudio, Flag, Headphones, Pause, Play, Rewind, Sparkle,
-  Sun, Moon, WarningCircle, PaperPlaneTilt,
+  SpeakerHigh, SpeakerLow, SpeakerSlash,
+  Sun, Moon, Timer, WarningCircle, PaperPlaneTilt,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "@/features/reading/ReadingQuestionGroup";
 import { ReadingStatePanel } from "@/features/reading/ReadingStatePanel";
@@ -41,6 +42,26 @@ function parseTimestamp(ts?: string): number {
   }
   const numeric = Number(ts);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function RotateLeft5Icon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 12a8 8 0 1 1 2.34 5.66" />
+      <polyline points="4 6 4 12 10 12" />
+      <text x="12" y="15.2" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">5</text>
+    </svg>
+  );
+}
+
+function RotateRight5Icon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 0-2.34 5.66" />
+      <polyline points="20 6 20 12 14 12" />
+      <text x="12" y="15.2" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">5</text>
+    </svg>
+  );
 }
 
 export function ListeningAttemptPlayer({ attemptId }: { attemptId: string }) {
@@ -82,6 +103,9 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [volume, setVolume] = useState(0.8);
+  const [isMuted, setIsMuted] = useState(false);
+  const prevVolumeRef = useRef(0.8);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   // Appearance settings
@@ -183,10 +207,10 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
     let objectUrl = "";
     setAudioLoading(true);
 
-    void apiBlob(url)
-      .then((blob) => {
+    void apiMediaUrl(url)
+      .then((resolvedUrl) => {
         if (!disposed) {
-          objectUrl = URL.createObjectURL(blob);
+          objectUrl = resolvedUrl;
           setAudioObjectUrl(objectUrl);
         }
       })
@@ -201,7 +225,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
 
     return () => {
       disposed = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) revokeMediaUrl(objectUrl);
     };
   }, [activeSection?.audioUrl, activeSection?.key]);
 
@@ -230,6 +254,51 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       player.pause();
     }
   }, []);
+
+  const changeVolume = useCallback((val: number) => {
+    const clamped = Math.max(0, Math.min(1, val));
+    setVolume(clamped);
+    if (clamped > 0) {
+      setIsMuted(false);
+      prevVolumeRef.current = clamped;
+    } else {
+      setIsMuted(true);
+    }
+    if (audioRef.current) {
+      audioRef.current.volume = clamped;
+      audioRef.current.muted = clamped === 0;
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    if (isMuted || volume === 0) {
+      const restore = prevVolumeRef.current > 0 ? prevVolumeRef.current : 0.8;
+      setIsMuted(false);
+      setVolume(restore);
+      if (audioRef.current) {
+        audioRef.current.volume = restore;
+        audioRef.current.muted = false;
+      }
+    } else {
+      prevVolumeRef.current = volume;
+      setIsMuted(true);
+      setVolume(0);
+      if (audioRef.current) {
+        audioRef.current.volume = 0;
+        audioRef.current.muted = true;
+      }
+    }
+  }, [isMuted, volume]);
+
+  const cycleSpeed = useCallback(() => {
+    const speeds = [1, 1.25, 1.5, 0.8];
+    const nextIdx = (speeds.indexOf(playbackSpeed) + 1) % speeds.length;
+    const next = speeds[nextIdx];
+    setPlaybackSpeed(next);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = next;
+    }
+  }, [playbackSpeed]);
 
   const jumpToTimestamp = useCallback((timestamp: string) => {
     const secs = parseTimestamp(timestamp);
@@ -402,6 +471,10 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   const themeClass = colorTheme === "dark" ? styles.themeDark : colorTheme === "eye-care" ? styles.themeEyeCare : styles.themeStandard;
   const fontClass = fontScale === "extra-large" ? styles.fontExtraLarge : fontScale === "large" ? styles.fontLarge : styles.fontStandard;
 
+  const currentDuration = audioDuration || (activeSection?.audioDurationSeconds ?? 0);
+  const seekPercent = currentDuration > 0 ? Math.min(100, Math.max(0, (currentTime / currentDuration) * 100)) : 0;
+  const volumePercent = (isMuted ? 0 : volume) * 100;
+
   return (
     <div className={`${styles.examShell} ${themeClass} ${fontClass}`}>
       {/* Hidden HTML5 Audio Element */}
@@ -413,6 +486,9 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
           onLoadedMetadata={(e) => {
             const d = e.currentTarget.duration;
             if (Number.isFinite(d)) setAudioDuration(d);
+            e.currentTarget.volume = isMuted ? 0 : volume;
+            e.currentTarget.muted = isMuted || volume === 0;
+            e.currentTarget.playbackRate = playbackSpeed;
           }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -525,22 +601,57 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
               <input
                 type="range"
                 min={0}
-                max={Math.max(1, audioDuration || (activeSection?.audioDurationSeconds ?? 0))}
+                max={Math.max(1, currentDuration)}
                 step={0.1}
-                value={Math.min(currentTime, audioDuration || currentTime)}
+                value={Math.min(currentTime, currentDuration || currentTime)}
                 onChange={(e) => seekTo(Number(e.target.value))}
                 disabled={!audioObjectUrl}
                 aria-label="Vị trí phát audio"
                 className={styles.rangeInput}
+                style={{ "--seek-percent": `${seekPercent}%` } as React.CSSProperties}
               />
               <div className={styles.timeDisplay}>
                 <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(audioDuration || (activeSection?.audioDurationSeconds ?? 0))}</span>
+                <span>{formatTime(currentDuration)}</span>
               </div>
             </div>
 
-            {/* Controls */}
+            {/* Controls: Left (Volume) - Center (Rewind 5s / Play / Forward 5s) - Right (Speed Pill) */}
             <div className={styles.audioControls}>
+              {/* Left: Volume control */}
+              <div className={styles.volumeGroup}>
+                <button
+                  type="button"
+                  className={styles.volumeBtn}
+                  onClick={toggleMute}
+                  title={isMuted || volume === 0 ? "Bật âm thanh" : "Tắt âm thanh"}
+                  aria-label="Điều chỉnh âm lượng"
+                >
+                  {isMuted || volume === 0 ? (
+                    <SpeakerSlash size={18} weight="bold" />
+                  ) : volume < 0.4 ? (
+                    <SpeakerLow size={18} weight="bold" />
+                  ) : (
+                    <SpeakerHigh size={18} weight="bold" />
+                  )}
+                </button>
+
+                <div className={styles.volumeTrackWrapper} title={`Âm lượng: ${Math.round(volumePercent)}%`}>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => changeVolume(Number(e.target.value))}
+                    className={styles.volumeInput}
+                    style={{ "--volume-percent": `${volumePercent}%` } as React.CSSProperties}
+                    aria-label="Thanh âm lượng"
+                  />
+                </div>
+              </div>
+
+              {/* Center: Playback group */}
               <div className={styles.playbackGroup}>
                 <button
                   type="button"
@@ -550,7 +661,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
                   className={styles.seekBtn}
                   title="Lùi 5 giây"
                 >
-                  <Rewind size={17} />
+                  <RotateLeft5Icon size={20} />
                 </button>
                 <button
                   type="button"
@@ -570,21 +681,22 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
                   className={styles.seekBtn}
                   title="Tiến 5 giây"
                 >
-                  <FastForward size={17} />
+                  <RotateRight5Icon size={20} />
                 </button>
               </div>
 
+              {/* Right: Speed Pill */}
               <div className={styles.speedGroup}>
-                {[0.8, 1, 1.25, 1.5].map((spd) => (
-                  <button
-                    key={spd}
-                    type="button"
-                    onClick={() => setPlaybackSpeed(spd)}
-                    className={`${styles.speedBtn} ${playbackSpeed === spd ? styles.speedBtnActive : ""}`}
-                  >
-                    {spd}x
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  className={styles.speedPillBtn}
+                  onClick={cycleSpeed}
+                  title="Nhấn để đổi tốc độ phát"
+                  aria-label={`Tốc độ phát ${playbackSpeed}x`}
+                >
+                  <Timer size={14} weight="bold" />
+                  <span>{playbackSpeed}x</span>
+                </button>
               </div>
             </div>
 

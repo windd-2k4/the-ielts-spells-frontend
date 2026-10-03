@@ -59,6 +59,7 @@ import type {
   QuestionGroupIllustration,
   QuestionGroupItem,
   TestBankItem,
+  TestBankSummary,
   TestSkill,
   TestType,
   WritingTaskSection,
@@ -326,8 +327,10 @@ function dateLabel(value: string) {
   return date.toLocaleDateString("vi-VN");
 }
 
-function coverImageOf(test: TestBankItem): QuestionGroupIllustration | undefined {
-  const value = test.builderContent?.coverImage;
+function coverImageOf(test: TestBankItem | TestBankSummary): QuestionGroupIllustration | undefined {
+  const value = "coverImage" in test
+    ? test.coverImage
+    : "builderContent" in test ? test.builderContent?.coverImage : undefined;
   if (!value || typeof value !== "object") return undefined;
   const image = value as Record<string, unknown>;
   if (typeof image.assetId !== "string" || typeof image.fileUrl !== "string" || typeof image.filename !== "string" || typeof image.altText !== "string") return undefined;
@@ -366,13 +369,14 @@ function isFormatOption(value: string): value is FormatOption {
   ].includes(value);
 }
 
-function formatOf(test: TestBankItem): FormatOption {
-  const content = test.builderContent ?? {};
+function formatOf(test: TestBankItem | TestBankSummary): FormatOption {
+  const content = "builderContent" in test ? test.builderContent ?? {} : {};
   const preset = typeof content.sectionsPreset === "string" ? content.sectionsPreset.toUpperCase() : "";
   if (isFormatOption(preset)) return preset;
   const tagFormat = test.tags.find((tag) => isFormatOption(tag.toUpperCase()));
   if (tagFormat) return tagFormat.toUpperCase() as FormatOption;
-  const format = typeof content.format === "string" ? content.format.toUpperCase() : "";
+  const summaryFormat = "format" in test && typeof test.format === "string" ? test.format.toUpperCase() : "";
+  const format = summaryFormat || (typeof content.format === "string" ? content.format.toUpperCase() : "");
   if (isFormatOption(format)) return format;
   if (test.testType === "FULL_TEST" || test.sectionsCount > 1) return "FULL";
   return "SINGLE";
@@ -382,8 +386,9 @@ function usesWritingTaskImage(skill: TestSkill, format: FormatOption) {
   return skill === "WRITING" && (format === "TASK_1" || format === "FULL");
 }
 
-function writingTaskImageOf(test: TestBankItem) {
-  const tasks = test.builderContent?.tasks;
+function writingTaskImageOf(test: TestBankItem | TestBankSummary) {
+  if ("writingTaskImage" in test && test.writingTaskImage?.fileUrl) return test.writingTaskImage;
+  const tasks = "builderContent" in test ? test.builderContent?.tasks : undefined;
   if (!Array.isArray(tasks)) return undefined;
   const task = tasks.find((value, index) => (
     isRecord(value) && (value.taskNo === 1 || (value.taskNo !== 2 && index === 0))
@@ -394,6 +399,16 @@ function writingTaskImageOf(test: TestBankItem) {
     altText: typeof task.imageAltText === "string" && task.imageAltText.trim()
       ? task.imageAltText
       : `Hình minh họa Writing Task 1 của đề ${test.title}`,
+  };
+}
+
+function summaryFromItem(test: TestBankItem): TestBankSummary {
+  return {
+    ...test,
+    format: formatOf(test),
+    questionTypes: [],
+    coverImage: coverImageOf(test),
+    writingTaskImage: writingTaskImageOf(test),
   };
 }
 
@@ -859,7 +874,9 @@ function SkillCard({
 export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const navigate = useNavigate();
   const { roles } = useAuth();
-  const [tests, setTests] = useState<TestBankItem[]>([]);
+  const [tests, setTests] = useState<TestBankSummary[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -884,10 +901,15 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const canPublish = roles.includes("admin");
 
   useEffect(() => {
+    setPageIndex(0);
+  }, [formatFilter, query, skillFilter, statusFilter]);
+
+  useEffect(() => {
     let active = true;
     const timeout = window.setTimeout(() => {
       const params = new URLSearchParams();
-      params.set("size", "100");
+      params.set("size", "24");
+      params.set("page", String(pageIndex));
       if (query.trim()) params.set("query", query.trim());
       if (isAuthoringSkill(skillFilter)) params.set("skill", skillFilter);
       if (statusFilter !== "ALL") params.set("status", statusFilter);
@@ -900,9 +922,12 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
 
       setLoading(true);
       setError("");
-      apiFetch<Page<TestBankItem>>(`/admin/test-bank?${params.toString()}`)
+      apiFetch<Page<TestBankSummary>>(`/admin/test-bank?${params.toString()}`)
         .then((page) => {
-          if (active) setTests(page.content);
+          if (active) {
+            setTests(page.content);
+            setPageInfo({ totalElements: page.totalElements, totalPages: page.totalPages });
+          }
         })
         .catch((reason: Error) => {
           if (active) setError(reason.message);
@@ -916,7 +941,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       active = false;
       window.clearTimeout(timeout);
     };
-  }, [formatFilter, query, skillFilter, statusFilter]);
+  }, [formatFilter, pageIndex, query, skillFilter, statusFilter]);
 
   const selectedTypes = questionTypeList(skillFilter);
 
@@ -927,7 +952,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
         test.title,
         test.code,
         ...test.tags,
-        JSON.stringify(test.builderContent ?? {}),
+        ...test.questionTypes,
       ].join(" "));
       return selectedQuestionTypes.some((type) => haystack.includes(normalizeToken(type)));
     });
@@ -943,9 +968,6 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
     })
   ), [tests]);
 
-  const selectedSourceTests = selectedSourceIds
-    .map((id) => readingSingleSources.find((test) => test.id === id))
-    .filter((test): test is TestBankItem => Boolean(test));
   const createUsesWritingTaskImage = usesWritingTaskImage(createForm.skill, createForm.format);
 
   function handleSelectSkillFormat(skill: AuthoringSkill, format: FormatOption) {
@@ -1003,6 +1025,9 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
     setCreating(true);
     setError("");
     try {
+      const selectedSourceTests = await Promise.all(
+        selectedSourceIds.map((id) => apiFetch<TestBankItem>(`/admin/test-bank/${id}`)),
+      );
       const tags = Array.from(new Set([createForm.format, createForm.skill, ...parseTags(createForm.tagsText)]));
       const created = await apiFetch<TestBankItem>("/admin/test-bank", {
         method: "POST",
@@ -1017,7 +1042,6 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           builderContent: buildBuilderContent(createForm, selectedSourceTests, createCoverImage),
         }),
       });
-      setTests((current) => [created, ...current]);
       closeCreateModal();
       navigate(`/test-builder/${createForm.skill.toLowerCase()}/${created.id}`);
     } catch (reason) {
@@ -1045,7 +1069,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
         method: "POST",
         body: JSON.stringify({ draftRevision: test.draftRevision }),
       });
-      setTests((current) => current.map((item) => item.id === draft.id ? draft : item));
+      setTests((current) => current.map((item) => item.id === draft.id ? summaryFromItem(draft) : item));
       navigate(`/test-builder/${draft.skill.toLowerCase()}/${draft.id}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể tạo bản chỉnh sửa từ phiên bản đã xuất bản.");
@@ -1061,16 +1085,21 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
         method: "PATCH",
         body: JSON.stringify({ status: "DRAFT", draftRevision: test.draftRevision }),
       });
-      setTests((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setTests((current) => current.map((item) => item.id === updated.id ? summaryFromItem(updated) : item));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể trả đề về nháp.");
     }
   }
 
-  function openCoverEditor(test: TestBankItem) {
-    setCoverEditorTest(test);
-    setCoverDraft(coverImageOf(test));
+  async function openCoverEditor(test: TestBankItem) {
     setCoverError("");
+    try {
+      const detail = await apiFetch<TestBankItem>(`/admin/test-bank/${test.id}`);
+      setCoverEditorTest(detail);
+      setCoverDraft(coverImageOf(detail));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể tải nội dung đề thi.");
+    }
   }
 
   async function saveCoverImage() {
@@ -1100,7 +1129,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           builderContent,
         }),
       });
-      setTests((current) => current.map((test) => test.id === updated.id ? updated : test));
+      setTests((current) => current.map((test) => test.id === updated.id ? summaryFromItem(updated) : test));
       setCoverEditorTest(null);
       setCoverDraft(undefined);
     } catch (reason) {
@@ -1116,7 +1145,11 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
       <div className="flex items-center justify-end gap-1">
         <button
           type="button"
-          onClick={() => setPreviewTest(test)}
+          onClick={() => {
+            void apiFetch<TestBankItem>(`/admin/test-bank/${test.id}`)
+              .then(setPreviewTest)
+              .catch((reason: Error) => setError(reason.message));
+          }}
           className={`${actionClass} text-[#746A6E] hover:bg-[#f1eef4]`}
           title="Xem trước"
           aria-label={`Xem trước ${test.title}`}
@@ -1417,7 +1450,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               <div>
                 <h2 className="font-display text-sm font-extrabold text-[#211A1D]">Danh sách đề thi</h2>
                 <p className="text-[11px] text-[#746A6E]">
-                  {loading ? "Đang tải..." : `Hiển thị ${filteredTests.length} đề`}
+                  {loading ? "Đang tải..." : `Hiển thị ${filteredTests.length}/${pageInfo.totalElements} đề`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1521,7 +1554,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => openCoverEditor(test)}
+                                    onClick={() => void openCoverEditor(test)}
                                     className={thumbnailClass}
                                     aria-label={`${thumbnailImage ? "Thay" : "Thêm"} ảnh minh họa cho ${test.title}`}
                                   >
@@ -1631,7 +1664,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => openCoverEditor(test)}
+                                  onClick={() => void openCoverEditor(test)}
                                   className="group block h-full w-full overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8f4458]"
                                   aria-label={thumbnailImage ? `Thay ảnh minh họa cho ${test.title}` : `Thêm ảnh minh họa cho ${test.title}`}
                                 >
@@ -1692,6 +1725,31 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                   </div>
                 )}
               </div>
+            )}
+            {!loading && pageInfo.totalPages > 1 && (
+              <nav className="flex items-center justify-between gap-3 border-t border-[#e3dce2] bg-[#fbf9fb] px-4 py-3" aria-label="Phân trang ngân hàng đề">
+                <span className="text-xs font-semibold text-[#746A6E]">
+                  Trang {pageIndex + 1}/{pageInfo.totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={pageIndex === 0}
+                    onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+                    className="min-h-[40px] rounded-xl border border-[#e3dce2] bg-white px-4 text-xs font-bold text-[#211A1D] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Trang trước
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pageIndex + 1 >= pageInfo.totalPages}
+                    onClick={() => setPageIndex((current) => current + 1)}
+                    className="min-h-[40px] rounded-xl border border-[#e3dce2] bg-white px-4 text-xs font-bold text-[#211A1D] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Trang sau
+                  </button>
+                </div>
+              </nav>
             )}
           </div>
         </section>
@@ -2047,7 +2105,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               method: "PATCH",
               body: JSON.stringify({ status: canPublish ? "PUBLISHED" : "IN_REVIEW", draftRevision: publishingTest.draftRevision }),
             });
-            setTests((current) => current.map((test) => (test.id === updated.id ? updated : test)));
+            setTests((current) => current.map((test) => (test.id === updated.id ? summaryFromItem(updated) : test)));
             setPublishingTest(null);
           }}
         />

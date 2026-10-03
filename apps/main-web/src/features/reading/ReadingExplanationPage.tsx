@@ -4,7 +4,7 @@ import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup, ReadingQuest
 import {
   ArrowDown, ArrowLeft, ArrowSquareOut, CaretDown, CaretUp, ChatCircleDots, Check, CheckCircle, CircleNotch, Eye,
   FastForward, FileText, Headphones, Highlighter, Info, Lightbulb, ListBullets, MagnifyingGlass, MapPin, MinusCircle,
-  Moon, Pause, Play, Rewind, Sparkle, Sun, TreeStructure, X, XCircle,
+  Moon, Pause, Play, Rewind, Sparkle, SpeakerHigh, SpeakerLow, SpeakerSlash, Sun, Timer, TreeStructure, X, XCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,7 +16,7 @@ function formatTime(seconds: number) {
   const secs = Math.floor(safe % 60).toString().padStart(2, "0");
   return `${mins}:${secs}`;
 }
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
 import {
@@ -75,8 +75,17 @@ function ReadingExplanationContent({
   const [selectedKey, setSelectedKey] = useState("");
   const [isExplanationOpen, setIsExplanationOpen] = useState(true);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
-  const [showTranscript, setShowTranscript] = useState(false);
   const [focusedEvidenceId, setFocusedEvidenceId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const seekAndPlay = useCallback((seconds: number) => {
+    const el = audioRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(seconds, Number.isFinite(el.duration) ? el.duration : 99999));
+    el.currentTime = clamped;
+    void el.play().catch(() => {});
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -154,7 +163,7 @@ function ReadingExplanationContent({
   const selectedResult = resultByKey.get(selectedKey) ?? result?.questions[0] ?? null;
   const selectedMeta = selectedResult ? questionByKey.get(selectedResult.questionKey) : undefined;
   const activeSection = attempt?.sections[activeSectionIndex] ?? selectedMeta?.section ?? attempt?.sections[0];
-  const selectedEvidenceSpans = evidenceSpansForResult(selectedResult);
+  const selectedEvidenceSpans = evidenceSpansForResult(selectedResult, selectedMeta);
   const selectedStudentResp = selectedResult && attempt
     ? attempt.responses.find((r) => r.questionKey === selectedResult.questionKey)
     : undefined;
@@ -167,17 +176,17 @@ function ReadingExplanationContent({
     }
     let disposed = false;
     let obj = "";
-    void apiBlob(activeSection.audioUrl)
-      .then((b) => {
+    void apiMediaUrl(activeSection.audioUrl)
+      .then((resolvedUrl) => {
         if (!disposed) {
-          obj = URL.createObjectURL(b);
+          obj = resolvedUrl;
           setAudioUrl(obj);
         }
       })
       .catch(() => {});
     return () => {
       disposed = true;
-      if (obj) URL.revokeObjectURL(obj);
+      if (obj) revokeMediaUrl(obj);
     };
   }, [activeSection?.audioUrl, activeSectionIndex]);
   const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");
@@ -186,12 +195,11 @@ function ReadingExplanationContent({
   // recentering the whole page. The passage HTML is rebuilt before marks are applied,
   // so the document remains pristine when teachers update an explanation.
   useEffect(() => {
-    if (skill === "LISTENING" && !showTranscript) return;
     const root = passageRef.current;
     if (!root || !activeSection) return;
 
     root.innerHTML = activeSection.contentHtml ?? "";
-    const evidenceMarks = markEvidenceSpans(root, evidenceSpansForResult(selectedResult));
+    const evidenceMarks = markEvidenceSpans(root, evidenceSpansForResult(selectedResult, selectedMeta));
     const focusedEvidence = focusedEvidenceId
       ? evidenceMarks.find((item) => item.id === focusedEvidenceId)
       : evidenceMarks[0];
@@ -215,7 +223,7 @@ function ReadingExplanationContent({
         window.setTimeout(() => scrollInsidePane(answersPane, cardEl), 50);
       }
     }
-  }, [activeSection, focusedEvidenceId, selectedResult, selectedKey, showTranscript, skill]);
+  }, [activeSection, focusedEvidenceId, selectedResult, selectedKey, selectedMeta]);
 
   function selectQuestion(questionKey: string) {
     setSelectedKey(questionKey);
@@ -242,9 +250,6 @@ function ReadingExplanationContent({
     }
     setSelectedKey(questionKey);
     setIsExplanationOpen(true);
-    if (skill === "LISTENING") {
-      setShowTranscript(true);
-    }
     if (evidenceId) {
       setFocusedEvidenceId(evidenceId);
     } else {
@@ -407,15 +412,10 @@ function ReadingExplanationContent({
           <strong>{sectionPrefix} {activeSection?.sectionNo ?? activeSectionIndex + 1}: {activeSection?.title ?? (skill === "LISTENING" ? "Phần nghe" : "Bài đọc")}</strong>
         </div>
         {skill === "LISTENING" ? (
-          <button
-            type="button"
-            onClick={() => setShowTranscript((prev) => !prev)}
-            className={`${styles.transcriptQuickToggle} ${showTranscript ? styles.transcriptQuickToggleActive : ""}`}
-            title={showTranscript ? "Ẩn transcript và xem lại đề bài" : "Bật xem transcript lời thoại"}
-          >
-            <FileText size={15} weight={showTranscript ? "bold" : "regular"} />
-            <span>{showTranscript ? "Ẩn Transcript (Xem đề bài)" : "Hiện Transcript"}</span>
-          </button>
+          <p className={styles.sectionHint}>
+            <Headphones size={15} weight="fill" aria-hidden="true" />
+            Nhấn kính lúp hoặc [▶] bên cạnh câu hỏi để đối chiếu transcript và nghe audio.
+          </p>
         ) : (
           <p className={styles.sectionHint}>
             <Info size={15} weight="fill" aria-hidden="true" />
@@ -433,157 +433,34 @@ function ReadingExplanationContent({
         <article ref={passagePaneRef} className={`${styles.passagePane} ${themeClass}`} aria-label={`${sectionPrefix} ${activeSection?.sectionNo ?? 1}`}>
           <div className={styles.paneInner}>
             {skill === "LISTENING" ? (
-              <>
-                {/* Dedicated Listening Audio Player Bar */}
-                {audioUrl ? (
-                  <ListeningAudioPlayer
-                    audioUrl={audioUrl}
-                    audioFilename={activeSection?.audioFilename}
-                    sectionTitle={`Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
-                  />
-                ) : null}
-
-                {/* Study4-style Transcript Toggle Link */}
-                <div className={styles.transcriptToggleArea}>
-                  <button
-                    type="button"
-                    onClick={() => setShowTranscript((prev) => !prev)}
-                    className={`${styles.transcriptToggleLink} ${showTranscript ? styles.transcriptToggleLinkActive : ""}`}
-                  >
-                    {showTranscript ? (
-                      <>
-                        <span>Ẩn Transcript (Xem lại đề bài)</span>
-                        <CaretUp size={15} weight="bold" />
-                      </>
-                    ) : (
-                      <>
-                        <span>Hiện Transcript</span>
-                        <CaretDown size={15} weight="bold" />
-                      </>
-                    )}
-                  </button>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
-                    {showTranscript ? "Đang xem lời thoại bài nghe" : "Đang xem nội dung đề bài"}
+              <div className={styles.transcriptDisplayArea}>
+                <div className={styles.transcriptCardHeader}>
+                  <h3 className={styles.transcriptCardTitle}>
+                    <Sparkle size={16} weight="fill" className="text-amber-500" />
+                    Lời thoại bài nghe (Transcript) · {activeSection?.title ?? `Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
+                  </h3>
+                  <span className={styles.transcriptCardHint}>
+                    {selectedResult ? `Đang đối chiếu vị trí cho Câu ${selectedResult.questionNo}` : "Chọn câu hỏi để xem bằng chứng"}
                   </span>
                 </div>
 
-                {/* Dynamic Display: Đề bài vs Transcript */}
-                {showTranscript ? (
-                  <div className={styles.transcriptDisplayArea}>
-                    <div className={styles.transcriptCardHeader}>
-                      <h3 className={styles.transcriptCardTitle}>
-                        <Sparkle size={16} weight="fill" className="text-amber-500" />
-                        Lời thoại bài nghe (Transcript) · {activeSection?.title ?? `Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
-                      </h3>
-                      <span className={styles.transcriptCardHint}>
-                        {selectedResult ? `Đang đối chiếu vị trí cho Câu ${selectedResult.questionNo}` : "Chọn câu hỏi để xem bằng chứng"}
-                      </span>
+                {selectedResult && selectedEvidenceSpans.length > 0 ? (
+                  <div className={styles.evidenceCard}>
+                    <MapPin size={18} weight="fill" aria-hidden="true" />
+                    <div>
+                      <strong>Vị trí đối chiếu · Câu {selectedResult.questionNo}</strong>
+                      <blockquote>
+                        {selectedEvidenceSpans[0].quote
+                          ? `“${selectedEvidenceSpans[0].quote}”`
+                          : selectedEvidenceSpans[0].label || "Đoạn lời thoại liên quan"}
+                        {selectedEvidenceSpans.length > 1 ? ` · +${selectedEvidenceSpans.length - 1} vị trí khác` : ""}
+                      </blockquote>
                     </div>
-
-                    {selectedResult && selectedEvidenceSpans.length > 0 ? (
-                      <div className={styles.evidenceCard}>
-                        <MapPin size={18} weight="fill" aria-hidden="true" />
-                        <div>
-                          <strong>Vị trí đối chiếu · Câu {selectedResult.questionNo}</strong>
-                          <blockquote>
-                            {selectedEvidenceSpans[0].quote
-                              ? `“${selectedEvidenceSpans[0].quote}”`
-                              : selectedEvidenceSpans[0].label || "Đoạn lời thoại liên quan"}
-                            {selectedEvidenceSpans.length > 1 ? ` · +${selectedEvidenceSpans.length - 1} vị trí khác` : ""}
-                          </blockquote>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div ref={passageRef} className={styles.passageContent} />
                   </div>
-                ) : (
-                  <div className={styles.listeningPromptContainer}>
-                    <div className={styles.listeningPromptHeader}>
-                      <span className={styles.promptPartBadge}>PART {activeSection?.sectionNo ?? activeSectionIndex + 1}</span>
-                      <h2 className={styles.promptSectionTitle}>{activeSection?.title ?? `Listening Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}</h2>
-                    </div>
+                ) : null}
 
-                    {activeSection?.questionGroups.map((group) => (
-                      <div key={group.key} className={styles.promptGroupBlock}>
-                        <div className={styles.promptGroupHeading}>
-                          <span className={styles.promptGroupEyebrow}>{groupQuestionLabel(group)}</span>
-                          <h3 className={styles.promptGroupTitle}>{group.title}</h3>
-                          {group.instructions ? (
-                            <p className={styles.promptGroupInstructions}>{group.instructions}</p>
-                          ) : null}
-                        </div>
-
-                        {group.answerConfig?.gapFillTemplate ? (
-                          <ListeningPromptDisplay
-                            group={group}
-                            selectedKey={selectedKey}
-                            onSelectQuestion={selectQuestion}
-                            resultByKey={resultByKey}
-                          />
-                        ) : null}
-
-                        {group.typeFormat === "TABLE_COMPLETION" ? (
-                          <TableReviewCard
-                            group={group}
-                            resultByKey={resultByKey}
-                            attemptResponses={attempt.responses}
-                            selectedKey={selectedKey}
-                            isExplanationOpen={isExplanationOpen}
-                            onSelectQuestion={selectQuestion}
-                            onLocateEvidence={locateEvidence}
-                          />
-                        ) : null}
-
-                        {group.typeFormat === "FLOW_CHART_COMPLETION" ? (
-                          <FlowChartReviewCard
-                            group={group}
-                            resultByKey={resultByKey}
-                            attemptResponses={attempt.responses}
-                            selectedKey={selectedKey}
-                            isExplanationOpen={isExplanationOpen}
-                            onSelectQuestion={selectQuestion}
-                            onLocateEvidence={locateEvidence}
-                          />
-                        ) : null}
-
-                        {group.typeFormat === "DIAGRAM_LABELING" ? (
-                          <DiagramReviewCard
-                            group={group}
-                            resultByKey={resultByKey}
-                            attemptResponses={attempt.responses}
-                            selectedKey={selectedKey}
-                            isExplanationOpen={isExplanationOpen}
-                            onSelectQuestion={selectQuestion}
-                            onLocateEvidence={locateEvidence}
-                          />
-                        ) : null}
-
-                        {!group.answerConfig?.gapFillTemplate &&
-                         group.typeFormat !== "TABLE_COMPLETION" &&
-                         group.typeFormat !== "FLOW_CHART_COMPLETION" &&
-                         group.typeFormat !== "DIAGRAM_LABELING" ? (
-                          <div className={styles.promptQuestionsOverview}>
-                            {group.questions.map((q) => {
-                              const isSelected = selectedKey === q.key;
-                              return (
-                                <div
-                                  key={q.key}
-                                  className={`${styles.promptQuestionRow} ${isSelected ? styles.promptQuestionRowActive : ""}`}
-                                  onClick={() => selectQuestion(q.key)}
-                                >
-                                  <span className={styles.circleQuestionBadge}>{q.number}</span>
-                                  <p className={styles.promptQuestionText}>{q.prompt || `Câu hỏi ${q.number}`}</p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+                <div ref={passageRef} className={styles.passageContent} />
+              </div>
             ) : (
               /* Reading Passage View */
               <>
@@ -621,6 +498,18 @@ function ReadingExplanationContent({
               </>
             )}
           </div>
+
+          {/* Sticky Listening Audio Player at bottom of Left Pane */}
+          {skill === "LISTENING" && audioUrl ? (
+            <div className={styles.listeningAudioStickyBottom}>
+              <ListeningAudioPlayer
+                audioUrl={audioUrl}
+                audioFilename={activeSection?.audioFilename}
+                sectionTitle={`Part ${activeSection?.sectionNo ?? activeSectionIndex + 1}`}
+                audioRef={audioRef}
+              />
+            </div>
+          ) : null}
         </article>
 
         {/* Right Pane: clean IELTS review view with bottom explanation drawer */}
@@ -629,41 +518,8 @@ function ReadingExplanationContent({
             <div className={styles.questionsInner}>
               
               {/* Question Groups */}
-              {skill === "LISTENING" ? (
-                activeSection?.questionGroups.map((group) => (
-                  <section key={group.key} className={styles.questionGroup}>
-                    <div className={styles.groupHeading}>
-                      <span className={styles.groupEyebrow}>{groupQuestionLabel(group)}</span>
-                      <h3 className={styles.groupTitle}>{group.title}</h3>
-                      {group.instructions ? <p className={styles.groupInstructions}>{group.instructions}</p> : null}
-                    </div>
-
-                    <div className={styles.questionList}>
-                      {group.questions.map((question) => {
-                        const qResult = resultByKey.get(question.key);
-                        const studentResp = attempt.responses.find((r) => r.questionKey === question.key);
-                        const studentAnswerText = answerValues(studentResp?.answer).join(", ");
-                        const isSelected = question.key === selectedKey;
-
-                        return (
-                          <QuestionReviewCard
-                            key={question.key}
-                            question={question}
-                            group={group}
-                            qResult={qResult}
-                            studentAnswerText={studentAnswerText}
-                            isSelected={isSelected}
-                            isExplanationOpen={isExplanationOpen}
-                            onSelect={() => selectQuestion(question.key)}
-                            onLocateEvidence={locateEvidence}
-                          />
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))
-              ) : (
-                activeSection?.questionGroups.map((group) => {
+              {activeSection?.questionGroups.map((group) => {
+                const isListeningSkill = skill === "LISTENING";
                 const isTable = group.typeFormat === "TABLE_COMPLETION";
                 const isFlowChart = group.typeFormat === "FLOW_CHART_COMPLETION";
                 const isDiagram = group.typeFormat === "DIAGRAM_LABELING";
@@ -690,8 +546,10 @@ function ReadingExplanationContent({
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListeningSkill}
                         onSelectQuestion={selectQuestion}
                         onLocateEvidence={locateEvidence}
+                        onSeekAndPlay={seekAndPlay}
                       />
                     </section>
                   );
@@ -712,8 +570,10 @@ function ReadingExplanationContent({
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListeningSkill}
                         onSelectQuestion={selectQuestion}
                         onLocateEvidence={locateEvidence}
+                        onSeekAndPlay={seekAndPlay}
                       />
                     </section>
                   );
@@ -734,8 +594,10 @@ function ReadingExplanationContent({
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListeningSkill}
                         onSelectQuestion={selectQuestion}
                         onLocateEvidence={locateEvidence}
+                        onSeekAndPlay={seekAndPlay}
                       />
                     </section>
                   );
@@ -766,8 +628,10 @@ function ReadingExplanationContent({
                               studentAnswerText={studentAnswerText}
                               isSelected={isSelected}
                               isExplanationOpen={isExplanationOpen}
+                              isListening={isListeningSkill}
                               onSelect={() => selectQuestion(question.key)}
                               onLocateEvidence={locateEvidence}
+                              onSeekAndPlay={seekAndPlay}
                             />
                           );
                         })}
@@ -802,8 +666,10 @@ function ReadingExplanationContent({
                         attemptResponses={attempt.responses}
                         selectedKey={selectedKey}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListeningSkill}
                         onSelectQuestion={selectQuestion}
                         onLocateEvidence={locateEvidence}
+                        onSeekAndPlay={seekAndPlay}
                       />
                     </section>
                   );
@@ -844,16 +710,17 @@ function ReadingExplanationContent({
                             studentAnswerText={studentAnswerText}
                             isSelected={isSelected}
                             isExplanationOpen={isExplanationOpen}
+                            isListening={isListeningSkill}
                             onSelect={() => selectQuestion(question.key)}
                             onLocateEvidence={locateEvidence}
+                            onSeekAndPlay={seekAndPlay}
                           />
                         );
                       })}
                     </div>
                   </section>
                 );
-              })
-              )}
+              })}
             </div>
           </div>
 
@@ -868,6 +735,7 @@ function ReadingExplanationContent({
                 onLocateEvidence={locateEvidence}
                 onClose={() => setIsExplanationOpen(false)}
                 skill={skill}
+                meta={selectedMeta}
               />
             </div>
           ) : null}
@@ -1008,20 +876,91 @@ function ReadingExplanationContent({
   );
 }
 
+function parseTimestampSeconds(val: unknown): number | null {
+  if (typeof val === "number" && Number.isFinite(val) && val >= 0) return val;
+  if (typeof val !== "string") return null;
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes(":")) {
+    const parts = trimmed.split(":").map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return parts[0] * 60 + parts[1];
+    }
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+  }
+  const num = Number(trimmed);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
+function getQuestionTimestamp(question: ReadingQuestion, group?: ReadingQuestionGroup): number | null {
+  const qNo = String(question.number);
+  const rawQMap = (group?.answerConfig as Record<string, unknown> | undefined)?.questionTimestamps as Record<string, string> | undefined;
+  if (rawQMap) {
+    if (rawQMap[qNo] != null) {
+      const s = parseTimestampSeconds(rawQMap[qNo]);
+      if (s !== null) return s;
+    }
+    if (rawQMap[question.key] != null) {
+      const s = parseTimestampSeconds(rawQMap[question.key]);
+      if (s !== null) return s;
+    }
+  }
+  const directQ = (question as unknown as { linkedAudioTimestamp?: string }).linkedAudioTimestamp;
+  if (directQ) {
+    const s = parseTimestampSeconds(directQ);
+    if (s !== null) return s;
+  }
+  const groupTs = (group?.answerConfig as Record<string, unknown> | undefined)?.linkedAudioTimestamp ||
+    (group as unknown as { linkedAudioTimestamp?: string }).linkedAudioTimestamp;
+  if (groupTs) {
+    const s = parseTimestampSeconds(groupTs);
+    if (s !== null) return s;
+  }
+  return null;
+}
+
+function RotateLeft5Icon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 12a8 8 0 1 1 2.34 5.66" />
+      <polyline points="4 6 4 12 10 12" />
+      <text x="12" y="15.2" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">5</text>
+    </svg>
+  );
+}
+
+function RotateRight5Icon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 0-2.34 5.66" />
+      <polyline points="20 6 20 12 14 12" />
+      <text x="12" y="15.2" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">5</text>
+    </svg>
+  );
+}
+
 function ListeningAudioPlayer({
   audioUrl,
   audioFilename,
   sectionTitle,
+  audioRef: externalAudioRef,
 }: {
   audioUrl: string;
   audioFilename?: string | null;
   sectionTitle?: string;
+  audioRef?: React.RefObject<HTMLAudioElement | null>;
 }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const localAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = externalAudioRef || localAudioRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [volume, setVolume] = useState(0.8);
+  const [isMuted, setIsMuted] = useState(false);
+  const prevVolumeRef = useRef(0.8);
 
   useEffect(() => {
     setIsPlaying(false);
@@ -1030,8 +969,10 @@ function ListeningAudioPlayer({
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.pause();
+      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.playbackRate = playbackSpeed;
     }
-  }, [audioUrl]);
+  }, [audioUrl, audioRef]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -1049,12 +990,53 @@ function ListeningAudioPlayer({
     setCurrentTime(clamped);
   };
 
-  const changeSpeed = (spd: number) => {
-    setPlaybackSpeed(spd);
+  const changeVolume = (val: number) => {
+    const clamped = Math.max(0, Math.min(1, val));
+    setVolume(clamped);
+    if (clamped > 0) {
+      setIsMuted(false);
+      prevVolumeRef.current = clamped;
+    } else {
+      setIsMuted(true);
+    }
     if (audioRef.current) {
-      audioRef.current.playbackRate = spd;
+      audioRef.current.volume = clamped;
+      audioRef.current.muted = clamped === 0;
     }
   };
+
+  const toggleMute = () => {
+    if (isMuted || volume === 0) {
+      const restore = prevVolumeRef.current > 0 ? prevVolumeRef.current : 0.8;
+      setIsMuted(false);
+      setVolume(restore);
+      if (audioRef.current) {
+        audioRef.current.volume = restore;
+        audioRef.current.muted = false;
+      }
+    } else {
+      prevVolumeRef.current = volume;
+      setIsMuted(true);
+      setVolume(0);
+      if (audioRef.current) {
+        audioRef.current.volume = 0;
+        audioRef.current.muted = true;
+      }
+    }
+  };
+
+  const speeds = [1, 1.25, 1.5, 0.8];
+  const cycleSpeed = () => {
+    const nextIdx = (speeds.indexOf(playbackSpeed) + 1) % speeds.length;
+    const next = speeds[nextIdx];
+    setPlaybackSpeed(next);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = next;
+    }
+  };
+
+  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  const volumePercent = (isMuted ? 0 : volume) * 100;
 
   return (
     <div className={styles.listeningAudioBar}>
@@ -1065,32 +1047,18 @@ function ListeningAudioPlayer({
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
           if (Number.isFinite(d)) setDuration(d);
+          if (audioRef.current) {
+            audioRef.current.volume = isMuted ? 0 : volume;
+            audioRef.current.playbackRate = playbackSpeed;
+          }
         }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
       />
 
-      <div className={styles.audioBarHeader}>
-        <div className={styles.audioBarTitle}>
-          <Headphones size={16} weight="fill" className="text-blue-600" />
-          <span>{audioFilename || sectionTitle || "File nghe Part"}</span>
-        </div>
-        <div className={styles.audioSpeedPicker}>
-          {[0.8, 1.0, 1.25, 1.5].map((spd) => (
-            <button
-              key={spd}
-              type="button"
-              className={`${styles.audioSpeedBtn} ${playbackSpeed === spd ? styles.audioSpeedBtnActive : ""}`}
-              onClick={() => changeSpeed(spd)}
-            >
-              {spd}x
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className={styles.audioSeekRow}>
+      {/* Top Seek Progress Bar */}
+      <div className={styles.audioSeekWrapper}>
         <input
           type="range"
           min={0}
@@ -1099,44 +1067,94 @@ function ListeningAudioPlayer({
           value={Math.min(currentTime, duration || currentTime)}
           onChange={(e) => seekTo(Number(e.target.value))}
           className={styles.audioRange}
+          style={{ "--seek-percent": `${progressPercent}%` } as React.CSSProperties}
           aria-label="Tiến độ phát audio"
         />
-        <div className={styles.audioTimeRow}>
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
       </div>
 
-      <div className={styles.audioControlsRow}>
-        <div className={styles.audioBtnGroup}>
+      {/* Bottom Main Controls Row */}
+      <div className={styles.audioMainRow}>
+        {/* Left: Time and Volume slider */}
+        <div className={styles.audioLeftGroup}>
+          <span className={styles.audioTimeText}>
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+
           <button
             type="button"
-            className={styles.audioSeekBtn}
+            className={styles.volumeIconBtn}
+            onClick={toggleMute}
+            title={isMuted || volume === 0 ? "Bật âm thanh" : "Tắt âm thanh"}
+            aria-label="Điều chỉnh âm lượng"
+          >
+            {isMuted || volume === 0 ? (
+              <SpeakerSlash size={18} weight="bold" />
+            ) : volume < 0.4 ? (
+              <SpeakerLow size={18} weight="bold" />
+            ) : (
+              <SpeakerHigh size={18} weight="bold" />
+            )}
+          </button>
+
+          <div className={styles.volumeSliderWrapper} title={`Âm lượng: ${Math.round(volumePercent)}%`}>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={isMuted ? 0 : volume}
+              onChange={(e) => changeVolume(Number(e.target.value))}
+              className={styles.volumeRange}
+              style={{ "--volume-percent": `${volumePercent}%` } as React.CSSProperties}
+              aria-label="Thanh âm lượng"
+            />
+          </div>
+        </div>
+
+        {/* Center: Rewind 5s, Play/Pause, Forward 5s */}
+        <div className={styles.audioCenterGroup}>
+          <button
+            type="button"
+            className={styles.audioCircleBtn}
             onClick={() => seekTo(currentTime - 5)}
             title="Lùi 5 giây"
             aria-label="Lùi 5 giây"
           >
-            <Rewind size={15} />
-            <span>-5s</span>
+            <RotateLeft5Icon size={22} />
           </button>
+
           <button
             type="button"
-            className={styles.audioPlayBtn}
+            className={styles.audioOrangePlayBtn}
             onClick={togglePlay}
             title={isPlaying ? "Tạm dừng" : "Phát audio"}
             aria-label={isPlaying ? "Tạm dừng" : "Phát audio"}
           >
-            {isPlaying ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
+            {isPlaying ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}
           </button>
+
           <button
             type="button"
-            className={styles.audioSeekBtn}
+            className={styles.audioCircleBtn}
             onClick={() => seekTo(currentTime + 5)}
             title="Tiến 5 giây"
             aria-label="Tiến 5 giây"
           >
-            <span>+5s</span>
-            <FastForward size={15} />
+            <RotateRight5Icon size={22} />
+          </button>
+        </div>
+
+        {/* Right: Speed Toggle */}
+        <div className={styles.audioRightGroup}>
+          <button
+            type="button"
+            className={styles.audioSpeedPill}
+            onClick={cycleSpeed}
+            title="Nhấn để đổi tốc độ phát"
+            aria-label={`Tốc độ phát ${playbackSpeed}x`}
+          >
+            <Timer size={15} weight="bold" />
+            <span>{playbackSpeed}x</span>
           </button>
         </div>
       </div>
@@ -1151,8 +1169,10 @@ function QuestionReviewCard({
   studentAnswerText,
   isSelected,
   isExplanationOpen,
+  isListening,
   onSelect,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   question: ReadingQuestion;
   group: ReadingQuestionGroup;
@@ -1160,14 +1180,17 @@ function QuestionReviewCard({
   studentAnswerText: string;
   isSelected: boolean;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelect: () => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
   const options = questionOptions(question, group);
+  const timestampSeconds = getQuestionTimestamp(question, group);
 
   const isMatching =
     group.typeFormat === "MATCHING_HEADINGS" ||
@@ -1197,6 +1220,25 @@ function QuestionReviewCard({
         onClick={onSelect}
       >
         <div className={styles.questionPromptRow}>
+          {isListening ? (
+            <button
+              type="button"
+              className={styles.slotPlayBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                if (timestampSeconds !== null && onSeekAndPlay) {
+                  onSeekAndPlay(timestampSeconds);
+                } else if (onSeekAndPlay) {
+                  onSeekAndPlay(0);
+                }
+              }}
+              title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+              aria-label={`Phát audio câu ${question.number}`}
+            >
+              <Play size={10} weight="fill" />
+            </button>
+          ) : null}
           <span className={styles.circleQuestionBadge}>{question.number}</span>
           <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
@@ -1262,6 +1304,25 @@ function QuestionReviewCard({
         onClick={onSelect}
       >
         <div className={styles.questionPromptRow}>
+          {isListening ? (
+            <button
+              type="button"
+              className={styles.slotPlayBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                if (timestampSeconds !== null && onSeekAndPlay) {
+                  onSeekAndPlay(timestampSeconds);
+                } else if (onSeekAndPlay) {
+                  onSeekAndPlay(0);
+                }
+              }}
+              title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+              aria-label={`Phát audio câu ${question.number}`}
+            >
+              <Play size={10} weight="fill" />
+            </button>
+          ) : null}
           <span className={styles.circleQuestionBadge}>{question.number}</span>
           <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
@@ -1348,6 +1409,25 @@ function QuestionReviewCard({
         onClick={onSelect}
       >
         <div className={styles.questionPromptRow}>
+          {isListening ? (
+            <button
+              type="button"
+              className={styles.slotPlayBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                if (timestampSeconds !== null && onSeekAndPlay) {
+                  onSeekAndPlay(timestampSeconds);
+                } else if (onSeekAndPlay) {
+                  onSeekAndPlay(0);
+                }
+              }}
+              title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+              aria-label={`Phát audio câu ${question.number}`}
+            >
+              <Play size={10} weight="fill" />
+            </button>
+          ) : null}
           <span className={styles.circleQuestionBadge}>{question.number}</span>
           <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
         </div>
@@ -1407,6 +1487,25 @@ function QuestionReviewCard({
       onClick={onSelect}
     >
       <div className={styles.questionPromptRow}>
+        {isListening ? (
+          <button
+            type="button"
+            className={styles.slotPlayBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+              if (timestampSeconds !== null && onSeekAndPlay) {
+                onSeekAndPlay(timestampSeconds);
+              } else if (onSeekAndPlay) {
+                onSeekAndPlay(0);
+              }
+            }}
+            title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+            aria-label={`Phát audio câu ${question.number}`}
+          >
+            <Play size={10} weight="fill" />
+          </button>
+        ) : null}
         <span className={styles.circleQuestionBadge}>{question.number}</span>
         <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
       </div>
@@ -1451,25 +1550,110 @@ function QuestionReviewCard({
 // ========================================================
 function GapInlineReviewSlot({
   question,
+  group,
   qResult,
   studentAnswerText,
   isSelected,
   isExplanationOpen,
+  isListening,
   onSelect,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   question: ReadingQuestion;
+  group?: ReadingQuestionGroup;
   qResult: ReadingQuestionResult | undefined;
   studentAnswerText: string;
   isSelected: boolean;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelect: () => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
+  const timestampSeconds = getQuestionTimestamp(question, group);
+
+  if (isListening) {
+    return (
+      <span
+        id={`question-card-${question.key}`}
+        className={`${styles.listeningGapSlot} ${isSelected ? styles.listeningGapSlotActive : ""}`}
+        onClick={onSelect}
+      >
+        {isSelected ? (
+          <span className={styles.viewPositionBadge}>Xem vị trí</span>
+        ) : null}
+
+        <button
+          type="button"
+          className={styles.slotPlayBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+            if (timestampSeconds !== null && onSeekAndPlay) {
+              onSeekAndPlay(timestampSeconds);
+            } else if (onSeekAndPlay) {
+              onSeekAndPlay(0);
+            }
+          }}
+          title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+          aria-label={`Phát audio câu ${question.number}`}
+        >
+          <Play size={10} weight="fill" />
+        </button>
+
+        <span className={styles.slotQuestionNo}>{question.number}</span>
+
+        {isCorrect ? (
+          <span className={styles.slotResultCorrect}>
+            <span>{studentAnswerText || formatReadingAnswerList(qResult?.correctAnswers || [], optionMap)}</span>
+            <Check size={13} weight="bold" />
+          </span>
+        ) : isIncorrect ? (
+          <span className={styles.slotResultIncorrect}>
+            {studentAnswerText ? (
+              <span className={styles.slotStudentWrong}>
+                {studentAnswerText} <span className={styles.slotWrongX}>✕</span>
+              </span>
+            ) : (
+              <span className={styles.slotWrongX}>✕</span>
+            )}
+            <span className={styles.slotArrow}>→</span>
+            <span className={styles.slotCorrectTarget}>
+              {formatReadingAnswerList(qResult?.correctAnswers || [], optionMap, " / ")}
+            </span>
+          </span>
+        ) : (
+          <span className={styles.slotResultIncorrect}>
+            <span className={styles.slotWrongX}>✕</span>
+            <span className={styles.slotArrow}>→</span>
+            <span className={styles.slotCorrectTarget}>
+              {formatReadingAnswerList(qResult?.correctAnswers || [], optionMap, " / ")}
+            </span>
+          </span>
+        )}
+
+        <button
+          type="button"
+          className={`${styles.slotMagnifierBtn} ${
+            isSelected && isExplanationOpen ? styles.slotMagnifierBtnActive : ""
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onLocateEvidence?.(question.key, undefined, true);
+          }}
+          title="Xem vị trí bằng chứng trong transcript"
+          aria-label={`Xem giải thích câu ${question.number}`}
+        >
+          <MagnifyingGlass size={12} weight="bold" />
+        </button>
+      </span>
+    );
+  }
 
   return (
     <span
@@ -1653,16 +1837,20 @@ function GapFillReviewCard({
   attemptResponses,
   selectedKey,
   isExplanationOpen,
+  isListening,
   onSelectQuestion,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelectQuestion: (questionKey: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1733,12 +1921,15 @@ function GapFillReviewCard({
                     <GapInlineReviewSlot
                       key={q.key}
                       question={q}
+                      group={group}
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
                       isExplanationOpen={isExplanationOpen}
+                      isListening={isListening}
                       onSelect={() => onSelectQuestion(q.key)}
                       onLocateEvidence={onLocateEvidence}
+                      onSeekAndPlay={onSeekAndPlay}
                     />
                   );
                 })}
@@ -1772,12 +1963,15 @@ function GapFillReviewCard({
                       <GapInlineReviewSlot
                         key={q.key}
                         question={q}
+                        group={group}
                         qResult={slotResult}
                         studentAnswerText={slotAnswerText}
                         isSelected={selectedKey === q.key}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListening}
                         onSelect={() => onSelectQuestion(q.key)}
                         onLocateEvidence={onLocateEvidence}
+                        onSeekAndPlay={onSeekAndPlay}
                       />
                     );
                   })}
@@ -1795,12 +1989,15 @@ function GapFillReviewCard({
                       {pIdx < parts.length - 1 ? (
                         <GapInlineReviewSlot
                           question={question}
+                          group={group}
                           qResult={qResult}
                           studentAnswerText={studentAnswerText}
                           isSelected={isSelected}
                           isExplanationOpen={isExplanationOpen}
+                          isListening={isListening}
                           onSelect={() => onSelectQuestion(question.key)}
                           onLocateEvidence={onLocateEvidence}
+                          onSeekAndPlay={onSeekAndPlay}
                         />
                       ) : null}
                     </Fragment>
@@ -1815,12 +2012,15 @@ function GapFillReviewCard({
                 <span>{prompt} </span>
                 <GapInlineReviewSlot
                   question={question}
+                  group={group}
                   qResult={qResult}
                   studentAnswerText={studentAnswerText}
                   isSelected={isSelected}
                   isExplanationOpen={isExplanationOpen}
+                  isListening={isListening}
                   onSelect={() => onSelectQuestion(question.key)}
                   onLocateEvidence={onLocateEvidence}
+                  onSeekAndPlay={onSeekAndPlay}
                 />
               </div>
             );
@@ -1840,16 +2040,20 @@ function TableReviewCard({
   attemptResponses,
   selectedKey,
   isExplanationOpen,
+  isListening,
   onSelectQuestion,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelectQuestion: (questionKey: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -1923,12 +2127,15 @@ function TableReviewCard({
                           <GapInlineReviewSlot
                             key={q.key}
                             question={q}
+                            group={group}
                             qResult={qResult}
                             studentAnswerText={studentAnswerText}
                             isSelected={isSelected}
                             isExplanationOpen={isExplanationOpen}
+                            isListening={isListening}
                             onSelect={() => onSelectQuestion(q.key)}
                             onLocateEvidence={onLocateEvidence}
+                            onSeekAndPlay={onSeekAndPlay}
                           />
                         );
                       })}
@@ -1965,12 +2172,15 @@ function TableReviewCard({
                   <td>
                     <GapInlineReviewSlot
                       question={question}
+                      group={group}
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
                       isExplanationOpen={isExplanationOpen}
+                      isListening={isListening}
                       onSelect={() => onSelectQuestion(question.key)}
                       onLocateEvidence={onLocateEvidence}
+                      onSeekAndPlay={onSeekAndPlay}
                     />
                   </td>
                 </tr>
@@ -1992,16 +2202,20 @@ function FlowChartReviewCard({
   attemptResponses,
   selectedKey,
   isExplanationOpen,
+  isListening,
   onSelectQuestion,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelectQuestion: (questionKey: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
@@ -2069,12 +2283,15 @@ function FlowChartReviewCard({
                     <GapInlineReviewSlot
                       key={q.key}
                       question={q}
+                      group={group}
                       qResult={qResult}
                       studentAnswerText={studentAnswerText}
                       isSelected={isSelected}
                       isExplanationOpen={isExplanationOpen}
+                      isListening={isListening}
                       onSelect={() => onSelectQuestion(q.key)}
                       onLocateEvidence={onLocateEvidence}
+                      onSeekAndPlay={onSeekAndPlay}
                     />
                   );
                 })
@@ -2089,12 +2306,15 @@ function FlowChartReviewCard({
                     return (
                       <GapInlineReviewSlot
                         question={step.question}
+                        group={group}
                         qResult={qResult}
                         studentAnswerText={studentAnswerText}
                         isSelected={isSelected}
                         isExplanationOpen={isExplanationOpen}
+                        isListening={isListening}
                         onSelect={() => onSelectQuestion(step.question!.key)}
                         onLocateEvidence={onLocateEvidence}
+                        onSeekAndPlay={onSeekAndPlay}
                       />
                     );
                   })()}
@@ -2125,16 +2345,20 @@ function DiagramReviewCard({
   attemptResponses,
   selectedKey,
   isExplanationOpen,
+  isListening,
   onSelectQuestion,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   group: ReadingQuestionGroup;
   resultByKey: Map<string, ReadingQuestionResult>;
   attemptResponses: Array<{ questionKey: string; answer?: ReadingAnswer }>;
   selectedKey: string;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelectQuestion: (questionKey: string) => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const optionMap = useReadingOptionMap();
   const rawIllustration = (group.answerConfig?.illustration ?? (group as unknown as { illustration?: unknown }).illustration) as
@@ -2194,12 +2418,15 @@ function DiagramReviewCard({
               <span className={styles.diagramReviewLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
               <GapInlineReviewSlot
                 question={question}
+                group={group}
                 qResult={qResult}
                 studentAnswerText={studentAnswerText}
                 isSelected={isSelected}
                 isExplanationOpen={isExplanationOpen}
+                isListening={isListening}
                 onSelect={() => onSelectQuestion(question.key)}
                 onLocateEvidence={onLocateEvidence}
+                onSeekAndPlay={onSeekAndPlay}
               />
             </div>
           );
@@ -2235,8 +2462,10 @@ function ShortAnswerReviewCard({
   studentAnswerText,
   isSelected,
   isExplanationOpen,
+  isListening,
   onSelect,
   onLocateEvidence,
+  onSeekAndPlay,
 }: {
   question: ReadingQuestion;
   group: ReadingQuestionGroup;
@@ -2244,13 +2473,16 @@ function ShortAnswerReviewCard({
   studentAnswerText: string;
   isSelected: boolean;
   isExplanationOpen?: boolean;
+  isListening?: boolean;
   onSelect: () => void;
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
+  onSeekAndPlay?: (seconds: number) => void;
 }) {
   const optionMap = useReadingOptionMap();
   const isCorrect = qResult?.correct === true;
   const isUnanswered = !qResult?.answered;
   const isIncorrect = qResult?.answered && !qResult?.correct;
+  const timestampSeconds = getQuestionTimestamp(question, group);
 
   return (
     <article
@@ -2259,6 +2491,25 @@ function ShortAnswerReviewCard({
       onClick={onSelect}
     >
       <div className={styles.questionPromptRow}>
+        {isListening ? (
+          <button
+            type="button"
+            className={styles.slotPlayBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+              if (timestampSeconds !== null && onSeekAndPlay) {
+                onSeekAndPlay(timestampSeconds);
+              } else if (onSeekAndPlay) {
+                onSeekAndPlay(0);
+              }
+            }}
+            title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+            aria-label={`Phát audio câu ${question.number}`}
+          >
+            <Play size={10} weight="fill" />
+          </button>
+        ) : null}
         <span className={styles.circleQuestionBadge}>{question.number}</span>
         <p className={styles.questionPrompt}>{question.prompt || `Câu hỏi ${question.number}`}</p>
       </div>
@@ -2312,6 +2563,7 @@ function QuestionExplanationPanel({
   onLocateEvidence,
   onClose,
   skill = "READING",
+  meta,
 }: {
   result: ReadingQuestionResult;
   studentAnswerText: string;
@@ -2320,12 +2572,13 @@ function QuestionExplanationPanel({
   onLocateEvidence?: (questionKey: string, evidenceId?: string, isToggle?: boolean) => void;
   onClose?: () => void;
   skill?: "READING" | "LISTENING";
+  meta?: { question?: ReadingQuestion; group?: ReadingQuestionGroup };
 }) {
   const optionMap = useReadingOptionMap();
   const solution = result.solution ?? null;
   const explanation = solution?.explanation ?? result.explanation;
   const reasoningSteps = solution?.reasoningSteps?.filter((step) => step.trim()) ?? [];
-  const evidenceSpans = evidenceSpansForResult(result);
+  const evidenceSpans = evidenceSpansForResult(result, meta);
   const relatedLessonUrl = safeHttpUrl(solution?.relatedLessonUrl);
 
   const isCorrect = result.correct === true;
@@ -2527,7 +2780,10 @@ function safeHttpUrl(value: string | null | undefined) {
   }
 }
 
-function evidenceSpansForResult(result: ReadingQuestionResult | null | undefined): EvidenceForView[] {
+function evidenceSpansForResult(
+  result: ReadingQuestionResult | null | undefined,
+  meta?: { question?: ReadingQuestion; group?: ReadingQuestionGroup }
+): EvidenceForView[] {
   if (!result) return [];
   const current = Array.isArray(result.evidenceSpans) ? result.evidenceSpans : [];
   const legacy = result.evidenceSpan ? [result.evidenceSpan] : [];
@@ -2536,6 +2792,35 @@ function evidenceSpansForResult(result: ReadingQuestionResult | null | undefined
     const key = evidence.id || `${evidence.start ?? "none"}:${evidence.end ?? "none"}:${evidence.quote ?? ""}:${index}`;
     if (!unique.has(key)) unique.set(key, evidence);
   });
+
+  // Fallback 1: check if question or group has evidenceQuote configured
+  if (unique.size === 0 && meta) {
+    const qNo = String(meta.question?.number ?? result.questionNo);
+    const rawQuoteMap = (meta.group?.answerConfig as Record<string, unknown> | undefined)?.questionEvidenceQuotes as Record<string, string> | undefined;
+    const directQQuote = (meta.question as unknown as { evidenceQuote?: string })?.evidenceQuote;
+    const quote =
+      directQQuote ||
+      rawQuoteMap?.[qNo] ||
+      rawQuoteMap?.[result.questionKey];
+    if (typeof quote === "string" && quote.trim()) {
+      unique.set(`quote-${result.questionKey}`, {
+        id: `quote-${result.questionKey}`,
+        quote: quote.trim(),
+        label: `Bằng chứng câu ${result.questionNo}`,
+      });
+    }
+  }
+
+  // Fallback 2: check if result.explanation has text that can serve as evidence
+  if (unique.size === 0 && result.explanation && result.explanation.trim()) {
+    const cleanExpl = result.explanation.trim();
+    unique.set(`expl-${result.questionKey}`, {
+      id: `expl-${result.questionKey}`,
+      quote: cleanExpl,
+      label: `Đoạn trích từ giải thích câu ${result.questionNo}`,
+    });
+  }
+
   return [...unique.values()];
 }
 
@@ -2595,13 +2880,18 @@ function longestContextMatch(left: string, right: string, fromEnd: boolean) {
 }
 
 function resolveEvidenceOffsets(text: string, evidence: EvidenceForView) {
-  if (typeof evidence.start !== "number" || typeof evidence.end !== "number" || evidence.start < 0 || evidence.end <= evidence.start) {
-    return null;
-  }
   const quote = evidence.quote?.trim() ?? "";
-  if (!quote) return { start: evidence.start, end: evidence.end };
-  if (normalizeEvidenceText(text.slice(evidence.start, evidence.end)) === normalizeEvidenceText(quote)) {
-    return { start: evidence.start, end: evidence.end };
+  const hasExplicitOffsets =
+    typeof evidence.start === "number" &&
+    typeof evidence.end === "number" &&
+    evidence.start >= 0 &&
+    evidence.end > evidence.start;
+
+  if (!quote) {
+    return hasExplicitOffsets ? { start: evidence.start!, end: evidence.end! } : null;
+  }
+  if (hasExplicitOffsets && normalizeEvidenceText(text.slice(evidence.start!, evidence.end!)) === normalizeEvidenceText(quote)) {
+    return { start: evidence.start!, end: evidence.end! };
   }
 
   const source = normalizedTextWithOffsets(text);
@@ -2613,7 +2903,42 @@ function resolveEvidenceOffsets(text: string, evidence: EvidenceForView) {
     candidates.push(cursor);
     cursor = source.normalized.indexOf(normalizedQuote, cursor + Math.max(1, normalizedQuote.length));
   }
+
+  // Fallback: if exact quote not found, clean surrounding quotes or punctuation
+  if (!candidates.length) {
+    const cleanedQuote = normalizedQuote.replace(/^["'“”«»]+|["'“”«»]+$/g, "").trim();
+    if (cleanedQuote && cleanedQuote !== normalizedQuote) {
+      cursor = source.normalized.indexOf(cleanedQuote);
+      while (cursor >= 0) {
+        candidates.push(cursor);
+        cursor = source.normalized.indexOf(cleanedQuote, cursor + Math.max(1, cleanedQuote.length));
+      }
+    }
+  }
+
+  // Fallback: if quote contains multiple sentences, try finding individual sentence in text
+  if (!candidates.length && quote.length > 25) {
+    const sentences = quote.split(/[.!?]\s+/).map((s) => normalizeEvidenceText(s.replace(/^["'“”«»]+|["'“”«»]+$/g, "").trim())).filter((s) => s.length >= 15);
+    for (const sentence of sentences) {
+      const idx = source.normalized.indexOf(sentence);
+      if (idx >= 0) {
+        const start = source.starts[idx];
+        const end = source.ends[idx + sentence.length - 1];
+        if (typeof start === "number" && typeof end === "number" && end > start) {
+          return { start, end };
+        }
+      }
+    }
+  }
+
   if (!candidates.length) return null;
+
+  if (!hasExplicitOffsets) {
+    const bestCandidate = candidates[0];
+    const start = source.starts[bestCandidate];
+    const end = source.ends[bestCandidate + normalizedQuote.length - 1];
+    return typeof start === "number" && typeof end === "number" && end > start ? { start, end } : null;
+  }
 
   const prefix = normalizeEvidenceText(evidence.prefix ?? "");
   const suffix = normalizeEvidenceText(evidence.suffix ?? "");
@@ -2758,3 +3083,5 @@ function scrollInsidePane(pane: HTMLElement, target: HTMLElement) {
     });
   }
 }
+
+
