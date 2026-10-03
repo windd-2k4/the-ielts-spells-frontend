@@ -9,6 +9,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not ("System.IO.Compression.ZipFile" -as [type])) {
+  Add-Type -AssemblyName System.IO.Compression
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $mainEnvPath = Join-Path $repoRoot "apps\main-web\.env.local"
 $managementEnvPath = Join-Path $repoRoot ".env.local"
@@ -37,9 +43,34 @@ function Write-Utf8File([string]$Path, [string]$Content) {
   [IO.File]::WriteAllText($Path, $Content, [Text.UTF8Encoding]::new($false))
 }
 
+function New-ZipArchive([string]$SourceDirectory, [string]$DestinationPath) {
+  $sourceRoot = [IO.Path]::GetFullPath($SourceDirectory).TrimEnd('\', '/')
+  $stream = [IO.File]::Open($DestinationPath, [IO.FileMode]::Create)
+  $archive = New-Object IO.Compression.ZipArchive($stream, [IO.Compression.ZipArchiveMode]::Create)
+  try {
+    Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force | ForEach-Object {
+      $entryName = $_.FullName.Substring($sourceRoot.Length).TrimStart('\', '/').Replace('\', '/')
+      [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $archive,
+        $_.FullName,
+        $entryName,
+        [IO.Compression.CompressionLevel]::Optimal
+      ) | Out-Null
+    }
+  } finally {
+    $archive.Dispose()
+    $stream.Dispose()
+  }
+}
+
 function Invoke-Ssh([string]$Command) {
   & ssh -i $KeyPath -o BatchMode=yes -o ConnectTimeout=15 $remoteTarget $Command
   Assert-LastExitCode "Remote command"
+}
+
+function Invoke-SshScript([string]$Script) {
+  $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Script))
+  Invoke-Ssh "printf %s $encodedScript | base64 --decode | bash"
 }
 
 if ($Release -notmatch '^[0-9A-Za-z._-]+$') {
@@ -136,8 +167,8 @@ try {
   Write-Utf8File (Join-Path $stagingRoot "apps\main-web\.env.local") ($mainEnvironment + [Environment]::NewLine)
   Write-Utf8File $composeEnvPath "MAIN_WEB_IMAGE=ielts-main-web:$Release`n"
 
-  [IO.Compression.ZipFile]::CreateFromDirectory($stagingRoot, $sourceArchive, [IO.Compression.CompressionLevel]::Optimal, $false)
-  [IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $repoRoot "apps\management-web\dist"), $managementArchive, [IO.Compression.CompressionLevel]::Optimal, $false)
+  New-ZipArchive $stagingRoot $sourceArchive
+  New-ZipArchive (Join-Path $repoRoot "apps\management-web\dist") $managementArchive
 
   Invoke-Ssh "mkdir -p '$remoteBase/incoming/$Release'"
   & scp -i $KeyPath -o BatchMode=yes $sourceArchive "${remoteTarget}:$remoteBase/incoming/$Release/source.zip"
@@ -202,16 +233,35 @@ sudo ln -sfn "`$management_dir" /var/www/ielts-management/current
 sudo nginx -t
 sudo systemctl reload nginx
 
-curl -fsS --retry 10 --retry-delay 2 --retry-all-errors https://theieltsspells.io.vn/ >/dev/null
-curl -fsS --retry 10 --retry-delay 2 --retry-all-errors https://management.theieltsspells.io.vn/ >/dev/null
-curl -fsS --retry 10 --retry-delay 2 --retry-all-errors https://api.theieltsspells.io.vn/actuator/health | grep -q '"status":"UP"'
+check_url() {
+  label="`$1"
+  url="`$2"
+  printf 'Checking %s... ' "`$label"
+  if curl -fsS --connect-timeout 10 --max-time 30 --retry 10 --retry-delay 2 --retry-all-errors "`$url" >/dev/null; then
+    echo OK
+  else
+    echo FAILED >&2
+    return 1
+  fi
+}
+
+check_url 'Main Web' 'https://theieltsspells.io.vn/'
+check_url 'Management Web' 'https://management.theieltsspells.io.vn/'
+printf 'Checking Backend API... '
+api_health="`$(curl -fsS --connect-timeout 10 --max-time 30 --retry 10 --retry-delay 2 --retry-all-errors https://api.theieltsspells.io.vn/actuator/health)"
+if printf '%s' "`$api_health" | grep -q '"status":"UP"'; then
+  echo OK
+else
+  printf 'FAILED: %s\n' "`$api_health" >&2
+  exit 1
+fi
 
 trap - ERR
 printf 'DEPLOYED_RELEASE=%s\n' "`$release"
 docker compose -f "`$base/compose.yml" --env-file "`$base/.env" ps
 "@
 
-  Invoke-Ssh $remoteCommand
+  Invoke-SshScript $remoteCommand
   Write-Host "Deployment $Release completed successfully." -ForegroundColor Green
   Write-Host "Main Web: https://theieltsspells.io.vn"
   Write-Host "Management Web: https://management.theieltsspells.io.vn"
