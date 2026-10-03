@@ -9,7 +9,7 @@ import type {
   ListeningPartSection, MediaAsset, QuestionCardItem, QuestionGroupIllustration, QuestionGroupItem, QuestionOption,
   QuestionTypeFormat, TestBankItem,
 } from "../../library-types";
-import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
+import { apiFetch, apiMediaUrl, apiUpload, revokeMediaUrl } from "../../lib/api";
 import ListeningQuestionGroupDialog, { type ListeningQuestionGroupDraft } from "./ListeningQuestionGroupDialog";
 import GapFillGroupEditor, { gapFillPrompt, gapFillTemplateFromQuestions, inspectGapFillTemplate } from "./GapFillGroupEditor";
 import PublishValidationModal from "./PublishValidationModal";
@@ -376,8 +376,8 @@ export function ListeningTestBuilder() {
     setCurrentTime(0); setIsPlaying(false); setAudioError("");
     if (!activePart?.audioUrl) { setAudioObjectUrl(""); return undefined; }
     let disposed = false; let url = "";
-    void apiBlob(activePart.audioUrl).then((blob) => { if (!disposed) { url = URL.createObjectURL(blob); setAudioObjectUrl(url); } }).catch((reason) => setAudioError(reason instanceof Error ? reason.message : "Không thể tải audio."));
-    return () => { disposed = true; if (url) URL.revokeObjectURL(url); };
+    void apiMediaUrl(activePart.audioUrl).then((resolvedUrl) => { if (!disposed) { url = resolvedUrl; setAudioObjectUrl(url); } }).catch((reason) => setAudioError(reason instanceof Error ? reason.message : "Không thể tải audio."));
+    return () => { disposed = true; if (url) revokeMediaUrl(url); };
   }, [activePart?.audioUrl, activePartNo]);
   useEffect(() => { if (audioRef.current) audioRef.current.playbackRate = playbackSpeed; }, [playbackSpeed]);
 

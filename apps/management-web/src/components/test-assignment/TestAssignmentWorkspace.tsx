@@ -23,7 +23,7 @@ import type {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Course, Page } from "../../academic-types";
-import type { TestBankItem } from "../../library-types";
+import type { TestBankSummary } from "../../library-types";
 import { apiFetch } from "../../lib/api";
 
 type ComposerState = {
@@ -101,7 +101,7 @@ export function TestAssignmentWorkspace() {
   const requestedTestId = searchParams.get("testId") ?? "";
   const [skill, setSkill] = useState<"READING" | "WRITING">(searchParams.get("skill") === "WRITING" ? "WRITING" : "READING");
   const [courses, setCourses] = useState<Course[]>([]);
-  const [tests, setTests] = useState<TestBankItem[]>([]);
+  const [tests, setTests] = useState<TestBankSummary[]>([]);
   const [assignments, setAssignments] = useState<TestAssignment[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState(searchParams.get("courseId") ?? "");
   const [selectedTestId, setSelectedTestId] = useState(requestedTestId);
@@ -172,7 +172,7 @@ export function TestAssignmentWorkspace() {
     try {
       const [coursePage, testPage] = await Promise.all([
         apiFetch<Page<Course>>("/admin/courses?active=true&size=100&sort=startsOn,desc"),
-        apiFetch<Page<TestBankItem>>("/admin/test-bank?status=PUBLISHED&size=200"),
+        apiFetch<Page<TestBankSummary>>("/admin/test-bank?status=PUBLISHED&size=24"),
       ]);
       setCourses(coursePage.content);
       setTests(testPage.content);

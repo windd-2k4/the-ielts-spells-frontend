@@ -1,6 +1,6 @@
 import { SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { apiBlob } from "../../lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "../../lib/api";
 
 type Props = {
   fileUrl: string;
@@ -18,10 +18,10 @@ export default function AuthenticatedMediaImage({ fileUrl, alt, className = "" }
     setObjectUrl("");
     setFailed(false);
 
-    void apiBlob(fileUrl)
-      .then((blob) => {
+    void apiMediaUrl(fileUrl)
+      .then((url) => {
         if (!active) return;
-        nextObjectUrl = URL.createObjectURL(blob);
+        nextObjectUrl = url;
         setObjectUrl(nextObjectUrl);
       })
       .catch(() => {
@@ -30,7 +30,7 @@ export default function AuthenticatedMediaImage({ fileUrl, alt, className = "" }
 
     return () => {
       active = false;
-      if (nextObjectUrl) URL.revokeObjectURL(nextObjectUrl);
+      if (nextObjectUrl) revokeMediaUrl(nextObjectUrl);
     };
   }, [fileUrl]);
 

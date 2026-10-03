@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SpinnerGap, WarningCircle } from "@phosphor-icons/react";
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 
 interface AuthenticatedDiagramImageProps {
   src: string;
@@ -40,10 +40,10 @@ export function AuthenticatedDiagramImage({
     setLoading(true);
     setFailed(false);
 
-    apiBlob(src)
-      .then((blob) => {
+    apiMediaUrl(src)
+      .then((url) => {
         if (!active) return;
-        createdUrl = URL.createObjectURL(blob);
+        createdUrl = url;
         setObjectUrl(createdUrl);
         setLoading(false);
       })
@@ -58,7 +58,7 @@ export function AuthenticatedDiagramImage({
     return () => {
       active = false;
       if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
+        revokeMediaUrl(createdUrl);
       }
     };
   }, [src]);

@@ -325,6 +325,13 @@ export type TestBankItem = {
   publishedVersion?: TestVersionSummary | null;
 };
 
+export type TestBankSummary = Omit<TestBankItem, "builderContent" | "passages" | "listeningParts" | "writingTasks" | "speakingParts"> & {
+  format?: string | null;
+  questionTypes: string[];
+  coverImage?: QuestionGroupIllustration | null;
+  writingTaskImage?: { fileUrl: string; altText?: string | null } | null;
+};
+
 export type TestVersionSummary = {
   id: string;
   versionNumber: number;

@@ -9,7 +9,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "@/features/reading/ReadingQuestionGroup";
 import { ReadingStatePanel } from "@/features/reading/ReadingStatePanel";
@@ -183,10 +183,10 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
     let objectUrl = "";
     setAudioLoading(true);
 
-    void apiBlob(url)
-      .then((blob) => {
+    void apiMediaUrl(url)
+      .then((resolvedUrl) => {
         if (!disposed) {
-          objectUrl = URL.createObjectURL(blob);
+          objectUrl = resolvedUrl;
           setAudioObjectUrl(objectUrl);
         }
       })
@@ -201,7 +201,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
 
     return () => {
       disposed = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) revokeMediaUrl(objectUrl);
     };
   }, [activeSection?.audioUrl, activeSection?.key]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 
 interface Props {
   fileUrl: string;
@@ -18,10 +18,10 @@ export function PracticeCoverImage({ fileUrl, alt, className = "" }: Props) {
     let createdUrl = "";
     setObjectUrl("");
     setFailed(false);
-    void apiBlob(fileUrl)
-      .then((blob) => {
+    void apiMediaUrl(fileUrl)
+      .then((url) => {
         if (!active) return;
-        createdUrl = URL.createObjectURL(blob);
+        createdUrl = url;
         setObjectUrl(createdUrl);
       })
       .catch(() => {
@@ -29,7 +29,7 @@ export function PracticeCoverImage({ fileUrl, alt, className = "" }: Props) {
       });
     return () => {
       active = false;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      if (createdUrl) revokeMediaUrl(createdUrl);
     };
   }, [fileUrl]);
 

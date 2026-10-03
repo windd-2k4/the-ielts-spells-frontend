@@ -9,7 +9,7 @@ import type {
   QuestionTypeFormat, ReadingEvidenceSpan, SpeakingHintStep, SpeakingPartSection, SpeakingQuestionItem,
   TestBankItem, WritingTaskSection,
 } from "../../library-types";
-import { apiBlob } from "../../lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "../../lib/api";
 import AuthenticatedMediaImage from "./AuthenticatedMediaImage";
 import {
   questionTypeUsesGapTemplate, questionTypeUsesQuestionOptions, questionTypeUsesSharedOptions,
@@ -596,8 +596,8 @@ function AuthenticatedAudio({ fileUrl, filename }: { fileUrl?: string; filename?
     let url = "";
     setObjectUrl("");
     setFailed(false);
-    void apiBlob(fileUrl).then((blob) => { if (active) { url = URL.createObjectURL(blob); setObjectUrl(url); } }).catch(() => { if (active) setFailed(true); });
-    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+    void apiMediaUrl(fileUrl).then((resolvedUrl) => { if (active) { url = resolvedUrl; setObjectUrl(url); } }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; if (url) revokeMediaUrl(url); };
   }, [fileUrl]);
   if (!fileUrl) return <p className="rounded-xl border border-dashed border-[#DED7DA] p-4 text-sm text-[#6F676C]">Part này chưa có audio.</p>;
   if (failed) return <p role="alert" className="flex items-center gap-2 rounded-xl bg-rose-50 p-4 text-sm font-semibold text-[#B42335]"><WarningCircle size={18} /> Không thể tải audio từ hệ thống.</p>;

@@ -16,7 +16,7 @@ function formatTime(seconds: number) {
   const secs = Math.floor(safe % 60).toString().padStart(2, "0");
   return `${mins}:${secs}`;
 }
-import { apiBlob } from "@/lib/api";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
 import {
@@ -167,17 +167,17 @@ function ReadingExplanationContent({
     }
     let disposed = false;
     let obj = "";
-    void apiBlob(activeSection.audioUrl)
-      .then((b) => {
+    void apiMediaUrl(activeSection.audioUrl)
+      .then((resolvedUrl) => {
         if (!disposed) {
-          obj = URL.createObjectURL(b);
+          obj = resolvedUrl;
           setAudioUrl(obj);
         }
       })
       .catch(() => {});
     return () => {
       disposed = true;
-      if (obj) URL.revokeObjectURL(obj);
+      if (obj) revokeMediaUrl(obj);
     };
   }, [activeSection?.audioUrl, activeSectionIndex]);
   const selectedStudentAnswerText = answerValues(selectedStudentResp?.answer).join(", ");

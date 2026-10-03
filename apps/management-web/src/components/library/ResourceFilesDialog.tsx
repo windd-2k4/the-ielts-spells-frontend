@@ -5,7 +5,7 @@ import {
 import type { Icon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { LearningResource, LearningResourceFile } from "../../library-types";
-import { apiBlob, apiFetch, apiUpload } from "../../lib/api";
+import { apiFetch, apiMediaUrl, apiUpload, revokeMediaUrl } from "../../lib/api";
 
 type Props = { resource: LearningResource | null; onClose: () => void; };
 
@@ -54,7 +54,7 @@ export default function ResourceFilesDialog({ resource, onClose }: Props) {
   }
 
   useEffect(() => { void load(); }, [resource?.id]);
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
+  useEffect(() => () => { if (preview) revokeMediaUrl(preview.url); }, [preview]);
   const resourceId = resource?.id;
   if (!resource || !resourceId) return null;
 
@@ -72,14 +72,13 @@ export default function ResourceFilesDialog({ resource, onClose }: Props) {
 
   async function openPreview(file: LearningResourceFile, forceDownload = false) {
     try {
-      const blob = await apiBlob(`/admin/library/files/${file.id}/content`);
-      const url = URL.createObjectURL(blob);
+      const url = await apiMediaUrl(`/admin/library/files/${file.id}/content`);
       if (forceDownload || !file.previewSupported) {
         const link = document.createElement("a"); link.href = url; link.download = file.originalFilename; link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+        window.setTimeout(() => revokeMediaUrl(url), 1_000);
         return;
       }
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (preview) revokeMediaUrl(preview.url);
       setPreview({file, url});
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể mở tệp."); }
   }
@@ -107,6 +106,6 @@ export default function ResourceFilesDialog({ resource, onClose }: Props) {
         {loading ? <div className="grid min-h-32 place-items-center"><span className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant"><SpinnerGap className="animate-spin"/>Đang tải tệp...</span></div> : files.length === 0 ? <div className="rounded-2xl border border-dashed border-outline-variant/70 p-8 text-center"><FileText size={30} className="mx-auto text-outline"/><p className="mt-3 font-bold">Chưa có tệp được tải lên</p><p className="mt-1 text-sm text-on-surface-variant">Bạn vẫn có thể sử dụng liên kết Drive ở học liệu này.</p></div> : <div className="divide-y divide-outline-variant/35 rounded-2xl border border-outline-variant/45">{files.map(file=>{ const FileIcon = fileIcon(file); return <div key={file.id} className="flex flex-wrap items-center gap-3 p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-container/20 text-primary" title={file.mimeType}><FileIcon size={20} weight="duotone" aria-hidden="true"/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{file.originalFilename}</p><p className="mt-1 text-xs text-on-surface-variant">{fileRoleLabel(file.fileRole)} · {readableSize(file.sizeBytes)} · {new Date(file.createdAt).toLocaleDateString("vi-VN")}</p></div>{file.previewSupported&&<button onClick={()=>void openPreview(file)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-outline-variant/60 px-3 text-xs font-bold text-primary"><Eye size={17}/>Xem</button>}<button onClick={()=>void openPreview(file, true)} aria-label={`Tải ${file.originalFilename}`} className="grid h-10 w-10 place-items-center rounded-xl border border-outline-variant/60 text-primary"><DownloadSimple size={18}/></button><button onClick={()=>void remove(file)} aria-label={`Xóa ${file.originalFilename}`} className="grid h-10 w-10 place-items-center rounded-xl border border-error/30 text-error"><Trash size={18}/></button></div>; })}</div>}
       </div>
     </section>
-    {preview && <div className="fixed inset-0 z-[60] grid place-items-center bg-on-background/70 p-4" role="dialog" aria-modal="true" aria-label={`Xem ${preview.file.originalFilename}`}><div className="max-h-[92dvh] w-full max-w-5xl overflow-auto rounded-[22px] bg-surface p-4 shadow-2xl"><div className="mb-3 flex items-center justify-between gap-3"><p className="truncate text-sm font-bold">{preview.file.originalFilename}</p><button onClick={()=>{URL.revokeObjectURL(preview.url);setPreview(null)}} aria-label="Đóng xem trước" className="grid h-10 w-10 place-items-center rounded-xl border border-outline-variant/50"><X size={18}/></button></div><div className="grid min-h-48 place-items-center">{previewBody}</div></div></div>}
+    {preview && <div className="fixed inset-0 z-[60] grid place-items-center bg-on-background/70 p-4" role="dialog" aria-modal="true" aria-label={`Xem ${preview.file.originalFilename}`}><div className="max-h-[92dvh] w-full max-w-5xl overflow-auto rounded-[22px] bg-surface p-4 shadow-2xl"><div className="mb-3 flex items-center justify-between gap-3"><p className="truncate text-sm font-bold">{preview.file.originalFilename}</p><button onClick={()=>{revokeMediaUrl(preview.url);setPreview(null)}} aria-label="Đóng xem trước" className="grid h-10 w-10 place-items-center rounded-xl border border-outline-variant/50"><X size={18}/></button></div><div className="grid min-h-48 place-items-center">{previewBody}</div></div></div>}
   </div>;
 }
