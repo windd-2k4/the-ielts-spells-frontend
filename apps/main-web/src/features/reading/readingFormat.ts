@@ -50,24 +50,24 @@ export function allReadingQuestions(sections: ReadingSection[]) {
 
 export function groupQuestionLabel(group: ReadingQuestionGroup) {
   const labels: Record<ReadingQuestionGroup["typeFormat"], string> = {
-    MULTIPLE_CHOICE: "Trắc nghiệm một đáp án",
-    MULTIPLE_ANSWERS: "Trắc nghiệm nhiều đáp án",
-    TRUE_FALSE_NOT_GIVEN: "Đúng, sai, không có thông tin",
-    YES_NO_NOT_GIVEN: "Có, không, không có thông tin",
-    MATCHING_HEADINGS: "Nối tiêu đề",
-    MATCHING_INFORMATION: "Nối thông tin",
-    MATCHING_FEATURES: "Nối đặc điểm",
-    MATCHING_SENTENCE_ENDINGS: "Nối vế câu",
-    FILL_IN_BLANK: "Điền vào chỗ trống",
-    SHORT_ANSWER: "Trả lời ngắn",
-    SENTENCE_COMPLETION: "Hoàn thành câu",
-    SUMMARY_COMPLETION: "Hoàn thành tóm tắt",
-    NOTE_COMPLETION: "Hoàn thành ghi chú",
-    TABLE_COMPLETION: "Hoàn thành bảng",
-    FLOW_CHART_COMPLETION: "Hoàn thành lưu đồ",
-    DIAGRAM_LABELING: "Gắn nhãn sơ đồ",
+    MULTIPLE_CHOICE: "Multiple Choice",
+    MULTIPLE_ANSWERS: "Multiple Answers",
+    TRUE_FALSE_NOT_GIVEN: "True / False / Not Given",
+    YES_NO_NOT_GIVEN: "Yes / No / Not Given",
+    MATCHING_HEADINGS: "Matching Headings",
+    MATCHING_INFORMATION: "Matching Information",
+    MATCHING_FEATURES: "Matching Features",
+    MATCHING_SENTENCE_ENDINGS: "Matching Endings",
+    FILL_IN_BLANK: "Gap Filling",
+    SHORT_ANSWER: "Short Answer",
+    SENTENCE_COMPLETION: "Sentence Completion",
+    SUMMARY_COMPLETION: "Summary Completion",
+    NOTE_COMPLETION: "Note Completion",
+    TABLE_COMPLETION: "Table Completion",
+    FLOW_CHART_COMPLETION: "Flow-chart Completion",
+    DIAGRAM_LABELING: "Map, Diagram Label",
   };
-  return labels[group.typeFormat];
+  return labels[group.typeFormat] || group.typeFormat;
 }
 
 export function questionOptions(question: ReadingQuestion, group: ReadingQuestionGroup) {

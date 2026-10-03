@@ -134,7 +134,8 @@ function readQuestions(value: unknown): QuestionCardItem[] {
       ? question.solutionVisibility
       : "STUDENT_AFTER_SUBMIT",
     passageSpan: readPassageSpan(question.passageSpan),
-    evidenceSpans: readEvidenceSpans(question.evidenceSpans, question.passageSpan, id),
+    linkedAudioTimestamp: typeof question.linkedAudioTimestamp === "string" ? question.linkedAudioTimestamp : undefined,
+    evidenceQuote: typeof question.evidenceQuote === "string" ? question.evidenceQuote : undefined,
     isComplete: Boolean(question.isComplete),
     hasError: Boolean(question.hasError),
     errorMessage: typeof question.errorMessage === "string" ? question.errorMessage : undefined,
@@ -161,6 +162,8 @@ function readGroups(value: unknown): QuestionGroupItem[] {
     gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
     illustration: readGroupIllustration(group.illustration),
     linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
+    questionTimestamps: typeof group.questionTimestamps === "object" && group.questionTimestamps ? (group.questionTimestamps as Record<string, string>) : undefined,
+    questionEvidenceQuotes: typeof group.questionEvidenceQuotes === "object" && group.questionEvidenceQuotes ? (group.questionEvidenceQuotes as Record<string, string>) : undefined,
     questions: readQuestions(group.questions),
     isCollapsed: false,
   }));
