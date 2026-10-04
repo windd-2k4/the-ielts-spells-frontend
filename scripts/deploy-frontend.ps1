@@ -69,7 +69,7 @@ function Invoke-Ssh([string]$Command) {
 }
 
 function Invoke-SshScript([string]$Script) {
-  $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Script))
+  $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Script.Replace("`r`n", "`n")))
   Invoke-Ssh "printf %s $encodedScript | base64 --decode | bash"
 }
 
