@@ -18,7 +18,6 @@ import CourseMatrix from "../components/course/CourseMatrix";
 import CourseLibrary from "../components/course/CourseLibrary";
 import { CourseEditModal } from "../components/course/CourseEditModal";
 import { CourseDeleteModal } from "../components/course/CourseDeleteModal";
-import StudentProfileDetail from "../components/enrollment/StudentProfileDetail";
 import CourseEnrollmentModal from "../components/enrollment/CourseEnrollmentModal";
 
 type Tab = "overview" | "schedule" | "students" | "attendance" | "progress" | "matrix" | "library";
@@ -407,7 +406,6 @@ function Workspace() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -443,6 +441,10 @@ function Workspace() {
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
     setSearchParams(next);
+  }
+
+  function openStudentProfile(studentId: string) {
+    navigate(`/students/${studentId}`);
   }
 
   if (loading) return <LoadState loading error="" empty={false} onRetry={() => void load()} />;
@@ -543,14 +545,13 @@ function Workspace() {
         })}
       </nav>
 
-      {activeTab === "overview" && <CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={setSelectedStudentId} />}
+      {activeTab === "overview" && <CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={openStudentProfile} />}
       {activeTab === "schedule" && <CourseSchedule courseId={course.id} skillPair={course.skillPair} />}
-      {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={setSelectedStudentId} onRosterChanged={load} />}
-      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId} />}
-      {activeTab === "progress" && <CourseProgress courseId={course.id} roster={roster} onSelectStudent={setSelectedStudentId} />}
+      {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={openStudentProfile} onRosterChanged={load} />}
+      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={openStudentProfile} />}
+      {activeTab === "progress" && <CourseProgress courseId={course.id} roster={roster} onSelectStudent={openStudentProfile} />}
       {activeTab === "matrix" && <CourseMatrix courseId={course.id} roster={roster} />}
       {activeTab === "library" && <CourseLibrary courseId={course.id} />}
-      {selectedStudentId && <StudentProfileDetail studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />}
 
       <CourseEnrollmentModal course={course} enrollments={enrollments} open={enrollmentOpen} onClose={() => setEnrollmentOpen(false)} onSaved={load} />
 

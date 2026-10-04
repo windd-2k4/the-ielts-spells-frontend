@@ -1,13 +1,14 @@
-import { ArrowLeft, ArrowsLeftRight, CalendarBlank, CheckCircle, PauseCircle, Plus, ShieldCheck, UserCircle, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsLeftRight, CalendarBlank, ChartLineUp, CheckCircle, PauseCircle, Plus, UserCircle, XCircle } from "@phosphor-icons/react";
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { Course, Enrollment, Page, Reservation, StudentDetail, Transfer } from "../academic-types";
+import type { Course, Enrollment, Page, Reservation, StudentDetail, StudentLearningInsights as LearningInsights, Transfer } from "../academic-types";
 import { date, enrollmentStatusLabel } from "../academic-types";
 import { Drawer, StatusBadge } from "../components/AdminUi";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import StudentProfileDetail from "../components/enrollment/StudentProfileDetail";
+import StudentLearningInsights from "../components/student/StudentLearningInsights";
 
 type Dialog = { kind: "reservation" | "transfer"; enrollment: Enrollment } | null;
 
@@ -22,9 +23,24 @@ export function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [insights, setInsights] = useState<LearningInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState("");
 
   // Tab layout state
-  const [activeTab, setActiveTab] = useState<"profile" | "history">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "learning" | "history">("profile");
+
+  const loadInsights = useCallback(async () => {
+    setInsightsLoading(true);
+    setInsightsError("");
+    try {
+      setInsights(await apiFetch<LearningInsights>(`/admin/students/${studentId}/learning-insights`));
+    } catch (value) {
+      setInsightsError(value instanceof Error ? value.message : "Không tải được dữ liệu học tập");
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, [studentId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,7 +71,8 @@ export function StudentDetailPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadInsights();
+  }, [load, loadInsights]);
 
   const courseById = (id: string) => courses.find(value => value.id === id);
   const pending = reservations.filter(x => x.status === "PENDING").length + transfers.filter(x => x.status === "PENDING").length;
@@ -86,7 +103,17 @@ export function StudentDetailPage() {
               : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
           }`}
         >
-          <UserCircle size={18} /> Hồ sơ & Biểu đồ trình độ
+          <UserCircle size={18} /> Hồ sơ & mục tiêu
+        </button>
+        <button
+          onClick={() => setActiveTab("learning")}
+          className={`flex items-center gap-2 px-5 py-3 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${
+            activeTab === "learning"
+              ? "bg-primary text-on-primary shadow-xs"
+              : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
+          }`}
+        >
+          <ChartLineUp size={18} /> Kết quả & lỗi thường gặp
         </button>
         <button
           onClick={() => setActiveTab("history")}
@@ -110,7 +137,21 @@ export function StudentDetailPage() {
       </nav>
 
       {/* Tab Content 1: Overview & Skill Radar Profile */}
-      {activeTab === "profile" && <StudentProfileDetail studentId={studentId} />}
+      {activeTab === "profile" && (
+        <StudentProfileDetail
+          studentId={studentId}
+          insights={insights}
+          insightsLoading={insightsLoading}
+          insightsError={insightsError}
+          enrollments={enrollments}
+          courses={courses}
+          onRetryInsights={() => void loadInsights()}
+        />
+      )}
+
+      {activeTab === "learning" && (
+        <StudentLearningInsights data={insights} loading={insightsLoading} error={insightsError} onRetry={() => void loadInsights()} />
+      )}
 
       {/* Tab Content 2: Academic History & Courses */}
       {activeTab === "history" && (
@@ -140,7 +181,7 @@ export function StudentDetailPage() {
                 </div>
               </div>
               <Link
-                to={`/enrollments?studentId=${student.id}&action=create`}
+                to={`/students?tab=enrollments&studentId=${student.id}&action=create`}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 font-semibold text-on-primary hover:opacity-90 transition"
               >
                 <Plus size={18} /> Xếp vào lớp mới
@@ -226,12 +267,6 @@ export function StudentDetailPage() {
                 </div>
               </Panel>
 
-              <Panel title="Theo dõi tiến độ học tập" subtitle="Dữ liệu chuyên cần, điểm bài tập và đánh giá kỹ năng.">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Roadmap icon={<CalendarBlank />} title="Điểm danh theo buổi học" text="Tỷ lệ tham gia và dữ liệu đồng bộ Zoom." />
-                  <Roadmap icon={<ShieldCheck />} title="Tiến độ 4 kỹ năng" text="Listening, Reading, Writing, Speaking theo lộ trình." />
-                </div>
-              </Panel>
             </div>
 
             <aside className="space-y-6">
@@ -436,15 +471,6 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 function Tag({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full bg-tertiary-container/40 px-3 py-1 text-xs font-bold text-on-tertiary-container">{children}</span>;
-}
-function Roadmap({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
-  return (
-    <div className="rounded-2xl bg-surface-container-low p-5 border border-outline-variant/20">
-      <span className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-primary-container/30 text-primary">{icon}</span>
-      <h3 className="font-bold text-on-surface">{title}</h3>
-      <p className="mt-1 text-sm leading-6 text-on-surface-variant">{text}</p>
-    </div>
-  );
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

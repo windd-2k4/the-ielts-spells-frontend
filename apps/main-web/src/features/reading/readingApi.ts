@@ -21,8 +21,8 @@ export function getPublishedReadingTests() {
   return apiFetch<StudentReadingCatalogItem[]>("/student/reading/catalog");
 }
 
-export function startOrResumeSelfPractice(testVersionId: string, skill: string = "reading") {
-  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/catalog/${testVersionId}/attempts`, {
+export function startOrResumeSelfPractice(testVersionId: string, skill: string = "reading", restart = false) {
+  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/catalog/${testVersionId}/attempts${restart ? "?restart=true" : ""}`, {
     method: "POST",
   });
 }

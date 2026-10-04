@@ -1,18 +1,20 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { ChatCircleDots, Student, Users } from "@phosphor-icons/react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import type { Course, Enrollment, EnrollmentStatus, Page, StudentSummary } from "../academic-types";
 import { enrollmentStatusLabel } from "../academic-types";
-import { Drawer, LoadState, PageHeader, PrimaryAction, StatusBadge } from "../components/AdminUi";
+import { Drawer, LoadState, PageHeader, PrimaryAction } from "../components/AdminUi";
 import { apiFetch } from "../lib/api";
 
 import AdmissionsLeads, { type ConsultingLead } from "../components/enrollment/AdmissionsLeads";
 import ClassEnrollments from "../components/enrollment/ClassEnrollments";
-import StudentProfileDetail from "../components/enrollment/StudentProfileDetail";
+import { StudentsPage } from "./StudentsPage";
 
-type TabType = "leads" | "enrollments" | "profiles";
+type TabType = "students" | "leads" | "enrollments";
 
 export function EnrollmentsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initializedFromUrl = useRef(false);
   const [items, setItems] = useState<Enrollment[]>([]);
   const [classes, setClasses] = useState<Course[]>([]);
@@ -36,8 +38,7 @@ export function EnrollmentsPage() {
   const [leadForEnrollment, setLeadForEnrollment] = useState<ConsultingLead | null>(null);
   
   // Dashboard tabs state
-  const [activeTab, setActiveTab] = useState<TabType>("leads");
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("students");
 
   const deferredQuery = useDeferredValue(query);
 
@@ -65,18 +66,18 @@ export function EnrollmentsPage() {
     void load();
   }, [load]);
 
-  // URL parameters handling
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab") as TabType | null;
+    if (requestedTab && ["students", "leads", "enrollments"].includes(requestedTab)) setActiveTab(requestedTab);
+  }, [searchParams]);
+
   useEffect(() => {
     if (initializedFromUrl.current || !classes.length) return;
-    initializedFromUrl.current = true;
     const requestedClassId = searchParams.get("courseId");
     const requestedStudentId = searchParams.get("studentId");
-    const requestedTab = searchParams.get("tab") as TabType | null;
-
-    if (requestedClassId && classes.some(item => item.id === requestedClassId)) setClassId(requestedClassId);
-    if (requestedTab) setActiveTab(requestedTab);
-    
     if (searchParams.get("action") !== "create") return;
+    initializedFromUrl.current = true;
+    if (requestedClassId && classes.some(item => item.id === requestedClassId)) setClassId(requestedClassId);
     setEditing(null); setNotes(""); setStatus("ACTIVE"); setOpen(true);
     if (requestedStudentId) {
       void apiFetch<StudentSummary>(`/admin/students/${requestedStudentId}`)
@@ -142,13 +143,14 @@ export function EnrollmentsPage() {
     setStudentId("");
     setStudentQuery(lead.fullName);
     setSelectedStudent(null);
-    setNotes(`Ghi danh từ Landing Page Lead. Ghi chú tư vấn: ${lead.notes}`);
+    setNotes(lead.notes ? `Yêu cầu tư vấn từ website: ${lead.notes}` : "Yêu cầu tư vấn từ website.");
     setStatus("PENDING");
     setOpen(true);
   };
 
   async function savePlacement(event: FormEvent) {
     event.preventDefault();
+    const convertingLead = Boolean(leadForEnrollment);
     setSaving(true);
     setError("");
     try {
@@ -179,6 +181,7 @@ export function EnrollmentsPage() {
       setOpen(false);
       setLeadForEnrollment(null);
       await load();
+      if (convertingLead) selectTab("enrollments");
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không thể lưu thông tin xếp lớp");
     } finally {
@@ -186,25 +189,28 @@ export function EnrollmentsPage() {
     }
   }
 
+  function selectTab(tab: TabType) {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    next.delete("action");
+    next.delete("studentId");
+    setSearchParams(next, { replace: true });
+  }
+
   const getPageHeaderProps = () => {
     switch (activeTab) {
       case "leads":
         return {
-          eyebrow: "Tiếp nhận tư vấn",
-          title: "Khách hàng tiềm năng & Tư vấn",
-          description: "Quản lý yêu cầu tư vấn tự động gửi từ Landing Page. Lên lịch test trình độ và chuyển đổi thành học viên.",
+          description: "Tiếp nhận yêu cầu từ website, theo dõi liên hệ và chuyển đổi thành hồ sơ học viên.",
         };
-      case "profiles":
+      case "students":
         return {
-          eyebrow: "Hồ sơ & học vụ",
-          title: "Hồ sơ chi tiết học viên",
-          description: "Theo dõi chi tiết liên hệ, phụ huynh, bento học tập, biểu đồ mạng nhện SVG kỹ năng và nhật ký học tập của học viên.",
+          description: "Tra cứu hồ sơ, tình trạng học vụ, mục tiêu và kết quả học tập của từng học viên.",
         };
       case "enrollments":
       default:
         return {
-          eyebrow: "Tuyển sinh và học vụ",
-          title: "Tuyển sinh & xếp lớp",
           description: "Xếp lớp cho học viên đã đăng ký, theo dõi trạng thái tham gia và cập nhật ghi chú học thuật.",
         };
     }
@@ -215,8 +221,8 @@ export function EnrollmentsPage() {
   return (
     <section className="space-y-6">
       <PageHeader
-        eyebrow={headerProps.eyebrow}
-        title={headerProps.title}
+        eyebrow="Tuyển sinh và học vụ"
+        title="Tuyển sinh & học viên"
         description={headerProps.description}
         action={
           activeTab === "enrollments" ? (
@@ -225,41 +231,50 @@ export function EnrollmentsPage() {
         }
       />
 
-      {/* Tabs Navigation */}
-      <nav className="flex border-b border-outline-variant/50 overflow-x-auto no-scrollbar gap-2">
+      <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-outline-variant/35 bg-surface p-1.5" role="tablist" aria-label="Phân hệ tuyển sinh và học viên">
         <button
-          onClick={() => setActiveTab("leads")}
-          className={`px-5 py-3 font-bold text-sm border-b-2 transition-all whitespace-nowrap ${
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "students"}
+          onClick={() => selectTab("students")}
+          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+            activeTab === "students"
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
+          }`}
+        >
+          <Users size={18} /> Danh sách học viên
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "leads"}
+          onClick={() => selectTab("leads")}
+          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
             activeTab === "leads"
-              ? "border-primary text-primary"
-              : "border-transparent text-on-surface-variant hover:text-primary"
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
           }`}
         >
-          Yêu cầu tư vấn (Landing Page Leads)
+          <ChatCircleDots size={18} /> Yêu cầu tư vấn
         </button>
         <button
-          onClick={() => setActiveTab("enrollments")}
-          className={`px-5 py-3 font-bold text-sm border-b-2 transition-all whitespace-nowrap ${
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "enrollments"}
+          onClick={() => selectTab("enrollments")}
+          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
             activeTab === "enrollments"
-              ? "border-primary text-primary"
-              : "border-transparent text-on-surface-variant hover:text-primary"
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
           }`}
         >
-          Xếp lớp học vụ
-        </button>
-        <button
-          onClick={() => setActiveTab("profiles")}
-          className={`px-5 py-3 font-bold text-sm border-b-2 transition-all whitespace-nowrap ${
-            activeTab === "profiles"
-              ? "border-primary text-primary"
-              : "border-transparent text-on-surface-variant hover:text-primary"
-          }`}
-        >
-          Hồ sơ chi tiết
+          <Student size={18} /> Ghi danh & xếp lớp
         </button>
       </nav>
 
-      {/* Tab Contents */}
+      {activeTab === "students" && <StudentsPage embedded />}
+
       {activeTab === "leads" && (
         <AdmissionsLeads onConvert={handleConvertLead} />
       )}
@@ -274,17 +289,7 @@ export function EnrollmentsPage() {
           classId={classId}
           setClassId={setClassId}
           onEdit={editPlacement}
-          onSelectStudent={(sId) => {
-            setSelectedStudentId(sId);
-            setActiveTab("profiles");
-          }}
-        />
-      )}
-
-      {activeTab === "profiles" && (
-        <StudentProfileDetail 
-          studentId={selectedStudentId} 
-          onClose={() => setActiveTab("enrollments")}
+          onSelectStudent={sId => navigate(`/students/${sId}`)}
         />
       )}
 

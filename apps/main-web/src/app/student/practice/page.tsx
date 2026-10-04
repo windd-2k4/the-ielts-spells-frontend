@@ -8,6 +8,7 @@ import type {
 } from "@ielts/contracts";
 import {
   ArrowLeft,
+  ArrowCounterClockwise,
   ArrowRight,
   BookOpenText,
   CaretDown,
@@ -27,16 +28,17 @@ import {
   Play,
   Sparkle,
   WarningCircle,
+  X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import Image from "next/image";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PracticeCoverImage } from "@/features/practice/PracticeCoverImage";
 import { getPracticeCatalog } from "@/features/practice/practiceApi";
 import { questionTypeOption, questionTypesBySkill } from "@/features/practice/questionTypeCatalog";
-import { startOrResumeSelfPractice } from "@/features/reading/readingApi";
-import { startOrResumeWritingSelfPractice } from "@/features/writing/writingApi";
+import { getReadingAttempt, startOrResumeSelfPractice } from "@/features/reading/readingApi";
+import { getWritingAttempt, startOrResumeWritingSelfPractice } from "@/features/writing/writingApi";
 import styles from "./StudentPracticePage.module.css";
 
 const skills = [
@@ -86,6 +88,13 @@ const formats: Record<IeltsSkill, Array<{ value: string; label: string }>> = {
 
 const emptyPage: PageResponse<StudentPracticeCatalogItem> = {
   content: [], page: 0, size: 24, totalElements: 0, totalPages: 0, first: true, last: true,
+};
+
+type ResumePrompt = {
+  item: StudentPracticeCatalogItem;
+  attemptId: string;
+  answeredCount: number;
+  remainingSeconds: number;
 };
 
 function isSkill(value: string | null): value is IeltsSkill {
@@ -304,6 +313,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
+  const [resumePrompt, setResumePrompt] = useState<ResumePrompt | null>(null);
+  const [resumeError, setResumeError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   function updateParams(updates: Record<string, string | null>, resetPage = true) {
@@ -362,13 +373,22 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   async function start(item: StudentPracticeCatalogItem) {
     if (!item.deliveryReady) return;
     const skillPath = item.skill.toLowerCase();
-    if (item.activeAttemptId) {
-      router.push(`/student/${skillPath}/attempts/${item.activeAttemptId}`);
-      return;
-    }
     setStartingId(item.testVersionId);
     setError("");
     try {
+      if (item.activeAttemptId) {
+        const attempt = item.skill === "WRITING"
+          ? await getWritingAttempt(item.activeAttemptId)
+          : await getReadingAttempt(item.activeAttemptId, skillPath);
+        setResumeError("");
+        setResumePrompt({
+          item,
+          attemptId: item.activeAttemptId,
+          answeredCount: attempt.responses.length,
+          remainingSeconds: attempt.remainingSeconds,
+        });
+        return;
+      }
       if (item.skill === "WRITING") {
         const attempt = await startOrResumeWritingSelfPractice(item.testVersionId);
         router.push(`/student/writing/attempts/${attempt.attemptId}`);
@@ -378,6 +398,25 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
       }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể bắt đầu đề này.");
+    } finally {
+      setStartingId("");
+    }
+  }
+
+  async function restart() {
+    if (!resumePrompt) return;
+    const { item } = resumePrompt;
+    const skillPath = item.skill.toLowerCase();
+    setStartingId(item.testVersionId);
+    setResumeError("");
+    try {
+      const attempt = item.skill === "WRITING"
+        ? await startOrResumeWritingSelfPractice(item.testVersionId, true)
+        : await startOrResumeSelfPractice(item.testVersionId, item.skill, true);
+      setResumePrompt(null);
+      router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
+    } catch (failure) {
+      setResumeError(failure instanceof Error ? failure.message : "Không thể làm lại đề này.");
     } finally {
       setStartingId("");
     }
@@ -502,8 +541,89 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           ) : null}
         </div>
       </div>
+      {resumePrompt ? (
+        <ResumeAttemptDialog
+          prompt={resumePrompt}
+          busy={startingId === resumePrompt.item.testVersionId}
+          error={resumeError}
+          onClose={() => { setResumePrompt(null); setResumeError(""); }}
+          onContinue={() => router.push(`/student/${resumePrompt.item.skill.toLowerCase()}/attempts/${resumePrompt.attemptId}`)}
+          onRestart={() => void restart()}
+        />
+      ) : null}
     </main>
   );
+}
+
+function ResumeAttemptDialog({
+  prompt,
+  busy,
+  error,
+  onClose,
+  onContinue,
+  onRestart,
+}: {
+  prompt: ResumePrompt;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onContinue: () => void;
+  onRestart: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const total = Math.max(1, prompt.item.totalItems);
+  const answered = Math.min(prompt.answeredCount, total);
+  const progress = Math.round((answered / total) * 100);
+  const unit = prompt.item.skill === "WRITING" ? "task" : "câu";
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return (
+    <dialog ref={dialogRef} className={styles.resumeDialog} aria-labelledby="resume-attempt-title"
+      onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          if (!busy) onClose();
+        }
+      }}>
+      <button type="button" className={styles.resumeClose} onClick={onClose} disabled={busy} aria-label="Đóng">
+        <X size={19} />
+      </button>
+      <span className={styles.resumeIcon}><ClockCountdown size={30} weight="duotone" /></span>
+      <p className={styles.resumeEyebrow}>Bài làm chưa hoàn thành</p>
+      <h2 id="resume-attempt-title">Bạn muốn tiếp tục hay làm lại?</h2>
+      <p className={styles.resumeTitle}>{prompt.item.title}</p>
+      <div className={styles.resumeSummary}>
+        <div><strong>{answered}/{total}</strong><span>{unit} đã làm</span></div>
+        <div><strong>{remainingTime(prompt.remainingSeconds)}</strong><span>thời gian còn lại</span></div>
+      </div>
+      <div className={styles.resumeProgress} aria-label={`Đã hoàn thành ${progress}%`}>
+        <span style={{ width: `${progress}%` }} />
+      </div>
+      <p className={styles.resumeHint}>Chọn tiếp tục để trở lại đúng tiến độ đã lưu. Làm lại sẽ kết thúc lượt hiện tại và bắt đầu một lượt mới.</p>
+      {error ? <p className={styles.resumeError} role="alert"><WarningCircle size={18} weight="fill" />{error}</p> : null}
+      <div className={styles.resumeActions}>
+        <button type="button" className={styles.restartButton} onClick={onRestart} disabled={busy}>
+          {busy ? <CircleNotch size={18} className={styles.spin} /> : <ArrowCounterClockwise size={18} />}
+          {busy ? "Đang tạo lượt mới" : "Làm lại từ đầu"}
+        </button>
+        <button type="button" className={styles.continueButton} onClick={onContinue} disabled={busy} autoFocus>
+          <Play size={17} weight="fill" />Tiếp tục làm bài
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
+function remainingTime(seconds: number) {
+  if (seconds <= 0) return "Đã hết giờ";
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  return `${minutes} phút`;
 }
 
 function PracticeCard({ item, starting, onStart }: { item: StudentPracticeCatalogItem; starting: boolean; onStart: (item: StudentPracticeCatalogItem) => void }) {

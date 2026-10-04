@@ -13,14 +13,20 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import type { StudentDetail } from "../../academic-types";
+import type { Course, Enrollment, StudentDetail, StudentLearningInsights } from "../../academic-types";
 import { date } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
-import { StudentRadarChart } from "./StudentRadarChart";
+import StudentProfileLearningOverview from "../student/StudentProfileLearningOverview";
 
 interface StudentProfileDetailProps {
   studentId: string | null;
   onClose?: () => void;
+  insights?: StudentLearningInsights | null;
+  insightsLoading?: boolean;
+  insightsError?: string;
+  enrollments?: Enrollment[];
+  courses?: Course[];
+  onRetryInsights?: () => void;
 }
 
 type EditForm = {
@@ -41,7 +47,16 @@ type EditFormErrors = Partial<Record<keyof EditForm, string>>;
 const inputClass =
   "min-h-12 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5 text-sm text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15";
 
-export default function StudentProfileDetail({ studentId, onClose }: StudentProfileDetailProps) {
+export default function StudentProfileDetail({
+  studentId,
+  onClose,
+  insights,
+  insightsLoading,
+  insightsError,
+  enrollments,
+  courses,
+  onRetryInsights,
+}: StudentProfileDetailProps) {
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -145,15 +160,20 @@ export default function StudentProfileDetail({ studentId, onClose }: StudentProf
         </div>
       </header>
 
-      {/* Main Grid: Radar Chart + Details + Sidebar */}
+      {insights !== undefined && (
+        <StudentProfileLearningOverview
+          insights={insights}
+          loading={insightsLoading ?? false}
+          error={insightsError ?? ""}
+          enrollments={enrollments ?? []}
+          courses={courses ?? []}
+          onRetry={onRetryInsights ?? (() => undefined)}
+        />
+      )}
+
+      {/* Main Grid: Profile Details + Sidebar */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
-          {/* Spider Radar Chart Section */}
-          <StudentRadarChart
-            currentBand={student.currentBand}
-            targetBand={student.targetBand}
-          />
-
           <Panel title="Thông tin cá nhân" description="Dữ liệu định danh và thông tin liên hệ được quản lý lưu trữ trên hệ thống.">
             <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
               <InfoRow icon={<Envelope />} label="Email" value={student.email} missing="Chưa có email" />

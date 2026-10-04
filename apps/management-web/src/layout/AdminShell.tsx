@@ -1,6 +1,6 @@
 import {
   BookOpenText, Books, CaretLeft, CaretRight, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
-  SlidersHorizontal, Student, Users, UsersThree, X,
+  SlidersHorizontal, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
 import { useEffect, useState } from "react";
@@ -85,8 +85,7 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
   {
     title: "VẬN HÀNH & NHÂN SỰ",
     items: [
-      { to: "/students", label: "Học viên", icon: Users, roles: ["admin", "admissions"] },
-      { to: "/enrollments", label: "Tuyển sinh & ghi danh", icon: Student, roles: ["admin", "admissions"] },
+      { to: "/students", label: "Tuyển sinh & học viên", icon: Users, roles: ["admin", "admissions"] },
       { to: "/billing", label: "Tài chính & Hóa đơn", icon: Receipt, roles: ["admin", "admissions"] },
       { to: "/support/courses", label: "Học viên được hỗ trợ", icon: Heart, roles: ["student_support"] },
       { to: "/staff", label: "Nhân sự", icon: UsersThree, roles: ["admin"] },
