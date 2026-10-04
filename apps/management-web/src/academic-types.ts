@@ -100,6 +100,29 @@ export type AttendanceStudentRow = {
 export type AttendanceSheet = { session: AttendanceSessionSummary; students: AttendanceStudentRow[] };
 export type ActivityAttempt = { id: string; studentId: string; attemptNo: number; source: string; status: string; reviewStatus: string; score: number | null; maxScore: number | null; correctCount: number | null; incorrectCount: number | null; unansweredCount: number | null; durationSeconds: number | null; comprehensionPercent: number | null; errorAnalysis: string | null; improvementPlan: string | null; submittedAt: string | null; completedAt: string | null; late: boolean };
 export type ClassActivityProgress = { classActivityId: string; sessionId: string | null; activityId: string; title: string; skill: "LISTENING" | "READING" | "WRITING" | "SPEAKING" | "VOCABULARY" | "GENERAL"; activityType: string; completionMethod: string; opensAt: string | null; dueAt: string | null; required: boolean; attempts: ActivityAttempt[] };
+export type StudentLearningInsights = {
+  summary: {
+    totalAttempts: number; completedAttempts: number; inProgressAttempts: number;
+    totalStudyMinutes: number;
+    averageAccuracy: number | null; averageScorePercent: number | null; lastActivityAt: string | null;
+    supportLevel: "NOT_ENOUGH_DATA" | "NEEDS_ATTENTION" | "WATCH" | "ON_TRACK";
+    supportReasons: string[];
+  };
+  skills: Array<{
+    skill: string; attempts: number; answeredQuestions: number; correctAnswers: number;
+    accuracy: number | null; averageScorePercent: number | null;
+  }>;
+  attempts: Array<{
+    id: string; title: string; skill: string; status: string; origin: string;
+    courseCode: string | null; courseName: string | null; attemptNo: number;
+    startedAt: string; submittedAt: string | null; lastActivityAt: string;
+    score: number | null; maxScore: number; correctCount: number; incorrectCount: number;
+    unansweredCount: number; accuracy: number | null;
+  }>;
+  recurringMistakes: Array<{
+    questionType: string; skill: string; errorCount: number; affectedAttempts: number; recommendation: string;
+  }>;
+};
 
 export const courseEmpty: CourseForm = { name: "", description: "", level: "", skillPair: "LISTENING_READING", targetBand: "", totalSessions: "20", tuitionAmount: "", capacity: "20", startsOn: "", endsOn: "", status: "OPEN", defaultZoomUrl: "", isPublic: true, isActive: true };
 export const classStatusLabel: Record<CourseStatus, string> = { OPEN: "Chuẩn bị & tuyển sinh", ACTIVE: "Đang học", COMPLETED: "Đã hoàn thành", CANCELLED: "Đã hủy" };

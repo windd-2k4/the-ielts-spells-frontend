@@ -10,6 +10,7 @@ export function StudentHubShellGuard({ children }: { children: React.ReactNode }
   const isAuthPage =
     pathname.startsWith("/student/login") ||
     pathname.startsWith("/student/register") ||
+    pathname.startsWith("/student/activate") ||
     pathname.startsWith("/student/auth");
 
   // The test player, result and explanation views are focused workspaces. They

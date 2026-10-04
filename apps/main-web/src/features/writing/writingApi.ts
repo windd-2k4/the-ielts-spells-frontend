@@ -12,8 +12,8 @@ export function getWritingAssignments() {
   return apiFetch<StudentWritingAssignment[]>(`${writingPath}/assignments`);
 }
 
-export function startOrResumeWritingSelfPractice(testVersionId: string) {
-  return apiFetch<StudentWritingAttempt>(`${writingPath}/catalog/${testVersionId}/attempts`, { method: "POST" });
+export function startOrResumeWritingSelfPractice(testVersionId: string, restart = false) {
+  return apiFetch<StudentWritingAttempt>(`${writingPath}/catalog/${testVersionId}/attempts${restart ? "?restart=true" : ""}`, { method: "POST" });
 }
 
 export function startOrResumeWritingAssignment(assignmentId: string) {

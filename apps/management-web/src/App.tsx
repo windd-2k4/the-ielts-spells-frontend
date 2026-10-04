@@ -1,7 +1,7 @@
 import { SignOut, SpinnerGap } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
 import { lazy, Suspense, useState } from "react";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { isInvitationCallback } from "./lib/supabase";
 import { AdminShell } from "./layout/AdminShell";
@@ -44,8 +44,6 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage")
   .then((module) => ({ default: module.ResetPasswordPage })));
 const StaffAdminPage = lazy(() => import("./pages/StaffAdminPage")
   .then((module) => ({ default: module.StaffAdminPage })));
-const StudentsPage = lazy(() => import("./pages/StudentsPage")
-  .then((module) => ({ default: module.StudentsPage })));
 const StudentDetailPage = lazy(() => import("./pages/StudentDetailPage")
   .then((module) => ({ default: module.StudentDetailPage })));
 const StudentSupportCoursesPage = lazy(() => import("./pages/StudentSupportCoursesPage")
@@ -102,6 +100,13 @@ function HomeRedirect() {
   return <Navigate to={managementHome(roles)} replace />;
 }
 
+function EnrollmentRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("tab", "enrollments");
+  return <Navigate to={`/students?${params.toString()}`} replace />;
+}
+
 export default function App() {
   return <AuthProvider>
     <Suspense fallback={<Loader />}>
@@ -133,9 +138,9 @@ export default function App() {
                 <Route path="/media" element={<MediaLibraryPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "admissions"]} />}>
-                <Route path="/students" element={<StudentsPage />} />
+                <Route path="/students" element={<EnrollmentsPage />} />
                 <Route path="/students/:studentId" element={<StudentDetailPage />} />
-                <Route path="/enrollments" element={<EnrollmentsPage />} />
+                <Route path="/enrollments" element={<EnrollmentRedirect />} />
                 <Route path="/billing" element={<BillingPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin"]} />}>

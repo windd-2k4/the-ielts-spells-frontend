@@ -93,6 +93,7 @@ export interface OrderAdminDto {
   customerPhone?: string;
   amount: number;
   status: "PENDING_PAYMENT" | "PAID" | "CANCELLED" | "EXPIRED" | "REFUNDED";
+  accountActivationStatus?: "WAITING_ACTIVATION" | "ACTIVATED";
   expiresAt: string;
   paidAt?: string;
   invoiceRequired: boolean;
@@ -2721,6 +2722,11 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   {formatDate(ord.paidAt)}
                                 </div>
                               )}
+                              {ord.accountActivationStatus === "WAITING_ACTIVATION" && (
+                                <span className="mt-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                  Chờ kích hoạt
+                                </span>
+                              )}
                             </div>
                           ) : ord.status === "PENDING_PAYMENT" ? (
                             <div>
@@ -4470,6 +4476,15 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                 <span className="text-on-surface-variant">Trạng thái:</span>
                 <div>{renderStatusBadge(selectedOrder.status)}</div>
               </div>
+
+              {selectedOrder.status === "PAID" && (
+                <div className="flex justify-between py-1 border-b border-outline-variant/15">
+                  <span className="text-on-surface-variant">Tài khoản học viên:</span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${selectedOrder.accountActivationStatus === "WAITING_ACTIVATION" ? "bg-amber-500/15 text-amber-700" : "bg-emerald-500/15 text-emerald-700"}`}>
+                    {selectedOrder.accountActivationStatus === "WAITING_ACTIVATION" ? "Chờ kích hoạt" : "Đã kích hoạt"}
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-between py-1 border-b border-outline-variant/15">
                 <span className="text-on-surface-variant">Khóa học đăng ký:</span>
