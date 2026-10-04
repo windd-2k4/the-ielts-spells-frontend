@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$Server = "16.176.125.180",
+  [string]$Server = "13.213.114.80",
   [string]$RemoteUser = "ubuntu",
   [string]$KeyPath = (Join-Path $env:USERPROFILE "Desktop\aws\ielts-staging-key.pem"),
   [string]$ApiUrl = "https://api.theieltsspells.io.vn/api/v1",
