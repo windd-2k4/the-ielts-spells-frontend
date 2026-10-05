@@ -4774,7 +4774,16 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
               </div>
             )}
 
-            {/* 3. Main Paper Canvas (Scrollable) */}
+            {/* 3. Official provider PDF for issued invoices; local preview only before issuance */}
+            {isModalInvoiceIssued && selectedInvoice.pdfUrl ? (
+              <div className="flex-1 min-h-0 bg-slate-200/80 dark:bg-slate-950 p-2 sm:p-4">
+                <iframe
+                  src={selectedInvoice.pdfUrl}
+                  title={`Hóa đơn điện tử số ${selectedInvoice.invoiceNumber}`}
+                  className="h-[74vh] min-h-[560px] w-full rounded-lg border border-outline-variant/30 bg-white shadow-lg"
+                />
+              </div>
+            ) : (
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-200/80 dark:bg-slate-950 flex flex-col items-center">
               <div className="w-full max-w-[760px] overflow-x-auto [scrollbar-width:none]">
                 <div className="relative bg-white text-slate-900 border-2 border-[#0284c7] rounded shadow-lg p-5 font-invoice text-[10px] leading-tight mx-auto min-w-[700px] select-text">
@@ -5105,6 +5114,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                 </div>
               </div>
             </div>
+            )}
 
             {/* 4. Modal Bottom Action Bar */}
             <div className="px-4 py-3 border-t border-outline-variant/20 bg-surface-container-low/80 shrink-0 flex flex-wrap items-center justify-between gap-2">
