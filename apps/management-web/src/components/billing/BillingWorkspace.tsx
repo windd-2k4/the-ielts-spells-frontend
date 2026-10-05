@@ -2084,9 +2084,9 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
       const approved = await apiFetch<InvoiceAdminDto>(`/admin/billing/invoices/${invoiceId}/approve-pilot`, {
         method: "POST",
       });
-      setSelectedInvoice(approved);
+      setSelectedInvoice((current) => current?.id === invoiceId ? approved : current);
       setFeedback({ type: "success", text: "Đã duyệt giao dịch QR tĩnh cho đợt Pilot. Worker sẽ phát hành hóa đơn tự động." });
-      await fetchInvoices();
+      await Promise.all([fetchInvoices(), fetchOrders()]);
     } catch (err: unknown) {
       setFeedback({ type: "error", text: err instanceof Error ? err.message : "Lỗi phê duyệt Pilot cho hóa đơn" });
     } finally {
