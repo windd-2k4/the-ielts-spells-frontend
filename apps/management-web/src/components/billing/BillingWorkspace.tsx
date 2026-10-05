@@ -1294,16 +1294,19 @@ export function BillingWorkspace() {
   const handleSendInvoiceEmail = async (inv: Partial<InvoiceAdminDto> | OrderAdminDto) => {
     setIsSendingEmail(true);
     try {
-      await new Promise((r) => setTimeout(r, 600));
+      const invoiceId = "invoiceId" in inv ? inv.invoiceId : inv.id;
+      if (!invoiceId) throw new Error("Không tìm thấy mã hóa đơn để gửi email");
+      await apiFetch<void>(`/admin/billing/invoices/${invoiceId}/email`, { method: "POST" });
       const invNum = ("invoiceNumber" in inv ? inv.invoiceNumber : "") || inv.orderCode;
       setFeedback({
         type: "success",
-        text: `Đã gửi hóa đơn điện tử số ${invNum} kèm mã CQT tới ${inv.customerEmail} thành công!`,
+        text: `Đã gửi hóa đơn điện tử số ${invNum} tới ${inv.customerEmail} qua SMTP.`,
       });
       setEmailModalInvoice(null);
       setTimeout(() => setFeedback(null), 4000);
-    } catch {
-      setFeedback({ type: "error", text: `Không thể gửi email hóa đơn tới ${inv.customerEmail}` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : `Không thể gửi email hóa đơn tới ${inv.customerEmail}`;
+      setFeedback({ type: "error", text: message });
     } finally {
       setIsSendingEmail(false);
     }
@@ -5964,7 +5967,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
             </div>
 
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              Email sẽ đính kèm đường link tra cứu SePay trực tuyến và bản thể hiện PDF hóa đơn điện tử có đầy đủ chữ ký số hợp lệ.
+              Email sẽ chứa đường dẫn tải PDF/XML hóa đơn điện tử chính thức từ SePay.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">
