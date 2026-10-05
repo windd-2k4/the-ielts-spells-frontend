@@ -2890,6 +2890,24 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                 <span>{retryingInvoiceId === ord.id ? "Đang tra cứu..." : "Kiểm tra lại trạng thái"}</span>
                               </button>
                             </div>
+                          ) : ord.invoiceStatus === "PILOT_PENDING_APPROVAL" ? (
+                            <div>
+                              <span className="inline-block px-2 py-0.2 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                                Chờ duyệt Pilot
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => ord.standalonePayment && ord.invoiceId
+                                  ? handleApprovePilotInvoice(ord.invoiceId)
+                                  : handleApprovePilot(ord.id)}
+                                disabled={approvingPilotOrderId === (ord.standalonePayment ? ord.invoiceId : ord.id)}
+                                className="block text-[10.5px] font-bold text-purple-700 hover:underline mt-0.5 cursor-pointer disabled:opacity-50"
+                              >
+                                {approvingPilotOrderId === (ord.standalonePayment ? ord.invoiceId : ord.id)
+                                  ? "Đang duyệt..."
+                                  : "Duyệt để phát hành"}
+                              </button>
+                            </div>
                           ) : ord.invoiceStatus === "PENDING_ISSUE" || ord.invoiceStatus === "CREATING" || ord.invoiceStatus === "PROCESSING" || ord.invoiceStatus === "ISSUING" ? (
                             <span className="inline-block px-2 py-0.2 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700">
                               Đang xử lý ({ord.invoiceStatus === "ISSUING" ? "Phát hành" : "Chờ SePay"})
