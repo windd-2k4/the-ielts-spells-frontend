@@ -37,7 +37,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../AdminUi";
-import { apiFetch } from "../../lib/api";
+import { apiBlob, apiFetch } from "../../lib/api";
 import { EinvoiceSplitPreview } from "./EinvoiceSplitPreview";
 
 export interface InvoiceStatsDto {
@@ -472,8 +472,46 @@ export function BillingWorkspace() {
   });
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStatsDto | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceAdminDto | null>(null);
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
+  const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
+  const [invoicePreviewError, setInvoicePreviewError] = useState<string | null>(null);
   const [isExportingInvoices, setIsExportingInvoices] = useState(false);
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setInvoicePreviewUrl(null);
+    setInvoicePreviewError(null);
+
+    if (!selectedInvoice || selectedInvoice.status !== "ISSUED") {
+      setInvoicePreviewLoading(false);
+      return undefined;
+    }
+
+    setInvoicePreviewLoading(true);
+    apiBlob(`/admin/billing/invoices/${selectedInvoice.id}/pdf`)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob.type === "application/pdf"
+          ? blob
+          : new Blob([blob], { type: "application/pdf" }));
+        setInvoicePreviewUrl(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setInvoicePreviewError(error instanceof Error ? error.message : "Không thể tải bản xem trước PDF");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInvoicePreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedInvoice?.id, selectedInvoice?.status]);
 
   // VIN-HOADON Filter Matrix States (12 fields)
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -4775,13 +4813,38 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
             )}
 
             {/* 3. Official provider PDF for issued invoices; local preview only before issuance */}
-            {isModalInvoiceIssued && selectedInvoice.pdfUrl ? (
+            {isModalInvoiceIssued ? (
               <div className="flex-1 min-h-0 bg-slate-200/80 dark:bg-slate-950 p-2 sm:p-4">
-                <iframe
-                  src={selectedInvoice.pdfUrl}
-                  title={`Hóa đơn điện tử số ${selectedInvoice.invoiceNumber}`}
-                  className="h-[74vh] min-h-[560px] w-full rounded-lg border border-outline-variant/30 bg-white shadow-lg"
-                />
+                {invoicePreviewLoading && (
+                  <div className="h-[74vh] min-h-[560px] w-full rounded-lg border border-outline-variant/30 bg-white flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+                    <SpinnerGap size={28} className="animate-spin text-primary" />
+                    <span className="text-sm font-semibold">Đang tải hóa đơn chính thức...</span>
+                  </div>
+                )}
+                {!invoicePreviewLoading && invoicePreviewUrl && (
+                  <iframe
+                    src={invoicePreviewUrl}
+                    title={`Hóa đơn điện tử số ${selectedInvoice.invoiceNumber}`}
+                    className="h-[74vh] min-h-[560px] w-full rounded-lg border border-outline-variant/30 bg-white shadow-lg"
+                  />
+                )}
+                {!invoicePreviewLoading && !invoicePreviewUrl && invoicePreviewError && (
+                  <div className="h-[74vh] min-h-[560px] w-full rounded-lg border border-rose-500/30 bg-white flex flex-col items-center justify-center gap-3 px-6 text-center">
+                    <WarningCircle size={30} className="text-rose-600" />
+                    <p className="text-sm font-semibold text-rose-700">{invoicePreviewError}</p>
+                    {selectedInvoice.pdfUrl && (
+                      <a
+                        href={selectedInvoice.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold"
+                      >
+                        <DownloadSimple size={14} />
+                        Tải PDF gốc
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-200/80 dark:bg-slate-950 flex flex-col items-center">
