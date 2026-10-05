@@ -2128,19 +2128,30 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
         const pilotOrders = await apiFetch<PageResponse<OrderAdminDto>>(
           "/admin/billing/orders?status=PAID&page=0&size=100"
         );
-        const pilotOrder = pilotOrders.content.find((order) =>
+        const pilotCandidates = pilotOrders.content.filter((order) =>
           !order.standalonePayment
           && order.pilotApproved
           && order.invoiceStatus === "ISSUED"
           && order.reconciliationStatus === "RECONCILED"
           && Boolean(order.cqtCode)
         );
-        if (!pilotOrder) {
+        if (pilotCandidates.length === 0) {
           throw new Error("Chưa có đơn QR động Pilot đã phát hành, có mã CQT và đối soát thành công để đánh giá 7/7.");
         }
-        await apiFetch(`/admin/billing/pilot/evaluate?orderId=${pilotOrder.id}`, {
-          method: "POST",
-        });
+        let pilotPassed = false;
+        for (const pilotOrder of pilotCandidates) {
+          const result = await apiFetch<{ status?: string }>(
+            `/admin/billing/pilot/evaluate?orderId=${pilotOrder.id}`,
+            { method: "POST" }
+          );
+          if (result.status === "PASSED") {
+            pilotPassed = true;
+            break;
+          }
+        }
+        if (!pilotPassed) {
+          throw new Error("Chưa có đơn QR động Pilot nào đạt đủ 7/7 mốc nghiệp vụ để kích hoạt Production.");
+        }
       }
       const res = await apiFetch<BillingSettingsDto>(
         `/admin/billing/settings/transition-state?targetState=${targetState}&explicitAdminConfirmation=${explicitAdminConfirmation}`,
