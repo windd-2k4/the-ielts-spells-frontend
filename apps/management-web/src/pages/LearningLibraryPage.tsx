@@ -4,15 +4,15 @@ import LibraryWorkspace from "../components/library/LibraryWorkspace";
 import { TestBankWorkspace } from "../components/test-bank/TestBankWorkspace";
 import { MediaLibraryWorkspace } from "../components/media/MediaLibraryWorkspace";
 import BulkImportWizardModal from "../components/library/BulkImportWizardModal";
-import LibraryItemModal from "../components/library/LibraryItemModal";
+import CloudUploadDialog from "../components/library/CloudUploadDialog";
 
 export function LearningLibraryPage() {
-  const [activeSubTab, setActiveSubTab] = useState<"HUB" | "MATERIALS" | "TEST_BANK" | "MEDIA">("HUB");
+  const [activeSubTab, setActiveSubTab] = useState<"HUB" | "MATERIALS" | "TEST_BANK" | "MEDIA">("MATERIALS");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-6">
+    <div className="mx-auto max-w-[1480px] space-y-4">
       {/* Sub-tab Navigation Header */}
       <div className="flex items-center gap-2 overflow-x-auto border-b border-[#e3dce2] pb-3" role="tablist" aria-label="Không gian nội dung đào tạo">
         <button
@@ -85,12 +85,9 @@ export function LearningLibraryPage() {
 
       {/* Global Modals */}
       {showAddModal && (
-        <LibraryItemModal
+        <CloudUploadDialog
           open={showAddModal}
-          view="RESOURCES"
-          skill="LISTENING"
-          item={null}
-          courses={[]}
+          folders={[]}
           onClose={() => setShowAddModal(false)}
           onSaved={async () => {
             setShowAddModal(false);

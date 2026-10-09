@@ -805,68 +805,75 @@ function SkillCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+      className={`overflow-hidden rounded-xl border bg-white transition ${
         selectedSkill ? "border-[#8f4458] ring-2 ring-[#8f4458]/10" : "border-[#e3dce2] hover:border-[#cdbfc6]"
       }`}
     >
       <button
         type="button"
         onClick={() => onSelect(config.skill, "ALL")}
-        className={`flex min-h-[56px] w-full items-center gap-3 border-b px-4 text-left transition ${
-          selectedSkill ? "border-[#ead2da] bg-[#f7e7ec] text-[#743447]" : "border-[#e3dce2] bg-[#f8f6fa] text-[#211A1D]"
+        aria-pressed={selectedSkill}
+        className={`flex min-h-[52px] w-full items-center gap-2.5 px-3 text-left transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]/20 ${
+          selectedSkill ? "bg-[#f7e7ec] text-[#743447]" : "bg-[#f8f6fa] text-[#211A1D]"
         }`}
       >
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[#8f4458] shadow-sm">
-          <Icon size={19} weight="duotone" />
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#8f4458] shadow-sm">
+          <Icon size={17} weight="duotone" />
         </span>
-        <span>
-          <span className="block font-display text-sm font-extrabold">{config.label}</span>
-          <span className="block text-[11px] font-semibold text-[#746A6E]">{config.description}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-display text-sm font-extrabold">{config.label}</span>
+          <span className="block truncate text-[11px] font-semibold text-[#746A6E]">{config.description}</span>
         </span>
+        <CaretDown size={14} className={`shrink-0 text-[#746A6E] transition ${selectedSkill ? "" : "-rotate-90"}`} />
       </button>
 
-      <div className="space-y-2 p-4">
-        <button
-          type="button"
-          onClick={() => onSelect(config.skill, singleActive ? "ALL" : "SINGLE")}
-          className="flex min-h-[36px] w-full items-center justify-between rounded-xl px-2 text-left hover:bg-[#f8f6fa]"
-        >
-          <span className="flex items-center gap-2.5 text-sm font-bold text-[#211A1D]">
-            <span className={`h-4 w-4 rounded-full border ${singleActive ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`} />
-            Bài lẻ
-          </span>
-          <CaretDown size={14} className={`text-[#746A6E] transition ${singleActive ? "" : "-rotate-90"}`} />
-        </button>
+      {selectedSkill && (
+        <div className="space-y-1.5 border-t border-[#ead2da] p-2">
+          <button
+            type="button"
+            onClick={() => onSelect(config.skill, singleActive ? "ALL" : "SINGLE")}
+            aria-pressed={singleActive}
+            className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-2.5 text-left hover:bg-[#f8f6fa] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]/20"
+          >
+            <span className="flex items-center gap-2.5 text-sm font-bold text-[#211A1D]">
+              <span className={`h-4 w-4 rounded-full border ${singleActive ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`} />
+              Bài lẻ
+            </span>
+            <CaretDown size={14} className={`text-[#746A6E] transition ${singleActive ? "" : "-rotate-90"}`} />
+          </button>
 
-        {singleActive && (
-          <div className="ml-4 space-y-1 border-l border-[#e3dce2] pl-3">
-            {config.formats.filter((item) => item.value !== "FULL").map((format) => (
-              <button
-                key={format.value}
-                type="button"
-                onClick={() => onSelect(config.skill, format.value)}
-                className={`flex min-h-[34px] w-full items-center justify-between rounded-lg px-2 text-xs font-bold transition ${
-                  formatFilter === format.value ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#5f565b] hover:bg-[#f8f6fa]"
-                }`}
-              >
-                {format.label}
-                {formatFilter === format.value && <Check size={13} weight="bold" />}
-              </button>
-            ))}
-          </div>
-        )}
+          {singleActive && (
+            <div className="ml-4 space-y-1 border-l border-[#e3dce2] pl-2.5">
+              {config.formats.filter((item) => item.value !== "FULL").map((format) => (
+                <button
+                  key={format.value}
+                  type="button"
+                  onClick={() => onSelect(config.skill, format.value)}
+                  aria-pressed={formatFilter === format.value}
+                  className={`flex min-h-[40px] w-full items-center justify-between rounded-lg px-2.5 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]/20 ${
+                    formatFilter === format.value ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#5f565b] hover:bg-[#f8f6fa]"
+                  }`}
+                >
+                  {format.label}
+                  {formatFilter === format.value && <Check size={13} weight="bold" />}
+                </button>
+              ))}
+            </div>
+          )}
 
-        <button
-          type="button"
-          onClick={() => onSelect(config.skill, "FULL")}
-          className={`flex min-h-[36px] w-full items-center gap-2.5 rounded-xl px-2 text-left text-sm font-bold transition ${
-            selectedSkill && formatFilter === "FULL" ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#211A1D] hover:bg-[#f8f6fa]"
-          }`}
-        >
-          <span className={`h-4 w-4 rounded-full border ${selectedSkill && formatFilter === "FULL" ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`} />
-          Full đề
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => onSelect(config.skill, "FULL")}
+            aria-pressed={formatFilter === "FULL"}
+            className={`flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]/20 ${
+              formatFilter === "FULL" ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#211A1D] hover:bg-[#f8f6fa]"
+            }`}
+          >
+            <span className={`h-4 w-4 rounded-full border ${formatFilter === "FULL" ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`} />
+            Full đề
+          </button>
+        </div>
+      )}
     </article>
   );
 }
@@ -883,7 +890,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   const [skillFilter, setSkillFilter] = useState<TestSkill | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<ContentLifecycleStatus | "ALL">("ALL");
   const [formatFilter, setFormatFilter] = useState<FormatOption>("ALL");
-  const [viewMode, setViewMode] = useState<"GRID" | "LIST">("LIST");
+  const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>([]);
   const [publishingTest, setPublishingTest] = useState<TestBankItem | null>(null);
   const [previewTest, setPreviewTest] = useState<TestBankItem | null>(null);
@@ -1227,27 +1234,49 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-[#8f4458]">
-            NỘI DUNG ĐÀO TẠO
-          </span>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight text-[#211A1D] md:text-4xl">
+    <div className="space-y-4">
+      <header className="flex flex-col gap-3 rounded-[18px] border border-[#e3dce2] bg-white px-4 py-3 shadow-sm md:px-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 lg:w-[270px] lg:shrink-0 xl:w-[320px]">
+          <h1 className="font-display text-xl font-extrabold tracking-tight text-[#211A1D] md:text-2xl">
             Ngân hàng đề thi IELTS
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#746A6E]">
-            Tạo, lọc, duyệt và tái sử dụng đề theo kỹ năng và cấu trúc. Khi tổ chức bài kiểm tra, bạn có thể chọn các đề đã xuất bản để ghép thành Mock, Placement hoặc Review.
+          <p className="mt-1 text-xs leading-5 text-[#746A6E] md:text-sm">
+            Tạo, lọc và tái sử dụng đề IELTS theo kỹ năng, cấu trúc và trạng thái.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:justify-end">
+          <label className="relative w-full sm:w-72 lg:w-48 lg:shrink-0 xl:w-64">
+            <span className="sr-only">Tìm theo tên hoặc mã đề</span>
+            <MagnifyingGlass size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#746A6E]" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm tên, mã đề, tag..."
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] bg-white pl-10 pr-3 text-xs focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
+            />
+          </label>
+
+          <label htmlFor="test-bank-status" className="sr-only">Lọc theo trạng thái</label>
+          <select
+            id="test-bank-status"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as ContentLifecycleStatus | "ALL")}
+            className="min-h-[44px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="DRAFT">Draft</option>
+            <option value="IN_REVIEW">Chờ duyệt</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="ARCHIVED">Archived</option>
+          </select>
+
           {/* Dropdown menu cho các tính năng Import & Crawl */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowImportDropdown(!showImportDropdown)}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#e3dce2] bg-white px-4 text-sm font-bold text-[#211A1D] shadow-sm transition hover:bg-[#f8f6fa] hover:border-[#cdbfc6] focus:outline-none"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#e3dce2] bg-white px-3 text-sm font-bold text-[#211A1D] shadow-sm transition hover:border-[#cdbfc6] hover:bg-[#f8f6fa] focus:outline-none"
             >
               <DownloadSimple size={18} className="text-[#8f4458]" />
               <span>Import &amp; Crawl</span>
@@ -1308,7 +1337,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#8f4458] px-5 text-sm font-bold text-white shadow-sm hover:bg-[#743447] transition"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#8f4458] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#743447]"
           >
             <Plus size={18} weight="bold" />
             Tạo đề mới
@@ -1316,129 +1345,92 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
         </div>
       </header>
 
-      <section className="space-y-3" aria-label="Phân loại kỹ năng và cấu trúc đề">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-extrabold uppercase tracking-wider text-[#8f4458]">
-            Phân loại kỹ năng &amp; cấu trúc đề
-          </span>
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="text-xs font-bold text-[#8f4458] hover:underline"
-          >
-            Đặt lại tất cả bộ lọc
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {skillCards.map((card) => (
-            <SkillCard
-              key={card.skill}
-              config={card}
-              skillFilter={skillFilter}
-              formatFilter={formatFilter}
-              onSelect={handleSelectSkillFormat}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3 rounded-[18px] border border-[#e3dce2] bg-white p-4 lg:flex-row lg:items-center">
-        <label className="relative flex-1">
-          <span className="sr-only">Tìm theo tên hoặc mã đề</span>
-          <MagnifyingGlass size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#746A6E]" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tìm theo tên đề, mã đề, tag..."
-            className="min-h-[42px] w-full rounded-xl border border-[#e3dce2] bg-white pl-10 pr-4 text-xs focus:border-[#8f4458] focus:outline-none"
-          />
-        </label>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={skillFilter}
-            onChange={(event) => {
-              setSkillFilter(event.target.value as TestSkill | "ALL");
-              setSelectedQuestionTypes([]);
-            }}
-            className="min-h-[42px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none"
-          >
-            <option value="ALL">Tất cả kỹ năng</option>
-            <option value="READING">Reading</option>
-            <option value="LISTENING">Listening</option>
-            <option value="WRITING">Writing</option>
-            <option value="SPEAKING">Speaking</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as ContentLifecycleStatus | "ALL")}
-            className="min-h-[42px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="DRAFT">Draft</option>
-            <option value="IN_REVIEW">Chờ duyệt</option>
-            <option value="PUBLISHED">Published</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
-        </div>
-      </section>
-
-      <div className="flex flex-col items-start gap-6 lg:flex-row">
-        {(skillFilter !== "ALL" || formatFilter !== "ALL") && (
-          <aside className="w-full shrink-0 rounded-[18px] border border-[#e3dce2] bg-white p-5 shadow-sm lg:sticky lg:top-6 lg:w-72">
-            <div className="border-b border-[#e3dce2] pb-3">
-              <h3 className="font-display text-sm font-extrabold text-[#211A1D]">Loại câu hỏi / task</h3>
-              <p className="mt-1 text-[11px] leading-5 text-[#746A6E]">Lọc sâu theo tag/dạng bài đã gắn trong đề.</p>
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
+        <aside
+          aria-label="Phân loại kỹ năng và cấu trúc đề"
+          className="w-full shrink-0 rounded-[18px] border border-[#e3dce2] bg-white p-3 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-72 lg:overflow-y-auto"
+        >
+          <div className="flex items-start justify-between gap-3 px-1 pb-3">
+            <div>
+              <h2 className="font-display text-sm font-extrabold leading-5 text-[#211A1D]">Phân loại kỹ năng &amp; cấu trúc đề</h2>
+              <p className="mt-0.5 text-[11px] leading-4 text-[#746A6E]">Chọn kỹ năng và cấu trúc.</p>
             </div>
-            <div className="mt-4 space-y-2">
-              {selectedQuestionTypes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedQuestionTypes([])}
-                  className="mb-2 text-[11px] font-bold text-[#8f4458] hover:underline"
-                >
-                  Xóa lựa chọn loại bài
-                </button>
-              )}
-              {selectedTypes.map((item) => {
-                const checked = selectedQuestionTypes.includes(item.id);
-                const ItemIcon = item.icon;
-                return (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="min-h-[36px] shrink-0 rounded-lg px-2 text-[11px] font-bold text-[#8f4458] transition hover:bg-[#f7e7ec] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/20"
+            >
+              Đặt lại
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            {skillCards.map((card) => (
+              <SkillCard
+                key={card.skill}
+                config={card}
+                skillFilter={skillFilter}
+                formatFilter={formatFilter}
+                onSelect={handleSelectSkillFormat}
+              />
+            ))}
+          </div>
+
+          {(skillFilter !== "ALL" || formatFilter !== "ALL") && (
+            <div className="mt-4 border-t border-[#e3dce2] pt-4">
+              <div className="px-1">
+                <h3 className="font-display text-sm font-extrabold text-[#211A1D]">Loại câu hỏi / task</h3>
+                <p className="mt-0.5 text-[11px] leading-4 text-[#746A6E]">Lọc sâu theo dạng bài đã gắn trong đề.</p>
+              </div>
+              <div className="mt-2 space-y-1">
+                {selectedQuestionTypes.length > 0 && (
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedQuestionTypes((current) => (
-                        current.includes(item.id)
-                          ? current.filter((value) => value !== item.id)
-                          : [...current, item.id]
-                      ));
-                    }}
-                    className={`flex min-h-[40px] w-full items-center gap-2.5 rounded-xl border px-3 text-left text-xs font-bold transition ${
-                      checked
-                        ? "border-[#8f4458]/30 bg-[#f7e7ec] text-[#8f4458]"
-                        : "border-transparent text-[#211A1D] hover:bg-[#f8f6fa]"
-                    }`}
+                    onClick={() => setSelectedQuestionTypes([])}
+                    className="min-h-[36px] rounded-lg px-2 text-[11px] font-bold text-[#8f4458] hover:bg-[#f7e7ec] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/20"
                   >
-                    <span className={`grid h-5 w-5 place-items-center rounded-md border shrink-0 ${checked ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`}>
-                      {checked && <Check size={13} weight="bold" className="text-white" />}
-                    </span>
-                    {ItemIcon && (
-                      <span className={`grid h-6 w-6 place-items-center rounded-lg ${item.iconBg ?? "bg-stone-100"} ${item.iconColor ?? "text-stone-700"} shrink-0`}>
-                        <ItemIcon size={14} weight="fill" />
-                      </span>
-                    )}
-                    <span className="truncate">{item.label}</span>
+                    Xóa lựa chọn loại bài
                   </button>
-                );
-              })}
+                )}
+                {selectedTypes.map((item) => {
+                  const checked = selectedQuestionTypes.includes(item.id);
+                  const ItemIcon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-pressed={checked}
+                      onClick={() => {
+                        setSelectedQuestionTypes((current) => (
+                          current.includes(item.id)
+                            ? current.filter((value) => value !== item.id)
+                            : [...current, item.id]
+                        ));
+                      }}
+                      className={`flex min-h-[44px] w-full items-center gap-2.5 rounded-xl border px-2.5 text-left text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]/20 ${
+                        checked
+                          ? "border-[#8f4458]/30 bg-[#f7e7ec] text-[#8f4458]"
+                          : "border-transparent text-[#211A1D] hover:bg-[#f8f6fa]"
+                      }`}
+                    >
+                      <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${checked ? "border-[#8f4458] bg-[#8f4458]" : "border-[#cdbfc6] bg-white"}`}>
+                        {checked && <Check size={13} weight="bold" className="text-white" />}
+                      </span>
+                      {ItemIcon && (
+                        <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${item.iconBg ?? "bg-stone-100"} ${item.iconColor ?? "text-stone-700"}`}>
+                          <ItemIcon size={14} weight="fill" />
+                        </span>
+                      )}
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </aside>
-        )}
+          )}
+        </aside>
 
-        <section className="min-w-0 flex-1">
+        <section className="w-full min-w-0 flex-1">
           {error && (
             <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-[#b4232d]">
               {error}

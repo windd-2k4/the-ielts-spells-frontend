@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "@/features/reading/ReadingQuestionGroup";
@@ -18,10 +19,11 @@ import { allReadingQuestions, formatDuration, isAnswered, requestMessage } from 
 import {
   isReadingFontScale,
   migrateLegacyReadingFontScale,
+  READING_FONT_SCALE_OPTIONS,
   READING_FONT_SCALE_STORAGE_KEY,
   type ReadingFontScale,
 } from "@/features/reading/readingFontScale";
-import { getReadingAttempt, saveReadingResponses, submitReadingAttempt } from "@/features/reading/readingApi";
+import { pauseReadingAttempt, resumeReadingAttempt, saveReadingResponses, submitReadingAttempt } from "@/features/reading/readingApi";
 import styles from "./ListeningAttemptPlayer.module.css";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
@@ -92,6 +94,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   const [submitError, setSubmitError] = useState("");
 
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+  const [timerRunning, setTimerRunning] = useState(true);
   const [hideTimer, setHideTimer] = useState(false);
 
   // Audio player state
@@ -136,10 +139,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
     } catch {}
   };
 
-  const cycleScale = () => {
-    const scales: ReadingFontScale[] = ["standard", "large", "extra-large"];
-    const nextIdx = (scales.indexOf(fontScale) + 1) % scales.length;
-    const next = scales[nextIdx];
+  const changeFontScale = (next: ReadingFontScale) => {
     setFontScale(next);
     try {
       localStorage.setItem(READING_FONT_SCALE_STORAGE_KEY, next);
@@ -151,7 +151,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
     setLoading(true);
     setError("");
     try {
-      const res = await getReadingAttempt(attemptId, "listening");
+      const res = await resumeReadingAttempt(attemptId, "listening");
       setAttempt(res);
 
       if (res.sections.length > 0) {
@@ -169,10 +169,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       }
       setAnswers(initialAnswers);
 
-      if (res.expiresAt) {
-        const remaining = Math.max(0, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
-        setSecondsRemaining(remaining);
-      }
+      setSecondsRemaining(res.remainingSeconds);
     } catch (failure) {
       setError(requestMessage(failure));
     } finally {
@@ -183,6 +180,26 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   useEffect(() => {
     void loadAttempt();
   }, [loadAttempt]);
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        setTimerRunning(false);
+        void pauseReadingAttempt(attemptId, "listening");
+        return;
+      }
+      void resumeReadingAttempt(attemptId, "listening").then((value) => {
+        setAttempt(value);
+        setSecondsRemaining(value.remainingSeconds);
+        setTimerRunning(true);
+      }).catch(() => setTimerRunning(false));
+    };
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      void pauseReadingAttempt(attemptId, "listening");
+    };
+  }, [attemptId]);
 
   // Active section
   const activeSection = useMemo(() => {
@@ -391,7 +408,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
 
   // Countdown timer
   useEffect(() => {
-    if (secondsRemaining == null || secondsRemaining <= 0) return undefined;
+    if (!timerRunning || secondsRemaining == null || secondsRemaining <= 0) return undefined;
     const timer = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev == null || prev <= 1) {
@@ -402,7 +419,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [secondsRemaining]);
+  }, [secondsRemaining, timerRunning]);
 
   // Submit attempt
   const handleSubmit = useCallback(async () => {
@@ -470,13 +487,18 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
 
   const themeClass = colorTheme === "dark" ? styles.themeDark : colorTheme === "eye-care" ? styles.themeEyeCare : styles.themeStandard;
   const fontClass = fontScale === "extra-large" ? styles.fontExtraLarge : fontScale === "large" ? styles.fontLarge : styles.fontStandard;
+  const activeFontScale = READING_FONT_SCALE_OPTIONS.find((option) => option.value === fontScale) ?? READING_FONT_SCALE_OPTIONS[0];
+  const examStyle = {
+    "--exam-content-size": `${activeFontScale.pixels}px`,
+    "--exam-content-line-height": activeFontScale.lineHeight,
+  } as CSSProperties;
 
   const currentDuration = audioDuration || (activeSection?.audioDurationSeconds ?? 0);
   const seekPercent = currentDuration > 0 ? Math.min(100, Math.max(0, (currentTime / currentDuration) * 100)) : 0;
   const volumePercent = (isMuted ? 0 : volume) * 100;
 
   return (
-    <div className={`${styles.examShell} ${themeClass} ${fontClass}`}>
+    <div className={`${styles.examShell} ${themeClass} ${fontClass}`} style={examStyle}>
       {/* Hidden HTML5 Audio Element */}
       {audioObjectUrl ? (
         <audio
@@ -525,9 +547,13 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
 
         <div className={styles.headerRight}>
           <div className={styles.appearanceGroup}>
-            <button type="button" onClick={cycleScale} className={styles.iconBtn} title="Đổi cỡ chữ">
-              <span style={{ fontSize: 13, fontWeight: 800 }}>A±</span>
-            </button>
+            <div className={styles.fontControls} role="group" aria-label="Cỡ chữ nội dung bài thi">
+              {READING_FONT_SCALE_OPTIONS.map((option) => (
+                <button key={option.value} type="button" onClick={() => changeFontScale(option.value)} aria-pressed={fontScale === option.value} aria-label={`Cỡ chữ ${option.label}, ${option.pixels} pixel`} title={`${option.label}: ${option.pixels} px`}>
+                  {option.glyph}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => changeTheme(colorTheme === "dark" ? "standard" : colorTheme === "eye-care" ? "dark" : "eye-care")}

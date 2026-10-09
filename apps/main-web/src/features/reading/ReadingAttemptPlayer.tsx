@@ -4,7 +4,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { ReadingAnnotation, ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
 import {
   ArrowLeft, ArrowsHorizontal, CaretLeft, CaretRight, CheckCircle, CircleNotch, Clock,
-  CornersIn, CornersOut, Eye, Flag, FloppyDisk, NotePencil, PaperPlaneTilt, WarningCircle,
+  CornersIn, CornersOut, Eye, Flag, FloppyDisk, NotePencil, PaperPlaneTilt, Rows, SidebarSimple, WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,11 +21,12 @@ import {
   READING_FONT_SCALE_STORAGE_KEY,
   type ReadingFontScale,
 } from "./readingFontScale";
-import { getReadingAttempt, saveReadingResponses, submitReadingAttempt } from "./readingApi";
+import { pauseReadingAttempt, resumeReadingAttempt, saveReadingResponses, submitReadingAttempt } from "./readingApi";
 import styles from "./ReadingAttemptPlayer.module.css";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
 type ColorTheme = "standard" | "eye-care" | "dark";
+type ControlLayout = "bottom" | "sidebar";
 
 type LocalReadingDraft = {
   attemptId: string;
@@ -83,6 +84,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const [flaggedKeys, setFlaggedKeys] = useState<Set<string>>(new Set());
   const [fontScale, setFontScale] = useState<ReadingFontScale>("standard");
   const [colorTheme, setColorTheme] = useState<ColorTheme>("standard");
+  const [controlLayout, setControlLayout] = useState<ControlLayout>("bottom");
   const [annotations, setAnnotations] = useState<ReadingAnnotation[]>([]);
   const [notesOpen, setNotesOpen] = useState(false);
 
@@ -99,6 +101,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       }
       const savedTheme = localStorage.getItem("ielts_exam_color_theme") as ColorTheme | null;
       if (savedTheme && ["standard", "eye-care", "dark"].includes(savedTheme)) setColorTheme(savedTheme);
+      if (localStorage.getItem("ielts_exam_control_layout") === "sidebar") setControlLayout("sidebar");
     } catch {}
   }, []);
 
@@ -114,6 +117,14 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       return next;
     });
   }
+
+  function toggleControlLayout() {
+    setControlLayout((current) => {
+      const next = current === "bottom" ? "sidebar" : "bottom";
+      try { localStorage.setItem("ielts_exam_control_layout", next); } catch {}
+      return next;
+    });
+  }
   const [leftPanePercent, setLeftPanePercent] = useState(50);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -124,7 +135,8 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [now, setNow] = useState(Date.now());
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(true);
   const pendingRef = useRef(new Map<string, SaveReadingResponseItem>());
   const revisionsRef = useRef(new Map<string, number>());
   const saveTimerRef = useRef<number | undefined>(undefined);
@@ -137,7 +149,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     setLoading(true);
     setLoadError("");
     try {
-      const value = await getReadingAttempt(attemptId);
+      const value = await resumeReadingAttempt(attemptId);
       if (value.status !== "IN_PROGRESS") {
         clearLocalDraft(attemptId);
         router.replace(`/student/reading/attempts/${attemptId}/result`);
@@ -154,6 +166,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       for (const response of localResponses) mergedAnswers[response.questionKey] = response.answer;
 
       setAttempt(value);
+      setRemainingSeconds(value.remainingSeconds);
       setActiveSectionKey(value.sections[0]?.key ?? "");
       setActiveQuestionKey(firstQuestion);
       setAnswers(mergedAnswers);
@@ -189,6 +202,29 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     };
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const syncVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        setTimerRunning(false);
+        void pauseReadingAttempt(attemptId);
+        return;
+      }
+      void resumeReadingAttempt(attemptId).then((value) => {
+        if (value.status !== "IN_PROGRESS") {
+          router.replace(`/student/reading/attempts/${attemptId}/result`);
+          return;
+        }
+        setAttempt(value);
+        setRemainingSeconds(value.remainingSeconds);
+        setTimerRunning(true);
+      }).catch(() => setTimerRunning(false));
+    };
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      void pauseReadingAttempt(attemptId);
+    };
+  }, [attemptId, router]);
 
   const flushPending = useCallback(async () => {
     if (savePromiseRef.current) return savePromiseRef.current;
@@ -257,12 +293,11 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     saveTimerRef.current = window.setTimeout(() => { void flushRef.current(); }, 900);
   }, [attemptId]);
 
-  const remainingSeconds = attempt ? Math.max(0, Math.floor((Date.parse(attempt.expiresAt) - now) / 1000)) : 0;
   useEffect(() => {
-    if (!attempt || remainingSeconds === 0) return undefined;
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    if (!attempt || !timerRunning || remainingSeconds === 0) return undefined;
+    const interval = window.setInterval(() => setRemainingSeconds((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(interval);
-  }, [attempt, remainingSeconds]);
+  }, [attempt, remainingSeconds, timerRunning]);
 
   const submit = useCallback(async (automatic: boolean) => {
     if (isSubmitting) return;
@@ -368,7 +403,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const lastQ = activeSectionQuestions[activeSectionQuestions.length - 1]?.number;
   const questionRangeText = firstQ && lastQ ? `câu ${firstQ}–${lastQ}` : "các câu hỏi";
 
-  return <div className={`${styles.examShell} ${fontClass} ${themeClass}`} style={examStyle}>
+  return <div className={`${styles.examShell} ${fontClass} ${themeClass} ${controlLayout === "sidebar" ? styles.layoutSidebar : styles.layoutBottom}`} style={examStyle}>
     <a href="#reading-workspace" className="student-skip-link">Đến nội dung bài thi</a>
     <header className={styles.examHeader}>
       <div className={styles.brandBlock}>
@@ -391,8 +426,10 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
         </button>
         <button type="button" onClick={() => setNotesOpen(true)} className={`${styles.notesButton} ${notesOpen ? styles.notesButtonActive : ""}`} aria-expanded={notesOpen} aria-label={`Mở ghi chú và tô sáng, ${annotations.length} mục`}>
           <NotePencil size={18} aria-hidden="true" />
-          <span>Ghi chú</span>
           {annotations.length > 0 ? <strong>{annotations.length}</strong> : null}
+        </button>
+        <button type="button" onClick={toggleControlLayout} className={styles.layoutButton} aria-label={controlLayout === "bottom" ? "Đưa bảng điều khiển sang bên phải" : "Đưa bảng điều khiển xuống dưới"} title={controlLayout === "bottom" ? "Hiển thị bảng điều khiển bên phải" : "Hiển thị bảng điều khiển bên dưới"}>
+          {controlLayout === "bottom" ? <SidebarSimple size={18} aria-hidden="true" /> : <Rows size={18} aria-hidden="true" />}
         </button>
         <button type="button" onClick={() => void toggleFullscreen()} className={styles.iconButton} aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}>{isFullscreen ? <CornersIn size={20} /> : <CornersOut size={20} />}</button>
         <div className={`${styles.timer} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`} role="timer" aria-label={`Thời gian còn lại ${formatDuration(remainingSeconds)}`}><Clock size={19} aria-hidden="true" /><span>{formatDuration(remainingSeconds)}</span><small>còn lại</small></div>

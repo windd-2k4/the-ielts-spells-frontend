@@ -46,34 +46,26 @@ interface CourseOverviewProps {
   onSelectStudent?: (studentId: string) => void;
 }
 
-const skills = ["Listening", "Reading", "Writing", "Speaking"] as const;
-
-function percentClass(value: number) {
-  if (value >= 80) return "bg-emerald-500 text-emerald-700";
-  if (value >= 65) return "bg-amber-500 text-amber-700";
-  return "bg-rose-500 text-rose-700";
-}
-
-function ProgressBar({ value, label }: { value: number; label: string }) {
-  const isEmerald = value >= 80;
-  const isAmber = value >= 65 && value < 80;
+function ProgressBar({ value, label }: { value: number | null; label: string }) {
+  const isEmerald = value != null && value >= 80;
+  const isAmber = value != null && value >= 65 && value < 80;
   
   return (
     <div className="bg-surface-container/30 p-4 rounded-xl border border-outline-variant/30">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-bold text-on-surface">{label}</span>
         <span className={`text-sm font-extrabold tabular-nums px-2 py-0.5 rounded-md ${
-          isEmerald ? "bg-emerald-50 text-emerald-700" : isAmber ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
+          value == null ? "bg-surface-container text-on-surface-variant" : isEmerald ? "bg-emerald-50 text-emerald-700" : isAmber ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
         }`}>
-          {value}%
+          {value == null ? "—" : `${value}%`}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-surface-container" aria-label={`${label} ${value}%`}>
+      <div className="h-2 overflow-hidden rounded-full bg-surface-container" aria-label={value == null ? `${label} chưa có dữ liệu` : `${label} ${value}%`}>
         <div 
           className={`h-full rounded-full transition-all duration-500 ${
             isEmerald ? "bg-emerald-500" : isAmber ? "bg-amber-500" : "bg-rose-500"
           }`} 
-          style={{ width: `${value}%` }} 
+          style={{ width: `${value ?? 0}%` }}
         />
       </div>
     </div>
@@ -193,20 +185,24 @@ export default function CourseOverview({
     }
   }
   const totalSessions=sessions.length;const completedSessions=sessions.filter(value=>value.status==="COMPLETED").length;
-  const studentRates=useMemo(()=>new Map(roster.map(({student})=>{const relevant=progress.flatMap(activity=>activity.attempts.filter(attempt=>attempt.studentId===student.id));const values=relevant.map(attempt=>attempt.comprehensionPercent??(attempt.score!=null&&attempt.maxScore?Math.round(attempt.score/attempt.maxScore*100):null)).filter((value):value is number=>value!=null);return [student.id,values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null]})),[progress,roster]);
+  const skills = course.skillPair === "LISTENING_READING"
+    ? ([{ key: "LISTENING", label: "Listening" }, { key: "READING", label: "Reading" }] as const)
+    : ([{ key: "SPEAKING", label: "Speaking" }, { key: "WRITING", label: "Writing" }] as const);
+  const courseProgress=useMemo(()=>progress.filter(activity=>skills.some(skill=>skill.key===activity.skill)),[progress,skills]);
+  const studentRates=useMemo(()=>new Map(roster.map(({student})=>{const relevant=courseProgress.flatMap(activity=>activity.attempts.filter(attempt=>attempt.studentId===student.id));const values=relevant.map(attempt=>attempt.comprehensionPercent??(attempt.score!=null&&attempt.maxScore?Math.round(attempt.score/attempt.maxScore*100):null)).filter((value):value is number=>value!=null);return [student.id,values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null]})),[courseProgress,roster]);
   const knownRates=[...studentRates.values()].filter((value):value is number=>value!=null);
-  const average=knownRates.length?Math.round(knownRates.reduce((a,b)=>a+b,0)/knownRates.length):0;
+  const average=knownRates.length?Math.round(knownRates.reduce((a,b)=>a+b,0)/knownRates.length):null;
   const risks = roster.filter(item => {const value=studentRates.get(item.student.id);return value!=null&&value<65});
   
-  const classStrengths = progress.length ? "Dữ liệu phân tích được tổng hợp từ các bài làm đã nộp trong lớp." : "Chưa có đủ bài làm để tạo phân tích.";
-  const classWeaknesses = progress.length ? "Giáo viên cần xem chi tiết từng kỹ năng và xác nhận các kết quả tự nhập." : "Chưa có dữ liệu để xác định điểm nghẽn học thuật.";
+  const classStrengths = courseProgress.length ? "Dữ liệu phân tích được tổng hợp từ các bài làm đã nộp trong lớp." : "Chưa có đủ bài làm để tạo phân tích.";
+  const classWeaknesses = courseProgress.length ? "Giáo viên cần xem chi tiết từng kỹ năng và xác nhận các kết quả tự nhập." : "Chưa có dữ liệu để xác định điểm nghẽn học thuật.";
   
   const aiRecommendations: {id:string;title:string;target:string;action:string}[] = [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Metrics Row */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             label: "Tiến độ lớp học",
@@ -217,8 +213,8 @@ export default function CourseOverview({
           },
           {
             label: "Hoàn thành hoạt động",
-            value: `${average}%`,
-            note: "Trung bình toàn bộ 4 kỹ năng",
+            value: average == null ? "—" : `${average}%`,
+            note: "Trung bình 2 kỹ năng của khóa",
             icon: TrendUp,
             color: "text-emerald-700 bg-emerald-50 border-emerald-200",
           },
@@ -236,24 +232,24 @@ export default function CourseOverview({
             icon: Users,
             color: "text-blue-700 bg-blue-50 border-blue-200",
           },
-        ].map((item, index) => {
+        ].map((item) => {
           const Icon = item.icon;
           return (
             <div
-              key={index}
-              className="flex items-center gap-4 rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-sm transition-all duration-200 hover:shadow-md"
+              key={item.label}
+              className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface px-3 py-2.5"
             >
-              <div className={`p-3 rounded-xl border ${item.color}`}>
-                <Icon size={24} />
+              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${item.color}`}>
+                <Icon size={18} />
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              <div className="min-w-0">
+                <p className="truncate text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
                   {item.label}
                 </p>
-                <p className="mt-1 font-display text-2xl font-black text-on-surface">
+                <p className="font-display text-lg font-black leading-6 text-on-surface tabular-nums">
                   {item.value}
                 </p>
-                <p className="text-xs text-on-surface-variant mt-0.5">
+                <p className="truncate text-[11px] text-on-surface-variant">
                   {item.note}
                 </p>
               </div>
@@ -281,13 +277,13 @@ export default function CourseOverview({
                 onClick={() => setTab("progress")}
                 className="rounded-xl px-4 py-2 text-xs font-bold text-primary hover:bg-primary-container/20 border border-primary/20 transition-colors"
               >
-                Chi tiết 4 kỹ năng
+                Chi tiết 2 kỹ năng
               </button>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {skills.map((skill, index) => {
-                const skillKey=skill.toUpperCase();const attempts=progress.filter(value=>value.skill===skillKey).flatMap(value=>value.attempts);const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);const val=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):0;
-                return <ProgressBar key={skill} label={skill} value={val} />;
+              {skills.map((skill) => {
+                const attempts=courseProgress.filter(value=>value.skill===skill.key).flatMap(value=>value.attempts);const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);const val=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null;
+                return <ProgressBar key={skill.key} label={skill.label} value={val} />;
               })}
             </div>
           </div>

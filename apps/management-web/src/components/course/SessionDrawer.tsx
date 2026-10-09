@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import {
   BookOpen, CalendarBlank, Check, Clock, Exam, FolderOpen, Info,
-  NotePencil, Plus, Sparkle, SpinnerGap, Trash, VideoCamera,
+  NotePencil, Sparkle, SpinnerGap, Trash, VideoCamera,
   WarningCircle, X, User
 } from "@phosphor-icons/react";
-import type {
-  SessionItemType, SessionStatus, SkillPair, TeacherOption
-} from "../../academic-types";
+import type { SessionStatus, SkillPair, TeacherOption } from "../../academic-types";
 import type { ItemDraft, SessionDraft } from "./CourseSchedule";
 import { CONTENT_SUGGESTIONS } from "./ScheduleSetupModal";
 
@@ -16,6 +14,7 @@ interface SessionDrawerProps {
   drawerMode: "SESSION" | "TEST";
   skillPair: SkillPair;
   teachers: TeacherOption[];
+  canAssignTeacher: boolean;
   primaryTeacherId: string;
   saving: boolean;
   error: string;
@@ -24,7 +23,6 @@ interface SessionDrawerProps {
   onClose: () => void;
   onPatchDraft: (patch: Partial<SessionDraft>) => void;
   onApplyRoadmap: () => void;
-  onAddItem: (type: SessionItemType) => void;
   onOpenLibrary: () => void;
   onPatchItem: (index: number, patch: Partial<ItemDraft>) => void;
   onRemoveItem: (index: number) => void;
@@ -53,6 +51,7 @@ export default function SessionDrawer({
   drawerMode,
   skillPair,
   teachers,
+  canAssignTeacher,
   primaryTeacherId,
   saving,
   error,
@@ -61,7 +60,6 @@ export default function SessionDrawer({
   onClose,
   onPatchDraft,
   onApplyRoadmap,
-  onAddItem,
   onOpenLibrary,
   onPatchItem,
   onRemoveItem,
@@ -90,18 +88,12 @@ export default function SessionDrawer({
         if (event.currentTarget === event.target) onClose();
       }}
     >
-      <aside className="relative flex h-full w-full max-w-2xl flex-col border-l border-outline-variant/30 bg-surface shadow-2xl transition-transform duration-300 sm:max-w-3xl">
+      <aside className="relative flex h-full w-full max-w-4xl flex-col border-l border-outline-variant/30 bg-surface shadow-2xl transition-transform duration-300">
         {/* Visual Top Accent Line */}
-        <div
-          className={`h-1.5 w-full ${
-            isTest
-              ? "bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500"
-              : "bg-gradient-to-r from-primary via-indigo-600 to-violet-600"
-          }`}
-        />
+        <div className={`h-1 w-full ${isTest ? "bg-amber-500" : "bg-primary"}`} />
 
         {/* Drawer Header */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-outline-variant/30 bg-surface/95 px-6 py-4 backdrop-blur-md">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-outline-variant/30 bg-surface/95 px-5 py-3 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
@@ -145,7 +137,7 @@ export default function SessionDrawer({
         </header>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           {/* Global Error Banner */}
           {error && (
             <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-rose-900 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
@@ -156,10 +148,10 @@ export default function SessionDrawer({
 
           {/* Header Mode Banner */}
           <div
-            className={`relative overflow-hidden rounded-2xl border p-4 transition-all ${
+            className={`relative overflow-hidden rounded-xl border p-3 transition-all ${
               isTest
-                ? "border-amber-300/70 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent text-amber-950 dark:border-amber-700/50 dark:text-amber-100"
-                : "border-primary/25 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent text-on-surface"
+                ? "border-amber-300/70 bg-amber-50/60 text-amber-950 dark:border-amber-700/50 dark:text-amber-100"
+                : "border-primary/25 bg-primary/5 text-on-surface"
             }`}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -192,7 +184,7 @@ export default function SessionDrawer({
 
               {isEditing && (
                 <span className="text-[11px] font-semibold text-on-surface-variant/80">
-                  🔒 Loại lịch cố định sau khi tạo
+                  Loại lịch được giữ cố định sau khi tạo
                 </span>
               )}
             </div>
@@ -291,6 +283,7 @@ export default function SessionDrawer({
                   <select
                     value={draft.teacherId}
                     onChange={(e) => onPatchDraft({ teacherId: e.target.value })}
+                    disabled={!canAssignTeacher}
                     className={`${inputClass} pl-10`}
                   >
                     <option value="">Chưa phân công</option>
@@ -301,7 +294,7 @@ export default function SessionDrawer({
                     ))}
                   </select>
                 </div>
-                <span className="mt-1.5 block text-xs text-on-surface-variant">Chọn người khác giáo viên chính để bố trí dạy thay cho riêng buổi này.</span>
+                <span className="mt-1.5 block text-xs text-on-surface-variant">{canAssignTeacher ? "Chọn người khác giáo viên chính để bố trí dạy thay cho riêng buổi này." : "Giáo viên phụ trách do quản trị viên phân công."}</span>
               </Field>
 
               <Field label="Trạng thái buổi học">
@@ -310,9 +303,9 @@ export default function SessionDrawer({
                   onChange={(e) => onPatchDraft({ status: e.target.value as SessionStatus })}
                   className={`${inputClass} font-semibold`}
                 >
-                  <option value="SCHEDULED">📅 Đã lên lịch (SCHEDULED)</option>
-                  <option value="COMPLETED">✅ Đã hoàn thành (COMPLETED)</option>
-                  <option value="CANCELLED">❌ Đã hủy (CANCELLED)</option>
+                  <option value="SCHEDULED">Đã lên lịch</option>
+                  <option value="COMPLETED">Đã hoàn thành</option>
+                  <option value="CANCELLED">Đã hủy</option>
                 </select>
               </Field>
             </div>
@@ -341,6 +334,7 @@ export default function SessionDrawer({
                             content: contentChips.filter((v: string) => v !== item).join("\n"),
                           })
                         }
+                        aria-label={`Bỏ nội dung ${item}`}
                         className="rounded-full p-0.5 hover:bg-primary/20 transition"
                       >
                         <X size={12} weight="bold" />
@@ -434,7 +428,7 @@ export default function SessionDrawer({
                     />
                     <div>
                       <strong className="block text-sm font-bold text-amber-950 dark:text-amber-200">
-                        ⚡ Dời dây chuyền các session phía sau khi đổi lịch
+                        Dời các buổi phía sau khi đổi lịch
                       </strong>
                       <span className="mt-0.5 block text-xs text-amber-800 dark:text-amber-300/80">
                         Tự động tịnh tiến các buổi chưa diễn ra sang buổi học kế tiếp theo lịch tuần.
@@ -448,10 +442,10 @@ export default function SessionDrawer({
 
           {/* Section 5: Assignments & Mini Tests Inside Session */}
           <Card
-            title={isTest ? "5. Đơn vị kiểm tra" : "5. Tài liệu & bài tập của buổi học"}
+            title={isTest ? "5. Đơn vị kiểm tra" : `5. Tài liệu & đề luyện tập (${draft.items.length})`}
             icon={isTest ? <Exam size={18} weight="bold" className="text-amber-600" /> : <NotePencil size={18} weight="bold" className="text-primary" />}
             headerBadge={
-              !isTest && <div className="flex flex-wrap gap-2"><button type="button" onClick={onOpenLibrary} className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-surface px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10"><FolderOpen size={14} weight="bold"/>Chọn từ kho</button><button type="button" disabled={draft.items.filter(item=>item.itemType!=="MATERIAL").length >= 10} onClick={() => onAddItem("ASSIGNMENT")} className="flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-40 transition"><Plus size={14} weight="bold"/>Tạo nhanh bài tập</button></div>
+              !isTest && <button type="button" onClick={onOpenLibrary} className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-surface px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary/10"><FolderOpen size={14} weight="bold"/>Thêm tài liệu / đề</button>
             }
           >
             <div className="space-y-3">
@@ -459,19 +453,19 @@ export default function SessionDrawer({
                 <div className="rounded-xl border border-dashed border-outline-variant/60 py-8 px-4 text-center">
                   <NotePencil size={32} className="mx-auto text-outline/40 mb-2" />
                   <p className="text-sm font-semibold text-on-surface-variant">
-                    {isTest ? "Bài test độc lập chưa có mô tả đính kèm." : "Chưa có tài liệu hoặc bài tập nào cho buổi học này."}
+                    {isTest ? "Bài test độc lập chưa có mô tả đính kèm." : "Chưa có tài liệu hoặc đề luyện tập cho buổi học này."}
                   </p>
                   <p className="text-xs text-on-surface-variant/70 mt-0.5">
                     {isTest
                       ? "Bạn có thể để mặc định hoặc nhập yêu cầu kiểm tra chi tiết."
-                      : "Chọn từ kho học liệu; tối đa 10 bài tập, còn tài liệu không giới hạn."}
+                      : "Đề lấy từ Ngân hàng đề; tối đa 10 đề, còn tài liệu không giới hạn."}
                   </p>
                 </div>
               ) : (
                 draft.items.map((item: ItemDraft, index: number) => (
                   <div
                     key={item.id ?? index}
-                    className="relative rounded-2xl border border-outline-variant/40 bg-surface-container-low/40 p-4 transition-all hover:border-outline-variant/70"
+                    className="relative rounded-xl border border-outline-variant/40 bg-surface-container-low/35 p-3.5 transition-all hover:border-outline-variant/70"
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <span
@@ -481,8 +475,9 @@ export default function SessionDrawer({
                             : item.itemType === "MATERIAL" ? "bg-sky-50 text-sky-800" : "bg-primary/10 text-primary"
                         }`}
                       >
-                        {item.itemType === "TEST" ? "BÀI TEST" : item.itemType === "MATERIAL" ? "TÀI LIỆU" : "BÀI TẬP"} #{String(index + 1).padStart(2, "0")}
+                        {item.itemType === "TEST" ? "BÀI KIỂM TRA" : item.itemType === "MATERIAL" ? "TÀI LIỆU" : "ĐỀ LUYỆN TẬP"} #{String(index + 1).padStart(2, "0")}
                       </span>
+                      {(item.sourceResourceId || item.sourceExerciseTemplateId || item.sourceTestId) && <span className="mr-auto ml-2 text-[10px] font-bold text-on-surface-variant">{item.sourceTestId ? "Từ Ngân hàng đề" : "Từ kho học liệu"}</span>}
 
                       <button
                         type="button"
@@ -495,7 +490,7 @@ export default function SessionDrawer({
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label={item.itemType === "MATERIAL" ? "Tên tài liệu *" : "Tên bài tập / bài test *"}>
+                      <Field label={item.itemType === "MATERIAL" ? "Tên tài liệu *" : item.itemType === "TEST" ? "Tên bài kiểm tra *" : "Tên đề luyện tập *"}>
                         <input
                           type="text"
                           value={item.title}
@@ -519,7 +514,7 @@ export default function SessionDrawer({
                           rows={2}
                           value={item.description}
                           onChange={(e) => onPatchItem(index, { description: e.target.value })}
-                          placeholder="Mô tả bài tập, yêu cầu về file nộp hoặc lưu ý cho học viên..."
+                          placeholder="Hướng dẫn làm đề hoặc lưu ý cho học viên..."
                           className={inputClass}
                         />
                       </Field>
@@ -534,7 +529,7 @@ export default function SessionDrawer({
         </div>
 
         {/* Footer Actions */}
-        <footer className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/30 bg-surface/95 px-6 py-4 backdrop-blur-md">
+        <footer className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/30 bg-surface/95 px-5 py-3 backdrop-blur-md">
           <div>
             {isEditing &&
               (confirmDelete ? (
@@ -582,11 +577,7 @@ export default function SessionDrawer({
               type="button"
               disabled={saving}
               onClick={() => void onSave()}
-              className={`flex min-w-36 items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-extrabold text-white shadow-md transition hover:brightness-105 active:scale-[0.98] disabled:opacity-50 ${
-                isTest
-                  ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                  : "bg-gradient-to-r from-primary via-indigo-600 to-violet-600"
-              }`}
+              className={`flex min-w-36 items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-extrabold text-white transition hover:brightness-95 active:scale-[0.98] disabled:opacity-50 ${isTest ? "bg-amber-600" : "bg-primary"}`}
             >
               {saving ? (
                 <SpinnerGap className="animate-spin" size={18} />
@@ -628,8 +619,8 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-lowest/80 p-5 shadow-xs transition-all hover:border-outline-variant/60">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
+    <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest/80 p-4 transition-all hover:border-outline-variant/60">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/20 pb-2.5">
         <div className="flex items-center gap-2">
           {icon}
           <h3 className="font-display text-base font-extrabold text-on-surface">{title}</h3>

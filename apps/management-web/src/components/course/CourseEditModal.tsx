@@ -3,6 +3,7 @@ import { Lock, WarningCircle, X } from "@phosphor-icons/react";
 import type { Course, CourseForm } from "../../academic-types";
 import { classStatusLabel, skillPairLabel } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
+import CourseCoverImageField from "./CourseCoverImageField";
 
 interface CourseEditModalProps {
   course: Course;
@@ -22,6 +23,8 @@ export function CourseEditModal({
   const [form, setForm] = useState<CourseForm>({
     name: course.name,
     description: course.description ?? "",
+    coverImageUrl: course.coverImageUrl ?? "",
+    coverImageAltText: course.coverImageAltText ?? "",
     level: course.level ?? "",
     skillPair: course.skillPair,
     targetBand: course.targetBand != null ? String(course.targetBand) : "",
@@ -43,6 +46,8 @@ export function CourseEditModal({
     setForm({
       name: course.name,
       description: course.description ?? "",
+      coverImageUrl: course.coverImageUrl ?? "",
+      coverImageAltText: course.coverImageAltText ?? "",
       level: course.level ?? "",
       skillPair: course.skillPair,
       targetBand: course.targetBand != null ? String(course.targetBand) : "",
@@ -75,6 +80,11 @@ export function CourseEditModal({
       return;
     }
 
+    if (form.coverImageUrl && !form.coverImageAltText.trim()) {
+      setError("Vui lòng thêm mô tả thay thế cho ảnh minh họa khóa học.");
+      return;
+    }
+
     // Frontend validation: capacity >= current enrollment count
     const newCapacity = Number(form.capacity);
     if (currentEnrollmentsCount > 0 && newCapacity < currentEnrollmentsCount) {
@@ -91,6 +101,8 @@ export function CourseEditModal({
         body: JSON.stringify({
           name: form.name.trim(),
           description: form.description ? form.description.trim() : null,
+          coverImageUrl: form.coverImageUrl || null,
+          coverImageAltText: form.coverImageUrl ? form.coverImageAltText.trim() : null,
           level: form.level ? form.level.trim() : null,
           skillPair: form.skillPair,
           targetBand: form.targetBand ? Number(form.targetBand) : null,
@@ -156,6 +168,17 @@ export function CourseEditModal({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <CourseCoverImageField
+            imageUrl={form.coverImageUrl}
+            altText={form.coverImageAltText}
+            courseName={form.name}
+            onChange={(coverImageUrl, coverImageAltText) => setForm(current => ({
+              ...current,
+              coverImageUrl,
+              coverImageAltText,
+            }))}
+          />
+
           {/* Tên khóa học */}
           <Field label="Tên khóa học *">
             <input

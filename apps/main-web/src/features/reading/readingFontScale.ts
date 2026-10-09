@@ -10,9 +10,9 @@ export const READING_FONT_SCALE_OPTIONS: Array<{
   points: number;
   lineHeight: number;
 }> = [
-  { value: "standard", label: "Nhỏ", glyph: "S", pixels: 14, points: 10, lineHeight: 1.6 },
-  { value: "large", label: "Vừa", glyph: "M", pixels: 18, points: 13, lineHeight: 1.65 },
-  { value: "extra-large", label: "Lớn", glyph: "L", pixels: 22, points: 16, lineHeight: 1.7 },
+  { value: "standard", label: "Nhỏ", glyph: "S", pixels: 12, points: 9, lineHeight: 4 / 3 },
+  { value: "large", label: "Vừa", glyph: "M", pixels: 16, points: 12, lineHeight: 1.5 },
+  { value: "extra-large", label: "Lớn", glyph: "L", pixels: 20, points: 15, lineHeight: 1.6 },
 ];
 
 export function isReadingFontScale(value: string | null): value is ReadingFontScale {

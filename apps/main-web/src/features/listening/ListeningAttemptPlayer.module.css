@@ -85,19 +85,43 @@
 }
 
 .fontStandard {
-  font-size: 15px;
-  line-height: 1.6;
+  --answer-control-size: 18px;
 }
 
 .fontLarge {
-  font-size: 17px;
-  line-height: 1.65;
+  --answer-control-size: 20px;
 }
 
 .fontExtraLarge {
-  font-size: 19px;
-  line-height: 1.7;
+  --answer-control-size: 22px;
 }
+
+.fontControls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--exam-line);
+  border-radius: 999px;
+  background: var(--exam-soft);
+}
+
+.fontControls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--exam-muted);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fontControls button:hover { color: #166534; background: #dcfce7; }
+.fontControls button[aria-pressed="true"] { color: #fff; background: #16a34a; }
 
 /* Header */
 .header {
@@ -669,8 +693,8 @@
 
 .transcriptContent {
   padding: 16px;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: var(--exam-content-size);
+  line-height: var(--exam-content-line-height);
   color: var(--exam-ink);
   max-height: 400px;
   overflow-y: auto;

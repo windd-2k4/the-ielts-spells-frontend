@@ -17,6 +17,16 @@ export type LearningResourceType =
   | "VOCABULARY";
 export type VisibilityPermission = "TEACHER_ONLY" | "STUDENT_AFTER_ASSIGN" | "STUDENT_AFTER_SUBMIT";
 
+export type LibraryFolder = {
+  id: string;
+  name: string;
+  courseId: string | null;
+  courseName: string | null;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LearningResource = {
   id: string;
   code: string;
@@ -28,6 +38,7 @@ export type LearningResource = {
   sourceType?: ResourceSourceType;
   scope: LibraryScope;
   courseId: string | null;
+  folderId: string | null;
   courseName?: string | null;
   externalUrl: string | null;
   richTextContent?: string | null;
@@ -67,6 +78,7 @@ export type ExerciseTemplate = {
   completionMode: string;
   scope: LibraryScope;
   courseId: string | null;
+  folderId: string | null;
   courseName?: string | null;
   sourceUrl: string | null;
   durationMinutes: number | null;

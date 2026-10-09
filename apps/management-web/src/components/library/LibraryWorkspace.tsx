@@ -1,18 +1,20 @@
 import {
   Archive, ArrowSquareOut, Article, BookOpenText, Books, Check, ClipboardText, FileAudio,
-  DotsThreeVertical, FileDoc, FileText, FileVideo, Funnel, GridFour, Link, List, MagnifyingGlass,
-  NotePencil, Plus, TextT, Trash, WarningCircle,
+  DotsThreeVertical, FileDoc, FileText, FileVideo, Folder, FolderOpen, GraduationCap, GridFour,
+  House, Link, List, MagnifyingGlass, NotePencil, Plus, TextT, Trash, UploadSimple, WarningCircle,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { Course, Page } from "../../academic-types";
-import type { ContentLifecycleStatus, ExerciseTemplate, LearningResource, LearningResourceType, LibraryItem, LibrarySkill, LibraryView } from "../../library-types";
+import type { ContentLifecycleStatus, ExerciseTemplate, LearningResource, LearningResourceType, LibraryFolder, LibraryItem } from "../../library-types";
 import { isResource } from "../../library-types";
 import { apiFetch } from "../../lib/api";
 import LibraryItemModal from "./LibraryItemModal";
 import ResourceFilesDialog from "./ResourceFilesDialog";
 import AttachLibraryModal from "./AttachLibraryModal";
-import { ALL_CATEGORIES, CATEGORIES, RESOURCE_TYPE_LABELS, SKILLS, SKILL_LABELS, categoryLabel } from "./library-config";
+import CreateLibraryFolderDialog from "./CreateLibraryFolderDialog";
+import CloudUploadDialog from "./CloudUploadDialog";
+import { RESOURCE_TYPE_LABELS } from "./library-config";
 
 type Props = { courseId?: string; compactHeader?: boolean };
 
@@ -62,10 +64,6 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("vi-VN");
 }
 
-function skillLabel(value: string) {
-  return SKILL_LABELS[value as LibrarySkill] ?? (value === "GENERAL" ? "Chung" : value);
-}
-
 const statusBadge = (status: ContentLifecycleStatus) => {
   switch (status) {
     case "PUBLISHED":
@@ -80,16 +78,17 @@ const statusBadge = (status: ContentLifecycleStatus) => {
 };
 
 export default function LibraryWorkspace({ courseId, compactHeader = false }: Props) {
-  const [view, setView] = useState<LibraryView>("RESOURCES");
-  const [skill, setSkill] = useState<LibrarySkill | "ALL">("ALL");
-  const [category, setCategory] = useState("ALL");
-  const [scope, setScope] = useState(courseId ? "ALL" : "GLOBAL");
-  const [statusFilter, setStatusFilter] = useState<ContentLifecycleStatus | "ALL">("ALL");
+  const view = "RESOURCES" as const;
+  const [selectedFolderId, setSelectedFolderId] = useState<"ALL" | "GLOBAL" | string>("ALL");
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
+  const [sourceFilter, setSourceFilter] = useState<"ALL" | "FILES" | "LINKS">("ALL");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [folders, setFolders] = useState<LibraryFolder[]>([]);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -103,47 +102,39 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams({ size: "100" });
-      if (skill !== "ALL") params.set("skill", skill);
-      if (category !== "ALL") params.set("category", category);
-      if (statusFilter !== "ALL") params.set("status", statusFilter);
       if (deferredQuery.trim()) params.set("query", deferredQuery.trim());
       if (courseId) { params.set("courseId", courseId); params.set("includeGlobal", "true"); }
-      else if (scope !== "ALL") params.set("scope", scope);
+      else if (selectedFolderId === "GLOBAL") params.set("scope", "GLOBAL");
+      else if (selectedFolderId !== "ALL") params.set("folderId", selectedFolderId);
       const endpoint = view === "RESOURCES" ? "resources" : "exercises";
       const result = await apiFetch<Page<LearningResource | ExerciseTemplate>>(`/admin/library/${endpoint}?${params}`);
       setItems(result.content);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không tải được kho học liệu.");
     } finally { setLoading(false); }
-  }, [category, courseId, deferredQuery, scope, skill, statusFilter, view]);
+  }, [courseId, deferredQuery, selectedFolderId]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (courseId) return;
-    void apiFetch<Page<Course>>("/admin/courses?size=100").then(result => setCourses(result.content)).catch(() => setCourses([]));
+    void apiFetch<Page<Course>>("/admin/courses?size=100")
+      .then(result => setCourses(result.content))
+      .catch(() => setCourses([]));
+    void apiFetch<LibraryFolder[]>("/admin/library/folders")
+      .then(setFolders)
+      .catch(() => setFolders([]));
   }, [courseId]);
-  useEffect(() => {
-    if (skill !== "ALL" && category !== "ALL" && !CATEGORIES[skill].some(option => option.value === category)) {
-      setCategory("ALL");
-    }
-  }, [category, skill]);
-
-  const visibleItems = useMemo(() => {
-    return items.filter(item => {
-      if (isResource(item) && item.category === "MEDIA") return false;
-      if (category !== "ALL" && item.category !== category) return false;
-      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
-      return true;
-    });
-  }, [category, items, statusFilter]);
-
-  const categoryOptions = useMemo(() => skill === "ALL"
-    ? ALL_CATEGORIES
-    : CATEGORIES[skill], [skill]);
-  const summary = useMemo(() => ({
-    total: visibleItems.length,
-    published: visibleItems.filter(item => item.status === "PUBLISHED").length,
-  }), [visibleItems]);
+  const sourceCounts = useMemo(() => ({
+    all: items.filter(item => !isResource(item) || item.category !== "MEDIA").length,
+    files: items.filter(item => isResource(item) && item.category !== "MEDIA" && !item.externalUrl).length,
+    links: items.filter(item => isResource(item) && item.category !== "MEDIA" && Boolean(item.externalUrl)).length,
+  }), [items]);
+  const visibleItems = useMemo(() => items.filter(item => {
+    if (isResource(item) && item.category === "MEDIA") return false;
+    if (sourceFilter === "FILES") return isResource(item) && !item.externalUrl;
+    if (sourceFilter === "LINKS") return isResource(item) && Boolean(item.externalUrl);
+    return true;
+  }), [items, sourceFilter]);
 
   async function archive() {
     if (!archiving) return;
@@ -161,172 +152,106 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
     window.setTimeout(() => setNotice(""), 3500);
   }
 
+  function handleFolderCreated(folder: LibraryFolder) {
+    setFolders(current => [folder, ...current.filter(item => item.id !== folder.id)]);
+    setSelectedFolderId(folder.id);
+    setNotice(`Đã tạo thư mục “${folder.name}”.`);
+    window.setTimeout(() => setNotice(""), 3500);
+  }
+
+  const courseFolders = folders.filter(folder => folder.courseId);
+  const customFolders = folders.filter(folder => !folder.courseId);
+  const activeFolder = folders.find(folder => folder.id === selectedFolderId);
+
   return (
-    <section className="space-y-4">
-      {!compactHeader && (
-        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-[#8f4458]">
-              NỘI DUNG ĐÀO TẠO
-            </span>
-            <h1 className="font-display text-3xl font-extrabold tracking-tight text-[#211A1D]">
-              Kho học liệu giảng dạy
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#746A6E]">
-              Phân loại rõ nội dung, định dạng file và phạm vi sử dụng để tìm, xem và gắn học liệu nhanh hơn.
-            </p>
-          </div>
-          <button
-            onClick={() => { setEditing(null); setModalOpen(true); }}
-            aria-label={`Thêm ${view === "RESOURCES" ? "tài liệu" : "bài tập mẫu"}`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#8f4458] px-5 text-sm font-bold text-white shadow-sm hover:bg-[#743447]"
-          >
-            <Plus size={18} weight="bold" />
-            Thêm {view === "RESOURCES" ? "tài liệu" : "bài tập"}
-          </button>
-        </header>
-      )}
+    <section>
+      <div className={compactHeader ? "space-y-3" : "grid gap-5 lg:grid-cols-[224px_minmax(0,1fr)]"}>
+        {!compactHeader && (
+          <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start" aria-label="Điều hướng kho học liệu">
+            <details className="group relative">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl bg-[#8f4458] px-4 text-sm font-bold text-white shadow-sm hover:bg-[#743447] [&::-webkit-details-marker]:hidden">
+                <Plus size={19} weight="bold" /> Mới
+              </summary>
+              <div className="absolute left-0 right-0 top-14 z-30 rounded-2xl border border-[#e3dce2] bg-white p-2 shadow-xl">
+                <button onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setUploadOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold text-[#211A1D] hover:bg-[#f7e7ec]"><UploadSimple size={18} className="text-[#8f4458]" /> Tải tệp hoặc thêm link</button>
+                <button onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setFolderDialogOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold text-[#211A1D] hover:bg-[#f7e7ec]"><Folder size={18} className="text-[#8f4458]" /> Tạo thư mục</button>
+              </div>
+            </details>
 
-      {/* Skill Bar Filter */}
-      <div className="rounded-[18px] border border-[#e3dce2] bg-white p-4 space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="inline-flex max-w-full overflow-x-auto rounded-xl bg-[#f1eef4] p-1" role="tablist" aria-label="Loại kho học liệu">
-            <button
-              onClick={() => setView("RESOURCES")}
-              role="tab"
-              aria-selected={view === "RESOURCES"}
-              className={`inline-flex min-h-[36px] items-center gap-2 rounded-lg px-4 text-xs font-bold transition ${
-                view === "RESOURCES" ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E]"
-              }`}
-            >
-              <Books size={16} />
-              Kho tài liệu
-            </button>
-            <button
-              onClick={() => setView("EXERCISES")}
-              role="tab"
-              aria-selected={view === "EXERCISES"}
-              className={`inline-flex min-h-[36px] items-center gap-2 rounded-lg px-4 text-xs font-bold transition ${
-                view === "EXERCISES" ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E]"
-              }`}
-            >
-              <BookOpenText size={16} />
-              Kho bài tập mẫu
-            </button>
-          </div>
+            <nav className="space-y-1 rounded-2xl border border-[#e3dce2] bg-white p-2">
+              <button onClick={() => setSelectedFolderId("ALL")} className={`flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold ${selectedFolderId === "ALL" ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#5f565a] hover:bg-[#faf8fb]"}`}><House size={18} weight={selectedFolderId === "ALL" ? "fill" : "regular"} /> Tất cả tài liệu</button>
+              <button onClick={() => setSelectedFolderId("GLOBAL")} className={`flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold ${selectedFolderId === "GLOBAL" ? "bg-[#f7e7ec] text-[#8f4458]" : "text-[#5f565a] hover:bg-[#faf8fb]"}`}><Books size={18} /> Dùng chung</button>
+            </nav>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#746A6E]">Hiển thị:</span>
-            <div className="inline-flex rounded-xl border border-[#e3dce2] bg-white p-0.5" role="group" aria-label="Chế độ hiển thị kho học liệu">
-              <button
-                onClick={() => setViewMode("LIST")}
-                aria-pressed={viewMode === "LIST"}
-                className={`grid h-11 w-11 place-items-center rounded-lg text-xs transition ${
-                  viewMode === "LIST" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"
-                }`}
-                title="Hiển thị dạng danh sách"
-                aria-label="Hiển thị dạng danh sách"
-              >
-                <List size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode("GRID")}
-                aria-pressed={viewMode === "GRID"}
-                className={`grid h-11 w-11 place-items-center rounded-lg text-xs transition ${
-                  viewMode === "GRID" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"
-                }`}
-                title="Hiển thị dạng lưới"
-                aria-label="Hiển thị dạng lưới"
-              >
-                <GridFour size={18} />
-              </button>
+            <div>
+              <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8d8287]">Bộ lọc</p>
+              <div className="space-y-1">
+                {([
+                  { id: "ALL", label: "Tất cả", icon: Books, count: sourceCounts.all },
+                  { id: "FILES", label: "Tệp tải lên", icon: FileText, count: sourceCounts.files },
+                  { id: "LINKS", label: "Liên kết", icon: Link, count: sourceCounts.links },
+                ] as const).map(option => {
+                  const FilterIcon = option.icon;
+                  const selected = sourceFilter === option.id;
+                  return (
+                    <button key={option.id} onClick={() => setSourceFilter(option.id)} aria-pressed={selected} className={`flex min-h-9 w-full items-center gap-2 rounded-xl px-2.5 text-left text-xs ${selected ? "bg-[#f7e7ec] font-bold text-[#8f4458]" : "text-[#5f565a] hover:bg-white"}`}>
+                      <FilterIcon size={16} weight={selected ? "fill" : "regular"} className="shrink-0" />
+                      <span className="flex-1">{option.label}</span>
+                      <span className="text-[10px] text-[#8d8287]">{option.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between px-2"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8d8287]">Khóa học</p><GraduationCap size={16} className="text-[#8f4458]" /></div>
+              <div className="max-h-60 space-y-1 overflow-y-auto pr-1">
+                {courseFolders.map(folder => <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)} title={folder.name} className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-2.5 text-left text-xs ${selectedFolderId === folder.id ? "bg-[#f7e7ec] font-bold text-[#8f4458]" : "text-[#5f565a] hover:bg-white"}`}><Folder size={17} weight={selectedFolderId === folder.id ? "fill" : "regular"} className="shrink-0" /><span className="min-w-0 flex-1 truncate">{folder.name}</span><span className="text-[10px] text-[#8d8287]">{folder.itemCount}</span></button>)}
+                {courseFolders.length === 0 && <p className="px-2 py-2 text-[11px] leading-4 text-[#8d8287]">Chưa có thư mục khóa học.</p>}
+              </div>
+            </div>
+
+            {customFolders.length > 0 && <div><p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8d8287]">Thư mục riêng</p><div className="space-y-1">{customFolders.map(folder => <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)} className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-2.5 text-left text-xs ${selectedFolderId === folder.id ? "bg-[#f7e7ec] font-bold text-[#8f4458]" : "text-[#5f565a] hover:bg-white"}`}><Folder size={17} weight={selectedFolderId === folder.id ? "fill" : "regular"} /><span className="min-w-0 flex-1 truncate">{folder.name}</span><span className="text-[10px] text-[#8d8287]">{folder.itemCount}</span></button>)}</div></div>}
+          </aside>
+        )}
+
+        <main className="min-w-0 space-y-4">
+          <div className="grid gap-3 md:grid-cols-[minmax(180px,auto)_minmax(260px,1fr)_auto] md:items-center">
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-xl font-extrabold tracking-tight text-[#211A1D]">{activeFolder?.name || (selectedFolderId === "GLOBAL" ? "Tài liệu dùng chung" : "Kho học liệu")}</h1>
+              {!compactHeader && <p className="mt-0.5 text-[11px] text-[#746A6E]">Lưu trữ, tìm kiếm và mở tài liệu của hệ thống.</p>}
+            </div>
+            <label className="relative min-w-0"><span className="sr-only">Tìm học liệu</span><MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#746A6E]" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm trong kho học liệu..." className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#8f4458] focus:ring-2 focus:ring-[#f7e7ec]" /></label>
+            <div className="flex items-center justify-end gap-2">
+              {compactHeader && <button onClick={() => setUploadOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white"><Plus size={16} weight="bold" /> Thêm tài liệu</button>}
+              <div className="inline-flex rounded-xl border border-[#e3dce2] bg-white p-0.5" role="group" aria-label="Chế độ hiển thị">
+                <button onClick={() => setViewMode("LIST")} aria-pressed={viewMode === "LIST"} className={`grid h-9 w-9 place-items-center rounded-lg ${viewMode === "LIST" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"}`} title="Danh sách"><List size={17} /></button>
+                <button onClick={() => setViewMode("GRID")} aria-pressed={viewMode === "GRID"} className={`grid h-9 w-9 place-items-center rounded-lg ${viewMode === "GRID" ? "bg-[#8f4458] text-white" : "text-[#746A6E] hover:bg-[#f1eef4]"}`} title="Dạng lưới"><GridFour size={17} /></button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Skill Pills */}
-        <div className="flex gap-2 overflow-x-auto border-t border-[#e3dce2]/60 pt-3 pb-1" aria-label="Lọc theo kỹ năng">
-          <button
-            onClick={() => setSkill("ALL")}
-            aria-pressed={skill === "ALL"}
-            className={`min-h-[42px] shrink-0 rounded-xl border px-4 text-xs font-bold transition ${
-              skill === "ALL"
-                ? "border-[#8f4458] bg-[#f7e7ec] text-[#743447]"
-                : "border-[#e3dce2] bg-white text-[#746A6E] hover:border-[#8f4458]/40"
-            }`}
-          >
-            Tất cả kỹ năng
-          </button>
-          {SKILLS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setSkill(s.id)}
-              aria-pressed={skill === s.id}
-              className={`min-h-[42px] shrink-0 rounded-xl border px-4 text-xs font-bold transition ${
-                skill === s.id
-                  ? "border-[#8f4458] bg-[#f7e7ec] text-[#743447]"
-                  : "border-[#e3dce2] bg-white text-[#746A6E] hover:border-[#8f4458]/40"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+          {!compactHeader && selectedFolderId === "ALL" && view === "RESOURCES" && (
+            <div>
+              <div className="mb-2 flex items-center justify-between"><h2 className="font-display text-sm font-bold text-[#211A1D]">Thư mục</h2><button onClick={() => setFolderDialogOpen(true)} className="text-[11px] font-bold text-[#8f4458] hover:underline">Tạo thư mục</button></div>
+              {folders.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {folders.slice(0, 8).map(folder => <button key={folder.id} onClick={() => setSelectedFolderId(folder.id)} className="group flex min-h-16 items-center gap-3 rounded-2xl border border-[#e3dce2] bg-white px-3.5 text-left hover:border-[#8f4458]/45 hover:bg-[#fdfafb]"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f7e7ec] text-[#8f4458]"><FolderOpen size={20} weight="duotone" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-xs text-[#211A1D]">{folder.name}</strong><span className="mt-0.5 block text-[10px] text-[#746A6E]">{folder.itemCount} mục{folder.courseName ? ` · ${folder.courseName}` : ""}</span></span><DotsThreeVertical size={16} className="text-[#9b9296]" /></button>)}
+                </div>
+              ) : (
+                <button onClick={() => setFolderDialogOpen(true)} className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-[#d8cdd3] bg-white px-4 py-3 text-left hover:border-[#8f4458]/50 hover:bg-[#fdfafb]">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f7e7ec] text-[#8f4458]"><Folder size={19} weight="duotone" /></span>
+                  <span><strong className="block text-xs text-[#211A1D]">Chưa có thư mục</strong><span className="text-[10px] text-[#746A6E]">Tạo thư mục để sắp xếp tài liệu theo khóa học hoặc chủ đề.</span></span>
+                </button>
+              )}
+            </div>
+          )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eee8eb] pt-3 text-xs text-[#746A6E]" aria-live="polite">
+        <p><strong className="font-display text-sm text-[#211A1D]">Tệp</strong>{!loading && !error && <span className="ml-2 text-[11px]">{visibleItems.length} mục</span>}</p>
+        <p className="hidden sm:block">Cập nhật gần nhất</p>
       </div>
-
-      {/* Multi-parameter Filter Toolbar */}
-      <div className="space-y-3 rounded-[18px] border border-[#e3dce2] bg-white p-4">
-        <div className="flex items-center gap-2 text-xs font-bold text-[#211A1D]"><Funnel size={16} className="text-[#8f4458]" /> Bộ lọc học liệu</div>
-        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_repeat(3,minmax(150px,190px))]">
-          <label className="relative">
-            <span className="sr-only">Tìm theo tên, mã hoặc mô tả</span>
-            <MagnifyingGlass size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#746A6E]" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm theo tên, mã, mô tả hoặc tag..."
-              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] bg-white pl-10 pr-4 text-xs focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#f7e7ec]"
-            />
-          </label>
-
-          <label className="sr-only" htmlFor="library-category">Nhóm nội dung</label>
-          <select id="library-category" value={category} onChange={(e) => setCategory(e.target.value)} className="min-h-[44px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#f7e7ec]">
-            <option value="ALL">Tất cả nhóm nội dung</option>
-            {categoryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-
-          {!courseId ? (
-            <>
-              <label className="sr-only" htmlFor="library-scope">Phạm vi sử dụng</label>
-              <select id="library-scope" value={scope} onChange={(e) => setScope(e.target.value)} className="min-h-[44px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#f7e7ec]">
-                <option value="GLOBAL">Dùng chung</option>
-                <option value="COURSE">Riêng khóa học</option>
-                <option value="ALL">Tất cả phạm vi</option>
-              </select>
-            </>
-          ) : <span className="hidden lg:block" aria-hidden="true" />}
-
-          <label className="sr-only" htmlFor="library-status">Trạng thái</label>
-          <select id="library-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as ContentLifecycleStatus | "ALL")} className="min-h-[44px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#f7e7ec]">
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="PUBLISHED">Đã xuất bản</option>
-            <option value="DRAFT">Bản nháp</option>
-            <option value="ARCHIVED">Đã lưu trữ</option>
-          </select>
-        </div>
-      </div>
-
-      {!loading && !error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-[#746A6E]" aria-live="polite">
-          <p>
-            <strong className="text-sm text-[#211A1D]">{summary.total}</strong>{" "}
-            {view === "RESOURCES" ? "tài liệu" : "bài tập mẫu"}
-            <span className="mx-2 text-[#c9c0c5]">•</span>
-            {summary.published} đã xuất bản
-          </p>
-          <p className="hidden sm:block">Sắp xếp theo lần cập nhật gần nhất</p>
-        </div>
-      )}
 
       {notice && (
         <p className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-[#237653]">
@@ -364,10 +289,10 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
           <Archive size={36} className="mx-auto text-[#746A6E]" />
           <h3 className="mt-3 font-display text-lg font-bold text-[#211A1D]">Chưa có học liệu phù hợp</h3>
           <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[#746A6E]">
-            Tạo học liệu mới hoặc điều chỉnh nhóm nội dung, kỹ năng và trạng thái để xem thêm kết quả.
+            Tải tệp, thêm liên kết mới hoặc chọn bộ lọc khác để xem thêm kết quả.
           </p>
           <button
-            onClick={() => { setEditing(null); setModalOpen(true); }}
+            onClick={() => setUploadOpen(true)}
             className="mt-4 inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white hover:bg-[#743447]"
           >
             <Plus size={16} />
@@ -401,8 +326,8 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                           <span className="truncate text-[11px] font-bold text-[#8f4458]">{item.code}</span>
                           {statusBadge(item.status)}
                         </div>
-                        <p className="mt-1 truncate text-[10px] font-semibold text-[#746A6E]" title={`${categoryLabel(item.skill, item.category)} · ${skillLabel(item.skill)}`}>
-                          {categoryLabel(item.skill, item.category)} · {skillLabel(item.skill)}
+                        <p className="mt-1 truncate text-[10px] font-semibold text-[#746A6E]" title={`${meta.label} · ${meta.source}`}>
+                          {meta.label} · {meta.source}
                         </p>
                       </div>
                     </div>
@@ -518,7 +443,7 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                   <tr className="bg-[#f1eef4] text-[#746A6E] font-bold uppercase tracking-wider text-[11px]">
                     <th className="p-3.5">Mã & Tên học liệu</th>
                     <th className="p-3.5">Loại nội dung</th>
-                    <th className="p-3.5">Kỹ năng</th>
+                    <th className="p-3.5">Nguồn</th>
                     <th className="p-3.5">Phạm vi</th>
                     <th className="p-3.5">Cập nhật</th>
                     <th className="p-3.5">Trạng thái</th>
@@ -546,8 +471,7 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                         </div>
                       </td>
                       <td className="p-3.5">
-                        <p className="font-semibold text-[#211A1D]">{skillLabel(item.skill)}</p>
-                        <p className="mt-1 text-[11px] text-[#746A6E]">{categoryLabel(item.skill, item.category)}</p>
+                        <p className="font-semibold text-[#211A1D]">{itemMeta(item).source}</p>
                       </td>
                       <td className="p-3.5">
                         {item.scope === "GLOBAL" ? (
@@ -601,16 +525,35 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
         </>
       )}
 
+        </main>
+      </div>
+
       {/* Modals */}
       <LibraryItemModal
         open={modalOpen}
         view={view}
-        skill={skill === "ALL" ? "LISTENING" : skill}
+        skill="READING"
         item={editing}
         courseId={courseId}
         courses={courses}
+        folders={folders}
+        folderId={selectedFolderId !== "ALL" && selectedFolderId !== "GLOBAL" ? selectedFolderId : undefined}
         onClose={() => setModalOpen(false)}
         onSaved={handleSaved}
+      />
+      <CloudUploadDialog
+        open={uploadOpen}
+        folders={folders}
+        folderId={selectedFolderId !== "ALL" && selectedFolderId !== "GLOBAL" ? selectedFolderId : undefined}
+        courseId={courseId}
+        onClose={() => setUploadOpen(false)}
+        onSaved={handleSaved}
+      />
+      <CreateLibraryFolderDialog
+        open={folderDialogOpen}
+        courses={courses}
+        onClose={() => setFolderDialogOpen(false)}
+        onCreated={handleFolderCreated}
       />
       <ResourceFilesDialog resource={resourceFiles} onClose={() => setResourceFiles(null)} />
       {attachingItem && (

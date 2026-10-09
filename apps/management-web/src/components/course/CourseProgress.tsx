@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 import { 
-  Sparkle, 
-  Robot, 
-  PaperPlane, 
   Info,
   Ear,
   BookOpen,
@@ -10,7 +7,7 @@ import {
   Microphone,
   WarningCircle
 } from "@phosphor-icons/react";
-import type { ClassActivityProgress, ClassSession } from "../../academic-types";
+import type { ClassActivityProgress, ClassSession, SkillPair } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
 
 interface StudentSummary {
@@ -35,25 +32,21 @@ type Roster = { enrollment: Enrollment; student: StudentSummary }[];
 
 interface CourseProgressProps {
   courseId: string;
+  skillPair: SkillPair;
   roster: Roster;
   onSelectStudent?: (studentId: string) => void;
 }
 
 type SkillType = "LISTENING" | "READING" | "WRITING" | "SPEAKING";
 
-interface HomeworkTask {
-  label: string;
-  completed: boolean;
-}
-
 interface StudentExerciseProgress {
   exerciseId: string;
   exerciseName: string;
   score: string;
   timeSpent?: string;
+  averageTimeSpent: string;
   comprehension?: string;
   errorAnalysis: string;
-  tasks: HomeworkTask[];
 }
 
 interface StudentHomework {
@@ -63,338 +56,67 @@ interface StudentHomework {
   exercises: StudentExerciseProgress[];
 }
 
-export default function CourseProgress({ courseId, roster, onSelectStudent }: CourseProgressProps) {
-  const [selectedSkill, setSelectedSkill] = useState<SkillType>("READING");
-  const [selectedSession, setSelectedSession] = useState<number>(13);
-  const [aiAssistantStudent, setAiAssistantStudent] = useState<{
-    student: StudentHomework;
-    exercise: StudentExerciseProgress;
-  } | null>(null);
-  const [aiFeedbackText, setAiFeedbackText] = useState("");
-  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+function formatDuration(seconds: number) {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes < 60 ? `${minutes} phút` : `${Math.floor(minutes / 60)} giờ ${minutes % 60} phút`;
+}
+
+export default function CourseProgress({ courseId, skillPair, roster, onSelectStudent }: CourseProgressProps) {
+  const skillTabs = skillPair === "LISTENING_READING"
+    ? ([{ id: "LISTENING", label: "Nghe (Listening)", icon: Ear }, { id: "READING", label: "Đọc (Reading)", icon: BookOpen }] as const)
+    : ([{ id: "SPEAKING", label: "Nói (Speaking)", icon: Microphone }, { id: "WRITING", label: "Viết (Writing)", icon: Pencil }] as const);
+  const [selectedSkill, setSelectedSkill] = useState<SkillType>(skillTabs[0].id);
+  const [selectedSession, setSelectedSession] = useState<number>(0);
   const [progress,setProgress]=useState<ClassActivityProgress[]>([]);const [sessions,setSessions]=useState<ClassSession[]>([]);
   useEffect(()=>{void Promise.all([apiFetch<ClassActivityProgress[]>(`/admin/courses/${courseId}/progress`),apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`)]).then(([p,s])=>{setProgress(p);setSessions(s);if(s.length)setSelectedSession(s[0].sessionNo)}).catch(()=>{setProgress([]);setSessions([])})},[courseId]);
-  const stableMetric=(studentId:string,_offset=0,min=0,range=100)=>{const attempts=progress.flatMap(activity=>activity.attempts.filter(value=>value.studentId===studentId));const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);if(!values.length)return 0;const rate=Math.round(values.reduce((a,b)=>a+b,0)/values.length);return min+Math.round(rate/100*range)};
+  useEffect(() => { setSelectedSkill(skillTabs[0].id); }, [skillPair]);
 
-  // Define static mock exercises per skill and session
-  const getSessionExercises = (skill: SkillType, session: number): string[] => {
-    const sessionId=sessions.find(value=>value.sessionNo===session)?.id;
-    return progress.filter(value=>value.skill===skill&&(!sessionId||value.sessionId===sessionId)).map(value=>value.title);
-    /* Legacy labels retained below only as unreachable documentation of the old prototype.
-    if (skill === "LISTENING") {
-      if (session === 13) {
-        return [
-          "PRACTICE 1. Part 3. PRODUCT DEVELOPMENT PRESENTATION: MOSQUITO NET",
-          "PRACTICE 2. Part 3. Pacific Tapa Cloth",
-          "PRACTICE 3. Part 3. SONG-WRITING COURSE"
-        ];
-      }
-      if (session === 14) {
-        return [
-          "PRACTICE 1. Part 1. Accommodation Form Completion",
-          "PRACTICE 2. Part 2. Theater Tour Map Labeling"
-        ];
-      }
-      return ["PRACTICE 1. Part 4. The History of English Language"];
-    } else if (skill === "READING") {
-      if (session === 13) {
-        return [
-          "PRACTICE 1. The history of guitar",
-          "PRACTICE 2. Frozen food preservation",
-          "PRACTICE 3. Climate change impact"
-        ];
-      }
-      if (session === 14) {
-        return [
-          "PRACTICE 1. The Secrets of Sand",
-          "PRACTICE 2. The Development of Cities"
-        ];
-      }
-      return ["PRACTICE 1. Telepathy and ESP"];
-    } else if (skill === "SPEAKING") {
-      if (session === 13) {
-        return [
-          "PRACTICE 1. Vocabulary & Idioms Practice",
-          "PRACTICE 2. Shadowing Practice (IPA focus)",
-          "PRACTICE 3. Forecast Practice: Family & Home"
-        ];
-      }
-      return [
-        "PRACTICE 1. Pronunciation Warmup",
-        "PRACTICE 2. Part 2 Cue Card: A memorable trip"
-      ];
-    } else { // WRITING
-      if (session === 13) {
-        return [
-          "PRACTICE 1. Structure & Overview Practice",
-          "PRACTICE 2. Line Graph Data Analysis",
-          "PRACTICE 3. Full Draft Task 1 Essay"
-        ];
-      }
-      return [
-        "PRACTICE 1. Introduction Paragraph Builder",
-        "PRACTICE 2. Writing Task 2 Outline: Education topic"
-      ];
-    }
-    */
-  };
-
-  // Generate deterministic mock homework data based on current skill and session
+  // Build the table from published course activities and persisted student attempts.
   const getHomeworkData = (): StudentHomework[] => {
-    const sessionId=sessions.find(value=>value.sessionNo===selectedSession)?.id;
-    const visibleActivities=progress.filter(value=>value.skill===selectedSkill&&(!sessionId||value.sessionId===sessionId));
-    return roster.map(({student})=>({studentId:student.id,studentName:student.fullName,studentCode:student.studentCode,exercises:visibleActivities.map(activity=>{const attempt=activity.attempts.find(value=>value.studentId===student.id);return {exerciseId:activity.classActivityId,exerciseName:activity.title,score:attempt?.score==null?"—":attempt.maxScore?`${attempt.score}/${attempt.maxScore}`:String(attempt.score),timeSpent:attempt?.durationSeconds==null?undefined:`${Math.round(attempt.durationSeconds/60)} phút`,comprehension:attempt?.comprehensionPercent==null?undefined:`${attempt.comprehensionPercent}%`,errorAnalysis:attempt?.errorAnalysis??"Chưa có phân tích lỗi",tasks:[]}})}));
-    /* Legacy prototype generator is unreachable and retained only to preserve the old screen structure while migration finishes.
-    const exercisesList = getSessionExercises(selectedSkill, selectedSession);
+    const sessionId = sessions.find(value => value.sessionNo === selectedSession)?.id;
+    const visibleActivities = progress.filter(value => value.skill === selectedSkill && (!sessionId || value.sessionId === sessionId));
 
-    return roster.map((item, index) => {
-      const studentId = item.student.id;
-      
-      const exercisesProgress: StudentExerciseProgress[] = exercisesList.map((exerciseName, exIndex) => {
-        const seedOffset = exIndex * 17;
-        const metric = stableMetric(studentId, selectedSession + seedOffset);
-        
-        let score = "";
-        let timeSpent = "";
-        let comprehension = "";
-        let errorAnalysis = "";
-        let tasks: HomeworkTask[] = [];
-
-        if (selectedSkill === "LISTENING") {
-          score = `${stableMetric(studentId, 20 + seedOffset, 6, 5)}/10`;
-          timeSpent = `${stableMetric(studentId, 22 + seedOffset, 12, 18)} phút`;
-          comprehension = `${stableMetric(studentId, 23 + seedOffset, 70, 25)}%`;
-          
-          const listeningMistakes = [
-            "Sai câu số điện thoại vì nghe thiếu số 0 ở giữa.",
-            "Mắc bẫy nhiễu thông tin (distractor) ở câu 2.",
-            "Chưa ghi chép kịp tốc độ nói ở phần chỉ đường.",
-            "Không phát âm được nối âm dẫn đến chọn sai keyword.",
-            "Sai chính tả khi viết từ số nhiều."
-          ];
-          errorAnalysis = listeningMistakes[metric % listeningMistakes.length];
-          
-          tasks = [
-            { label: "Vừa nghe vừa đọc Script", completed: metric % 2 === 0 },
-            { label: "Học từ vựng mới", completed: metric % 3 !== 0 },
-            { label: "Shadowing / Gap filling", completed: metric % 4 !== 0 },
-            { label: "Chỉ nghe hiểu (không nhìn script)", completed: metric % 5 !== 0 },
-          ];
-        } else if (selectedSkill === "READING") {
-          score = `${stableMetric(studentId, 30 + seedOffset, 8, 6)}/13`;
-          timeSpent = `${stableMetric(studentId, 32 + seedOffset, 10, 15)} phút`;
-          comprehension = `${stableMetric(studentId, 33 + seedOffset, 75, 20)}%`;
-          
-          const readingMistakes = [
-            "Sai câu True/False vì phân vân giữa False và Not Given.",
-            "Nhầm lẫn keyword đồng nghĩa (synonyms) ở đoạn C.",
-            "Hết thời gian nên đánh lụi 2 câu cuối.",
-            "Chọn sai thông tin do đọc lướt quá nhanh qua chi tiết quan trọng.",
-            "Nhầm lẫn từ vựng gốc latin trong văn cảnh khoa học."
-          ];
-          errorAnalysis = readingMistakes[metric % readingMistakes.length];
-          
-          tasks = [
-            { label: "Dịch bài đọc sang tiếng Việt", completed: metric % 2 === 0 },
-            { label: "Học từ vựng mới + Làm test từ vựng", completed: metric % 3 !== 0 },
-            { label: "Đọc hiểu không cần từ vựng", completed: metric % 4 !== 0 },
-          ];
-        } else if (selectedSkill === "SPEAKING") {
-          score = `${(stableMetric(studentId, 40 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-          
-          const speakingMistakes = [
-            "Phát âm sai phụ âm cuối /s/, /z/, nuốt âm khi nói nhanh.",
-            "Ngập ngừng lâu khi cố mở rộng ý Speaking Part 1.",
-            "Từ vựng còn lặp đi lặp lại nhiều từ cơ bản (nice, happy).",
-            "Mắc lỗi ngữ pháp thời quá khứ khi kể về trải nghiệm cũ.",
-            "Tông giọng còn đều đều, thiếu trọng âm từ và trọng âm câu."
-          ];
-          errorAnalysis = speakingMistakes[metric % speakingMistakes.length];
-          
-          tasks = [
-            { label: "Lập danh sách từ vựng theo Mindmap", completed: metric % 2 === 0 },
-            { label: "Nộp file ghi âm bài nói nháp", completed: metric % 3 !== 0 },
-            { label: "Nộp file luyện phát âm Shadowing", completed: metric % 4 !== 0 },
-            { label: "Nộp bằng chứng luyện tập forecast", completed: metric % 5 !== 0 },
-          ];
-        } else { // WRITING
-          score = `${(stableMetric(studentId, 50 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-          
-          const writingMistakes = [
-            "Thiếu câu overview tổng quan, phân tích số liệu rời rạc.",
-            "Mắc nhiều lỗi chia động từ ở quá khứ đơn.",
-            "Sử dụng sai liên từ (linking words) khiến câu bị gượng.",
-            "Phân bổ thời gian chưa hợp lý, chưa kịp viết kết bài.",
-            "Viết sai định dạng so sánh hơn/so sánh nhất của tính từ dài."
-          ];
-          errorAnalysis = writingMistakes[metric % writingMistakes.length];
-          
-          tasks = [
-            { label: "Lập dàn ý cấu trúc bài viết (Outline)", completed: metric % 2 === 0 },
-            { label: "Viết bài nháp (Draft Essay)", completed: metric % 3 !== 0 },
-            { label: "Đọc nhận xét & viết bài sửa lỗi sai", completed: metric % 4 !== 0 },
-          ];
-        }
+    return roster.map(({ student }) => ({
+      studentId: student.id,
+      studentName: student.fullName,
+      studentCode: student.studentCode,
+      exercises: visibleActivities.map(activity => {
+        const attempt = activity.attempts
+          .filter(value => value.studentId === student.id)
+          .sort((left, right) => right.attemptNo - left.attemptNo)[0];
+        const completedDurations = activity.attempts
+          .filter(value => value.durationSeconds != null && (value.submittedAt != null || value.completedAt != null))
+          .map(value => value.durationSeconds)
+          .filter((value): value is number => value != null);
+        const averageSeconds = completedDurations.length
+          ? completedDurations.reduce((total, value) => total + value, 0) / completedDurations.length
+          : null;
 
         return {
-          exerciseId: `${studentId}-${selectedSession}-${exIndex}`,
-          exerciseName,
-          score,
-          timeSpent: selectedSkill === "LISTENING" || selectedSkill === "READING" ? timeSpent : undefined,
-          comprehension: selectedSkill === "LISTENING" || selectedSkill === "READING" ? comprehension : undefined,
-          errorAnalysis,
-          tasks,
+          exerciseId: activity.classActivityId,
+          exerciseName: activity.title,
+          score: attempt?.score == null ? "—" : attempt.maxScore ? `${attempt.score}/${attempt.maxScore}` : String(attempt.score),
+          timeSpent: attempt?.durationSeconds == null ? undefined : formatDuration(attempt.durationSeconds),
+          averageTimeSpent: averageSeconds == null ? "—" : formatDuration(averageSeconds),
+          comprehension: attempt?.comprehensionPercent == null ? undefined : `${attempt.comprehensionPercent}%`,
+          errorAnalysis: attempt?.errorAnalysis ?? "Chưa có phân tích lỗi",
         };
-      });
-
-      return {
-        studentId,
-        studentName: item.student.fullName,
-        studentCode: item.student.studentCode,
-        exercises: exercisesProgress,
-      };
-    });
-    */
+      }),
+    }));
   };
 
-  const [studentHomeworkList, setStudentHomeworkList] = useState<StudentHomework[]>(getHomeworkData);
-  useEffect(()=>{setStudentHomeworkList(getHomeworkData())},[selectedSkill,selectedSession,progress,roster.length]);
-
-  // Re-generate mock data if active filters change (keep state aligned with selectors)
-  const currentHomeworkList = getHomeworkData();
-
-  const handleTaskToggle = (studentId: string, exerciseId: string, taskIndex: number) => {
-    const updated = studentHomeworkList.map(item => {
-      if (item.studentId === studentId) {
-        const nextExercises = item.exercises.map(ex => {
-          if (ex.exerciseId === exerciseId) {
-            const nextTasks = [...ex.tasks];
-            nextTasks[taskIndex] = { ...nextTasks[taskIndex], completed: !nextTasks[taskIndex].completed };
-            return { ...ex, tasks: nextTasks };
-          }
-          return ex;
-        });
-        return { ...item, exercises: nextExercises };
-      }
-      return item;
-    });
-    setStudentHomeworkList(updated);
-  };
-
-  const handleOpenAiAssistant = (student: StudentHomework, exercise: StudentExerciseProgress) => {
-    setAiAssistantStudent({ student, exercise });
-    setIsGeneratingFeedback(true);
-    setAiFeedbackText("");
-
-    setTimeout(() => {
-      let advice = "";
-      if (selectedSkill === "READING") {
-        advice = `Chào ${student.studentName.split(" ").pop()},\n\nAI nhận thấy phần luyện đọc "${exercise.exerciseName}" của em đạt kết quả ${exercise.score}. Điểm cần lưu ý: ${exercise.errorAnalysis.toLowerCase()}\n\n💡 Đề xuất cải thiện:\n- Đọc kỹ keyword định vị thông tin trong câu hỏi trước.\n- Luyện tập phân biệt rõ giữa FALSE (thông tin trái ngược) và NOT GIVEN (thông tin không có trong bài).\n- Hoàn thành nốt checklist dịch bài để tăng vốn từ vựng học thuật.`;
-      } else if (selectedSkill === "LISTENING") {
-        advice = `Chào ${student.studentName.split(" ").pop()},\n\nPhần bài nghe "${exercise.exerciseName}" của em đạt kết quả ${exercise.score}. Nhận xét: ${exercise.errorAnalysis.toLowerCase()}\n\n💡 Đề xuất cải thiện:\n- Thực hành nghe chép chính tả (Dictation) 5 phút mỗi ngày với các số và tên riêng.\n- Chú ý nghe các từ nối tương phản (but, however) vì đáp án thường nằm sau đó.`;
-      } else if (selectedSkill === "SPEAKING") {
-        advice = `Chào ${student.studentName.split(" ").pop()},\n\nPhần Speaking của em đạt band dự kiến ${exercise.score}. Lỗi phát âm: ${exercise.errorAnalysis.toLowerCase()}\n\n💡 Đề xuất cải thiện:\n- Ghi âm lại các câu hỏi forecast và nghe lại để tự sửa các âm đuôi /s/, /z/.\n- Sử dụng kỹ thuật 5W1H để mở rộng ý trả lời mà không bị ngập ngừng.`;
-      } else {
-        advice = `Chào ${student.studentName.split(" ").pop()},\n\nBài Writing của em đạt band dự kiến ${exercise.score}. Phân tích bài viết: ${exercise.errorAnalysis.toLowerCase()}\n\n💡 Đề xuất cải thiện:\n- Viết lại câu Overview rõ ràng nêu bật xu hướng chung trước khi đi vào số liệu chi tiết.\n- Rà soát các lỗi chia động từ cơ bản thời quá khứ.`;
-      }
-      setAiFeedbackText(advice);
-      setIsGeneratingFeedback(false);
-    }, 800);
-  };
-
-  const handleSendFeedback = () => {
-    alert(`Đã gửi nhận xét của AI tới học viên ${aiAssistantStudent?.student.studentName}!`);
-    setAiAssistantStudent(null);
-  };
+  const studentHomeworkList = getHomeworkData();
 
   return (
     <div className="space-y-6">
       {/* Skill Navigation */}
       <div className="flex items-center gap-1.5 bg-surface-container-low p-1.5 rounded-2xl border border-outline-variant/30 overflow-x-auto">
-        {[
-          { id: "READING", label: "Đọc (Reading)", icon: BookOpen },
-          { id: "LISTENING", label: "Nghe (Listening)", icon: Ear },
-          { id: "SPEAKING", label: "Nói (Speaking)", icon: Microphone },
-          { id: "WRITING", label: "Viết (Writing)", icon: Pencil },
-        ].map(tab => {
+        {skillTabs.map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                setSelectedSkill(tab.id as SkillType);
-                // Synchronize local state with newly selected skill
-                const nextList = roster.map((item, index) => {
-                  const studentId = item.student.id;
-                  const exercisesList = getSessionExercises(tab.id as SkillType, selectedSession);
-                  const exercisesProgress = exercisesList.map((exerciseName, exIndex) => {
-                    const seedOffset = exIndex * 17;
-                    const metric = stableMetric(studentId, selectedSession + seedOffset);
-                    let score = "";
-                    let timeSpent = "";
-                    let comprehension = "";
-                    let errorAnalysis = "";
-                    let tasks: HomeworkTask[] = [];
-
-                    if (tab.id === "LISTENING") {
-                      score = `${stableMetric(studentId, 20 + seedOffset, 6, 5)}/10`;
-                      timeSpent = `${stableMetric(studentId, 22 + seedOffset, 12, 18)} phút`;
-                      comprehension = `${stableMetric(studentId, 23 + seedOffset, 70, 25)}%`;
-                      errorAnalysis = "Sai câu số điện thoại vì nghe thiếu số 0 ở giữa.";
-                      tasks = [
-                        { label: "Vừa nghe vừa đọc Script", completed: metric % 2 === 0 },
-                        { label: "Học từ vựng mới", completed: metric % 3 !== 0 },
-                        { label: "Shadowing / Gap filling", completed: metric % 4 !== 0 },
-                        { label: "Chỉ nghe hiểu (không nhìn script)", completed: metric % 5 !== 0 },
-                      ];
-                    } else if (tab.id === "READING") {
-                      score = `${stableMetric(studentId, 30 + seedOffset, 8, 6)}/13`;
-                      timeSpent = `${stableMetric(studentId, 32 + seedOffset, 10, 15)} phút`;
-                      comprehension = `${stableMetric(studentId, 33 + seedOffset, 75, 20)}%`;
-                      errorAnalysis = "Sai câu True/False vì phân vân giữa False và Not Given.";
-                      tasks = [
-                        { label: "Dịch bài đọc sang tiếng Việt", completed: metric % 2 === 0 },
-                        { label: "Học từ vựng mới + Làm test từ vựng", completed: metric % 3 !== 0 },
-                        { label: "Đọc hiểu không cần từ vựng", completed: metric % 4 !== 0 },
-                      ];
-                    } else if (tab.id === "SPEAKING") {
-                      score = `${(stableMetric(studentId, 40 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-                      errorAnalysis = "Phát âm sai phụ âm cuối /s/, /z/, nuốt âm khi nói nhanh.";
-                      tasks = [
-                        { label: "Lập danh sách từ vựng theo Mindmap", completed: metric % 2 === 0 },
-                        { label: "Nộp file ghi âm bài nói nháp", completed: metric % 3 !== 0 },
-                        { label: "Nộp file luyện phát âm Shadowing", completed: metric % 4 !== 0 },
-                        { label: "Nộp bằng chứng luyện tập forecast", completed: metric % 5 !== 0 },
-                      ];
-                    } else {
-                      score = `${(stableMetric(studentId, 50 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-                      errorAnalysis = "Thiếu câu overview tổng quan, phân tích số liệu rời rạc.";
-                      tasks = [
-                        { label: "Lập dàn ý cấu trúc bài viết (Outline)", completed: metric % 2 === 0 },
-                        { label: "Viết bài nháp (Draft Essay)", completed: metric % 3 !== 0 },
-                        { label: "Đọc nhận xét & viết bài sửa lỗi sai", completed: metric % 4 !== 0 },
-                      ];
-                    }
-
-                    return {
-                      exerciseId: `${studentId}-${selectedSession}-${exIndex}`,
-                      exerciseName,
-                      score,
-                      timeSpent: tab.id === "LISTENING" || tab.id === "READING" ? timeSpent : undefined,
-                      comprehension: tab.id === "LISTENING" || tab.id === "READING" ? comprehension : undefined,
-                      errorAnalysis,
-                      tasks,
-                    };
-                  });
-                  return {
-                    studentId,
-                    studentName: item.student.fullName,
-                    studentCode: item.student.studentCode,
-                    exercises: exercisesProgress,
-                  };
-                });
-                setStudentHomeworkList(nextList);
-              }}
+              onClick={() => setSelectedSkill(tab.id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
                 selectedSkill === tab.id
                   ? "bg-primary text-on-primary shadow-sm"
@@ -415,80 +137,7 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
           {sessions.map(value => value.sessionNo).map(num => (
             <button
               key={num}
-              onClick={() => {
-                setSelectedSession(num);
-                // Synchronize local state with newly selected session
-                const nextList = roster.map((item, index) => {
-                  const studentId = item.student.id;
-                  const exercisesList = getSessionExercises(selectedSkill, num);
-                  const exercisesProgress = exercisesList.map((exerciseName, exIndex) => {
-                    const seedOffset = exIndex * 17;
-                    const metric = stableMetric(studentId, num + seedOffset);
-                    let score = "";
-                    let timeSpent = "";
-                    let comprehension = "";
-                    let errorAnalysis = "";
-                    let tasks: HomeworkTask[] = [];
-
-                    if (selectedSkill === "LISTENING") {
-                      score = `${stableMetric(studentId, 20 + seedOffset, 6, 5)}/10`;
-                      timeSpent = `${stableMetric(studentId, 22 + seedOffset, 12, 18)} phút`;
-                      comprehension = `${stableMetric(studentId, 23 + seedOffset, 70, 25)}%`;
-                      errorAnalysis = "Sai câu số điện thoại vì nghe thiếu số 0 ở giữa.";
-                      tasks = [
-                        { label: "Vừa nghe vừa đọc Script", completed: metric % 2 === 0 },
-                        { label: "Học từ vựng mới", completed: metric % 3 !== 0 },
-                        { label: "Shadowing / Gap filling", completed: metric % 4 !== 0 },
-                        { label: "Chỉ nghe hiểu (không nhìn script)", completed: metric % 5 !== 0 },
-                      ];
-                    } else if (selectedSkill === "READING") {
-                      score = `${stableMetric(studentId, 30 + seedOffset, 8, 6)}/13`;
-                      timeSpent = `${stableMetric(studentId, 32 + seedOffset, 10, 15)} phút`;
-                      comprehension = `${stableMetric(studentId, 33 + seedOffset, 75, 20)}%`;
-                      errorAnalysis = "Sai câu True/False vì phân vân giữa False và Not Given.";
-                      tasks = [
-                        { label: "Dịch bài đọc sang tiếng Việt", completed: metric % 2 === 0 },
-                        { label: "Học từ vựng mới + Làm test từ vựng", completed: metric % 3 !== 0 },
-                        { label: "Đọc hiểu không cần từ vựng", completed: metric % 4 !== 0 },
-                      ];
-                    } else if (selectedSkill === "SPEAKING") {
-                      score = `${(stableMetric(studentId, 40 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-                      errorAnalysis = "Phát âm sai phụ âm cuối /s/, /z/, nuốt âm khi nói nhanh.";
-                      tasks = [
-                        { label: "Lập danh sách từ vựng theo Mindmap", completed: metric % 2 === 0 },
-                        { label: "Nộp file ghi âm bài nói nháp", completed: metric % 3 !== 0 },
-                        { label: "Nộp file luyện phát âm Shadowing", completed: metric % 4 !== 0 },
-                        { label: "Nộp bằng chứng luyện tập forecast", completed: metric % 5 !== 0 },
-                      ];
-                    } else {
-                      score = `${(stableMetric(studentId, 50 + seedOffset, 40, 25) / 10).toFixed(1)} / 9.0`;
-                      errorAnalysis = "Thiếu câu overview tổng quan, phân tích số liệu rời rạc.";
-                      tasks = [
-                        { label: "Lập dàn ý cấu trúc bài viết (Outline)", completed: metric % 2 === 0 },
-                        { label: "Viết bài nháp (Draft Essay)", completed: metric % 3 !== 0 },
-                        { label: "Đọc nhận xét & viết bài sửa lỗi sai", completed: metric % 4 !== 0 },
-                      ];
-                    }
-
-                    return {
-                      exerciseId: `${studentId}-${num}-${exIndex}`,
-                      exerciseName,
-                      score,
-                      timeSpent: selectedSkill === "LISTENING" || selectedSkill === "READING" ? timeSpent : undefined,
-                      comprehension: selectedSkill === "LISTENING" || selectedSkill === "READING" ? comprehension : undefined,
-                      errorAnalysis,
-                      tasks,
-                    };
-                  });
-                  return {
-                    studentId,
-                    studentName: item.student.fullName,
-                    studentCode: item.student.studentCode,
-                    exercises: exercisesProgress,
-                  };
-                });
-                setStudentHomeworkList(nextList);
-              }}
+              onClick={() => setSelectedSession(num)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                 selectedSession === num
                   ? "bg-primary-container/20 text-primary border border-primary/20"
@@ -516,8 +165,8 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
                 <th className="px-4 py-4 w-60">Hoạt động / Bài tập</th>
                 <th className="px-4 py-4 w-28 text-center">Kết quả</th>
                 <th className="px-4 py-4 w-80">Nhiệm vụ tự học (Self-study tasks)</th>
-                <th className="px-4 py-4 w-72">Phân tích lỗi sai (AI)</th>
-                <th className="px-5 py-4 w-28 text-center">Trợ lý AI</th>
+                <th className="px-4 py-4 w-72">Phân tích lỗi sai</th>
+                <th className="px-5 py-4 w-28 text-center">Thời gian TB</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/25">
@@ -551,6 +200,11 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
                           >
                             {/* Exercise info */}
                             <div className="px-4 py-1 flex flex-col justify-center">
+                              {totalExercises > 1 && (
+                                <span className="mb-1 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+                                  Bài {exIndex + 1}/{totalExercises}
+                                </span>
+                              )}
                               <span className="text-xs font-bold text-primary leading-tight">
                                 {exercise.exerciseName}
                               </span>
@@ -575,24 +229,7 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
 
                             {/* Checklists */}
                             <div className="px-4 py-1 flex flex-col justify-center">
-                              <div className="space-y-1.5">
-                                {exercise.tasks.map((task, tIndex) => (
-                                  <label 
-                                    key={tIndex} 
-                                    className="flex items-start gap-1.5 text-xs text-on-surface-variant font-semibold cursor-pointer select-none"
-                                  >
-                                    <input 
-                                      type="checkbox"
-                                      checked={task.completed}
-                                      onChange={() => handleTaskToggle(student.studentId, exercise.exerciseId, tIndex)}
-                                      className="w-3.5 h-3.5 mt-0.5 rounded text-primary focus:ring-primary accent-primary"
-                                    />
-                                    <span className={task.completed ? "line-through opacity-50 text-on-surface-variant" : "text-on-surface"}>
-                                      {task.label}
-                                    </span>
-                                  </label>
-                                ))}
-                              </div>
+                              <span className="text-xs font-semibold text-on-surface-variant">—</span>
                             </div>
 
                             {/* Error analysis */}
@@ -605,18 +242,19 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
                               </div>
                             </div>
 
-                            {/* Action AI Review */}
+                            {/* Average completion time across submitted attempts */}
                             <div className="px-4 py-1 flex items-center justify-center">
-                              <button
-                                onClick={() => handleOpenAiAssistant(student, exercise)}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-sm transition-all hover:scale-[1.02]"
-                              >
-                                <Robot size={14} />
-                                Review
-                              </button>
+                              <span className="text-xs font-extrabold tabular-nums text-on-surface">
+                                {exercise.averageTimeSpent}
+                              </span>
                             </div>
                           </div>
                         ))}
+                        {totalExercises === 0 && (
+                          <div className="px-5 py-8 text-center text-xs font-semibold text-on-surface-variant">
+                            Session này chưa có bài tập {skillTabs.find(tab => tab.id === selectedSkill)?.label}.
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -629,75 +267,9 @@ export default function CourseProgress({ courseId, roster, onSelectStudent }: Co
         {/* Notes info footer */}
         <div className="p-4 bg-surface-container-low/30 border-t border-outline-variant/30 flex items-center gap-2 text-xs text-on-surface-variant font-semibold">
           <Info size={16} className="text-primary" />
-          <span>Một session có tối đa 5 bài tập (Practice Sections) được theo dõi đồng thời. Giáo viên có thể bấm "Review" cạnh mỗi bài tập để AI hỗ trợ viết nhận xét lỗi sai cá nhân hóa cho học viên.</span>
+          <span>Nếu một session có nhiều bài, tất cả bài sẽ được hiển thị riêng theo thứ tự. Thời gian trung bình chỉ tính các lượt làm đã nộp hoặc hoàn thành.</span>
         </div>
       </div>
-
-      {/* AI Assistant Modal/Side Drawer */}
-      {aiAssistantStudent && (
-        <div className="fixed inset-0 z-50 bg-on-background/50 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-md bg-surface h-full shadow-2xl p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <Robot size={22} className="text-primary" />
-                  <h3 className="font-display font-extrabold text-lg">Trợ lý chấm chữa AI</h3>
-                </div>
-                <button
-                  onClick={() => setAiAssistantStudent(null)}
-                  className="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Student/Exercise card */}
-              <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/25 mb-4 text-xs space-y-2">
-                <p>Học viên: <strong className="text-on-surface">{aiAssistantStudent.student.studentName}</strong> ({aiAssistantStudent.student.studentCode})</p>
-                <p>Bài luyện tập: <strong className="text-primary leading-tight block mt-1">{aiAssistantStudent.exercise.exerciseName}</strong></p>
-                <p>Kết quả hiện tại: <strong className="text-emerald-700">{aiAssistantStudent.exercise.score}</strong></p>
-                <p>Phân tích lỗi sai: <span className="text-on-surface-variant font-medium">{aiAssistantStudent.exercise.errorAnalysis}</span></p>
-              </div>
-
-              {/* Editable AI generated feedback */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-                  <Sparkle size={14} className="text-primary animate-pulse" />
-                  Đề xuất phản hồi cá nhân hóa từ AI
-                </label>
-                {isGeneratingFeedback ? (
-                  <div className="h-40 border border-outline-variant/50 rounded-xl bg-surface-container animate-pulse flex items-center justify-center text-xs text-on-surface-variant font-bold">
-                    Đang phân tích và soạn văn bản...
-                  </div>
-                ) : (
-                  <textarea
-                    value={aiFeedbackText}
-                    onChange={e => setAiFeedbackText(e.target.value)}
-                    rows={8}
-                    className="w-full border border-outline-variant rounded-xl p-3 text-xs bg-surface focus:outline-none focus:border-primary leading-relaxed"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 border-t border-outline-variant/30 pt-4">
-              <button
-                onClick={() => setAiAssistantStudent(null)}
-                className="flex-1 py-2.5 border border-outline-variant/60 hover:bg-surface-container rounded-xl text-xs font-bold text-on-surface-variant"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={handleSendFeedback}
-                className="flex-1 py-2.5 bg-primary hover:opacity-90 text-on-primary rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <PaperPlane size={14} />
-                Gửi cho Học viên
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

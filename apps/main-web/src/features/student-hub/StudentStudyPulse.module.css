@@ -31,12 +31,19 @@
 .examGrid small { color: #92868a; font-size: 8px; line-height: 1.45; }
 .legend { display: inline-flex; align-items: center; gap: 7px; color: #74696d; font-size: 9px; white-space: nowrap; }
 .legend i { width: 8px; height: 8px; border-radius: 50%; background: #934c5e; }
+.headerActions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.monthPicker { min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px; border: 1px solid #ded7da; border-radius: 10px; color: #74696d; background: #fff; }
+.monthPicker span { font-size: 8px; font-weight: 750; }
+.monthPicker input { width: 116px; border: 0; outline: 0; color: #30292c; background: transparent; font: inherit; font-size: 10px; font-weight: 750; color-scheme: light; }
+.monthPicker:focus-within { border-color: #934c5e; box-shadow: 0 0 0 3px #f4dce2; }
+.monthPicker:has(input:disabled) { opacity: .6; }
 .calendar { padding: 16px; }
 .monthLabel { margin-bottom: 11px; font-size: 12px; font-weight: 800; }
+.activityNotice { margin: -4px 0 10px; color: #a23f55; font-size: 9px; font-weight: 650; }
 .weekdays, .calendarGrid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .weekdays { margin-bottom: 5px; color: #a09498; font-size: 8px; text-align: center; }
 .calendarGrid { overflow: hidden; border: 1px solid #eee8ea; border-radius: 14px; }
-.day { position: relative; min-height: 42px; display: grid; place-items: center; border-right: 1px solid #eee8ea; border-bottom: 1px solid #eee8ea; color: #4e4448; font-size: 9px; background: #fff; }
+.day { position: relative; min-height: 42px; display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 7px; border-right: 1px solid #eee8ea; border-bottom: 1px solid #eee8ea; color: #4e4448; font-size: 9px; background: #fff; }
 .day:nth-child(7n) { border-right: 0; }
 .day:nth-last-child(-n+7) { border-bottom: 0; }
 .day[data-outside="true"] { color: #c9c0c3; background: #faf8f7; }
@@ -44,18 +51,21 @@
 .day[data-level="2"] { color: #fff; background: #c8768a; }
 .day[data-level="3"] { color: #fff; background: #874354; }
 .day[data-today="true"] { box-shadow: inset 0 0 0 2px #2b2326; font-weight: 800; }
-.day i { position: absolute; right: 5px; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.day[data-level]:not([data-level="0"]) .dayNumber { font-weight: 800; }
+.attemptCount { align-self: flex-end; min-width: 19px; height: 19px; display: grid; place-items: center; border-radius: 7px; color: #fff; background: #934c5e; font-size: 10px; font-weight: 900; line-height: 1; }
+.day[data-level="2"] .attemptCount, .day[data-level="3"] .attemptCount { color: #6b3341; background: #fff; }
 .weekTotal { flex: 0 0 auto; color: #934c5e; font-size: 16px; letter-spacing: -.03em; }
-.tableWrap { overflow-x: auto; }
+.tableWrap { max-height: 314px; overflow: auto; }
 .weekTable { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 9px; }
 .weekTable th, .weekTable td { height: 41px; padding: 7px 10px; border-right: 1px solid #ebe5e7; border-bottom: 1px solid #ebe5e7; text-align: center; }
 .weekTable th:first-child { text-align: left; }
 .weekTable tr > *:last-child { border-right: 0; }
 .weekTable thead { color: #6b6064; background: #f2edef; text-transform: uppercase; }
+.weekTable thead { position: sticky; top: 0; z-index: 1; }
 .weekTable tbody th { color: #5c5155; font-weight: 650; }
 .weekTable tbody td { color: #74696d; }
 .weekTable tbody tr[data-today="true"] { background: #fff5f7; }
-.weekTable tfoot { color: #30282b; background: #faf7f6; font-weight: 800; }
+.weekTable tfoot { position: sticky; bottom: 0; color: #30282b; background: #faf7f6; font-weight: 800; box-shadow: 0 -1px #ebe5e7; }
 .weekTable tfoot th, .weekTable tfoot td { border-bottom: 0; }
 
 @media (max-width: 1050px) {
@@ -69,6 +79,8 @@
   .overallScore { grid-column: 1 / -1; min-height: 100px; }
   .skillScore { min-height: 92px; }
   .examGrid { grid-template-columns: 1fr; }
+  .headerActions { align-items: flex-end; flex-direction: column; gap: 6px; }
+  .monthPicker input { width: 108px; }
   .day { min-height: 38px; }
 }
 

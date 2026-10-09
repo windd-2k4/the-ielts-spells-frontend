@@ -257,6 +257,7 @@
 .workspace {
   --review-body-size: var(--review-content-size, 14px);
   --review-body-line-height: var(--review-content-line-height, 1.6);
+  --review-passage-size: var(--review-content-size, 14px);
   --review-group-title-size: calc(var(--review-content-size, 14px) + 2px);
   --review-instruction-size: var(--review-content-size, 14px);
   --review-explanation-size: var(--review-content-size, 14px);

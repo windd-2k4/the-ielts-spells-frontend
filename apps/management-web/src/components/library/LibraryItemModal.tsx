@@ -2,7 +2,7 @@ import { X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { Course } from "../../academic-types";
 import type {
-  ContentLifecycleStatus, LearningResource, LearningResourceType, LibraryItem, LibraryScope, LibrarySkill, LibraryView, ResourceSourceType, VisibilityPermission,
+  ContentLifecycleStatus, LearningResource, LearningResourceType, LibraryFolder, LibraryItem, LibraryScope, LibrarySkill, LibraryView, ResourceSourceType, VisibilityPermission,
 } from "../../library-types";
 import { isResource } from "../../library-types";
 import { apiFetch, apiUpload } from "../../lib/api";
@@ -15,6 +15,8 @@ type Props = {
   item: LibraryItem | null;
   courseId?: string;
   courses: Course[];
+  folders: LibraryFolder[];
+  folderId?: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
 };
@@ -29,13 +31,14 @@ function resourceTypeFromFile(file: File | null): LearningResourceType {
 }
 
 export default function LibraryItemModal({
-  open, view, skill: initialSkill, item, courseId: defaultCourseId, courses, onClose, onSaved,
+  open, view, skill: initialSkill, item, courseId: defaultCourseId, courses, folders, folderId: defaultFolderId, onClose, onSaved,
 }: Props) {
   const [skill, setSkill] = useState<LibrarySkill>(initialSkill);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [scope, setScope] = useState<LibraryScope>(defaultCourseId ? "COURSE" : "GLOBAL");
   const [selectedCourseId, setSelectedCourseId] = useState(defaultCourseId ?? "");
+  const [selectedFolderId, setSelectedFolderId] = useState(defaultFolderId ?? "");
   const [sourceType, setSourceType] = useState<ResourceSourceType>("FILE_UPLOAD");
   const [externalUrl, setExternalUrl] = useState("");
   const [richTextContent, setRichTextContent] = useState("");
@@ -55,9 +58,11 @@ export default function LibraryItemModal({
 
   useEffect(() => {
     if (!item) {
+      const defaultFolder = folders.find(folder => folder.id === defaultFolderId);
       setTitle("");
-      setScope(defaultCourseId ? "COURSE" : "GLOBAL");
-      setSelectedCourseId(defaultCourseId ?? "");
+      setScope(defaultCourseId || defaultFolder?.courseId ? "COURSE" : "GLOBAL");
+      setSelectedCourseId(defaultCourseId ?? defaultFolder?.courseId ?? "");
+      setSelectedFolderId(defaultFolderId ?? "");
       setSourceType("FILE_UPLOAD");
       setExternalUrl("");
       setRichTextContent("");
@@ -76,6 +81,7 @@ export default function LibraryItemModal({
     setCategory(item.category);
     setScope(item.scope);
     setSelectedCourseId(item.courseId ?? "");
+    setSelectedFolderId(item.folderId ?? "");
 
     if (isResource(item)) {
       setSourceType(
@@ -95,7 +101,7 @@ export default function LibraryItemModal({
     } else {
       setDescription(item.instructions ?? "");
     }
-  }, [defaultCourseId, item]);
+  }, [defaultCourseId, defaultFolderId, folders, item]);
 
   if (!open) return null;
 
@@ -138,6 +144,7 @@ export default function LibraryItemModal({
         category,
         scope,
         courseId: scope === "COURSE" ? selectedCourseId : null,
+        folderId: selectedFolderId || null,
         status: targetStatus,
       };
       const payload = view === "RESOURCES"
@@ -193,7 +200,7 @@ export default function LibraryItemModal({
         <header className="flex items-center justify-between border-b border-[#e3dce2] px-6 py-4">
           <div>
             <h2 className="font-display text-lg font-bold text-[#211A1D]">
-              {item ? "Chỉnh sửa học liệu" : "Thêm học liệu mới"}
+              {item ? "Chỉnh sửa học liệu" : view === "RESOURCES" ? "Tải tài liệu lên" : "Thêm bài tập mẫu"}
             </h2>
             <p className="text-xs text-[#746A6E]">
               {view === "RESOURCES" ? "Kho tài liệu giảng dạy" : "Kho bài tập mẫu"}
@@ -261,13 +268,44 @@ export default function LibraryItemModal({
             </div>
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-[#211A1D]">Lưu trong thư mục</label>
+            <select
+              value={selectedFolderId}
+              onChange={(event) => {
+                const nextFolderId = event.target.value;
+                const folder = folders.find(candidate => candidate.id === nextFolderId);
+                setSelectedFolderId(nextFolderId);
+                if (folder?.courseId) {
+                  setScope("COURSE");
+                  setSelectedCourseId(folder.courseId);
+                }
+              }}
+              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
+            >
+              <option value="">Không xếp vào thư mục</option>
+              {folders.filter(folder => !defaultCourseId || !folder.courseId || folder.courseId === defaultCourseId).map(folder => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.courseId ? `Khóa học · ${folder.name}` : folder.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[11px] text-[#746A6E]">Có thể phân loại theo thư mục khóa học hoặc thư mục riêng.</p>
+          </div>
+
           {/* Phạm vi sử dụng */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Phạm vi</label>
               <select
                 value={scope}
-                onChange={(e) => setScope(e.target.value as LibraryScope)}
+                onChange={(e) => {
+                  const nextScope = e.target.value as LibraryScope;
+                  setScope(nextScope);
+                  if (nextScope === "GLOBAL" && folders.find(folder => folder.id === selectedFolderId)?.courseId) {
+                    setSelectedFolderId("");
+                  }
+                }}
                 disabled={!!defaultCourseId}
                 className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none disabled:bg-[#f1eef4]"
               >
@@ -281,7 +319,13 @@ export default function LibraryItemModal({
                 <label className="block text-xs font-bold text-[#211A1D] mb-1.5">Chọn Khóa học</label>
                 <select
                   value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  onChange={(e) => {
+                    const nextCourseId = e.target.value;
+                    setSelectedCourseId(nextCourseId);
+                    if (folders.find(folder => folder.id === selectedFolderId)?.courseId !== nextCourseId) {
+                      setSelectedFolderId("");
+                    }
+                  }}
                   disabled={!!defaultCourseId}
                   className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] px-3 text-sm focus:border-[#8f4458] focus:outline-none"
                 >

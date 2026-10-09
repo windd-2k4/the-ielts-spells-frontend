@@ -5,8 +5,8 @@ import { FormNotice } from "../auth/FormNotice";
 import { apiFetch, apiUpload } from "../lib/api";
 
 type Invitation = { id: string; email: string; fullName: string; intendedRole: Role; status: string; expiresAt: string };
-type Role = "TEACHER" | "ADMISSIONS" | "SOCIAL_MEDIA" | "STUDENT_SUPPORT";
-type StaffRole = "ADMIN" | Role;
+type Role = "ADMIN" | "TEACHER" | "ADMISSIONS" | "SOCIAL_MEDIA" | "STUDENT_SUPPORT";
+type StaffRole = Role;
 type StaffStatus = "DRAFT" | "INVITED" | "ACTIVE" | "SUSPENDED" | "OFFBOARDED";
 type Staff = {
   id: string;
@@ -30,7 +30,7 @@ type Staff = {
 type Page<T> = { content: T[] };
 
 const roleLabels: Record<StaffRole, string> = {
-  ADMIN: "Quản trị viên",
+  ADMIN: "Chủ doanh nghiệp / Quản trị viên",
   TEACHER: "Giáo viên",
   ADMISSIONS: "Tuyển sinh",
   SOCIAL_MEDIA: "Social Media",
@@ -710,7 +710,7 @@ function RoleSelect({
       }
     >
       {Object.entries(roleLabels).map(([role, label]) => (
-        <option key={role} value={role} disabled={role === "ADMIN"}>
+        <option key={role} value={role}>
           {label}
         </option>
       ))}

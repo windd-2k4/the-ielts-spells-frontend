@@ -4,9 +4,16 @@ import type { SaveWritingResponseItem, StudentWritingAttempt } from "@ielts/cont
 import { ArrowLeft, CheckCircle, CircleNotch, Clock, FloppyDisk, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
-import { getWritingAttempt, saveWritingResponses, submitWritingAttempt } from "./writingApi";
+import {
+  isReadingFontScale,
+  migrateLegacyReadingFontScale,
+  READING_FONT_SCALE_OPTIONS,
+  READING_FONT_SCALE_STORAGE_KEY,
+  type ReadingFontScale,
+} from "@/features/reading/readingFontScale";
+import { pauseWritingAttempt, resumeWritingAttempt, saveWritingResponses, submitWritingAttempt } from "./writingApi";
 import styles from "./WritingAttemptPlayer.module.css";
 
 type SaveState = "idle" | "saving" | "saved" | "offline" | "failed";
@@ -51,15 +58,29 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [remaining, setRemaining] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [fontScale, setFontScale] = useState<ReadingFontScale>("standard");
   const submitStartedRef = useRef(false);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
 
   useEffect(() => {
+    try {
+      const savedScale = localStorage.getItem(READING_FONT_SCALE_STORAGE_KEY);
+      if (isReadingFontScale(savedScale)) setFontScale(savedScale);
+      else {
+        const migrated = migrateLegacyReadingFontScale(localStorage.getItem("ielts_exam_font_scale"));
+        setFontScale(migrated);
+        localStorage.setItem(READING_FONT_SCALE_STORAGE_KEY, migrated);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     let active = true;
-    void getWritingAttempt(attemptId)
+    void resumeWritingAttempt(attemptId)
       .then((value) => {
         if (!active) return;
         if (value.status !== "IN_PROGRESS") {
@@ -91,6 +112,30 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Không thể tải bài Writing."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+  }, [attemptId, router]);
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        setTimerRunning(false);
+        void pauseWritingAttempt(attemptId);
+        return;
+      }
+      void resumeWritingAttempt(attemptId).then((value) => {
+        if (value.status !== "IN_PROGRESS") {
+          router.replace(`/student/writing/attempts/${attemptId}/result`);
+          return;
+        }
+        setAttempt(value);
+        setRemaining(value.remainingSeconds);
+        setTimerRunning(true);
+      }).catch(() => setTimerRunning(false));
+    };
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      void pauseWritingAttempt(attemptId);
+    };
   }, [attemptId, router]);
 
   const pendingPayload = useMemo(() => Array.from(dirtyKeys).map((taskKey) => ({
@@ -166,7 +211,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   }, [attemptId, dirtyKeys.size, flush, router]);
 
   useEffect(() => {
-    if (!attempt) return;
+    if (!attempt || !timerRunning) return;
     const timer = window.setInterval(() => {
       setRemaining((current) => {
         if (current <= 1) {
@@ -178,7 +223,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [attempt, submit]);
+  }, [attempt, submit, timerRunning]);
 
   if (loading) return <div className={styles.state}><CircleNotch size={26} className={styles.spin} /> Đang chuẩn bị phòng thi Writing...</div>;
   if (!attempt) return <div className={styles.state}><WarningCircle size={28} /><strong>Không thể mở bài Writing</strong><p>{error}</p><Link href="/student/practice?skill=WRITING">Quay lại danh mục</Link></div>;
@@ -187,6 +232,16 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   if (!activeTask) return <div className={styles.state}>Đề Writing chưa có task hợp lệ.</div>;
   const currentText = answers[activeTask.taskKey] ?? "";
   const words = wordCount(currentText);
+  const activeFontScale = READING_FONT_SCALE_OPTIONS.find((option) => option.value === fontScale) ?? READING_FONT_SCALE_OPTIONS[0];
+  const examStyle = {
+    "--exam-content-size": `${activeFontScale.pixels}px`,
+    "--exam-content-line-height": activeFontScale.lineHeight,
+  } as CSSProperties;
+
+  function changeFontScale(next: ReadingFontScale) {
+    setFontScale(next);
+    try { localStorage.setItem(READING_FONT_SCALE_STORAGE_KEY, next); } catch {}
+  }
 
   function updateAnswer(text: string) {
     const taskKey = activeTask.taskKey;
@@ -200,7 +255,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   }
 
   return (
-    <main className={styles.examShell}>
+    <main className={styles.examShell} style={examStyle}>
       <header className={styles.header}>
         <div className={styles.brand}>
           <Link href="/student/practice?skill=WRITING" aria-label="Thoát bài thi"><ArrowLeft size={20} /></Link>
@@ -208,6 +263,13 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
         </div>
         <div className={`${styles.timer} ${remaining < 300 ? styles.urgent : ""}`}><Clock size={19} /><span>{formatTime(remaining)}</span></div>
         <div className={styles.headerActions}>
+          <div className={styles.fontControls} role="group" aria-label="Cỡ chữ nội dung bài thi">
+            {READING_FONT_SCALE_OPTIONS.map((option) => (
+              <button key={option.value} type="button" onClick={() => changeFontScale(option.value)} aria-pressed={fontScale === option.value} aria-label={`Cỡ chữ ${option.label}, ${option.pixels} pixel`} title={`${option.label}: ${option.pixels} px`}>
+                {option.glyph}
+              </button>
+            ))}
+          </div>
           <span className={styles.saveState} aria-live="polite">
             {saveState === "saving" ? <CircleNotch className={styles.spin} /> : saveState === "saved" ? <CheckCircle /> : <FloppyDisk />}
             {saveState === "saving" ? "Saving" : saveState === "saved" ? "Saved" : saveState === "offline" ? "Saved on this device" : saveState === "failed" ? "Save failed" : "Autosave"}

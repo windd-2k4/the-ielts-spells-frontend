@@ -445,10 +445,9 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           const Icon = item.icon;
           const active = item.id === skill;
           return (
-            <button key={item.id} type="button" aria-current={active ? "page" : undefined}
-              onClick={() => updateParams({ skill: item.id, format: null, questionTypes: null })}>
+            <Link key={item.id} href={`/student/practice?skill=${item.id}`} aria-current={active ? "page" : undefined}>
               <Icon size={20} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>
@@ -669,7 +668,7 @@ function formatLabel(item: StudentPracticeCatalogItem) {
 }
 
 function CatalogSkeleton() {
-  return <div className={styles.catalog} aria-busy="true" aria-label="Đang tải danh mục đề">{Array.from({ length: 6 }, (_, index) => <div key={index} className={styles.skeleton} />)}</div>;
+  return <div className={styles.catalog} aria-busy="true" aria-label="Đang tải danh mục đề">{Array.from({ length: 8 }, (_, index) => <div key={index} className={styles.skeleton} />)}</div>;
 }
 
 function PracticePageSkeleton() {

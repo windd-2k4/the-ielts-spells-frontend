@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { CalendarDots, ChartBar, PencilSimple, Target } from "@phosphor-icons/react";
-import type { StudentPortalOverview } from "./studentPortalApi";
+import { useEffect, useState } from "react";
+import { getStudentPortalActivity, type StudentPortalDailyActivity, type StudentPortalOverview } from "./studentPortalApi";
 import { formatBand } from "./studentPortalViewModel";
 import styles from "./StudentStudyPulse.module.css";
 
@@ -11,6 +12,10 @@ const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function addDays(date: Date, amount: number) {
@@ -29,23 +34,68 @@ function parseLocalDate(value: string) {
   return new Date(year, month - 1, day || 1);
 }
 
+function MonthPicker({ id, value, max, loading, onChange }: {
+  id: string;
+  value: string;
+  max: string;
+  loading: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className={styles.monthPicker} htmlFor={id}>
+      <span>Tháng</span>
+      <input
+        id={id}
+        type="month"
+        value={value}
+        max={max}
+        disabled={loading}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
 export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
   const today = new Date();
-  const activity = data.activityCalendar ?? [];
+  const currentMonth = monthKey(today);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [activity, setActivity] = useState<StudentPortalDailyActivity[]>(data.activityCalendar ?? []);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const selectedMonthDate = parseLocalDate(`${selectedMonth}-01`);
   const activityByDate = new Map(activity.map((item) => [item.activityDate, item]));
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthStart = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1);
   const calendarStart = startOfWeek(monthStart);
   const calendarDays = Array.from({ length: 42 }, (_, index) => addDays(calendarStart, index));
-  const weekStart = startOfWeek(today);
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const weekItems = weekDays.map((date) => ({ date, activity: activityByDate.get(dateKey(date)) }));
-  const weeklyTotals = weekItems.reduce((total, item) => ({
+  const monthDays = Array.from(
+    { length: new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0).getDate() },
+    (_, index) => new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), index + 1),
+  );
+  const monthItems = monthDays.map((date) => ({ date, activity: activityByDate.get(dateKey(date)) }));
+  const monthlyTotals = monthItems.reduce((total, item) => ({
     reading: total.reading + (item.activity?.reading ?? 0),
     listening: total.listening + (item.activity?.listening ?? 0),
     writing: total.writing + (item.activity?.writing ?? 0),
     speaking: total.speaking + (item.activity?.speaking ?? 0),
     totalAttempts: total.totalAttempts + (item.activity?.totalAttempts ?? 0),
   }), { reading: 0, listening: 0, writing: 0, speaking: 0, totalAttempts: 0 });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setActivityLoading(true);
+    setActivityError(null);
+    void getStudentPortalActivity(selectedMonth, controller.signal)
+      .then(setActivity)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setActivityError(error instanceof Error ? error.message : "Không thể tải hoạt động của tháng đã chọn.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setActivityLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedMonth]);
 
   const examEnrollment = data.enrollments.find((item) => item.actualExamDate)
     ?? data.enrollments.find((item) => item.plannedExamMonth);
@@ -113,23 +163,36 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
           <header className={styles.cardHeader}>
             <div>
               <h3><ChartBar size={18} weight="duotone" /> Biểu đồ chăm chỉ</h3>
-              <p>Mỗi ô đậm thể hiện số bài đã nộp trong ngày.</p>
+              <p>Số in đậm là tổng lượt nộp bài trong ngày.</p>
             </div>
-            <span className={styles.legend}><i /> Có nộp bài</span>
+            <div className={styles.headerActions}>
+              <span className={styles.legend}><i /> Có nộp bài</span>
+              <MonthPicker id="calendar-activity-month" value={selectedMonth} max={currentMonth} loading={activityLoading} onChange={setSelectedMonth} />
+            </div>
           </header>
           <div className={styles.calendar}>
-            <div className={styles.monthLabel}>Tháng {String(today.getMonth() + 1).padStart(2, "0")} / {today.getFullYear()}</div>
+            <div className={styles.monthLabel}>{selectedMonthDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</div>
+            {activityError && <p className={styles.activityNotice} role="alert">{activityError}</p>}
             <div className={styles.weekdays}>{weekdays.map((day) => <span key={day}>{day}</span>)}</div>
             <div className={styles.calendarGrid}>
               {calendarDays.map((date) => {
                 const item = activityByDate.get(dateKey(date));
                 const intensity = Math.min(item?.totalAttempts ?? 0, 3);
-                const outside = date.getMonth() !== today.getMonth();
+                const outside = date.getMonth() !== selectedMonthDate.getMonth() || date.getFullYear() !== selectedMonthDate.getFullYear();
                 const current = dateKey(date) === dateKey(today);
+                const attempts = item?.totalAttempts ?? 0;
                 return (
-                  <div key={dateKey(date)} className={styles.day} data-level={intensity} data-outside={outside || undefined} data-today={current || undefined} title={`${date.toLocaleDateString("vi-VN")}: ${item?.totalAttempts ?? 0} bài đã nộp`}>
-                    <span>{date.getDate()}</span>
-                    {intensity > 0 && <i aria-hidden="true" />}
+                  <div
+                    key={dateKey(date)}
+                    className={styles.day}
+                    data-level={intensity}
+                    data-outside={outside || undefined}
+                    data-today={current || undefined}
+                    aria-label={`${date.toLocaleDateString("vi-VN")}: ${attempts} bài đã nộp`}
+                    title={`${date.toLocaleDateString("vi-VN")}: ${attempts} bài đã nộp`}
+                  >
+                    <span className={styles.dayNumber}>{date.getDate()}</span>
+                    {attempts > 0 && <strong className={styles.attemptCount}>{attempts}</strong>}
                   </div>
                 );
               })}
@@ -139,21 +202,24 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
 
         <article className={styles.card}>
           <header className={styles.cardHeader}>
-            <div><h3>Hoạt động trong tuần</h3><p>Dữ liệu từ những bài đã nộp thành công.</p></div>
-            <strong className={styles.weekTotal}>{weeklyTotals.totalAttempts} bài</strong>
+            <div><h3>Hoạt động trong tháng</h3><p>Dữ liệu từ những bài đã nộp thành công.</p></div>
+            <div className={styles.headerActions}>
+              <strong className={styles.weekTotal}>{monthlyTotals.totalAttempts} bài</strong>
+              <MonthPicker id="table-activity-month" value={selectedMonth} max={currentMonth} loading={activityLoading} onChange={setSelectedMonth} />
+            </div>
           </header>
-          <div className={styles.tableWrap}>
+          <div className={styles.tableWrap} aria-busy={activityLoading}>
             <table className={styles.weekTable}>
               <thead><tr><th>Ngày</th><th>R</th><th>L</th><th>W</th><th>S</th><th>Tổng</th></tr></thead>
               <tbody>
-                {weekItems.map(({ date, activity: item }) => (
+                {monthItems.map(({ date, activity: item }) => (
                   <tr key={dateKey(date)} data-today={dateKey(date) === dateKey(today) || undefined}>
                     <th scope="row">{date.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</th>
                     <td>{item?.reading || "—"}</td><td>{item?.listening || "—"}</td><td>{item?.writing || "—"}</td><td>{item?.speaking || "—"}</td><td>{item?.totalAttempts || "—"}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><th scope="row">Tổng</th><td>{weeklyTotals.reading}</td><td>{weeklyTotals.listening}</td><td>{weeklyTotals.writing}</td><td>{weeklyTotals.speaking}</td><td>{weeklyTotals.totalAttempts}</td></tr></tfoot>
+              <tfoot><tr><th scope="row">Tổng</th><td>{monthlyTotals.reading}</td><td>{monthlyTotals.listening}</td><td>{monthlyTotals.writing}</td><td>{monthlyTotals.speaking}</td><td>{monthlyTotals.totalAttempts}</td></tr></tfoot>
             </table>
           </div>
         </article>

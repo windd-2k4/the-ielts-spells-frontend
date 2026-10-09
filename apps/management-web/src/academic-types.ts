@@ -9,6 +9,8 @@ export type Course = {
   code: string;
   name: string;
   description: string | null;
+  coverImageUrl: string | null;
+  coverImageAltText: string | null;
   level: string | null;
   skillPair: SkillPair;
   targetBand: number | null;
@@ -27,6 +29,7 @@ export type Course = {
 export type AcademicClass = Course;
 export type CourseForm = {
   name: string; description: string; level: string; skillPair: SkillPair;
+  coverImageUrl: string; coverImageAltText: string;
   targetBand: string; totalSessions: string; tuitionAmount: string; capacity: string;
   startsOn: string; endsOn: string; status: CourseStatus; defaultZoomUrl: string;
   isPublic: boolean; isActive: boolean;
@@ -124,7 +127,7 @@ export type StudentLearningInsights = {
   }>;
 };
 
-export const courseEmpty: CourseForm = { name: "", description: "", level: "", skillPair: "LISTENING_READING", targetBand: "", totalSessions: "20", tuitionAmount: "", capacity: "20", startsOn: "", endsOn: "", status: "OPEN", defaultZoomUrl: "", isPublic: true, isActive: true };
+export const courseEmpty: CourseForm = { name: "", description: "", level: "", skillPair: "LISTENING_READING", coverImageUrl: "", coverImageAltText: "", targetBand: "", totalSessions: "20", tuitionAmount: "", capacity: "20", startsOn: "", endsOn: "", status: "OPEN", defaultZoomUrl: "", isPublic: true, isActive: true };
 export const classStatusLabel: Record<CourseStatus, string> = { OPEN: "Chuẩn bị & tuyển sinh", ACTIVE: "Đang học", COMPLETED: "Đã hoàn thành", CANCELLED: "Đã hủy" };
 export const skillPairLabel: Record<SkillPair, string> = { LISTENING_READING: "Listening & Reading", SPEAKING_WRITING: "Speaking & Writing" };
 export const enrollmentStatusLabel: Record<EnrollmentStatus, string> = { PENDING: "Chờ xác nhận", ACTIVE: "Đang học", PAUSED: "Đang bảo lưu", COMPLETED: "Hoàn thành", WITHDRAWN: "Đã rút" };

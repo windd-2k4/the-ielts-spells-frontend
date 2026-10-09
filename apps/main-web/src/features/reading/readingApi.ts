@@ -7,7 +7,15 @@ import type {
   StudentReadingAttempt,
   StudentReadingCatalogItem,
 } from "@ielts/contracts";
+import { ApiClientError } from "@ielts/api-client";
 import { apiFetch } from "@/lib/api";
+
+let timerControlAvailable = true;
+
+function timerControlMissing(error: unknown) {
+  return error instanceof ApiClientError
+    && (error.status === 404 || error.message.includes("No static resource"));
+}
 
 function resolvePath(skill?: string) {
   return skill && skill.toLowerCase() === "listening" ? "/student/listening" : "/student/reading";
@@ -35,6 +43,27 @@ export function startOrResumeReadingAttempt(assignmentId: string) {
 
 export function getReadingAttempt(attemptId: string, skill: string = "reading") {
   return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/attempts/${attemptId}`);
+}
+
+export async function resumeReadingAttempt(attemptId: string, skill: string = "reading") {
+  if (!timerControlAvailable) return getReadingAttempt(attemptId, skill);
+  try {
+    return await apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/attempts/${attemptId}/resume`, { method: "POST" });
+  } catch (error) {
+    if (!timerControlMissing(error)) throw error;
+    timerControlAvailable = false;
+    return getReadingAttempt(attemptId, skill);
+  }
+}
+
+export async function pauseReadingAttempt(attemptId: string, skill: string = "reading") {
+  if (!timerControlAvailable) return;
+  try {
+    await apiFetch<void>(`${resolvePath(skill)}/attempts/${attemptId}/pause`, { method: "POST", keepalive: true });
+  } catch (error) {
+    if (!timerControlMissing(error)) throw error;
+    timerControlAvailable = false;
+  }
 }
 
 export function saveReadingResponses(attemptId: string, request: SaveReadingResponsesRequest, skill: string = "reading") {

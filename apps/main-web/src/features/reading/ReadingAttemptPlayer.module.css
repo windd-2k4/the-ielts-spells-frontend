@@ -121,7 +121,7 @@
   position: relative;
   z-index: 30;
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto minmax(460px, 1fr);
+  grid-template-columns: minmax(180px, 1fr) auto auto;
   min-height: 60px;
   align-items: center;
   gap: 16px;
@@ -250,7 +250,7 @@
 .fontGlyph[data-size="large"] { font-size: 18px; }
 .fontGlyph[data-size="extra-large"] { font-size: 22px; }
 
-.themeButton {
+.themeButton, .layoutButton {
   display: inline-flex;
   height: 36px;
   align-items: center;
@@ -265,7 +265,12 @@
   white-space: nowrap;
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
 }
-.themeButton:hover {
+.layoutButton {
+  width: 38px;
+  justify-content: center;
+  padding: 0;
+}
+.themeButton:hover, .layoutButton:hover {
   border-color: var(--exam-accent-border);
   color: var(--exam-accent);
   background: var(--exam-accent-soft);
@@ -281,8 +286,9 @@
   display: inline-flex;
   min-height: 38px;
   align-items: center;
-  gap: 6px;
-  padding: 0 11px;
+  width: 38px;
+  justify-content: center;
+  padding: 0;
   border: 1px solid var(--exam-line);
   border-radius: 9px;
   color: var(--exam-muted);
@@ -429,11 +435,15 @@
 
 .workspaceContainer {
   display: grid;
-  grid-template-columns: 1fr 244px;
+  grid-template-columns: 1fr;
   min-height: 0;
   height: 100%;
   overflow: hidden;
 }
+
+.layoutBottom .examSidebar { display: none; }
+.layoutSidebar .workspaceContainer { grid-template-columns: 1fr 244px; }
+.layoutSidebar .examFooter { display: none; }
 
 @media (max-width: 1024px) {
   .workspaceContainer {
@@ -445,12 +455,7 @@
   .examFooter {
     display: grid !important;
   }
-}
-
-@media (min-width: 1025px) {
-  .examFooter {
-    display: none !important;
-  }
+  .layoutButton { display: none; }
 }
 
 /* Main Split Workspace */
@@ -533,7 +538,7 @@
   font-family: Georgia, "Times New Roman", Times, serif;
   font-size: var(--exam-content-size);
   line-height: var(--exam-content-line-height);
-  transition: font-size 150ms ease, color 200ms ease;
+  transition: color 200ms ease;
 }
 .passageContent :where(p, ul, ol, blockquote) { margin: 0 0 1.25em; }
 .passageContent :where(h1, h2, h3) {
@@ -2059,7 +2064,6 @@
   .examHeader { grid-template-columns: minmax(220px, 1fr) auto; }
   .headerStatus { display: none; }
   .themeButton span { display: none; }
-  .notesButton > span { display: none; }
   .sectionBar { grid-template-columns: 190px 1fr auto; }
 }
 

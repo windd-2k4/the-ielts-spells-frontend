@@ -11,9 +11,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { apiFetch } from "../../lib/api";
 import ScheduleSetupModal from "./ScheduleSetupModal";
 import SessionDrawer from "./SessionDrawer";
-import AttachLibraryModal from "../library/AttachLibraryModal";
-import type { LibraryItem } from "../../library-types";
-import { isResource } from "../../library-types";
+import AttachLibraryModal, { type SessionPickerItem } from "../library/AttachLibraryModal";
 
 interface CourseScheduleProps { courseId: string; skillPair: SkillPair }
 type ScheduleType = "ALL" | "CLASS" | "EXAM";
@@ -21,7 +19,7 @@ type ViewMode = "LIST" | "CALENDAR";
 export type ItemDraft = {
   id?: string; itemType: SessionItemType; title: string;
   description: string; deadlineAt: string; sourceResourceId?: string;
-  sourceExerciseTemplateId?: string; required: boolean;
+  sourceExerciseTemplateId?: string; sourceTestId?: string; required: boolean;
   visibility: "STUDENT" | "TEACHER";
 };
 export type SessionDraft = {
@@ -88,6 +86,7 @@ function fromSession(value: ClassSession): SessionDraft {
       description: item.description ?? "", deadlineAt: toLocalInput(item.deadlineAt),
       sourceResourceId: item.sourceResourceId ?? undefined,
       sourceExerciseTemplateId: item.sourceExerciseTemplateId ?? undefined,
+      sourceTestId: item.sourceTestId ?? undefined,
       required: item.required, visibility: item.visibility,
     })),
   };
@@ -95,7 +94,8 @@ function fromSession(value: ClassSession): SessionDraft {
 
 export default function CourseSchedule({ courseId, skillPair }: CourseScheduleProps) {
   const { roles } = useAuth();
-  const canManage = roles.includes("admin");
+  const canManage = roles.some(role => role === "admin" || role === "teacher");
+  const canAssignTeacher = roles.includes("admin");
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [courseTeachers, setCourseTeachers] = useState<CourseTeacherAssignment[]>([]);
@@ -133,10 +133,17 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    if (!canManage) return;
+    if (!canAssignTeacher) return;
     void apiFetch<TeacherOption[]>("/admin/teacher-options")
       .then(setTeachers).catch(() => setTeachers([]));
-  }, [canManage]);
+  }, [canAssignTeacher]);
+
+  const drawerTeachers = useMemo(() => canAssignTeacher ? teachers : courseTeachers.map(teacher => ({
+    id: teacher.teacherId,
+    fullName: teacher.fullName ?? "Giáo viên phụ trách",
+    email: teacher.email ?? "",
+    role: "teacher",
+  })), [canAssignTeacher, courseTeachers, teachers]);
 
   const primaryTeacherId = useMemo(
     () => courseTeachers.find((teacher) => teacher.primary)?.teacherId ?? "",
@@ -204,34 +211,34 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     patchDraft({ phaseName: sample.phase, title: sample.title, content: sample.content });
     setError("");
   }
-  function addItem(type: SessionItemType) {
-    if (!draft || (type !== "MATERIAL" && draft.items.filter(item => item.itemType !== "MATERIAL").length >= 10)) return;
-    patchDraft({ items: [...draft.items, {
-      itemType: type, title: type === "TEST" ? "Bài test" : type === "MATERIAL" ? "Tài liệu buổi học" : "Bài tập",
-      description: "", deadlineAt: type === "MATERIAL" ? "" : plusDays(draft.endsAt, 2),
-      required: type !== "MATERIAL", visibility: "STUDENT",
-    }] });
-  }
-  function attachLibrary(items: LibraryItem[]) {
+  function attachLibrary(items: SessionPickerItem[]) {
     if (!draft) return;
+    const existingSourceIds = new Set(draft.items.flatMap(item => [
+      item.sourceResourceId, item.sourceExerciseTemplateId, item.sourceTestId,
+    ]).filter(Boolean));
+    const newItems = items.filter(item => !existingSourceIds.has(item.id));
     const exerciseCount = draft.items.filter(item => item.itemType !== "MATERIAL").length;
     let remaining = Math.max(0, 10 - exerciseCount);
     const additions: ItemDraft[] = [];
-    items.forEach(item => {
-      if (isResource(item)) {
+    newItems.forEach(item => {
+      if (!("testType" in item)) {
         additions.push({ itemType: "MATERIAL", title: item.title, description: item.description ?? item.externalUrl ?? "",
           deadlineAt: "", sourceResourceId: item.id, required: false,
           visibility: item.teacherOnly ? "TEACHER" : "STUDENT" });
       } else if (remaining > 0) {
-        additions.push({ itemType: "ASSIGNMENT", title: item.title, description: item.instructions ?? item.sourceUrl ?? "",
-          deadlineAt: plusDays(draft.endsAt, 2), sourceExerciseTemplateId: item.id,
+        additions.push({ itemType: "ASSIGNMENT", title: item.title, description: item.description ?? "",
+          deadlineAt: plusDays(draft.endsAt, 2), sourceTestId: item.id,
           required: true, visibility: "STUDENT" });
         remaining -= 1;
       }
     });
     patchDraft({ items: [...draft.items, ...additions] });
-    if (items.some(item => !isResource(item)) && remaining === 0 && additions.filter(value => value.itemType === "ASSIGNMENT").length < items.filter(value => !isResource(value)).length) {
-      setError("Session chỉ nhận tối đa 10 bài tập/bài test. Tài liệu không bị giới hạn.");
+    if (newItems.some(item => "testType" in item) && remaining === 0 && additions.filter(value => value.itemType === "ASSIGNMENT").length < newItems.filter(value => "testType" in value).length) {
+      setError("Mỗi buổi học nhận tối đa 10 đề luyện tập. Tài liệu không bị giới hạn.");
+    } else if (!additions.length) {
+      setError("Các tài liệu hoặc đề đã chọn đã có trong buổi học này.");
+    } else {
+      setError("");
     }
   }
   function patchItem(index: number, patch: Partial<ItemDraft>) {
@@ -276,7 +283,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           itemType: item.itemType, title: item.title.trim(),
           description: item.description || null,
           deadlineAt: item.deadlineAt ? new Date(item.deadlineAt).toISOString() : null,
-          sourceAssignmentId: null, sourceTestId: null, displayOrder: index,
+          sourceAssignmentId: null, sourceTestId: item.sourceTestId ?? null, displayOrder: index,
           sourceResourceId: item.sourceResourceId ?? null,
           sourceExerciseTemplateId: item.sourceExerciseTemplateId ?? null,
           required: item.required, visibility: item.visibility,
@@ -355,7 +362,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
             <button aria-label="Toàn màn hình" onClick={() => document.documentElement.requestFullscreen?.()} className="rounded-lg border border-outline-variant/50 p-2"><ArrowsOut size={16} /></button>
           </>}
           {canManage && (
-            <><button onClick={() => setShowSetup(true)} className="flex items-center gap-2 rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-extrabold text-primary"><GearSix size={18}/>Thiết lập lộ trình</button><button onClick={() => openCreate(undefined, undefined, "TEST")} className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-extrabold text-amber-900"><Exam size={18} weight="bold" />Thêm mini test</button><button onClick={() => openCreate()} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-extrabold text-on-primary shadow-sm hover:brightness-95"><Plus size={18} weight="bold" />Thêm buổi học</button></>
+            <>{canAssignTeacher && <button onClick={() => setShowSetup(true)} className="flex items-center gap-2 rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-extrabold text-primary"><GearSix size={18}/>Thiết lập lộ trình</button>}<button onClick={() => openCreate(undefined, undefined, "TEST")} className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-extrabold text-amber-900"><Exam size={18} weight="bold" />Thêm mini test</button><button onClick={() => openCreate()} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-extrabold text-on-primary shadow-sm hover:brightness-95"><Plus size={18} weight="bold" />Thêm buổi học</button></>
           )}
         </div>
       </div>
@@ -371,7 +378,8 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           editingId={editingId}
           drawerMode={drawerMode}
           skillPair={skillPair}
-          teachers={teachers}
+          teachers={drawerTeachers}
+          canAssignTeacher={canAssignTeacher}
           primaryTeacherId={primaryTeacherId}
           saving={saving}
           error={error}
@@ -380,7 +388,6 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
           onClose={() => setDraft(null)}
           onPatchDraft={patchDraft}
           onApplyRoadmap={applyRoadmap}
-          onAddItem={addItem}
           onOpenLibrary={() => setLibraryOpen(true)}
           onPatchItem={patchItem}
           onRemoveItem={removeItem}

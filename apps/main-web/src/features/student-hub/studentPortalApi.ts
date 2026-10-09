@@ -138,6 +138,13 @@ export function getStudentPortalOverview() {
   return request;
 }
 
+export function getStudentPortalActivity(month: string, signal?: AbortSignal) {
+  return apiFetch<StudentPortalDailyActivity[]>(
+    `/student/portal/activity?month=${encodeURIComponent(month)}`,
+    { signal },
+  );
+}
+
 export function updateStudentTargetBand(targetBand: number) {
   return apiFetch<{ currentBand: number | null; targetBand: number }>(
     "/student/portal/target-band",

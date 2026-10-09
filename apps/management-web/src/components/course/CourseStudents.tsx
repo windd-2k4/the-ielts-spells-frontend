@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowSquareOut, ArrowsLeftRight, CalendarBlank, CaretDown, Check, CheckCircle, Clock,
   DotsThreeVertical, FloppyDisk, MagnifyingGlass, Minus, PauseCircle, PlayCircle, Plus,
@@ -26,7 +26,6 @@ interface CourseStudentsProps {
   onSelectStudent: (studentId: string) => void;
   onRosterChanged: () => Promise<void> | void;
 }
-
 const statusLabel: Record<ExamStatus, string> = {
   NOT_REGISTERED: "Chưa đăng ký",
   REGISTERED: "Đã đăng ký",
@@ -38,6 +37,8 @@ const statusTone: Record<ExamStatus, string> = {
   REGISTERED: "border-primary bg-primary text-on-primary font-bold shadow-xs",
   ISSUE: "border-amber-500 bg-amber-500 text-white font-bold shadow-xs",
 };
+
+const DEFAULT_ZOOM = 70;
 
 function monthInput(value: string | null) {
   return value ? value.slice(0, 7) : "";
@@ -54,13 +55,13 @@ function draftOf(enrollment: Enrollment): ExamDraft {
 
 export default function CourseStudents({ courseId, skillPair, roster, onSelectStudent, onRosterChanged }: CourseStudentsProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | ExamStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ATTENTION" | ExamStatus>("ALL");
   const [progress, setProgress] = useState<ClassActivityProgress[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ExamDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_ZOOM);
   const [actionTarget, setActionTarget] = useState<Roster[number] | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const deferredQuery = useDeferredValue(searchQuery);
@@ -102,7 +103,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
         setZoomLevel(prev => Math.max(60, prev - 10));
       } else if (e.key === "0") {
         e.preventDefault();
-        setZoomLevel(100);
+        setZoomLevel(DEFAULT_ZOOM);
       }
     }
   };
@@ -114,12 +115,17 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
   const filteredRoster = useMemo(() => roster.filter(item => {
     const text = `${item.student.fullName} ${item.student.studentCode} ${item.student.email ?? ""} ${item.student.phone ?? ""}`.toLowerCase();
     const status = drafts[item.enrollment.id]?.examRegistrationStatus ?? item.enrollment.examRegistrationStatus ?? "NOT_REGISTERED";
-    return text.includes(deferredQuery.trim().toLowerCase()) && (statusFilter === "ALL" || status === statusFilter);
+    const plannedExamMonth = drafts[item.enrollment.id]?.plannedExamMonth ?? item.enrollment.plannedExamMonth;
+    const needsAttention = status === "ISSUE" || !plannedExamMonth;
+    const matchesStatus = statusFilter === "ALL" || (statusFilter === "ATTENTION" ? needsAttention : status === statusFilter);
+    return text.includes(deferredQuery.trim().toLowerCase()) && matchesStatus;
   }), [deferredQuery, drafts, roster, statusFilter]);
 
-  const registered = roster.filter(item => (drafts[item.enrollment.id]?.examRegistrationStatus ?? item.enrollment.examRegistrationStatus) === "REGISTERED").length;
-  const withoutPlan = roster.filter(item => !(drafts[item.enrollment.id]?.plannedExamMonth ?? item.enrollment.plannedExamMonth)).length;
-  const issues = roster.filter(item => (drafts[item.enrollment.id]?.examRegistrationStatus ?? item.enrollment.examRegistrationStatus) === "ISSUE").length;
+  const attentionCount = roster.filter(item => {
+    const draft = drafts[item.enrollment.id];
+    return (draft?.examRegistrationStatus ?? item.enrollment.examRegistrationStatus) === "ISSUE"
+      || !(draft?.plannedExamMonth ?? item.enrollment.plannedExamMonth);
+  }).length;
 
   function patchDraft(id: string, patch: Partial<ExamDraft>) {
     setDrafts(current => ({ ...current, [id]: { ...current[id], ...patch } }));
@@ -159,39 +165,10 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
   }
 
   return (
-    <div className="space-y-6">
-      {/* Top Metric Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Metric
-          icon={<Student size={22} className="text-[#a83b58]" />}
-          label="HỌC VIÊN TRONG KHÓA"
-          value={roster.length}
-          note="Theo lượt ghi danh hiện tại"
-          gradient="from-[#fff0f3] via-surface to-[#fcebee]/50 border-[#e8d2d7]"
-          iconBg="bg-[#fcebee] text-[#a83b58] border border-[#e8d2d7]"
-        />
-        <Metric
-          icon={<CheckCircle size={22} className="text-emerald-600" />}
-          label="ĐÃ ĐĂNG KÝ THI"
-          value={registered}
-          note={`${withoutPlan} học viên chưa có tháng dự kiến`}
-          gradient="from-emerald-50/80 via-surface to-teal-50/30 border-emerald-200/80"
-          iconBg="bg-emerald-100/80 text-emerald-700 border border-emerald-200"
-        />
-        <Metric
-          icon={<WarningCircle size={22} className={issues > 0 ? "text-amber-600" : "text-slate-400"} />}
-          label="CẦN XỬ LÝ"
-          value={issues}
-          note={issues > 0 ? "Lỗi đăng ký hoặc thông tin chưa khớp" : "Mọi thông tin đều hợp lệ"}
-          alert={issues > 0}
-          gradient={issues > 0 ? "from-amber-50/80 via-surface to-rose-50/40 border-amber-300" : "from-slate-50/80 via-surface to-slate-50/30 border-outline-variant/40"}
-          iconBg={issues > 0 ? "bg-amber-100/80 text-amber-700 border border-amber-200" : "bg-slate-100 text-slate-500 border border-slate-200"}
-        />
-      </div>
-
+    <div className="space-y-4">
       {/* Filter, Search & Zoom Toolbar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#e8d2d7] bg-surface p-4 shadow-xs lg:flex-row lg:items-center justify-between">
-        <label className="relative max-w-xl flex-1">
+      <div className="flex flex-col gap-2 rounded-xl border border-[#e8d2d7] bg-surface p-2 shadow-xs lg:flex-row lg:items-center">
+        <label className="relative w-full lg:max-w-lg lg:flex-1">
           <span className="sr-only">Tìm học viên</span>
           <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a83b58]/70" size={18} />
           <input
@@ -202,9 +179,8 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
           />
         </label>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Custom Styled Select with generous right padding & chevron */}
-          <div className="relative inline-flex items-center min-w-[220px]">
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+          <div className="relative inline-flex min-w-[190px] flex-1 items-center sm:flex-none">
             <select
               aria-label="Lọc trạng thái đăng ký thi"
               value={statusFilter}
@@ -215,42 +191,43 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
               <option value="NOT_REGISTERED">Chưa đăng ký</option>
               <option value="REGISTERED">Đã đăng ký</option>
               <option value="ISSUE">Có vấn đề</option>
+              <option value="ATTENTION">Cần chú ý</option>
             </select>
             <CaretDown size={16} className="pointer-events-none absolute right-3.5 text-[#7a253b]" />
           </div>
 
           {/* Interactive Zoom Controls */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-[#e8d2d7] bg-surface px-2.5 py-1.5 text-xs font-bold text-on-surface-variant shadow-2xs">
-            <span className="text-[11px] text-outline uppercase tracking-wider mr-1 hidden sm:inline">Thu phóng:</span>
+          <div className="inline-flex items-center rounded-xl border border-[#e8d2d7] bg-surface p-0.5 text-xs font-bold text-on-surface-variant shadow-2xs" role="group" aria-label="Điều chỉnh mức thu phóng bảng">
             <button
               onClick={() => setZoomLevel(prev => Math.max(60, prev - 10))}
               disabled={zoomLevel <= 60}
+              aria-label="Thu nhỏ bảng"
               title="Thu nhỏ bảng (Ctrl + -)"
-              className="grid h-7 w-7 place-items-center rounded-lg border border-[#e8d2d7] hover:bg-[#fcebee] hover:text-[#a83b58] transition active:scale-95 disabled:opacity-40"
+              className="grid h-11 w-11 place-items-center rounded-lg hover:bg-[#fcebee] hover:text-[#a83b58] transition active:scale-95 disabled:opacity-40"
             >
               <Minus size={14} weight="bold" />
             </button>
-            <span className="min-w-11 text-center font-black tabular-nums text-[#a83b58]">{zoomLevel}%</span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel(DEFAULT_ZOOM)}
+              aria-label={`Đặt lại mức thu phóng mặc định ${DEFAULT_ZOOM}%`}
+              title={`Đặt lại ${DEFAULT_ZOOM}%`}
+              className="min-h-11 min-w-14 rounded-lg px-2 text-center font-black tabular-nums text-[#a83b58] transition hover:bg-[#fcebee] focus:outline-none focus:ring-2 focus:ring-[#a83b58]/20"
+            >
+              {zoomLevel}%
+            </button>
             <button
               onClick={() => setZoomLevel(prev => Math.min(150, prev + 10))}
               disabled={zoomLevel >= 150}
+              aria-label="Phóng to bảng"
               title="Phóng to bảng (Ctrl + +)"
-              className="grid h-7 w-7 place-items-center rounded-lg border border-[#e8d2d7] hover:bg-[#fcebee] hover:text-[#a83b58] transition active:scale-95 disabled:opacity-40"
+              className="grid h-11 w-11 place-items-center rounded-lg hover:bg-[#fcebee] hover:text-[#a83b58] transition active:scale-95 disabled:opacity-40"
             >
               <Plus size={14} weight="bold" />
             </button>
-            {zoomLevel !== 100 && (
-              <button
-                onClick={() => setZoomLevel(100)}
-                title="Đặt lại 100%"
-                className="ml-1 rounded-md bg-[#fcebee] px-2 py-1 text-[11px] font-extrabold text-[#a83b58] hover:bg-[#f9edf0] transition"
-              >
-                100%
-              </button>
-            )}
           </div>
 
-          <span className="ml-auto rounded-xl bg-[#fcebee] px-3.5 py-2.5 text-xs font-black tabular-nums text-[#a83b58] border border-[#e8d2d7] shadow-2xs">
+          <span className="ml-auto inline-flex min-h-11 items-center rounded-xl border border-[#e8d2d7] bg-[#fcebee] px-3 text-xs font-black tabular-nums text-[#a83b58] shadow-2xs">
             {filteredRoster.length} / {roster.length} học viên
           </span>
         </div>
@@ -277,10 +254,29 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                 {/* Header Row 1: Unified Solid Brand Header Bar */}
                 <tr className="bg-[#a83b58] text-white">
                   <th colSpan={7} className="px-4 py-3 text-left text-xs font-black uppercase tracking-wider shadow-xs border-r border-white/20">
-                    <span className="flex items-center gap-2">
-                      <Sparkle size={16} className="text-white/90" />
-                      THÔNG TIN HỌC VIÊN & KẾ HOẠCH THI
-                    </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2">
+                        <Sparkle size={16} className="text-white/90" />
+                        THÔNG TIN HỌC VIÊN & KẾ HOẠCH THI
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter(current => current === "ATTENTION" ? "ALL" : "ATTENTION")}
+                        disabled={attentionCount === 0}
+                        aria-pressed={statusFilter === "ATTENTION"}
+                        title={attentionCount > 0 ? "Lọc học viên thiếu kế hoạch thi hoặc có thông tin cần xử lý" : "Không có học viên cần chú ý"}
+                        className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[11px] font-black normal-case tracking-normal transition focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-default ${
+                          statusFilter === "ATTENTION"
+                            ? "border-amber-300 bg-amber-300 text-amber-950"
+                            : attentionCount > 0
+                              ? "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                              : "border-white/20 bg-white/10 text-white/70"
+                        }`}
+                      >
+                        <WarningCircle size={16} weight="bold" />
+                        {attentionCount} cần chú ý
+                      </button>
+                    </div>
                   </th>
                   <th colSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-wider shadow-xs border-r border-white/20">
                     ĐIỂM TEST (LẦN 1)
@@ -635,40 +631,5 @@ function ScoreCell({ value, variant }: { value: number | null | undefined; varia
         </span>
       )}
     </td>
-  );
-}
-
-function Metric({
-  icon,
-  label,
-  value,
-  note,
-  alert = false,
-  gradient,
-  iconBg,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: number;
-  note: string;
-  alert?: boolean;
-  gradient: string;
-  iconBg: string;
-}) {
-  return (
-    <div className={`rounded-2xl border bg-gradient-to-br p-5 shadow-xs transition hover:shadow-sm ${gradient}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-wider text-slate-600">{label}</p>
-          <p className={`mt-2 font-display text-3xl font-black tabular-nums ${alert ? "text-amber-700" : "text-slate-900"}`}>
-            {value}
-          </p>
-        </div>
-        <span className={`grid h-11 w-11 place-items-center rounded-xl shadow-2xs ${iconBg}`}>
-          {icon}
-        </span>
-      </div>
-      <p className="mt-2.5 text-xs font-semibold text-slate-500">{note}</p>
-    </div>
   );
 }

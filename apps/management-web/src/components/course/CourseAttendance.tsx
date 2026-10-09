@@ -160,13 +160,13 @@ export default function CourseAttendance({ courseId, roster, onSelectStudent }: 
 
   const locked = sheet?.session.sheetStatus === "LOCKED";
 
-  return <div className="space-y-5">
-    <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Vận hành lớp học</p><h2 className="mt-1 font-display text-2xl font-bold text-on-surface">Điểm danh theo từng buổi</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-on-surface-variant">Mỗi session có một phiếu độc lập. Giáo viên lưu nháp trong lúc dạy và xác nhận sau khi kiểm tra xong.</p></div>
+  return <div className="space-y-4">
+    <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div><h2 className="font-display text-lg font-bold text-on-surface">Điểm danh theo từng buổi</h2><p className="mt-0.5 max-w-2xl text-xs leading-5 text-on-surface-variant">Lưu nháp trong lúc dạy, sau đó xác nhận và khóa phiếu của từng session.</p></div>
       <button disabled title="Tích hợp Zoom Participant Report sẽ được phát triển ở giai đoạn tiếp theo" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant/50 px-4 text-sm font-bold text-on-surface-variant opacity-60"><ArrowClockwise size={18}/> Zoom chưa tích hợp</button>
     </header>
 
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       <Metric icon={CalendarBlank} label="Tổng số buổi" value={`${sessions.length}`} note={`${sessions.filter(item => item.sheetStatus === "LOCKED").length} phiếu đã khóa`} />
       <Metric icon={CheckCircle} label="Chuyên cần đã chốt" value={`${courseRate}%`} note="Không tính vắng có phép" />
       <Metric icon={UsersThree} label="Sĩ số hiện tại" value={`${roster.length}`} note="Theo danh sách ghi danh" />
@@ -214,7 +214,7 @@ export default function CourseAttendance({ courseId, roster, onSelectStudent }: 
 }
 
 function Metric({ icon: Icon, label, value, note, warning = false }: { icon: typeof Clock; label: string; value: string; note: string; warning?: boolean }) {
-  return <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/40 bg-surface p-4"><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${warning ? "bg-amber-50 text-amber-800" : "bg-primary-container/20 text-primary"}`}><Icon size={21}/></span><div><p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{label}</p><strong className="mt-0.5 block text-xl font-black tabular-nums">{value}</strong><small className="text-on-surface-variant">{note}</small></div></div>;
+  return <div className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface px-3 py-2.5"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${warning ? "bg-amber-50 text-amber-800" : "bg-primary-container/20 text-primary"}`}><Icon size={18}/></span><div className="min-w-0"><p className="truncate text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p><strong className="block text-lg font-black leading-6 tabular-nums">{value}</strong><small className="block truncate text-[11px] text-on-surface-variant" title={note}>{note}</small></div></div>;
 }
 
 function MiniStat({ label, value, positive, warning, danger }: { label: string; value: string; positive?: boolean; warning?: boolean; danger?: boolean }) {
