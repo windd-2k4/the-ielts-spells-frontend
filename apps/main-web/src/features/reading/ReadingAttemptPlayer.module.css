@@ -693,7 +693,7 @@
 }
 .flagButtonActive {
   border-color: var(--exam-gold);
-  color: #b45309;
+  color: var(--exam-gold);
   background: var(--exam-gold-soft);
 }
 .questionBody { margin-top: 8px; }
@@ -1321,14 +1321,14 @@
   border-color: #334155;
 }
 .circularRadio:checked {
-  border-color: #0f172a;
+  border-color: var(--exam-navy);
 }
 .circularRadio:checked::before {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #0f172a;
+  background-color: var(--exam-navy);
 }
 .radioLabelText {
   color: var(--exam-navy);
@@ -1338,7 +1338,7 @@
 }
 .radioOptionRowChecked .radioLabelText {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--exam-navy);
 }
 
 /* 3: Multiple Choice */
@@ -1400,11 +1400,11 @@
   background: var(--exam-soft);
 }
 .mcOptionRowChecked {
-  background: #e2e8f0; /* Cambridge grey strip */
+  background: var(--exam-bar-bg);
 }
 .mcOptionRowChecked .radioLabelText {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--exam-navy);
 }
 
 /* 4 & 5: Matching Headings, Information, Sentence Endings, Features */
@@ -1622,7 +1622,7 @@
 }
 .gapInlineInput:focus {
   border-color: #2563eb;
-  background: #ffffff;
+  background: var(--exam-card-bg);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 .gapInlineInputActive {
@@ -1700,7 +1700,7 @@
   place-content: center;
   margin-top: 2px;
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--exam-card-bg);
   transition: all 120ms ease;
 }
 .customCheckbox:checked {
@@ -1714,6 +1714,53 @@
   border-left: 2px solid #ffffff;
   border-bottom: 2px solid #ffffff;
   transform: rotate(-45deg) translate(1px, -1px);
+}
+
+/* Multiple Answers (Many answers) authentic IELTS styling */
+.mcMultipleCluster {
+  padding: 16px 12px;
+  border-radius: 10px;
+  background: var(--exam-card-bg);
+  border: 1px solid var(--exam-line);
+  margin-bottom: 12px;
+  transition: all 150ms ease;
+}
+.multipleBadgeRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.multipleBadgeCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background-color: #e6f4ea;
+  color: #137333;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.multipleBadgeDash {
+  color: var(--exam-muted);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 2px;
+}
+.mcOptionRowMultiple {
+  margin-left: 0;
+  padding: 10px 14px;
+  gap: 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.mcOptionRowMultiple:hover {
+  background: var(--exam-soft);
+  border-color: var(--exam-line);
 }
 
 /* 8: Table Completion (CD-IELTS Standard) */
@@ -2033,9 +2080,9 @@
   max-width: 380px;
   height: 38px;
   padding: 0 14px;
-  border: 1.5px solid #94a3b8;
+  border: 1.5px solid var(--exam-line);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--exam-card-bg);
   color: var(--exam-navy);
   font-size: calc(var(--exam-content-size) - 1px);
   font-weight: 700;

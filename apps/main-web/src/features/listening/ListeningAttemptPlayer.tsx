@@ -2,7 +2,7 @@
 
 import type { ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
 import {
-  ArrowLeft, CaretDown, CaretUp, CheckCircle, CircleNotch, Clock, Eye, EyeSlash,
+  ArrowLeft, CheckCircle, CircleNotch, Clock, Eye, EyeSlash,
   FastForward, FileAudio, Flag, Headphones, Pause, Play, Rewind, Sparkle,
   SpeakerHigh, SpeakerLow, SpeakerSlash,
   Sun, Moon, Timer, WarningCircle, PaperPlaneTilt,
@@ -109,7 +109,6 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const prevVolumeRef = useRef(0.8);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   // Appearance settings
   useEffect(() => {
@@ -599,9 +598,9 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
         })}
       </nav>
 
-      {/* Main Workspace: Split Left (Audio & Transcript) and Right (Questions) */}
+      {/* Main Workspace: Split Left (Audio Player) and Right (Questions) */}
       <main className={styles.workspace}>
-        {/* Left Panel: Audio Player & Transcript */}
+        {/* Left Panel: Audio Player */}
         <section className={styles.leftPanel}>
           {/* Audio Card */}
           <div className={styles.audioCard}>
@@ -730,26 +729,6 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
               💡 <strong>Lưu ý:</strong> Trong kỳ thi IELTS thật, bạn chỉ được nghe 1 lần. Khi tự luyện, bạn có thể nghe lại và tùy chỉnh tốc độ phù hợp.
             </div>
           </div>
-
-          {/* Collapsible Transcript */}
-          {activeSection?.contentHtml ? (
-            <div className={styles.transcriptCard}>
-              <button
-                type="button"
-                onClick={() => setTranscriptOpen((prev) => !prev)}
-                className={styles.transcriptToggle}
-              >
-                <span>{transcriptOpen ? "Ẩn Transcript (Lời thoại)" : "Xem Transcript (Lời thoại)"}</span>
-                {transcriptOpen ? <CaretUp size={16} /> : <CaretDown size={16} />}
-              </button>
-              {transcriptOpen ? (
-                <div
-                  className={styles.transcriptContent}
-                  dangerouslySetInnerHTML={{ __html: activeSection.contentHtml }}
-                />
-              ) : null}
-            </div>
-          ) : null}
         </section>
 
         {/* Right Panel: Questions */}
