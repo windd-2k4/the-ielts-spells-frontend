@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ChatCircleDots, Student, Users } from "@phosphor-icons/react";
+import { ChatCircleDots, GraduationCap, Student, Users } from "@phosphor-icons/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { Course, Enrollment, EnrollmentStatus, Page, StudentSummary } from "../academic-types";
 import { enrollmentStatusLabel } from "../academic-types";
@@ -198,80 +198,63 @@ export function EnrollmentsPage() {
     setSearchParams(next, { replace: true });
   }
 
-  const getPageHeaderProps = () => {
-    switch (activeTab) {
-      case "leads":
-        return {
-          description: "Tiếp nhận yêu cầu từ website, theo dõi liên hệ và chuyển đổi thành hồ sơ học viên.",
-        };
-      case "students":
-        return {
-          description: "Tra cứu hồ sơ, tình trạng học vụ, mục tiêu và kết quả học tập của từng học viên.",
-        };
-      case "enrollments":
-      default:
-        return {
-          description: "Xếp lớp cho học viên đã đăng ký, theo dõi trạng thái tham gia và cập nhật ghi chú học thuật.",
-        };
-    }
-  };
-
-  const headerProps = getPageHeaderProps();
-
   return (
-    <section className="space-y-6">
-      <PageHeader
-        eyebrow="Tuyển sinh và học vụ"
-        title="Tuyển sinh & học viên"
-        description={headerProps.description}
-        action={
-          activeTab === "enrollments" ? (
-            <PrimaryAction onClick={createPlacement}>Xếp học viên vào lớp</PrimaryAction>
-          ) : undefined
-        }
-      />
+    <section className="space-y-2.5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/25 text-primary shadow-2xs ring-1 ring-primary/20">
+            <GraduationCap size={18} weight="duotone" />
+          </span>
+          <h1 className="font-display text-xl md:text-2xl font-extrabold tracking-tight text-on-surface">
+            Tuyển sinh &amp; học viên
+          </h1>
+        </div>
 
-      <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-outline-variant/35 bg-surface p-1.5" role="tablist" aria-label="Phân hệ tuyển sinh và học viên">
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
+      <nav className="flex shrink-0 gap-1 rounded-lg border border-outline-variant/35 bg-surface p-0.5" role="tablist" aria-label="Phân hệ tuyển sinh và học viên">
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "students"}
           onClick={() => selectTab("students")}
-          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+          className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-xs font-bold transition ${
             activeTab === "students"
-              ? "bg-primary text-on-primary shadow-sm"
+              ? "bg-primary text-on-primary shadow-xs"
               : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
           }`}
         >
-          <Users size={18} /> Danh sách học viên
+          <Users size={16} /> Danh sách học viên
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "leads"}
           onClick={() => selectTab("leads")}
-          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+          className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-xs font-bold transition ${
             activeTab === "leads"
-              ? "bg-primary text-on-primary shadow-sm"
+              ? "bg-primary text-on-primary shadow-xs"
               : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
           }`}
         >
-          <ChatCircleDots size={18} /> Yêu cầu tư vấn
+          <ChatCircleDots size={16} /> Yêu cầu tư vấn
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "enrollments"}
           onClick={() => selectTab("enrollments")}
-          className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+          className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-xs font-bold transition ${
             activeTab === "enrollments"
-              ? "bg-primary text-on-primary shadow-sm"
+              ? "bg-primary text-on-primary shadow-xs"
               : "text-on-surface-variant hover:bg-primary-container/10 hover:text-primary"
           }`}
         >
-          <Student size={18} /> Ghi danh & xếp lớp
+          <Student size={16} /> Ghi danh &amp; xếp lớp
         </button>
       </nav>
+          {activeTab === "enrollments" && <PrimaryAction onClick={createPlacement}>Xếp học viên vào lớp</PrimaryAction>}
+        </div>
+      </div>
 
       {activeTab === "students" && <StudentsPage embedded />}
 

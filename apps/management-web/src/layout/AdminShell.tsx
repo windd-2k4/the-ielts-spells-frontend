@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Books, CaretLeft, CaretRight, ChartDonut, Exam, FileAudio, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
+  BookOpenText, Books, CaretLeft, CaretRight, ChartDonut, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
   SlidersHorizontal, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
@@ -77,8 +77,6 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
     title: "NỘI DUNG ĐÀO TẠO",
     items: [
       { to: "/library", label: "Kho học liệu", icon: Books, roles: ["admin", "teacher"] },
-      { to: "/test-bank", label: "Ngân hàng đề", icon: Exam, roles: ["admin", "teacher"] },
-      { to: "/media", label: "Kho Media", icon: FileAudio, roles: ["admin", "teacher"] },
       { to: "/cms", label: "Nội dung truyền thông", icon: Megaphone, roles: ["admin", "social_media"] },
     ],
   },

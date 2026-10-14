@@ -1,6 +1,6 @@
 import {
   CalendarBlank,
-  Check,
+  CheckCircle,
   Envelope,
   Info,
   LockKey,
@@ -89,12 +89,13 @@ export default function StudentProfileDetail({
 
   const emergency = normalizeEmergencyContact(student.emergencyContact);
   const profileCompleteness = getCompleteness(student);
+  const missingFields = getMissingProfileFields(student);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Student Profile Header Banner */}
-      <header className="relative overflow-hidden rounded-[22px] border border-outline-variant/35 bg-surface p-5 shadow-sm md:p-7">
-        <div className="absolute right-0 top-0 h-40 w-40 rounded-bl-full bg-primary-container/10" aria-hidden="true" />
+      <header className="profile-saas-panel profile-enter relative overflow-hidden rounded-[20px] border p-5">
+        <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-primary-container/10" aria-hidden="true" />
         {onClose && (
           <button
             type="button"
@@ -105,7 +106,7 @@ export default function StudentProfileDetail({
             <X size={18} />
           </button>
         )}
-        <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="flex min-w-0 items-center gap-4">
             <Avatar student={student} />
             <div className="min-w-0">
@@ -124,7 +125,7 @@ export default function StudentProfileDetail({
                   <CalendarBlank size={14} className="text-primary" /> Gia nhập: {date(student.joinedAt)}
                 </span>
               </div>
-              <h1 className="truncate font-display text-2xl font-extrabold text-on-surface md:text-3xl">
+              <h1 className="truncate font-display text-2xl font-extrabold text-on-surface">
                 {student.fullName}
               </h1>
               <p className="mt-1 text-sm text-on-surface-variant">
@@ -135,29 +136,12 @@ export default function StudentProfileDetail({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-on-primary shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2"
           >
             <NotePencil size={18} /> Chỉnh sửa hồ sơ
           </button>
         </div>
 
-        {/* Quick KPI Bar */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-outline-variant/20 pt-5">
-          <BandCard label="Band hiện tại" value={student.currentBand} tone="neutral" />
-          <BandCard label="Band mục tiêu" value={student.targetBand} tone="primary" />
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low/45 p-4">
-            <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Chênh lệch Band</span>
-            <strong className="mt-1 block text-2xl tabular-nums text-indigo-600">
-              {student.targetBand && student.currentBand
-                ? `+${(student.targetBand - student.currentBand).toFixed(1)}`
-                : "—"}
-            </strong>
-          </div>
-          <div className="rounded-2xl border border-outline-variant/35 bg-surface-container-low/45 p-4">
-            <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Hoàn thiện hồ sơ</span>
-            <strong className="mt-1 block text-2xl tabular-nums text-emerald-600">{profileCompleteness}%</strong>
-          </div>
-        </div>
       </header>
 
       {insights !== undefined && (
@@ -171,75 +155,76 @@ export default function StudentProfileDetail({
         />
       )}
 
-      {/* Main Grid: Profile Details + Sidebar */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <Panel title="Thông tin cá nhân" description="Dữ liệu định danh và thông tin liên hệ được quản lý lưu trữ trên hệ thống.">
-            <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
-              <InfoRow icon={<Envelope />} label="Email" value={student.email} missing="Chưa có email" />
-              <InfoRow icon={<Phone />} label="Số điện thoại" value={student.phone} missing="Chưa có số điện thoại" />
-              <InfoRow icon={<CalendarBlank />} label="Ngày sinh" value={student.dateOfBirth ? date(student.dateOfBirth) : null} missing="Chưa cập nhật" />
-              <InfoRow icon={<MapPin />} label="Địa chỉ" value={student.address} missing="Chưa cập nhật" />
-            </div>
-          </Panel>
+      <div className="profile-enter profile-enter-delay-3 grid items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
+        <Panel icon={<UserCircle size={20} weight="duotone" />} title="Thông tin hồ sơ" description="Thông tin nhận diện, liên hệ và người thân của học viên.">
+          <div className="grid gap-3 md:grid-cols-2">
+            <InfoRow icon={<Envelope />} label="Email" value={student.email} missing="Chưa có email" />
+            <InfoRow icon={<Phone />} label="Số điện thoại" value={student.phone} missing="Chưa có số điện thoại" />
+            <InfoRow icon={<CalendarBlank />} label="Ngày sinh" value={student.dateOfBirth ? date(student.dateOfBirth) : null} missing="Chưa cập nhật" />
+            <InfoRow icon={<MapPin />} label="Địa chỉ" value={student.address} missing="Chưa cập nhật" />
+          </div>
 
-          <Panel title="Liên hệ khẩn cấp" description="Thông tin người thân được liên hệ trong các tình huống cần thiết.">
+          <div className="mt-4 rounded-xl border border-primary/10 bg-primary-container/10 p-4">
+            <div className="flex items-center gap-2">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-surface text-primary"><Users size={17} weight="duotone" /></span>
+              <div>
+                <h3 className="text-sm font-bold text-on-surface">Liên hệ khẩn cấp</h3>
+                <p className="text-xs text-on-surface-variant">Thông tin người thân hoặc người giám hộ.</p>
+              </div>
+            </div>
             {emergency.hasData ? (
-              <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <InfoRow icon={<UserCircle />} label="Người liên hệ" value={emergency.name} missing="Chưa cập nhật" />
                 <InfoRow icon={<Users />} label="Mối quan hệ" value={emergency.relationship} missing="Chưa cập nhật" />
-                <InfoRow icon={<Phone />} label="Số điện thoại khẩn cấp" value={emergency.phone} missing="Chưa cập nhật" />
+                <InfoRow icon={<Phone />} label="Số điện thoại" value={emergency.phone} missing="Chưa cập nhật" />
               </div>
             ) : (
-              <EmptyLine text="Chưa có thông tin liên hệ khẩn cấp." />
+              <p className="mt-3 rounded-lg bg-surface/75 px-3 py-2 text-sm text-on-surface-variant">Chưa có thông tin liên hệ khẩn cấp.</p>
             )}
-          </Panel>
-        </div>
+          </div>
+        </Panel>
 
-        {/* Sidebar Column */}
-        <aside className="space-y-6">
-          <Panel title="Mức độ hoàn thiện hồ sơ">
-            <div className="flex items-end justify-between">
-              <strong className="text-4xl tabular-nums text-on-surface">{profileCompleteness}%</strong>
-              <span className="text-xs font-bold text-on-surface-variant">dữ liệu thiết yếu</span>
+        <Panel icon={<CheckCircle size={20} weight="duotone" />} title="Tình trạng hồ sơ" description="Theo dõi nhanh dữ liệu cần bổ sung.">
+          <div className="rounded-xl border border-primary/10 bg-primary-container/10 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <strong className="text-3xl tabular-nums text-on-surface">{profileCompleteness}%</strong>
+                <span className="ml-2 text-xs font-semibold text-on-surface-variant">đã hoàn thiện</span>
+              </div>
+              <span className="rounded-lg bg-surface px-2.5 py-1 text-xs font-bold text-primary shadow-sm">{missingFields.length ? `${missingFields.length} mục còn thiếu` : "Đã đầy đủ"}</span>
             </div>
-            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-surface-container">
-              <div
-                className="h-full bg-primary transition-all duration-500 rounded-full"
-                style={{ width: `${profileCompleteness}%` }}
-              />
+            <div
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface"
+              role="progressbar"
+              aria-label="Mức độ hoàn thiện hồ sơ"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={profileCompleteness}
+            >
+              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${profileCompleteness}%` }} />
             </div>
-            {profileCompleteness < 100 && (
-              <p className="mt-3 text-xs leading-5 text-on-surface-variant">
-                Cập nhật bổ sung các thông tin còn thiếu để trung tâm duy trì liên lạc và hỗ trợ học tập chu đáo.
-              </p>
-            )}
-          </Panel>
+          </div>
 
-          <Panel title="Ghi chú học vụ">
-            {student.notes ? (
-              <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface bg-surface-container-low/40 p-4 rounded-xl border border-outline-variant/25">
-                {student.notes}
-              </p>
+          <div className="mt-4">
+            <h3 className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">{missingFields.length ? "Cần bổ sung" : "Hồ sơ sẵn sàng"}</h3>
+            {missingFields.length ? (
+              <ul className="mt-2 grid gap-2 text-sm text-on-surface-variant sm:grid-cols-2">
+                {missingFields.map(field => (
+                  <li key={field} className="flex items-center gap-2 rounded-lg bg-surface-container-low/65 px-3 py-2"><WarningCircle size={16} className="shrink-0 text-amber-600" />{field}</li>
+                ))}
+              </ul>
             ) : (
-              <EmptyLine text="Chưa có ghi chú học vụ." />
+              <p className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"><CheckCircle size={17} /> Dữ liệu thiết yếu đã được cập nhật.</p>
             )}
-          </Panel>
+          </div>
 
-          <Panel title="Nguyên tắc quản lý hồ sơ">
-            <ul className="space-y-3 text-sm leading-5 text-on-surface-variant">
-              <li className="flex gap-2">
-                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Mỗi học viên duy trì 1 mã định danh duy nhất.
-              </li>
-              <li className="flex gap-2">
-                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Mỗi đợt học tạo 1 lượt ghi danh riêng biệt.
-              </li>
-              <li className="flex gap-2">
-                <Check className="mt-0.5 shrink-0 text-primary" size={16} /> Yêu cầu bảo lưu & chuyển lớp cần qua phê duyệt.
-              </li>
-            </ul>
-          </Panel>
-        </aside>
+          <div className="mt-4 rounded-xl border border-outline-variant/25 bg-surface-container-low/35 p-4">
+            <h3 className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Ghi chú học vụ</h3>
+            <p className={`mt-1 whitespace-pre-wrap text-sm leading-6 ${student.notes ? "text-on-surface" : "text-on-surface-variant"}`}>
+              {student.notes || "Chưa có ghi chú học vụ."}
+            </p>
+          </div>
+        </Panel>
       </div>
 
       {editing && (
@@ -436,12 +421,15 @@ function EditStudentModal({ student, onClose, onSaved }: { student: StudentDetai
   );
 }
 
-function Panel({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function Panel({ icon, title, description, children }: { icon: ReactNode; title: string; description?: string; children: ReactNode }) {
   return (
-    <section className="rounded-[20px] border border-outline-variant/35 bg-surface p-5 shadow-sm md:p-6">
-      <div className="mb-5">
-        <h2 className="font-display text-lg font-bold text-on-surface">{title}</h2>
-        {description && <p className="mt-1 text-sm text-on-surface-variant">{description}</p>}
+    <section className="profile-saas-panel rounded-[18px] border p-5 md:p-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-container/20 text-primary">{icon}</span>
+        <div>
+          <h2 className="font-display text-lg font-bold text-on-surface">{title}</h2>
+          {description && <p className="mt-0.5 text-sm text-on-surface-variant">{description}</p>}
+        </div>
       </div>
       {children}
     </section>
@@ -450,36 +438,21 @@ function Panel({ title, description, children }: { title: string; description?: 
 
 function InfoRow({ icon, label, value, missing }: { icon: ReactNode; label: string; value: string | null | undefined; missing: string }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 border-b border-outline-variant/20 py-4">
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-outline-variant/25 bg-surface-container-low/35 p-3">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-container/20 text-primary">{icon}</span>
       <div className="min-w-0">
         <span className="block text-[11px] font-bold uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
-        <span className={`mt-1 block break-words text-sm font-bold ${value ? "text-on-surface" : "text-amber-700"}`}>{value || missing}</span>
+        <span className={`mt-0.5 block break-words text-sm font-bold ${value ? "text-on-surface" : "text-amber-700"}`}>{value || missing}</span>
       </div>
-    </div>
-  );
-}
-
-function BandCard({ label, value, tone }: { label: string; value: number | null; tone: "neutral" | "primary" }) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        tone === "primary" ? "border-primary/20 bg-primary-container/15" : "border-outline-variant/35 bg-surface-container-low/45"
-      }`}
-    >
-      <span className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
-      <strong className={`mt-1 block text-2xl tabular-nums ${tone === "primary" ? "text-primary" : "text-on-surface"}`}>
-        {value ?? "Chưa có"}
-      </strong>
     </div>
   );
 }
 
 function Avatar({ student }: { student: StudentDetail }) {
   return student.avatarPath ? (
-    <img src={student.avatarPath} alt="" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+    <img src={student.avatarPath} alt={`Ảnh đại diện của ${student.fullName}`} className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
   ) : (
-    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-primary-container/35 text-2xl font-black text-primary">
+    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary-container/35 text-xl font-black text-primary">
       {student.fullName.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -544,10 +517,6 @@ function Field({
   );
 }
 
-function EmptyLine({ text }: { text: string }) {
-  return <p className="rounded-xl border border-dashed border-outline-variant/55 bg-surface-container-low/35 p-4 text-sm text-on-surface-variant">{text}</p>;
-}
-
 function State({ title, text, action }: { title: string; text: string; action: () => void }) {
   return (
     <div className="rounded-[20px] border border-error/25 bg-error-container/10 p-10 text-center">
@@ -584,6 +553,19 @@ function getCompleteness(student: StudentDetail) {
   const emergency = normalizeEmergencyContact(student.emergencyContact);
   const fields = [student.fullName, student.email, student.phone, student.dateOfBirth, student.address, student.currentBand, student.targetBand, emergency.phone];
   return Math.round((fields.filter(value => value !== null && value !== undefined && value !== "").length / fields.length) * 100);
+}
+
+function getMissingProfileFields(student: StudentDetail) {
+  const emergency = normalizeEmergencyContact(student.emergencyContact);
+  return [
+    ["Email", student.email],
+    ["Số điện thoại", student.phone],
+    ["Ngày sinh", student.dateOfBirth],
+    ["Địa chỉ", student.address],
+    ["Band hiện tại", student.currentBand],
+    ["Band mục tiêu", student.targetBand],
+    ["Liên hệ khẩn cấp", emergency.phone],
+  ].filter(([, value]) => value === null || value === undefined || value === "").map(([label]) => label as string);
 }
 
 function toNumber(value: string) {
