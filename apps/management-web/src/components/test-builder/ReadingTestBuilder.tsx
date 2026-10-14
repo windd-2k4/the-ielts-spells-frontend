@@ -218,13 +218,17 @@ function normalizeQuestion(question: QuestionCardItem): QuestionCardItem {
   };
 }
 
+function defaultMultipleOptions(): QuestionOption[] {
+  return ["A", "B", "C", "D", "E"].map((label) => ({ id: newId("option"), label, text: "" }));
+}
+
 function createQuestion(number: number, typeFormat: QuestionTypeFormat): QuestionCardItem {
   return normalizeQuestion({
     id: newId("question"),
     number,
     typeFormat,
     prompt: "",
-    options: needsOptions(typeFormat) ? defaultOptions() : [],
+    options: typeFormat === "MULTIPLE_ANSWERS" ? defaultMultipleOptions() : needsOptions(typeFormat) ? defaultOptions() : [],
     correctAnswers: [],
     acceptableAnswers: [],
     explanation: "",
@@ -274,33 +278,56 @@ function createGroup(
 
 function toQuestionGroups(value: unknown): QuestionGroupItem[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).map((group) => ({
-    id: typeof group.id === "string" ? group.id : newId("group"),
-    title: typeof group.title === "string" ? group.title : "Questions",
-    titleMode: group.titleMode === "CUSTOM"
-      || (typeof group.title === "string" && !/^Questions?\s+\d/i.test(group.title))
-      ? "CUSTOM"
-      : "AUTO",
-    startQuestionNo: typeof group.startQuestionNo === "number" ? group.startQuestionNo : 1,
-    endQuestionNo: typeof group.endQuestionNo === "number" ? group.endQuestionNo : 1,
-    typeFormat: isQuestionType(group.typeFormat) ? group.typeFormat : "FILL_IN_BLANK",
-    instructions: typeof group.instructions === "string"
-      ? group.instructions
-      : getReadingQuestionTypeDefinition(isQuestionType(group.typeFormat) ? group.typeFormat : "FILL_IN_BLANK").defaultInstructions,
-    wordLimitRule: typeof group.wordLimitRule === "string" ? group.wordLimitRule : "",
-    answerSource: group.answerSource === "OPTION_BANK" ? "OPTION_BANK" : "PASSAGE",
-    requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
-    sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as SharedOptionItem[] : [],
-    allowOptionReused: typeof group.allowOptionReused === "boolean" ? group.allowOptionReused : false,
-    gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
-    gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
-    illustration: readGroupIllustration(group.illustration),
-    linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
-    questions: Array.isArray(group.questions)
+  return value.filter(isRecord).map((group) => {
+    const questions = Array.isArray(group.questions)
       ? (group.questions as QuestionCardItem[]).map(normalizeQuestion)
-      : [],
-    isCollapsed: typeof group.isCollapsed === "boolean" ? group.isCollapsed : false,
-  }));
+      : [];
+    const type = isQuestionType(group.typeFormat) ? group.typeFormat : "FILL_IN_BLANK";
+    if (type === "MULTIPLE_ANSWERS" && questions.length > 0) {
+      const k = typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : 2;
+      for (let i = 0; i < questions.length; i += k) {
+        const primary = questions[i];
+        for (let j = 1; j < k && i + j < questions.length; j++) {
+          const sibling = questions[i + j];
+          if (!sibling.prompt && primary.prompt) sibling.prompt = primary.prompt;
+          if ((!sibling.options || sibling.options.length === 0) && primary.options?.length) {
+            sibling.options = primary.options;
+          }
+          if ((!sibling.correctAnswers || sibling.correctAnswers.length === 0) && primary.correctAnswers?.length) {
+            sibling.correctAnswers = primary.correctAnswers;
+          }
+          if (!sibling.explanation && primary.explanation) {
+            sibling.explanation = primary.explanation;
+          }
+        }
+      }
+    }
+    return {
+      id: typeof group.id === "string" ? group.id : newId("group"),
+      title: typeof group.title === "string" ? group.title : "Questions",
+      titleMode: group.titleMode === "CUSTOM"
+        || (typeof group.title === "string" && !/^Questions?\s+\d/i.test(group.title))
+        ? "CUSTOM"
+        : "AUTO",
+      startQuestionNo: typeof group.startQuestionNo === "number" ? group.startQuestionNo : 1,
+      endQuestionNo: typeof group.endQuestionNo === "number" ? group.endQuestionNo : 1,
+      typeFormat: type,
+      instructions: typeof group.instructions === "string"
+        ? group.instructions
+        : getReadingQuestionTypeDefinition(type).defaultInstructions,
+      wordLimitRule: typeof group.wordLimitRule === "string" ? group.wordLimitRule : "",
+      answerSource: group.answerSource === "OPTION_BANK" ? "OPTION_BANK" : "PASSAGE",
+      requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
+      sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as SharedOptionItem[] : [],
+      allowOptionReused: typeof group.allowOptionReused === "boolean" ? group.allowOptionReused : false,
+      gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
+      gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
+      illustration: readGroupIllustration(group.illustration),
+      linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
+      questions,
+      isCollapsed: typeof group.isCollapsed === "boolean" ? group.isCollapsed : false,
+    };
+  });
 }
 
 function isQuestionType(value: unknown): value is QuestionTypeFormat {

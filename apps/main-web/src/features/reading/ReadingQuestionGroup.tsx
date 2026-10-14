@@ -313,6 +313,148 @@ function MCQuestionGroup({
       ? group.answerConfig.requiredAnswerCount
       : 2;
 
+  if (isMultipleAnswers) {
+    const clusterSize = requiredCount;
+    const clusters: ReadingQuestion[][] = [];
+    for (let i = 0; i < group.questions.length; i += clusterSize) {
+      clusters.push(group.questions.slice(i, i + clusterSize));
+    }
+
+    return (
+      <section className={styles.questionGroup} aria-labelledby={`group-${group.key}`}>
+        <div className={styles.groupHeading}>
+          <div>
+            <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
+            <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
+            {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          </div>
+          <span className={styles.questionCount}>{group.questions.length} câu</span>
+        </div>
+
+        <div className={styles.questionList}>
+          {clusters.map((cluster) => {
+            const primaryQuestion = cluster[0];
+            const startNum = primaryQuestion.number;
+            const endNum = cluster.at(-1)?.number ?? startNum;
+            const hasMultipleNumbers = startNum !== endNum;
+
+            let selectedValues: string[] = [];
+            for (const q of cluster) {
+              const vals = answerValues(answers[q.key]);
+              if (vals.length > selectedValues.length) {
+                selectedValues = vals;
+              }
+            }
+            if (selectedValues.length === 0) {
+              const collected = cluster.map((q) => answers[q.key]?.value).filter((v): v is string => Boolean(v));
+              if (collected.length > 0) {
+                selectedValues = Array.from(new Set(collected));
+              }
+            }
+
+            const options = questionOptions(primaryQuestion, group);
+            const active = cluster.some((q) => activeQuestionKey === q.key);
+            const flagged = cluster.some((q) => flaggedKeys.has(q.key));
+            const currentCount = selectedValues.length;
+
+            const handleClusterOptionToggle = (optionKey: string) => {
+              const isChecked = selectedValues.includes(optionKey);
+              let nextValues: string[];
+              if (isChecked) {
+                nextValues = selectedValues.filter((v) => v !== optionKey);
+              } else {
+                if (selectedValues.length >= requiredCount) {
+                  nextValues = [...selectedValues.slice(1), optionKey];
+                } else {
+                  nextValues = [...selectedValues, optionKey];
+                }
+              }
+
+              cluster.forEach((q, idx) => {
+                const singleVal = nextValues[idx] ?? "";
+                onAnswer(q.key, {
+                  value: singleVal,
+                  values: nextValues,
+                });
+              });
+            };
+
+            return (
+              <article
+                key={primaryQuestion.key}
+                id={`reading-question-${primaryQuestion.key}`}
+                className={`${styles.mcQuestion} ${styles.mcMultipleCluster} ${active ? styles.mcQuestionActive : ""}`}
+                onClick={() => onQuestionFocus(primaryQuestion.key)}
+              >
+                {cluster.slice(1).map((q) => (
+                  <span key={q.key} id={`reading-question-${q.key}`} className="sr-only" />
+                ))}
+
+                <div className={styles.mcTopline}>
+                  <div className={styles.mcPromptWrapper}>
+                    <div className={styles.multipleBadgeRow}>
+                      <span className={styles.multipleBadgeCircle}>{startNum}</span>
+                      {hasMultipleNumbers && (
+                        <>
+                          <span className={styles.multipleBadgeDash}>–</span>
+                          <span className={styles.multipleBadgeCircle}>{endNum}</span>
+                        </>
+                      )}
+                    </div>
+                    <span className={styles.mcPromptText}>{primaryQuestion.prompt || "Nội dung câu hỏi"}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cluster.forEach((q) => onToggleFlag(q.key));
+                    }}
+                    aria-pressed={flagged}
+                    title="Đánh dấu câu này"
+                  >
+                    <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                  </button>
+                </div>
+
+                <div className={styles.mcCounterWrapper}>
+                  <span className={`${styles.mcCounterBadge} ${currentCount === requiredCount ? styles.mcCounterBadgeDone : ""}`}>
+                    <CheckSquare size={14} weight="bold" />
+                    Đã chọn {currentCount} / {requiredCount} đáp án
+                  </span>
+                </div>
+
+                <div className={styles.mcOptionsList} style={{ marginLeft: 0 }}>
+                  {options.map((option) => {
+                    const isChecked = selectedValues.includes(option.key) || selectedValues.includes(option.code ?? "");
+                    const label = optionLabel(option.code, option.text);
+
+                    return (
+                      <label
+                        key={option.key}
+                        className={`${styles.mcOptionRow} ${styles.mcOptionRowMultiple} ${isChecked ? styles.mcOptionRowChecked : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          name={`mc-cluster-${primaryQuestion.key}`}
+                          checked={isChecked}
+                          onChange={() => handleClusterOptionToggle(option.key)}
+                          className={styles.customCheckbox}
+                        />
+                        <span className={styles.radioLabelText}>{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.questionGroup} aria-labelledby={`group-${group.key}`}>
       <div className={styles.groupHeading}>
@@ -331,23 +473,9 @@ function MCQuestionGroup({
           const options = questionOptions(question, group);
           const active = activeQuestionKey === question.key;
           const flagged = flaggedKeys.has(question.key);
-          const currentCount = selectedValues.length;
 
           const handleOptionToggle = (optionKey: string) => {
-            if (isMultipleAnswers) {
-              const isChecked = selectedValues.includes(optionKey);
-              if (isChecked) {
-                onAnswer(question.key, { values: selectedValues.filter((v) => v !== optionKey) });
-              } else {
-                if (selectedValues.length >= requiredCount) {
-                  onAnswer(question.key, { values: [...selectedValues.slice(1), optionKey] });
-                } else {
-                  onAnswer(question.key, { values: [...selectedValues, optionKey] });
-                }
-              }
-            } else {
-              onAnswer(question.key, { value: optionKey });
-            }
+            onAnswer(question.key, { value: optionKey });
           };
 
           return (
@@ -376,15 +504,6 @@ function MCQuestionGroup({
                 </button>
               </div>
 
-              {isMultipleAnswers ? (
-                <div className={styles.mcCounterWrapper}>
-                  <span className={`${styles.mcCounterBadge} ${currentCount === requiredCount ? styles.mcCounterBadgeDone : ""}`}>
-                    <CheckSquare size={14} weight="bold" />
-                    Đã chọn {currentCount} / {requiredCount} đáp án
-                  </span>
-                </div>
-              ) : null}
-
               <div className={styles.mcOptionsList}>
                 {options.map((option) => {
                   const isChecked = selectedValues.includes(option.key) || selectedValues.includes(option.code ?? "");
@@ -396,11 +515,11 @@ function MCQuestionGroup({
                       className={`${styles.mcOptionRow} ${isChecked ? styles.mcOptionRowChecked : ""}`}
                     >
                       <input
-                        type={isMultipleAnswers ? "checkbox" : "radio"}
+                        type="radio"
                         name={`mc-q-${question.key}`}
                         checked={isChecked}
                         onChange={() => handleOptionToggle(option.key)}
-                        className={isMultipleAnswers ? styles.customCheckbox : styles.circularRadio}
+                        className={styles.circularRadio}
                       />
                       <span className={styles.radioLabelText}>{label}</span>
                     </label>

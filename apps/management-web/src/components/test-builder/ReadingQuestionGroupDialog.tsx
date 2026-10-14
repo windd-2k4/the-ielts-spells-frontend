@@ -349,17 +349,46 @@ export default function ReadingQuestionGroupDialog({
               )}
 
               {typeFormat === "MULTIPLE_ANSWERS" && (
-                <label className="block rounded-2xl border border-[#e3dce2] p-4">
-                  <span className="mb-1.5 block text-[11px] font-bold text-[#746A6E]">Số đáp án cần chọn mỗi câu</span>
-                  <input
-                    type="number"
-                    min={2}
-                    max={6}
-                    value={requiredAnswerCount}
-                    onChange={(event) => setRequiredAnswerCount(Number(event.target.value))}
-                    className="min-h-10 w-full rounded-xl border border-[#e3dce2] px-3 text-xs focus:border-[#8f4458] focus:outline-none"
-                  />
-                </label>
+                <div className="rounded-2xl border border-[#e3dce2] p-4">
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-bold text-[#746A6E]">Số đáp án cần chọn mỗi câu</span>
+                    <input
+                      type="number"
+                      min={2}
+                      max={6}
+                      value={requiredAnswerCount}
+                      onChange={(event) => setRequiredAnswerCount(Number(event.target.value))}
+                      className="min-h-10 w-full rounded-xl border border-[#e3dce2] px-3 text-xs focus:border-[#8f4458] focus:outline-none"
+                    />
+                  </label>
+                  <div className="mt-3 rounded-xl border border-[#8f4458]/20 bg-[#fff8fa] p-3">
+                    <p className="text-[11px] leading-4 text-[#746A6E]">
+                      Mỗi câu hỏi gộp chiếm <strong>{requiredAnswerCount} câu</strong> (VD: Câu {startQuestionNo}–{startQuestionNo + requiredAnswerCount - 1}).
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuestionCount(requiredAnswerCount);
+                          setInstructions(`Choose ${requiredAnswerCount === 2 ? "TWO" : requiredAnswerCount === 3 ? "THREE" : requiredAnswerCount} letters, A-${String.fromCharCode(64 + requiredAnswerCount + 3)}.`);
+                        }}
+                        className="rounded-lg border border-[#8f4458]/40 bg-white px-2.5 py-1 text-[11px] font-bold text-[#8f4458] hover:bg-[#fff0f4]"
+                      >
+                        1 câu gộp ({requiredAnswerCount} câu)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuestionCount(requiredAnswerCount * 2);
+                          setInstructions(`Choose ${requiredAnswerCount === 2 ? "TWO" : requiredAnswerCount === 3 ? "THREE" : requiredAnswerCount} letters, A-${String.fromCharCode(64 + requiredAnswerCount + 3)}.`);
+                        }}
+                        className="rounded-lg border border-[#8f4458]/40 bg-white px-2.5 py-1 text-[11px] font-bold text-[#8f4458] hover:bg-[#fff0f4]"
+                      >
+                        2 câu gộp ({requiredAnswerCount * 2} câu)
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {usesSharedOptions && (

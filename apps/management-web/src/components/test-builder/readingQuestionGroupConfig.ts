@@ -48,7 +48,7 @@ export const readingQuestionTypeDefinitions: ReadingQuestionTypeDefinition[] = [
     shortLabel: "Trắc nghiệm nhiều đáp án",
     category: "CHOICE",
     description: "Một yêu cầu có nhiều đáp án đúng; cấu hình số đáp án cần chọn ở cấp group.",
-    defaultInstructions: "Choose the correct letters.",
+    defaultInstructions: "Choose TWO letters, A-E.",
     usesQuestionOptions: true,
     defaultRequiredAnswerCount: 2,
   },

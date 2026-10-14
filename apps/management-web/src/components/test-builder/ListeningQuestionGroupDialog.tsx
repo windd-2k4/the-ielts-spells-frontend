@@ -49,7 +49,7 @@ const listeningTypes: QuestionTypeFormat[] = [
 
 const listeningInstructions: Partial<Record<QuestionTypeFormat, string>> = {
   MULTIPLE_CHOICE: "Choose the correct letter, A, B or C.",
-  MULTIPLE_ANSWERS: "Choose the correct letters.",
+  MULTIPLE_ANSWERS: "Choose TWO letters, A-E.",
   MATCHING_FEATURES: "Match each item with the correct option from the list below.",
   FILL_IN_BLANK: "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
   NOTE_COMPLETION: "Complete the notes below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
@@ -248,6 +248,49 @@ export default function ListeningQuestionGroupDialog({
                       <p className="mt-1.5 text-[11px] leading-4 text-[#746A6E]">
                         Bản đồ đánh số các vị trí. Học viên nghe và tự gõ từ cần điền vào từng câu theo giới hạn Word limit.
                       </p>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {typeFormat === "MULTIPLE_ANSWERS" && (
+                <div className="mt-4 rounded-2xl border-2 border-[#8f4458]/25 bg-[#fff8fa] p-4">
+                  <span className="block text-xs font-extrabold uppercase tracking-wide text-[#8f4458]">
+                    Quy cách câu hỏi gộp Multiple Answers (Chuẩn đề IELTS)
+                  </span>
+                  <p className="mt-1.5 text-xs leading-5 text-[#746A6E]">
+                    Trong đề thi IELTS, một câu hỏi chọn {requiredAnswerCount} đáp án sẽ chiếm{" "}
+                    <strong>{requiredAnswerCount} số thứ tự câu hỏi</strong> (ví dụ: Câu {startQuestionNo}–{startQuestionNo + requiredAnswerCount - 1} gộp vào 1 câu hỏi chọn {requiredAnswerCount} đáp án).
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold text-[#746A6E]">Chọn nhanh:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuestionCount(requiredAnswerCount);
+                        setInstructions(`Choose ${requiredAnswerCount === 2 ? "TWO" : requiredAnswerCount === 3 ? "THREE" : requiredAnswerCount} letters, A-${String.fromCharCode(64 + requiredAnswerCount + 3)}.`);
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                        questionCount === requiredAnswerCount
+                          ? "border-[#8f4458] bg-[#8f4458] text-white shadow-sm"
+                          : "border-[#e3dce2] bg-white text-[#746A6E] hover:border-[#8f4458]"
+                      }`}
+                    >
+                      1 câu gộp ({requiredAnswerCount} câu: {startQuestionNo}–{startQuestionNo + requiredAnswerCount - 1})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuestionCount(requiredAnswerCount * 2);
+                        setInstructions(`Choose ${requiredAnswerCount === 2 ? "TWO" : requiredAnswerCount === 3 ? "THREE" : requiredAnswerCount} letters, A-${String.fromCharCode(64 + requiredAnswerCount + 3)}.`);
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                        questionCount === requiredAnswerCount * 2
+                          ? "border-[#8f4458] bg-[#8f4458] text-white shadow-sm"
+                          : "border-[#e3dce2] bg-white text-[#746A6E] hover:border-[#8f4458]"
+                      }`}
+                    >
+                      2 câu gộp ({requiredAnswerCount * 2} câu: {startQuestionNo}–{startQuestionNo + requiredAnswerCount * 2 - 1})
                     </button>
                   </div>
                 </div>

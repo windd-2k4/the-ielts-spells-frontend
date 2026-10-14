@@ -580,6 +580,86 @@ function QuestionGroup({ group, responses, review, showAnswers, showExplanations
       <DiagramRadioGrid group={group} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={onAnswer} />
     ) : hasGapTemplate ? (
       <GapTemplate group={group} responses={responses} review={review} showAnswers={showAnswers} showExplanations={showExplanations} onAnswer={onAnswer} />
+    ) : group.typeFormat === "MULTIPLE_ANSWERS" ? (
+      <div className="mt-4 space-y-4">
+        {(() => {
+          const k = group.requiredAnswerCount ?? 2;
+          const clusters: QuestionCardItem[][] = [];
+          for (let i = 0; i < group.questions.length; i += k) {
+            clusters.push(group.questions.slice(i, i + k));
+          }
+          return clusters.map((cluster) => {
+            const primary = cluster[0];
+            const startNum = primary.number;
+            const endNum = cluster.at(-1)?.number ?? startNum;
+            const hasMultiple = startNum !== endNum;
+            const clusterResponse = Array.from(new Set(cluster.flatMap((q) => responses[q.id] ?? [])));
+            const options = primary.options.map((opt) => ({ id: opt.id, label: `${opt.label}. ${opt.text}` }));
+
+            const handleToggle = (optId: string) => {
+              const checked = clusterResponse.includes(optId);
+              let next: string[];
+              if (checked) {
+                next = clusterResponse.filter((id) => id !== optId);
+              } else {
+                next = clusterResponse.length >= k ? [...clusterResponse.slice(1), optId] : [...clusterResponse, optId];
+              }
+              cluster.forEach((q, idx) => {
+                const single = next[idx] ? [next[idx]] : [];
+                onAnswer(q.id, single);
+              });
+            };
+
+            return (
+              <article key={primary.id} id={`preview-question-${primary.id}`} className="rounded-2xl bg-[#F7F5F4] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex shrink-0 items-center gap-1 rounded-lg bg-[#AD4C64] px-2.5 py-1 text-xs font-bold text-white">
+                    <span>{startNum}</span>
+                    {hasMultiple && (
+                      <>
+                        <span>–</span>
+                        <span>{endNum}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-6 text-[#292528]">{primary.prompt || "Câu hỏi chưa có nội dung."}</p>
+                    <fieldset className="mt-3 grid gap-2">
+                      <legend className="sr-only">Các lựa chọn câu {startNum}–{endNum}</legend>
+                      {options.map((option) => {
+                        const checked = clusterResponse.includes(option.id);
+                        return (
+                          <label key={option.id} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${checked ? "border-[#C85F78] bg-[#F7E5EA]" : "border-[#DED7DA] bg-white hover:border-[#C85F78]/60"} ${review ? "cursor-default" : ""}`}>
+                            <input
+                              type="checkbox"
+                              name={`preview-cluster-${primary.id}`}
+                              checked={checked}
+                              disabled={review}
+                              onChange={() => handleToggle(option.id)}
+                              className="mt-0.5 accent-[#C85F78]"
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
+                    </fieldset>
+                    {review && (
+                      <div className="mt-3 space-y-2">
+                        {cluster.map((q) => (
+                          <div key={q.id}>
+                            <p className="text-xs font-bold text-[#292528]">Câu {q.number}:</p>
+                            <ReviewFeedback question={q} group={group} response={responses[q.id] ?? []} showAnswer={showAnswers} showExplanation={showExplanations} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          });
+        })()}
+      </div>
     ) : (
       <div className="mt-4 space-y-4">{group.questions.map((question) => <article key={question.id} id={`preview-question-${question.id}`} className="rounded-2xl bg-[#F7F5F4] p-4"><div className="flex items-start gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#AD4C64] text-xs font-bold text-white">{question.number}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold leading-6 text-[#292528]">{question.prompt || "Câu hỏi chưa có nội dung."}</p><QuestionInput question={question} group={group} response={responses[question.id] ?? []} disabled={review} onChange={(value) => onAnswer(question.id, value)} />{review && <ReviewFeedback question={question} group={group} response={responses[question.id] ?? []} showAnswer={showAnswers} showExplanation={showExplanations} />}</div></div></article>)}</div>
     )}

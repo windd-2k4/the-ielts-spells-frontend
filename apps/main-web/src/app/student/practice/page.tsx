@@ -140,11 +140,7 @@ const landingDetails = {
     label: "IELTS Listening",
     description: "Luyện nghe theo Part 1–4 bám sát định dạng bài thi thật.",
     eyebrow: "NGHE · BẮT NHỊP · THẤU HIỂU",
-    features: [
-      { icon: ClockCountdown, label: "Đề thi bám sát format thật" },
-      { icon: ChartLineUp, label: "Có chấm điểm và phân tích" },
-      { icon: CheckCircle, label: "Luyện tập linh hoạt" },
-    ],
+    features: [],
   },
   WRITING: {
     icon: PencilCircle,
@@ -219,7 +215,7 @@ function PracticeLanding() {
 
               <LandingArtwork skill={skill.id} />
 
-              {detail.features.length ? (
+              {skill.id === "READING" && detail.features.length ? (
                 <ul className={styles.landingFeatureList} aria-label="Điểm nổi bật của khu vực Reading">
                   {detail.features.map((feature) => {
                     const FeatureIcon = feature.icon;
