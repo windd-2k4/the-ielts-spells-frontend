@@ -30,7 +30,10 @@
 .examGrid strong { margin: 11px 0; font-size: 19px; letter-spacing: -.03em; }
 .examGrid small { color: #92868a; font-size: 8px; line-height: 1.45; }
 .legend { display: inline-flex; align-items: center; gap: 7px; color: #74696d; font-size: 9px; white-space: nowrap; }
-.legend i { width: 8px; height: 8px; border-radius: 50%; background: #934c5e; }
+.legend > span { display: inline-flex; gap: 2px; }
+.legend i { width: 7px; height: 12px; border-radius: 3px; background: #f7e5e9; }
+.legend i:nth-child(2) { background: #c8768a; }
+.legend i:nth-child(3) { background: #874354; }
 .headerActions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .monthPicker { min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px; border: 1px solid #ded7da; border-radius: 10px; color: #74696d; background: #fff; }
 .monthPicker span { font-size: 8px; font-weight: 750; }
@@ -51,9 +54,8 @@
 .day[data-level="2"] { color: #fff; background: #c8768a; }
 .day[data-level="3"] { color: #fff; background: #874354; }
 .day[data-today="true"] { box-shadow: inset 0 0 0 2px #2b2326; font-weight: 800; }
-.day[data-level]:not([data-level="0"]) .dayNumber { font-weight: 800; }
-.attemptCount { align-self: flex-end; min-width: 19px; height: 19px; display: grid; place-items: center; border-radius: 7px; color: #fff; background: #934c5e; font-size: 10px; font-weight: 900; line-height: 1; }
-.day[data-level="2"] .attemptCount, .day[data-level="3"] .attemptCount { color: #6b3341; background: #fff; }
+.dayNumber { font-size: 10px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.day[data-level]:not([data-level="0"]) .dayNumber { font-weight: 850; }
 .weekTotal { flex: 0 0 auto; color: #934c5e; font-size: 16px; letter-spacing: -.03em; }
 .tableWrap { max-height: 314px; overflow: auto; }
 .weekTable { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 9px; }
@@ -63,7 +65,9 @@
 .weekTable thead { color: #6b6064; background: #f2edef; text-transform: uppercase; }
 .weekTable thead { position: sticky; top: 0; z-index: 1; }
 .weekTable tbody th { color: #5c5155; font-weight: 650; }
-.weekTable tbody td { color: #74696d; }
+.weekTable tbody td { color: #30292c; font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.weekTable tbody td[data-empty="true"] { color: #a09498; font-size: 9px; font-weight: 500; }
+.weekTable tbody td:last-child { color: #7a3d4c; background: #fdf9fa; font-weight: 850; }
 .weekTable tbody tr[data-today="true"] { background: #fff5f7; }
 .weekTable tfoot { position: sticky; bottom: 0; color: #30282b; background: #faf7f6; font-weight: 800; box-shadow: 0 -1px #ebe5e7; }
 .weekTable tfoot th, .weekTable tfoot td { border-bottom: 0; }

@@ -35,12 +35,14 @@ export default function StudentDashboardPage() {
   if (error && !data) return <DashboardError message={error} onRetry={() => void refresh()} />;
   if (!data) return null;
 
-  const firstName = data.profile.fullName.trim().split(/\s+/).at(-1) || "bạn";
+  const firstName = data.profile.fullName.trim().split(/\s+/).at(-1) || "Learner";
   const activeAttempt = data.recentAttempts.find((attempt) => attempt.status === "IN_PROGRESS");
   const pendingAssignments = data.readingAssignments.filter((item) => item.attemptsUsed < item.maxAttempts);
   const nextSession = data.upcomingSessions[0];
   const activeEnrollment = data.enrollments.find((item) => item.status === "ACTIVE") ?? data.enrollments[0];
   const recommendation = data.recommendedCourses[0];
+  const sessionEnrollment = nextSession ? data.enrollments.find((item) => item.courseId === nextSession.courseId) : null;
+  const scheduleSkillPair = sessionEnrollment?.skillPair ?? activeEnrollment?.skillPair;
   const courseProgress = activeEnrollment && activeEnrollment.totalSessions > 0
     ? Math.min(100, Math.round((activeEnrollment.completedSessions / activeEnrollment.totalSessions) * 100))
     : 0;
@@ -56,12 +58,13 @@ export default function StudentDashboardPage() {
   return (
     <div className={styles.overview}>
       <header className={styles.masthead}>
-        <div>
-          <p className={styles.eyebrow}>Không gian học tập cá nhân</p>
-          <h1 className={styles.title}>Chào {firstName}, hôm nay mình <em>học gì?</em></h1>
+        <div className={styles.mastheadCopy}>
+          <p className={styles.eyebrow}>IELTS study space</p>
+          <h1 className={styles.title}>Welcome back, <em>{firstName}.</em></h1>
+          <p className={styles.studyQuote}>Practice with purpose. Build your band score with confidence.</p>
         </div>
         <time className={styles.date} dateTime={new Date().toISOString().slice(0, 10)}>
-          {new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long" })}
+          {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}
         </time>
       </header>
 
@@ -77,7 +80,7 @@ export default function StudentDashboardPage() {
       <section className={styles.hero} aria-labelledby="next-action-title">
         <div className={styles.heroContent}>
           <div>
-            <p className={styles.heroKicker}><Sparkle size={13} weight="fill" /> Việc nên làm tiếp theo</p>
+            <p className={styles.heroKicker}><Sparkle size={13} weight="fill" /> Next best step</p>
             <h2 id="next-action-title" className={styles.heroTitle}>{primaryAction.title}</h2>
             <p className={styles.heroText}>{primaryAction.copy}</p>
             <Link href={primaryAction.href} className={styles.heroAction}>
@@ -111,7 +114,7 @@ export default function StudentDashboardPage() {
             </span>
           </div>
           <SkillRadar targetBand={data.profile.targetBand} currentBand={data.profile.currentBand} />
-          <p className={styles.radarHint}>Di chuột để xem 4 kỹ năng</p>
+          <p className={styles.radarHint}>Explore your 4 skills</p>
           <p className={styles.orbitLabel}>{activeEnrollment ? `Đang học · ${activeEnrollment.courseCode}` : "Lộ trình sẽ rõ hơn sau khi bạn đặt mục tiêu và có kết quả đầu vào."}</p>
         </div>
       </section>
@@ -120,12 +123,12 @@ export default function StudentDashboardPage() {
 
       <section aria-labelledby="today-title">
         <div className={styles.sectionHead}>
-          <div><h2 id="today-title">Nhịp học hôm nay</h2><p>Chỉ những việc thực sự cần sự chú ý của bạn.</p></div>
+          <div><h2 id="today-title">Today&apos;s focus</h2><p>Chỉ những việc thực sự cần sự chú ý của bạn.</p></div>
           <Link href="/student/assignments" className={styles.textLink}>Tất cả bài tập<ArrowRight size={14} /></Link>
         </div>
         <div className={styles.todayGrid}>
           <div className={styles.panel}>
-            <div className={styles.panelHeader}><h3><BookOpenText size={19} weight="duotone" /> Bài tập cần làm</h3><span>{pendingAssignments.length} bài</span></div>
+            <div className={styles.panelHeader}><h3><BookOpenText size={19} weight="duotone" /> Priority tasks</h3><span>{pendingAssignments.length} bài</span></div>
             {pendingAssignments.length ? (
               <div className={styles.taskList}>
                 {pendingAssignments.slice(0, 3).map((item) => (
@@ -151,21 +154,21 @@ export default function StudentDashboardPage() {
           <aside className={styles.focusColumn} aria-label="Lịch học và gợi ý">
             {nextSession ? (
               <article className={styles.sessionCard}>
-                <p className={styles.sessionTop}><CalendarBlank size={16} /> Buổi học tiếp theo</p>
+                <div className={styles.focusTop}><p className={styles.sessionTop}><span><CalendarBlank size={17} weight="duotone" /></span> Upcoming class</p><CourseTrackBadge skillPair={scheduleSkillPair} /></div>
                 <strong>{nextSession.title || nextSession.courseName}</strong>
                 <p>{formatDateTime(nextSession.startsAt)}{nextSession.teacherName ? ` · ${nextSession.teacherName}` : ""}</p>
                 <Link href="/student/schedule" className={styles.textLink}>Mở thời khóa biểu<ArrowRight size={13} /></Link>
               </article>
             ) : (
               <article className={styles.sessionCard}>
-                <p className={styles.sessionTop}><CalendarBlank size={16} /> Lịch học</p>
+                <div className={styles.focusTop}><p className={styles.sessionTop}><span><CalendarBlank size={17} weight="duotone" /></span> Class schedule</p><CourseTrackBadge skillPair={scheduleSkillPair} /></div>
                 <strong>Chưa có buổi học sắp tới</strong>
                 <p>Lịch mới sẽ tự động xuất hiện sau khi bạn được xếp lớp.</p>
                 <Link href="/student/schedule" className={styles.textLink}>Xem thời khóa biểu<ArrowRight size={13} /></Link>
               </article>
             )}
             <article className={styles.focusCard}>
-              <small>{recommendation ? "Gợi ý từ lộ trình" : "Tự luyện"}</small>
+              <div className={styles.focusTop}><small>{recommendation ? "Recommended path" : "Self practice"}</small><CourseTrackBadge skillPair={recommendation?.skillPair} inverted /></div>
               <strong>{recommendation?.name ?? "Giữ nhịp bằng một bài Reading ngắn"}</strong>
               <p>{recommendation?.reason ?? "Chọn bài phù hợp thời gian bạn có và tiếp tục tích lũy dữ liệu học tập."}</p>
               <Link href={recommendation ? "/student/courses" : "/student/practice"} className={styles.textLink}>{recommendation ? "Xem khóa học" : "Chọn bài luyện"}<ArrowRight size={13} /></Link>
@@ -176,7 +179,7 @@ export default function StudentDashboardPage() {
 
       <section aria-labelledby="skills-title">
         <div className={styles.sectionHead}>
-          <div><h2 id="skills-title">Phòng luyện 4 kỹ năng</h2><p>Đi thẳng vào kỹ năng bạn muốn cải thiện.</p></div>
+          <div><h2 id="skills-title">Skill practice hub</h2><p>Đi thẳng vào kỹ năng bạn muốn cải thiện.</p></div>
           <Link href="/student/practice" className={styles.textLink}>Mở phòng luyện<ArrowRight size={14} /></Link>
         </div>
         <div className={styles.skills}>
@@ -195,7 +198,7 @@ export default function StudentDashboardPage() {
 
       <section className={styles.learningGrid} aria-label="Khóa học và mục tiêu">
         <article className={styles.courseCard}>
-          <p className={styles.cardKicker}>Khóa học của tôi</p>
+          <p className={styles.cardKicker}>My learning journey</p>
           {activeEnrollment ? (
             <>
               <h3>{activeEnrollment.courseName}</h3>
@@ -215,7 +218,7 @@ export default function StudentDashboardPage() {
 
         <article id="learning-goal" className={styles.targetCard} tabIndex={-1}>
           <div className={styles.targetHeadline}>
-            <div><p className={styles.cardKicker}>Điểm đến của bạn</p><h3>Band IELTS mong muốn</h3></div>
+            <div><p className={styles.cardKicker}>Your IELTS target</p><h3>Band IELTS mong muốn</h3></div>
             <strong className={styles.band}>{data.profile.targetBand == null ? "—" : formatBand(data.profile.targetBand)}</strong>
           </div>
           <StudentTargetBandControl compact />
@@ -225,7 +228,7 @@ export default function StudentDashboardPage() {
 
       {data.recentAttempts.length > 0 && (
         <section className={styles.activityPanel} aria-labelledby="activity-title">
-          <div className={styles.panelHeader}><h3 id="activity-title"><Clock size={18} /> Hoạt động gần đây</h3><Link href="/student/history" className={styles.textLink}>Xem lịch sử<ArrowRight size={13} /></Link></div>
+          <div className={styles.panelHeader}><h3 id="activity-title"><Clock size={18} /> Recent activity</h3><Link href="/student/history" className={styles.textLink}>Xem lịch sử<ArrowRight size={13} /></Link></div>
           <div className={styles.activityList}>
             {data.recentAttempts.slice(0, 3).map((attempt) => (
               <Link key={attempt.attemptId} href={attempt.submittedAt ? `/student/reading/attempts/${attempt.attemptId}/result` : `/student/reading/attempts/${attempt.attemptId}`} className={styles.activity}>
@@ -239,6 +242,12 @@ export default function StudentDashboardPage() {
       )}
     </div>
   );
+}
+
+function CourseTrackBadge({ skillPair, inverted = false }: { skillPair?: "LISTENING_READING" | "SPEAKING_WRITING"; inverted?: boolean }) {
+  if (!skillPair) return null;
+  const listeningReading = skillPair === "LISTENING_READING";
+  return <span className={styles.trackBadge} data-inverted={inverted || undefined} title={listeningReading ? "Khóa Listening & Reading" : "Khóa Speaking & Writing"}><b>{listeningReading ? "LR" : "SW"}</b><span>{listeningReading ? "Listening & Reading" : "Speaking & Writing"}</span></span>;
 }
 
 function SkillRadar({ targetBand, currentBand }: { targetBand: number | null; currentBand: number | null }) {
