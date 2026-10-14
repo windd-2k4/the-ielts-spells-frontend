@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowClockwise, ArrowLeft, GraduationCap, WarningCircle } from "@phosphor-icons/react";
 import { StudentCourseWorkspace } from "@/features/student-hub/courses/StudentCourseWorkspace";
+import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import {
   fetchStudentCourseWorkspace,
   type CourseWorkspaceData,
@@ -15,6 +16,7 @@ import styles from "./StudentCourseDetailPage.module.css";
 export default function StudentCourseDetailPage() {
   const params = useParams<{ courseId: string }>();
   const courseKey = params?.courseId ?? "";
+  const { data: portalData } = useStudentPortal();
 
   const [workspaceData, setWorkspaceData] = useState<CourseWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function StudentCourseDetailPage() {
 
   if (loading) {
     return (
-      <div className={styles.loading} aria-label="Đang tải không gian học tập">
+      <div className={styles.loading} data-course-journey aria-label="Đang tải không gian học tập">
         <div className={styles.loadingHeader} />
         <div className={styles.loadingGrid}>
           <div className={styles.loadingMain} />
@@ -57,7 +59,7 @@ export default function StudentCourseDetailPage() {
 
   if (error || !workspaceData) {
     return (
-      <section className={styles.stateCard}>
+      <section className={styles.stateCard} data-course-journey>
         {error ? <WarningCircle size={38} weight="duotone" /> : <GraduationCap size={38} weight="duotone" />}
         <h1>{error ? "Không tải được không gian khóa học" : "Bạn chưa có quyền vào không gian này"}</h1>
         <p>{error ?? "Không gian học tập chỉ mở cho học viên đã ghi danh vào khóa học."}</p>
@@ -75,5 +77,5 @@ export default function StudentCourseDetailPage() {
     );
   }
 
-  return <StudentCourseWorkspace data={workspaceData} />;
+  return <StudentCourseWorkspace data={workspaceData} enrolledCourses={portalData?.enrollments ?? []} />;
 }

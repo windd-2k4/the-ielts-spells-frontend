@@ -1,7 +1,14 @@
 import "@ielts/design-tokens/theme.css";
 import "./globals.css";
 import type { Metadata } from "next";
+import { Newsreader } from "next/font/google";
 import { StudentSessionProvider } from "@/features/student-auth/StudentSessionProvider";
+
+const newsreader = Newsreader({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-course-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "The IELTS Spells | Chinh phục IELTS bằng Phép thuật Học thuật",
@@ -26,7 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className={newsreader.variable}>
         <StudentSessionProvider>{children}</StudentSessionProvider>
       </body>
     </html>
