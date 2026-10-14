@@ -16,7 +16,7 @@ export function StudentHubShellGuard({ children }: { children: React.ReactNode }
   // The test player, result and explanation views are focused workspaces. They
   // own a compact toolbar, so the learning-hub navigation must not wrap them.
   const isExamWorkspacePage =
-    /^\/student\/(?:reading|listening)\/attempts\/[^/]+(?:\/(?:result|explanations))?$/.test(pathname);
+    /^\/student\/(?:reading|listening|writing)\/attempts\/[^/]+(?:\/(?:result|explanations))?$/.test(pathname);
 
   if (isAuthPage || isExamWorkspacePage) {
     return <>{children}</>;

@@ -1,9 +1,16 @@
+.scrollSentinel {
+  height: 48px;
+  margin-bottom: -48px;
+  pointer-events: none;
+}
+
 .header {
   position: sticky;
   top: 0;
   z-index: 40;
   padding: 14px 18px 0;
   background: linear-gradient(180deg, rgba(247, 245, 241, .98) 72%, rgba(247, 245, 241, 0));
+  transition: padding 220ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .bar {
@@ -19,11 +26,12 @@
   background: rgba(34, 28, 30, .96);
   box-shadow: 0 14px 32px rgba(27, 20, 23, .16);
   backdrop-filter: blur(18px);
+  transition: min-height 220ms cubic-bezier(.2, .8, .2, 1), padding 220ms cubic-bezier(.2, .8, .2, 1), border-radius 220ms cubic-bezier(.2, .8, .2, 1), box-shadow 220ms ease;
 }
 
 .brand { display: inline-flex; align-items: center; gap: 10px; width: max-content; }
-.logo { width: 37px; height: 37px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 50%; object-fit: cover; }
-.brandCopy { display: grid; line-height: 1.1; }
+.logo { width: 37px; height: 37px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 50%; object-fit: cover; transition: width 220ms ease, height 220ms ease; }
+.brandCopy { display: grid; overflow: hidden; max-width: 150px; line-height: 1.1; opacity: 1; transition: max-width 220ms cubic-bezier(.2, .8, .2, 1), opacity 150ms ease, transform 220ms ease; }
 .brandCopy strong { font-size: 14px; letter-spacing: -.025em; }
 .brandCopy small { margin-top: 4px; color: #cfc4c8; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 
@@ -41,6 +49,7 @@
   white-space: nowrap;
   transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
 }
+.navLink > span:not(.count) { overflow: hidden; max-width: 76px; opacity: 1; transition: max-width 220ms cubic-bezier(.2, .8, .2, 1), opacity 150ms ease; }
 .navLink:hover { color: #fff; background: rgba(255, 255, 255, .075); transform: translateY(-1px); }
 .navLink[aria-current="page"] { color: #261d20; background: #f4d3db; }
 .navLink[aria-current="page"] svg { color: #894c5b; }
@@ -62,9 +71,38 @@
 .account { position: relative; }
 .accountButton { min-height: 46px; display: flex; align-items: center; gap: 9px; padding: 5px 7px 5px 12px; border-radius: 13px; transition: background-color 180ms ease; }
 .accountButton:hover { background: rgba(255, 255, 255, .07); }
-.name { max-width: 116px; overflow: hidden; color: #f7f2ef; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #9a4f61; font-size: 12px; font-weight: 800; }
-.caret { color: #a99ca1; }
+.name { max-width: 116px; overflow: hidden; color: #f7f2ef; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; opacity: 1; transition: max-width 220ms cubic-bezier(.2, .8, .2, 1), opacity 150ms ease; }
+.avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #9a4f61; font-size: 12px; font-weight: 800; transition: width 220ms ease, height 220ms ease; }
+.caret { overflow: hidden; max-width: 12px; color: #a99ca1; opacity: 1; transition: max-width 220ms ease, opacity 150ms ease; }
+
+.headerCompact {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+  background: transparent;
+  pointer-events: none;
+}
+.headerCompact .bar {
+  min-height: 50px;
+  display: flex;
+  width: max-content;
+  gap: 0;
+  margin-left: auto;
+  padding: 5px;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(27, 20, 23, .14);
+  pointer-events: auto;
+  animation: compactDockIn 220ms cubic-bezier(.2, .8, .2, 1) both;
+}
+.headerCompact .brand,
+.headerCompact .nav,
+.headerCompact .homeLink { display: none; }
+.headerCompact .actions { gap: 4px; }
+.headerCompact .name,
+.headerCompact .caret { display: none; }
+.headerCompact .menuButton { display: grid; width: 40px; height: 40px; }
+.headerCompact .accountButton { min-height: 40px; gap: 0; padding: 3px; }
+.headerCompact .avatar { width: 34px; height: 34px; }
 
 .dropdown {
   position: absolute;
@@ -90,6 +128,7 @@
 .signOut { width: 100%; color: #a53b3b; text-align: left; }
 
 @keyframes menuIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes compactDockIn { from { opacity: 0; transform: translateY(-8px) scale(.92); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 1120px) {
   .bar { grid-template-columns: minmax(170px, 1fr) auto minmax(150px, 1fr); }
@@ -99,7 +138,9 @@
 
 @media (max-width: 900px) {
   .header { padding: 10px 12px 0; }
+  .headerCompact { padding-top: 5px; }
   .bar { grid-template-columns: 1fr auto; min-height: 62px; padding-left: 12px; border-radius: 16px; }
+  .headerCompact .bar { min-height: 50px; }
   .nav, .homeLink, .name, .caret { display: none; }
   .menuButton { display: grid; }
   .brandCopy small { display: none; }
@@ -114,6 +155,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dropdown { animation: none; }
+  .dropdown,
+  .headerCompact .bar { animation: none; }
   .navLink:hover { transform: none; }
+  .header,
+  .bar,
+  .logo,
+  .brandCopy,
+  .navLink > span:not(.count),
+  .name,
+  .avatar,
+  .caret { transition: none; }
 }
