@@ -1,11 +1,12 @@
 "use client";
 
-import type { SaveWritingResponseItem, StudentWritingAttempt } from "@ielts/contracts";
-import { ArrowLeft, CheckCircle, CircleNotch, Clock, FloppyDisk, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
+import type { SaveWritingResponseItem, StudentWritingAttempt, WritingTask } from "@ielts/contracts";
+import { ArrowLeft, CaretDown, CaretUp, CheckCircle, CircleNotch, Clock, FloppyDisk, ListBullets, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
+import { AuthenticatedDiagramImage } from "@/features/reading/AuthenticatedDiagramImage";
 import {
   isReadingFontScale,
   migrateLegacyReadingFontScale,
@@ -17,6 +18,39 @@ import { pauseWritingAttempt, resumeWritingAttempt, saveWritingResponses, submit
 import styles from "./WritingAttemptPlayer.module.css";
 
 type SaveState = "idle" | "saving" | "saved" | "offline" | "failed";
+type WritingSectionSpec = { label: string; placeholder: string };
+
+function writingSections(task: WritingTask): WritingSectionSpec[] {
+  if (task.responseMode === "FREEFORM") return [{ label: "Bài viết", placeholder: "Nhập bài viết của bạn ở đây..." }];
+  const taskText = `${task.title} ${task.promptHtml.replace(/<[^>]*>/g, " ")}`;
+  if (task.taskNo === 1 && /\b(letter|email|e-mail)\b/i.test(taskText)) return [
+    { label: "Lời chào & mở bài", placeholder: "Nêu người nhận và mục đích viết thư..." },
+    { label: "Nội dung 1", placeholder: "Triển khai yêu cầu thứ nhất của đề..." },
+    { label: "Nội dung 2", placeholder: "Triển khai các yêu cầu còn lại..." },
+    { label: "Kết thư", placeholder: "Hoàn thiện lời kết phù hợp..." },
+  ];
+  if (task.taskNo === 1) return [
+    { label: "Introduction", placeholder: "Paraphrase đề bài..." },
+    { label: "Overview", placeholder: "Tóm tắt những đặc điểm nổi bật nhất..." },
+    { label: "Body 1", placeholder: "Mô tả và so sánh nhóm thông tin đầu tiên..." },
+    { label: "Body 2", placeholder: "Mô tả và so sánh nhóm thông tin còn lại..." },
+  ];
+  return [
+    { label: "Introduction", placeholder: "Paraphrase đề bài và nêu quan điểm..." },
+    { label: "Body 1", placeholder: "Triển khai luận điểm thứ nhất..." },
+    { label: "Body 2", placeholder: "Triển khai luận điểm thứ hai..." },
+    { label: "Conclusion", placeholder: "Tóm tắt lập luận và khẳng định quan điểm..." },
+  ];
+}
+
+function splitResponse(text: string, sectionCount: number) {
+  const values = Array.from({ length: sectionCount }, () => "");
+  if (!text.trim()) return values;
+  const paragraphs = text.trim().split(/\n\s*\n/);
+  paragraphs.slice(0, sectionCount).forEach((paragraph, index) => { values[index] = paragraph; });
+  if (paragraphs.length > sectionCount) values[sectionCount - 1] = paragraphs.slice(sectionCount - 1).join("\n\n");
+  return values;
+}
 
 function wordCount(value: string) {
   const text = value.trim();
@@ -54,6 +88,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   const [attempt, setAttempt] = useState<StudentWritingAttempt | null>(null);
   const [activeTaskKey, setActiveTaskKey] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [sectionAnswers, setSectionAnswers] = useState<Record<string, string[]>>({});
   const [revisions, setRevisions] = useState<Record<string, number>>({});
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -63,6 +98,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [fontScale, setFontScale] = useState<ReadingFontScale>("standard");
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const submitStartedRef = useRef(false);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
 
@@ -104,6 +140,10 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
         });
         setAttempt(value);
         setAnswers(nextAnswers);
+        setSectionAnswers(Object.fromEntries(value.tasks.map((task) => [
+          task.taskKey,
+          splitResponse(nextAnswers[task.taskKey] ?? "", writingSections(task).length),
+        ])));
         setRevisions(nextRevisions);
         setDirtyKeys(recovered);
         setActiveTaskKey(value.tasks[0]?.taskKey ?? "");
@@ -232,6 +272,8 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   if (!activeTask) return <div className={styles.state}>Đề Writing chưa có task hợp lệ.</div>;
   const currentText = answers[activeTask.taskKey] ?? "";
   const words = wordCount(currentText);
+  const sectionSpecs = writingSections(activeTask);
+  const activeSections = sectionAnswers[activeTask.taskKey] ?? splitResponse(currentText, sectionSpecs.length);
   const activeFontScale = READING_FONT_SCALE_OPTIONS.find((option) => option.value === fontScale) ?? READING_FONT_SCALE_OPTIONS[0];
   const examStyle = {
     "--exam-content-size": `${activeFontScale.pixels}px`,
@@ -254,15 +296,33 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
     storeDraft(attemptId, Object.keys(nextAnswers).map((key) => ({ taskKey: key, text: nextAnswers[key] ?? "", clientRevision: nextRevisions[key] ?? 0 })));
   }
 
+  function updateSection(index: number, text: string) {
+    const next = [...activeSections];
+    next[index] = text;
+    setSectionAnswers((current) => ({ ...current, [activeTask.taskKey]: next }));
+    updateAnswer(next.join("\n\n"));
+  }
+
   return (
     <main className={styles.examShell} style={examStyle}>
       <header className={styles.header}>
         <div className={styles.brand}>
           <Link href="/student/practice?skill=WRITING" aria-label="Thoát bài thi"><ArrowLeft size={20} /></Link>
-          <div><span>The IELTS Spells</span><strong>{attempt.title}</strong></div>
+          <div><span>Writing practice</span><strong>{attempt.title}</strong></div>
         </div>
-        <div className={`${styles.timer} ${remaining < 300 ? styles.urgent : ""}`}><Clock size={19} /><span>{formatTime(remaining)}</span></div>
         <div className={styles.headerActions}>
+          <span className={styles.saveState} aria-live="polite">
+            {saveState === "saving" ? <CircleNotch className={styles.spin} /> : saveState === "saved" ? <CheckCircle /> : <FloppyDisk />}
+            {saveState === "saving" ? "Đang lưu" : saveState === "saved" ? "Đã lưu" : saveState === "offline" ? "Đã lưu trên thiết bị" : saveState === "failed" ? "Lưu thất bại" : "Tự động lưu"}
+          </span>
+          <nav className={styles.taskTabs} aria-label="Writing tasks">
+            {attempt.tasks.map((task) => {
+              const count = wordCount(answers[task.taskKey] ?? "");
+              return <button key={task.taskKey} type="button" onClick={() => setActiveTaskKey(task.taskKey)} aria-current={task.taskKey === activeTask.taskKey ? "page" : undefined}>
+                <span>Task {task.taskNo}</span><small>{count}/{task.minWords}</small>
+              </button>;
+            })}
+          </nav>
           <div className={styles.fontControls} role="group" aria-label="Cỡ chữ nội dung bài thi">
             {READING_FONT_SCALE_OPTIONS.map((option) => (
               <button key={option.value} type="button" onClick={() => changeFontScale(option.value)} aria-pressed={fontScale === option.value} aria-label={`Cỡ chữ ${option.label}, ${option.pixels} pixel`} title={`${option.label}: ${option.pixels} px`}>
@@ -270,42 +330,60 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
               </button>
             ))}
           </div>
-          <span className={styles.saveState} aria-live="polite">
-            {saveState === "saving" ? <CircleNotch className={styles.spin} /> : saveState === "saved" ? <CheckCircle /> : <FloppyDisk />}
-            {saveState === "saving" ? "Saving" : saveState === "saved" ? "Saved" : saveState === "offline" ? "Saved on this device" : saveState === "failed" ? "Save failed" : "Autosave"}
-          </span>
+          <div className={`${styles.timer} ${remaining < 300 ? styles.urgent : ""}`}><Clock size={18} /><span>{formatTime(remaining)}</span></div>
           <button type="button" onClick={() => void submit(false)} disabled={submitting} className={styles.submit}>
-            {submitting ? <CircleNotch className={styles.spin} /> : <PaperPlaneTilt />} Submit
+            {submitting ? <CircleNotch className={styles.spin} /> : <PaperPlaneTilt />} Nộp bài
           </button>
         </div>
       </header>
 
-      <nav className={styles.taskTabs} aria-label="Writing tasks">
-        {attempt.tasks.map((task) => {
-          const count = wordCount(answers[task.taskKey] ?? "");
-          return <button key={task.taskKey} type="button" onClick={() => setActiveTaskKey(task.taskKey)} aria-current={task.taskKey === activeTask.taskKey ? "page" : undefined}>
-            <span>Task {task.taskNo}</span><small>{count} / {task.minWords} words</small>
-          </button>;
-        })}
-      </nav>
-
-      {error ? <div role="alert" className={styles.error}><WarningCircle size={17} />{error}<button type="button" onClick={() => setError("")}>Dismiss</button></div> : null}
+      {error ? <div role="alert" className={styles.error}><WarningCircle size={17} />{error}<button type="button" onClick={() => setError("")}>Đóng</button></div> : null}
 
       <section className={styles.workspace}>
         <article className={styles.promptPane}>
-          <div className={styles.partLabel}>Writing Task {activeTask.taskNo}</div>
+          <div className={styles.promptMeta}>
+            <span className={styles.partLabel}>Writing Task {activeTask.taskNo}</span>
+            <span>{activeTask.suggestedTimeMinutes} phút</span>
+            <span>Tối thiểu {activeTask.minWords} từ</span>
+          </div>
           <h1>{activeTask.title}</h1>
           <p className={styles.instruction}>You should spend about {activeTask.suggestedTimeMinutes} minutes on this task.</p>
-          {activeTask.imageUrl ? <img src={activeTask.imageUrl} alt={activeTask.imageAltText ?? "Writing task material"} className={styles.taskImage} /> : null}
           <div className={styles.promptHtml} dangerouslySetInnerHTML={{ __html: activeTask.promptHtml }} />
+          {activeTask.imageUrl ? <figure className={styles.imageFrame}><AuthenticatedDiagramImage src={activeTask.imageUrl} alt={activeTask.imageAltText ?? "Writing task material"} className={styles.taskImage} fallbackText="Không thể tải ảnh minh họa đề Writing." /></figure> : null}
           <p className={styles.minimum}>Write at least <strong>{activeTask.minWords} words.</strong></p>
         </article>
 
         <section className={styles.answerPane} aria-label={`Answer for Writing Task ${activeTask.taskNo}`}>
-          <div className={styles.answerHeading}><div><span>Your answer</span><small>Task {activeTask.taskNo}</small></div><strong className={words < activeTask.minWords ? styles.belowMinimum : styles.metMinimum}>{words} words</strong></div>
-          <textarea value={currentText} onChange={(event) => updateAnswer(event.target.value)} spellCheck aria-label={`Writing Task ${activeTask.taskNo} answer`} placeholder="Type your answer here..." autoFocus />
-          <footer><span>Your work is saved automatically.</span><span>{words < activeTask.minWords ? `${activeTask.minWords - words} more words recommended` : "Minimum word count reached"}</span></footer>
+          <div className={styles.answerHeading}><div><span>Bài viết của bạn</span><small>{activeTask.responseMode === "STRUCTURED" ? "Viết theo từng phần" : `Writing Task ${activeTask.taskNo}`}</small></div><strong className={words < activeTask.minWords ? styles.belowMinimum : styles.metMinimum}>{words} từ</strong></div>
+          <div className={styles.editorScroll}>
+            {activeTask.responseMode === "STRUCTURED" ? sectionSpecs.map((section, index) => {
+              const sectionWords = wordCount(activeSections[index] ?? "");
+              const editorId = `writing-section-${activeTask.taskNo}-${index}`;
+              const isBodySection = /^(Body|Nội dung)/.test(section.label);
+              return <label key={section.label} className={`${styles.sectionEditor} ${isBodySection ? styles.bodyEditor : ""}`} htmlFor={editorId}>
+                <span><strong>{section.label}</strong><small>{sectionWords} từ</small></span>
+                <textarea id={editorId} value={activeSections[index] ?? ""} onChange={(event) => updateSection(index, event.target.value)} spellCheck aria-label={`${section.label}, Writing Task ${activeTask.taskNo}`} placeholder={section.placeholder} autoFocus={index === 0} />
+              </label>;
+            }) : <textarea className={styles.freeformEditor} value={currentText} onChange={(event) => updateAnswer(event.target.value)} spellCheck aria-label={`Writing Task ${activeTask.taskNo} answer`} placeholder="Nhập bài viết của bạn ở đây..." autoFocus />}
+          </div>
+          <footer><span>Bài viết được tự động lưu.</span><span>{words < activeTask.minWords ? `Nên viết thêm ${activeTask.minWords - words} từ` : "Đã đạt số từ tối thiểu"}</span></footer>
         </section>
+
+      </section>
+
+      <section className={`${styles.outlineDock} ${outlineOpen ? styles.outlineDockOpen : ""}`} aria-label="Bố cục bài viết">
+        <button type="button" className={styles.outlineToggle} onClick={() => setOutlineOpen((open) => !open)} aria-expanded={outlineOpen} aria-controls="writing-outline-content">
+          <ListBullets /><span>Bố cục bài viết</span><small>Task {activeTask.taskNo} · {sectionSpecs.length} phần</small>{outlineOpen ? <CaretDown /> : <CaretUp />}
+        </button>
+        {outlineOpen ? <div id="writing-outline-content" className={styles.outlineContent}>
+          <div className={styles.outlineStats}><div><span>Thời gian gợi ý</span><strong>{activeTask.suggestedTimeMinutes} phút</strong></div><div><span>Mục tiêu</span><strong>{activeTask.minWords} từ</strong></div></div>
+          <nav aria-label="Các phần bài viết">
+            {sectionSpecs.map((section, index) => <button key={section.label} type="button" onClick={() => document.getElementById(`writing-section-${activeTask.taskNo}-${index}`)?.focus()} disabled={activeTask.responseMode === "FREEFORM"}>
+              <span>{index + 1}</span><strong>{section.label}</strong><small>{wordCount(activeSections[index] ?? currentText)} từ</small>
+            </button>)}
+          </nav>
+          <div className={styles.outlineNote}><CheckCircle size={17} /><span>Nội dung ở mọi phần được ghép thành một bài hoàn chỉnh khi lưu và nộp.</span></div>
+        </div> : null}
       </section>
     </main>
   );
