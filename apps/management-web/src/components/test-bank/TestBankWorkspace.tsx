@@ -1235,14 +1235,11 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-3 rounded-[18px] border border-[#e3dce2] bg-white px-4 py-3 shadow-sm md:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 lg:w-[270px] lg:shrink-0 xl:w-[320px]">
-          <h1 className="font-display text-xl font-extrabold tracking-tight text-[#211A1D] md:text-2xl">
+      <header className="flex flex-col gap-2 rounded-xl border border-[#e3dce2] bg-white px-3 py-2 shadow-sm md:px-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 lg:w-[220px] lg:shrink-0 xl:w-[250px]">
+          <h1 className="font-display text-base font-extrabold tracking-tight text-[#211A1D] md:text-lg">
             Ngân hàng đề thi IELTS
           </h1>
-          <p className="mt-1 text-xs leading-5 text-[#746A6E] md:text-sm">
-            Tạo, lọc và tái sử dụng đề IELTS theo kỹ năng, cấu trúc và trạng thái.
-          </p>
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:justify-end">
@@ -1253,7 +1250,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm tên, mã đề, tag..."
-              className="min-h-[44px] w-full rounded-xl border border-[#e3dce2] bg-white pl-10 pr-3 text-xs focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
+              className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-white pl-10 pr-3 text-xs focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
             />
           </label>
 
@@ -1262,7 +1259,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
             id="test-bank-status"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as ContentLifecycleStatus | "ALL")}
-            className="min-h-[44px] rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
+            className="min-h-10 rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-semibold text-[#211A1D] focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/15"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="DRAFT">Draft</option>
@@ -1276,7 +1273,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
             <button
               type="button"
               onClick={() => setShowImportDropdown(!showImportDropdown)}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#e3dce2] bg-white px-3 text-sm font-bold text-[#211A1D] shadow-sm transition hover:border-[#cdbfc6] hover:bg-[#f8f6fa] focus:outline-none"
+              className="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-bold text-[#211A1D] shadow-sm transition hover:border-[#cdbfc6] hover:bg-[#f8f6fa] focus:outline-none"
             >
               <DownloadSimple size={18} className="text-[#8f4458]" />
               <span>Import &amp; Crawl</span>
@@ -1337,7 +1334,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#8f4458] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#743447]"
+            className="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#743447]"
           >
             <Plus size={18} weight="bold" />
             Tạo đề mới
