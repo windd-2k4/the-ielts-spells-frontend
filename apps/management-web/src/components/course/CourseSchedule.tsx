@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowsOut, BookOpen, CalendarBlank, CaretLeft, CaretRight, Check, Clock,
-  Exam, GearSix, List, NotePencil, Plus, Printer, SpinnerGap, Trash, VideoCamera,
+  DotsThreeVertical, Exam, FunnelSimple, GearSix, List, NotePencil, Plus, Printer, SpinnerGap, Trash, VideoCamera,
   WarningCircle, X,
 } from "@phosphor-icons/react";
 import type {
@@ -336,33 +336,73 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {notice && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           <Check size={18} />{notice}
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
-        <div className="flex items-center gap-1.5 rounded-xl border border-outline-variant/20 bg-surface-container-low p-1">
-          <ViewButton active={viewMode === "CALENDAR"} onClick={() => setViewMode("CALENDAR")} icon={<CalendarBlank size={16} />} label="Lịch tuần trực quan" />
-          <ViewButton active={viewMode === "LIST"} onClick={() => setViewMode("LIST")} icon={<List size={16} />} label="Dạng danh sách" />
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline-variant/40 bg-surface px-2.5 py-2 shadow-xs">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex items-center rounded-lg bg-surface-container-low p-0.5">
+            <ViewButton active={viewMode === "CALENDAR"} onClick={() => setViewMode("CALENDAR")} icon={<CalendarBlank size={15} />} label="Tuần" />
+            <ViewButton active={viewMode === "LIST"} onClick={() => setViewMode("LIST")} icon={<List size={15} />} label="Danh sách" />
+          </div>
+
+          {viewMode === "CALENDAR" && (
+            <div className="flex items-center rounded-lg border border-outline-variant/50 bg-surface">
+              <button aria-label="Tuần trước" title="Tuần trước" onClick={() => setWeekAnchor(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() - 7))} className="grid h-8 w-8 place-items-center rounded-l-lg text-on-surface-variant hover:bg-surface-container"><CaretLeft size={15} /></button>
+              <button onClick={() => setWeekAnchor(new Date())} className="h-8 border-x border-outline-variant/40 px-2.5 text-xs font-bold text-on-surface hover:bg-surface-container">Hôm nay</button>
+              <button aria-label="Tuần sau" title="Tuần sau" onClick={() => setWeekAnchor(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() + 7))} className="grid h-8 w-8 place-items-center rounded-r-lg text-on-surface-variant hover:bg-surface-container"><CaretRight size={15} /></button>
+            </div>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {(["ALL", "CLASS", "EXAM"] as const).map(value => (
-            <label key={value} className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-              <input type="radio" checked={filterType === value} onChange={() => setFilterType(value)} className="accent-primary" />
-              {value === "ALL" ? "Tất cả" : value === "CLASS" ? "Lịch học" : "Bài test"}
-            </label>
-          ))}
-          {viewMode === "CALENDAR" && <>
-            <button onClick={() => setWeekAnchor(new Date())} className="rounded-lg border border-outline-variant/50 px-2.5 py-2 text-xs font-bold hover:bg-surface-container">Hiện tại</button>
-            <button aria-label="Tuần trước" onClick={() => setWeekAnchor(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() - 7))} className="rounded-lg border border-outline-variant/50 p-2"><CaretLeft size={16} /></button>
-            <button aria-label="Tuần sau" onClick={() => setWeekAnchor(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() + 7))} className="rounded-lg border border-outline-variant/50 p-2"><CaretRight size={16} /></button>
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded-lg border border-outline-variant/50 px-3 py-2 text-xs font-bold"><Printer size={15} />In lịch</button>
-            <button aria-label="Toàn màn hình" onClick={() => document.documentElement.requestFullscreen?.()} className="rounded-lg border border-outline-variant/50 p-2"><ArrowsOut size={16} /></button>
-          </>}
+
+        <div className="flex items-center gap-1.5">
+          <details className="group relative">
+            <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-outline-variant/50 px-2.5 text-xs font-bold text-on-surface-variant hover:bg-surface-container focus:outline-none focus:ring-2 focus:ring-primary/20 [&::-webkit-details-marker]:hidden">
+              <FunnelSimple size={15} />
+              <span className="hidden sm:inline">Lọc</span>
+              {filterType !== "ALL" && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+            </summary>
+            <div className="absolute right-0 top-10 z-30 w-40 rounded-xl border border-outline-variant/50 bg-surface p-1.5 shadow-xl">
+              {(["ALL", "CLASS", "EXAM"] as const).map(value => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={(event) => {
+                    setFilterType(value);
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold ${filterType === value ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface-container-high"}`}
+                >
+                  {value === "ALL" ? "Tất cả" : value === "CLASS" ? "Buổi học" : "Bài test"}
+                  {filterType === value && <Check size={15} weight="bold" />}
+                </button>
+              ))}
+            </div>
+          </details>
+
+          <details className="group relative">
+            <summary aria-label="Thêm thao tác lịch" title="Thêm thao tác" className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg border border-outline-variant/50 text-on-surface-variant hover:bg-surface-container focus:outline-none focus:ring-2 focus:ring-primary/20 [&::-webkit-details-marker]:hidden">
+              <DotsThreeVertical size={17} weight="bold" />
+            </summary>
+            <div className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-outline-variant/50 bg-surface p-1.5 shadow-xl">
+              {viewMode === "CALENDAR" && <>
+                <MenuButton icon={<Printer size={16} />} label="In lịch" onClick={() => window.print()} />
+                <MenuButton icon={<ArrowsOut size={16} />} label="Toàn màn hình" onClick={() => document.documentElement.requestFullscreen?.()} />
+              </>}
+              {canManage && <>
+                {canAssignTeacher && <MenuButton icon={<GearSix size={16} />} label="Thiết lập lộ trình" onClick={() => setShowSetup(true)} />}
+                <MenuButton icon={<Exam size={16} />} label="Thêm mini test" onClick={() => openCreate(undefined, undefined, "TEST")} />
+              </>}
+            </div>
+          </details>
+
           {canManage && (
-            <>{canAssignTeacher && <button onClick={() => setShowSetup(true)} className="flex items-center gap-2 rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-extrabold text-primary"><GearSix size={18}/>Thiết lập lộ trình</button>}<button onClick={() => openCreate(undefined, undefined, "TEST")} className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-extrabold text-amber-900"><Exam size={18} weight="bold" />Thêm mini test</button><button onClick={() => openCreate()} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-extrabold text-on-primary shadow-sm hover:brightness-95"><Plus size={18} weight="bold" />Thêm buổi học</button></>
+            <button onClick={() => openCreate()} className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary shadow-sm hover:brightness-95">
+              <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Thêm buổi học</span>
+            </button>
           )}
         </div>
       </div>
@@ -408,7 +448,10 @@ function Field({ label, wide, children }: { label: string; wide?: boolean; child
   return <label className={wide ? "sm:col-span-2" : ""}><span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">{label}</span>{children}</label>;
 }
 function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
-  return <button onClick={onClick} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition ${active ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}>{icon}{label}</button>;
+  return <button onClick={onClick} className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold transition ${active ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}>{icon}{label}</button>;
+}
+function MenuButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
+  return <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onClick(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-on-surface hover:bg-surface-container-high">{icon}{label}</button>;
 }
 function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
   return <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-12 text-center"><WarningCircle className="mx-auto text-rose-700" size={30} /><p className="mt-3 font-extrabold text-rose-800">Không tải được dữ liệu</p><p className="mt-1 text-sm text-rose-700">{message}</p><button onClick={onRetry} className="mt-4 rounded-lg border border-rose-300 px-4 py-2 text-sm font-bold text-rose-800">Thử lại</button></div>;

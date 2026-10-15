@@ -1,20 +1,49 @@
 "use client";
 
-import { createApiClient } from "@ielts/api-client";
+import { ApiClientError, createApiClient } from "@ielts/api-client";
 import { supabase } from "@/lib/supabase";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api/v1").replace(/\/$/, "");
+let cachedAccessToken: string | undefined;
+
+async function accessToken() {
+  const { data } = await supabase.auth.getSession();
+  cachedAccessToken = data.session?.access_token;
+  return cachedAccessToken;
+}
+
+async function refreshedAccessToken() {
+  const { data, error } = await supabase.auth.refreshSession();
+  cachedAccessToken = error ? undefined : data.session?.access_token;
+  return cachedAccessToken;
+}
 
 export const apiFetch = createApiClient(apiUrl, {
-  getAccessToken: async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token;
-  },
-  refreshAccessToken: async () => {
-    const { data, error } = await supabase.auth.refreshSession();
-    return error ? undefined : data.session?.access_token;
-  },
+  getAccessToken: accessToken,
+  refreshAccessToken: refreshedAccessToken,
 });
+
+/**
+ * Starts a small authenticated POST immediately so it can survive pagehide/unload.
+ * A normal apiFetch first awaits Supabase, which lets the browser tear the page down
+ * before the keepalive request has even been created.
+ */
+export function apiKeepalivePost(path: string): Promise<void> {
+  if (!cachedAccessToken) {
+    return apiFetch<void>(path, { method: "POST", keepalive: true });
+  }
+
+  const target = `${apiUrl}/${path.replace(/^\//, "")}`;
+  return fetch(target, {
+    method: "POST",
+    keepalive: true,
+    headers: { Authorization: `Bearer ${cachedAccessToken}` },
+  }).then(async (response) => {
+    if (response.ok) return;
+    const payload = await response.json().catch(() => undefined) as { code?: string; message?: string } | undefined;
+    throw new ApiClientError(response.status, payload?.message ?? `Yêu cầu không thể hoàn tất (HTTP ${response.status}).`, payload?.code);
+  });
+}
 
 export async function apiBlob(path: string): Promise<Blob> {
   const external = /^https?:\/\//i.test(path);

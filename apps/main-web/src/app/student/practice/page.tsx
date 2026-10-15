@@ -124,9 +124,9 @@ const landingDetails = {
     icon: BookOpenText,
     code: "01",
     status: "SẴN SÀNG",
-    label: "IELTS Reading",
+    label: "Reading",
     description: "Mở các bài Reading đã được giao trong khóa học của bạn.",
-    eyebrow: "ĐỌC · HIỂU · TĂNG TỐC",
+    eyebrow: "READ · UNDERSTAND · MASTER",
     features: [
       { icon: ClockCountdown, label: "Đề thi bám sát format thật" },
       { icon: ChartLineUp, label: "Có chấm điểm và phân tích" },
@@ -137,27 +137,27 @@ const landingDetails = {
     icon: Headphones,
     code: "02",
     status: "SẴN SÀNG",
-    label: "IELTS Listening",
+    label: "Listening",
     description: "Luyện nghe theo Part 1–4 bám sát định dạng bài thi thật.",
-    eyebrow: "NGHE · BẮT NHỊP · THẤU HIỂU",
+    eyebrow: "LISTEN · FOLLOW · COMPREHEND",
     features: [],
   },
   WRITING: {
     icon: PencilCircle,
     code: "03",
     status: "ĐANG PHÁT TRIỂN",
-    label: "IELTS Writing",
+    label: "Writing",
     description: "Luyện Task 1, Task 2 và nhận phản hồi theo tiêu chí IELTS.",
-    eyebrow: "VIẾT · CHỈNH SỬA · TIẾN BỘ",
+    eyebrow: "WRITE · REFINE · PROGRESS",
     features: [],
   },
   SPEAKING: {
     icon: Microphone,
     code: "04",
     status: "ĐANG PHÁT TRIỂN",
-    label: "IELTS Speaking",
+    label: "Speaking",
     description: "Luyện nói theo chủ đề, ghi âm và theo dõi tiến bộ.",
-    eyebrow: "NÓI · GHI ÂM · TỰ TIN",
+    eyebrow: "SPEAK · RECORD · GAIN CONFIDENCE",
     features: [],
   },
 } as const;
@@ -176,19 +176,6 @@ function PracticeLanding() {
 
   return (
     <main className={styles.landingPage}>
-      <header className={styles.landingHeader}>
-        <div>
-          <p className={styles.eyebrow}>SKILL PRACTICE</p>
-          <h1><em>IELTS</em> Practice</h1>
-          <p>Practice with published tests backed by complete scoring and review workflows.</p>
-        </div>
-        <div className={styles.landingSignature} aria-hidden="true">
-          <span />
-          <em>Practice with purpose.<br />Progress with confidence.</em>
-          <small>PRACTICE<br />REVIEW<br />IMPROVE <b>•</b></small>
-        </div>
-      </header>
-
       <section className={styles.landingSkillGrid} aria-label="Chọn kỹ năng luyện đề">
         {skills.map((skill) => {
           const detail = landingDetails[skill.id];
@@ -199,7 +186,7 @@ function PracticeLanding() {
               key={skill.id}
               href={`/student/practice?skill=${skill.id}`}
               className={`${styles.landingCard} ${landingCardClasses[skill.id]} ${isReady ? styles.landingAvailableCard : styles.landingUpcomingCard}`}
-              aria-label={`Mở danh mục luyện ${detail.label}`}
+              aria-label={`Mở danh mục luyện IELTS ${detail.label}`}
             >
               <span className={styles.landingGlow} aria-hidden="true" />
               <div className={styles.landingCardTop}>
@@ -209,7 +196,10 @@ function PracticeLanding() {
               </div>
 
               <div className={styles.landingCopy}>
-                <h2 className={styles.landingSkillName}>{detail.label}</h2>
+                <h2 className={styles.landingSkillName}>
+                  <span className={styles.landingIelts}>IELTS</span>
+                  {detail.label}
+                </h2>
                 <p className={styles.landingDescription}>{detail.description}</p>
               </div>
 

@@ -4,7 +4,7 @@ import type { SaveWritingResponseItem, StudentWritingAttempt, WritingTask } from
 import { ArrowLeft, CaretDown, CaretUp, CheckCircle, CircleNotch, Clock, FloppyDisk, ListBullets, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { AuthenticatedDiagramImage } from "@/features/reading/AuthenticatedDiagramImage";
 import {
@@ -155,10 +155,14 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   }, [attemptId, router]);
 
   useEffect(() => {
+    const requestPause = () => { void pauseWritingAttempt(attemptId).catch(() => undefined); };
+    const pauseTimer = () => {
+      setTimerRunning(false);
+      requestPause();
+    };
     const syncVisibility = () => {
       if (document.visibilityState === "hidden") {
-        setTimerRunning(false);
-        void pauseWritingAttempt(attemptId);
+        pauseTimer();
         return;
       }
       void resumeWritingAttempt(attemptId).then((value) => {
@@ -172,9 +176,11 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       }).catch(() => setTimerRunning(false));
     };
     document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("pagehide", pauseTimer);
     return () => {
       document.removeEventListener("visibilitychange", syncVisibility);
-      void pauseWritingAttempt(attemptId);
+      window.removeEventListener("pagehide", pauseTimer);
+      requestPause();
     };
   }, [attemptId, router]);
 
@@ -303,11 +309,23 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
     updateAnswer(next.join("\n\n"));
   }
 
+  async function exitPlayer(event: ReactMouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    setTimerRunning(false);
+    try {
+      await pauseWritingAttempt(attemptId);
+    } catch {
+      // Navigation still proceeds; pagehide keeps a second chance to persist the pause.
+    } finally {
+      router.push("/student/practice?skill=WRITING");
+    }
+  }
+
   return (
     <main className={styles.examShell} style={examStyle}>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <Link href="/student/practice?skill=WRITING" aria-label="Thoát bài thi"><ArrowLeft size={20} /></Link>
+          <Link href="/student/practice?skill=WRITING" onClick={exitPlayer} aria-label="Thoát bài thi"><ArrowLeft size={20} /></Link>
           <div><span>Writing practice</span><strong>{attempt.title}</strong></div>
         </div>
         <div className={styles.headerActions}>

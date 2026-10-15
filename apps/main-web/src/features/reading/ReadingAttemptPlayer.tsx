@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { ReadingAnnotation, ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
 import {
   ArrowLeft, ArrowsHorizontal, CaretLeft, CaretRight, CheckCircle, CircleNotch, Clock,
@@ -203,10 +203,14 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   }, []);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
+    const requestPause = () => { void pauseReadingAttempt(attemptId).catch(() => undefined); };
+    const pauseTimer = () => {
+      setTimerRunning(false);
+      requestPause();
+    };
     const syncVisibility = () => {
       if (document.visibilityState === "hidden") {
-        setTimerRunning(false);
-        void pauseReadingAttempt(attemptId);
+        pauseTimer();
         return;
       }
       void resumeReadingAttempt(attemptId).then((value) => {
@@ -220,9 +224,11 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       }).catch(() => setTimerRunning(false));
     };
     document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("pagehide", pauseTimer);
     return () => {
       document.removeEventListener("visibilitychange", syncVisibility);
-      void pauseReadingAttempt(attemptId);
+      window.removeEventListener("pagehide", pauseTimer);
+      requestPause();
     };
   }, [attemptId, router]);
 
@@ -380,6 +386,18 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     else await document.documentElement.requestFullscreen();
   }
 
+  async function exitPlayer(event: ReactMouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    setTimerRunning(false);
+    try {
+      await pauseReadingAttempt(attemptId);
+    } catch {
+      // Navigation still proceeds; pagehide keeps a second chance to persist the pause.
+    } finally {
+      router.push("/student/reading");
+    }
+  }
+
   if (loading) {
     return <main className={styles.statePage} aria-busy="true"><span><CircleNotch size={21} className={styles.spin} aria-hidden="true" />Đang chuẩn bị phòng thi Reading</span></main>;
   }
@@ -407,7 +425,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     <a href="#reading-workspace" className="student-skip-link">Đến nội dung bài thi</a>
     <header className={styles.examHeader}>
       <div className={styles.brandBlock}>
-        <Link href="/student/reading" className={styles.exitButton} aria-label="Thoát về danh sách đề"><ArrowLeft size={20} aria-hidden="true" /></Link>
+        <Link href="/student/reading" onClick={exitPlayer} className={styles.exitButton} aria-label="Thoát về danh sách đề"><ArrowLeft size={20} aria-hidden="true" /></Link>
         <img src="/logo.jpg" width={38} height={38} alt="" />
         <div><strong>The IELTS Spells</strong><span>{attempt.title}</span></div>
       </div>

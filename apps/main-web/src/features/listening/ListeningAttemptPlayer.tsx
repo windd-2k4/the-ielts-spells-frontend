@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "@/features/reading/ReadingQuestionGroup";
@@ -181,10 +181,14 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
   }, [loadAttempt]);
 
   useEffect(() => {
+    const requestPause = () => { void pauseReadingAttempt(attemptId, "listening").catch(() => undefined); };
+    const pauseTimer = () => {
+      setTimerRunning(false);
+      requestPause();
+    };
     const syncVisibility = () => {
       if (document.visibilityState === "hidden") {
-        setTimerRunning(false);
-        void pauseReadingAttempt(attemptId, "listening");
+        pauseTimer();
         return;
       }
       void resumeReadingAttempt(attemptId, "listening").then((value) => {
@@ -194,9 +198,11 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       }).catch(() => setTimerRunning(false));
     };
     document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("pagehide", pauseTimer);
     return () => {
       document.removeEventListener("visibilitychange", syncVisibility);
-      void pauseReadingAttempt(attemptId, "listening");
+      window.removeEventListener("pagehide", pauseTimer);
+      requestPause();
     };
   }, [attemptId]);
 
@@ -434,6 +440,18 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
     }
   }, [attemptId, flushSave, router]);
 
+  const exitPlayer = useCallback(async (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    setTimerRunning(false);
+    try {
+      await pauseReadingAttempt(attemptId, "listening");
+    } catch {
+      // Navigation still proceeds; pagehide keeps a second chance to persist the pause.
+    } finally {
+      router.push("/student/practice?skill=LISTENING");
+    }
+  }, [attemptId, router]);
+
   // Statistics for submission
   const stats = useMemo(() => {
     let answered = 0;
@@ -467,7 +485,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       <main className={styles.examShell}>
         <header className={styles.header}>
           <div className={styles.headerLeft}>
-            <Link href="/student/practice?skill=LISTENING" className={styles.backBtn}><ArrowLeft size={16} /></Link>
+            <Link href="/student/practice?skill=LISTENING" onClick={exitPlayer} className={styles.backBtn}><ArrowLeft size={16} /></Link>
             <span className={styles.skillBadge}><Headphones size={14} weight="fill" /> IELTS Listening</span>
           </div>
         </header>
@@ -520,7 +538,7 @@ function ListeningAttemptContent({ attemptId }: { attemptId: string }) {
       {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <Link href="/student/practice?skill=LISTENING" className={styles.backBtn} title="Quay về danh mục">
+          <Link href="/student/practice?skill=LISTENING" onClick={exitPlayer} className={styles.backBtn} title="Quay về danh mục">
             <ArrowLeft size={16} />
           </Link>
           <span className={styles.skillBadge}><Headphones size={14} weight="fill" /> IELTS Listening</span>

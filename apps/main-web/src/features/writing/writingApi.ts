@@ -5,10 +5,11 @@ import type {
   WritingAttemptResult,
 } from "@ielts/contracts";
 import { ApiClientError } from "@ielts/api-client";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiKeepalivePost } from "@/lib/api";
 
 const writingPath = "/student/writing";
 let timerControlAvailable = true;
+const pendingPauses = new Map<string, Promise<void>>();
 
 function timerControlMissing(error: unknown) {
   return error instanceof ApiClientError
@@ -33,6 +34,7 @@ export function getWritingAttempt(attemptId: string) {
 
 export async function resumeWritingAttempt(attemptId: string) {
   if (!timerControlAvailable) return getWritingAttempt(attemptId);
+  await pendingPauses.get(attemptId);
   try {
     return await apiFetch<StudentWritingAttempt>(`${writingPath}/attempts/${attemptId}/resume`, { method: "POST" });
   } catch (error) {
@@ -44,12 +46,19 @@ export async function resumeWritingAttempt(attemptId: string) {
 
 export async function pauseWritingAttempt(attemptId: string) {
   if (!timerControlAvailable) return;
-  try {
-    await apiFetch<void>(`${writingPath}/attempts/${attemptId}/pause`, { method: "POST", keepalive: true });
-  } catch (error) {
-    if (!timerControlMissing(error)) throw error;
-    timerControlAvailable = false;
-  }
+  const inFlight = pendingPauses.get(attemptId);
+  if (inFlight) return inFlight;
+
+  const request = apiKeepalivePost(`${writingPath}/attempts/${attemptId}/pause`)
+    .catch((error) => {
+      if (!timerControlMissing(error)) throw error;
+      timerControlAvailable = false;
+    })
+    .finally(() => {
+      if (pendingPauses.get(attemptId) === request) pendingPauses.delete(attemptId);
+    });
+  pendingPauses.set(attemptId, request);
+  return request;
 }
 
 export function saveWritingResponses(attemptId: string, responses: SaveWritingResponseItem[]) {
