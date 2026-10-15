@@ -1,724 +1,1118 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowSquareOut,
   ArrowsLeftRight,
-  BellRinging,
-  BookOpen,
+  Article,
   CalendarBlank,
-  CaretLeft,
-  CaretRight,
+  CalendarCheck,
+  CaretDown,
   Check,
   CheckCircle,
   Clock,
-  ClockCounterClockwise,
   DownloadSimple,
   Exam,
+  File,
+  FileDoc,
   FilePdf,
+  FileText,
   FolderOpen,
   GraduationCap,
   Headphones,
-  ListChecks,
+  Image as ImageIcon,
+  Lightning,
   MagnifyingGlass,
+  Paperclip,
   PlayCircle,
   Sparkle,
-  UserCircle,
+  Target,
+  TrendUp,
+  User,
   VideoCamera,
-  Warning,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import type { CourseWorkspaceData, StudentPortalEnrollment } from "../studentPortalApi";
-import styles from "./StudentCourseWorkspace.module.css";
+import { CourseCoverMediaImage } from "./CourseCoverMediaImage";
 
 interface StudentCourseWorkspaceProps {
   data: CourseWorkspaceData;
   enrolledCourses: StudentPortalEnrollment[];
 }
 
-export type TabType = "overview" | "schedule" | "history" | "alerts" | "library";
-type LibraryFilter = "ALL" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TRANSCRIPT" | "ANSWER_KEY";
-type ReportStatus = "ALL" | "COMPLETED" | "IN_PROGRESS";
+type TabType = "roadmap" | "resources" | "reports";
+type ResourceFilterType = "ALL" | "DOCUMENT" | "AUDIO" | "VIDEO" | "KEY";
 
-interface TabDefinition {
-  id: TabType;
-  label: string;
-  icon: typeof Sparkle;
-  alias?: string[];
+interface ParsedDateInfo {
+  dayName: string;
+  dayNum: string;
+  monthStr: string;
+  timeStr: string;
+  fullDateStr: string;
 }
 
-interface WorkspaceTask {
-  id: string;
+function parseDate(isoString: string | null | undefined): ParsedDateInfo | null {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const days = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const dayName = days[d.getDay()];
+  const dayNum = d.getDate().toString().padStart(2, "0");
+  const monthStr = `Tháng ${d.getMonth() + 1}`;
+  const timeStr = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  const fullDateStr = `${dayNum}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+
+  return { dayName, dayNum, monthStr, timeStr, fullDateStr };
+}
+
+function formatDate(isoString: string | null | undefined): string {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+interface ResourceFormatMeta {
+  type: "pdf" | "audio" | "video" | "key" | "doc" | "image" | "other";
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  iconBg: string;
+  iconColor: string;
+  iconBorder: string;
+}
+
+function getResourceFormatMeta(res: {
   title: string;
-  detail: string;
-  label: string;
-  tone: "primary" | "warning" | "neutral";
-  href?: string;
-  tab?: TabType;
-  checklistKey?: string;
-}
+  externalUrl: string | null;
+  resourceType: string;
+  fileRole: string;
+}): ResourceFormatMeta {
+  const urlOrTitle = (res.externalUrl || res.title).toLowerCase();
+  const fileRole = (res.fileRole || "").toUpperCase();
+  const resourceType = (res.resourceType || "").toUpperCase();
 
-const TABS: TabDefinition[] = [
-  { id: "overview", label: "Overview", icon: Sparkle, alias: ["next_action"] },
-  { id: "schedule", label: "Schedule", icon: CalendarBlank, alias: ["roadmap"] },
-  { id: "history", label: "Learning history", icon: ClockCounterClockwise, alias: ["reports"] },
-  { id: "alerts", label: "Alerts", icon: BellRinging, alias: ["notifications"] },
-  { id: "library", label: "Resources", icon: FolderOpen },
-];
+  // 1. PDF Documents
+  if (urlOrTitle.endsWith(".pdf") || resourceType === "DOCUMENT" || fileRole === "MAIN") {
+    return {
+      type: "pdf",
+      label: "PDF Giáo trình",
+      badgeBg: "bg-rose-50 border-rose-200",
+      badgeText: "text-rose-700",
+      iconBg: "bg-rose-50",
+      iconColor: "text-rose-600",
+      iconBorder: "border-rose-100",
+    };
+  }
 
-const HERO_TABS = TABS.filter((tab) => tab.id !== "alerts");
+  // 2. Audio Files
+  if (
+    urlOrTitle.endsWith(".mp3") ||
+    urlOrTitle.endsWith(".wav") ||
+    urlOrTitle.endsWith(".m4a") ||
+    resourceType === "AUDIO" ||
+    fileRole === "AUDIO"
+  ) {
+    return {
+      type: "audio",
+      label: "Audio nghe",
+      badgeBg: "bg-purple-50 border-purple-200",
+      badgeText: "text-purple-700",
+      iconBg: "bg-purple-50",
+      iconColor: "text-purple-600",
+      iconBorder: "border-purple-100",
+    };
+  }
 
-function normalizeTab(value: string | null): TabType {
-  if (!value) return "overview";
-  return TABS.find((tab) => tab.id === value || tab.alias?.includes(value))?.id ?? "overview";
-}
+  // 3. Video Files
+  if (
+    urlOrTitle.endsWith(".mp4") ||
+    urlOrTitle.endsWith(".mov") ||
+    urlOrTitle.endsWith(".webm") ||
+    resourceType === "VIDEO"
+  ) {
+    return {
+      type: "video",
+      label: "Video bài giảng",
+      badgeBg: "bg-blue-50 border-blue-200",
+      badgeText: "text-blue-700",
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+      iconBorder: "border-blue-100",
+    };
+  }
 
-function clamp(value: number) {
-  return Math.min(100, Math.max(0, value));
-}
+  // 4. Answer Key & Transcripts
+  if (
+    fileRole === "ANSWER_KEY" ||
+    fileRole === "TRANSCRIPT" ||
+    urlOrTitle.includes("transcript") ||
+    urlOrTitle.includes("answer") ||
+    urlOrTitle.includes("dap-an")
+  ) {
+    return {
+      type: "key",
+      label: fileRole === "TRANSCRIPT" ? "Transcript" : "Đáp án & Giải thích",
+      badgeBg: "bg-emerald-50 border-emerald-200",
+      badgeText: "text-emerald-700",
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+      iconBorder: "border-emerald-100",
+    };
+  }
 
-function formatDate(value: string | null | undefined, includeYear = true) {
-  if (!value) return "Chưa cập nhật";
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    ...(includeYear ? { year: "numeric" } : {}),
-  }).format(new Date(value));
-}
+  // 5. Images
+  if (
+    urlOrTitle.endsWith(".png") ||
+    urlOrTitle.endsWith(".jpg") ||
+    urlOrTitle.endsWith(".jpeg") ||
+    urlOrTitle.endsWith(".webp") ||
+    urlOrTitle.endsWith(".svg")
+  ) {
+    return {
+      type: "image",
+      label: "Hình ảnh",
+      badgeBg: "bg-sky-50 border-sky-200",
+      badgeText: "text-sky-700",
+      iconBg: "bg-sky-50",
+      iconColor: "text-sky-600",
+      iconBorder: "border-sky-100",
+    };
+  }
 
-function formatTime(value: string | null | undefined) {
-  if (!value) return "Chưa cập nhật";
-  return new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
-}
+  // 6. Word, Slide, Vocabulary
+  if (
+    urlOrTitle.endsWith(".doc") ||
+    urlOrTitle.endsWith(".docx") ||
+    urlOrTitle.endsWith(".ppt") ||
+    urlOrTitle.endsWith(".pptx") ||
+    fileRole === "VOCABULARY" ||
+    resourceType === "VOCABULARY"
+  ) {
+    return {
+      type: "doc",
+      label: "Tài liệu học tập",
+      badgeBg: "bg-amber-50 border-amber-200",
+      badgeText: "text-amber-800",
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
+      iconBorder: "border-amber-100",
+    };
+  }
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "Chưa cập nhật";
-  return new Intl.DateTimeFormat("vi-VN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
-}
-
-function dayKey(value: string | null | undefined) {
-  if (!value) return "";
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function scoreText(score: number | null, maxScore: number | null) {
-  if (score == null) return "Chưa chấm";
-  const cleanScore = Number.isInteger(score) ? String(score) : score.toFixed(1);
-  if (maxScore == null) return cleanScore;
-  const cleanMax = Number.isInteger(maxScore) ? String(maxScore) : maxScore.toFixed(1);
-  return `${cleanScore}/${cleanMax}`;
-}
-
-function cleanScoreCopy(value: string) {
-  return value.replace(/(\d+)\.00/g, "$1");
-}
-
-const SCHEDULE_SLOTS = [
-  { key: "MORNING", label: "Sáng", from: 0, to: 12 },
-  { key: "AFTERNOON", label: "Chiều", from: 12, to: 18 },
-  { key: "EVENING", label: "Tối", from: 18, to: 24 },
-] as const;
-
-function startOfWeek(value: Date) {
-  const result = new Date(value);
-  const day = result.getDay();
-  result.setHours(0, 0, 0, 0);
-  result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
-  return result;
-}
-
-function addDays(value: Date, days: number) {
-  const result = new Date(value);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function countdown(startsAt: string | null | undefined, now: number) {
-  if (!startsAt) return null;
-  const difference = new Date(startsAt).getTime() - now;
-  if (difference <= 0) return null;
-  const hours = Math.floor(difference / 3_600_000);
-  const minutes = Math.floor((difference % 3_600_000) / 60_000);
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days} ngày ${hours % 24} giờ`;
-  return hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+  // 7. General File
+  return {
+    type: "other",
+    label: "Tệp tin",
+    badgeBg: "bg-stone-50 border-stone-200",
+    badgeText: "text-stone-700",
+    iconBg: "bg-stone-100",
+    iconColor: "text-stone-600",
+    iconBorder: "border-stone-200",
+  };
 }
 
 export function StudentCourseWorkspace({ data, enrolledCourses }: StudentCourseWorkspaceProps) {
   const {
     course,
-    nextAction,
+    enrollment,
     nextSession,
-    sessions,
-    resources,
+    sessions = [],
+    resources = [],
+    studyLogs = [],
+    teacherFeedback = [],
     skills,
-    studyLogs,
-    weaknesses,
     goalProgress,
-    teacherFeedback,
   } = data;
 
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [isModulePage, setIsModulePage] = useState(false);
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("ALL");
-  const [librarySessionFilter, setLibrarySessionFilter] = useState("ALL");
-  const [historySearch, setHistorySearch] = useState("");
-  const [reportSkill, setReportSkill] = useState("ALL");
-  const [reportStatus, setReportStatus] = useState<ReportStatus>("ALL");
-  const [reportPage, setReportPage] = useState(1);
-  const [reportPageSize, setReportPageSize] = useState(10);
-  const [now, setNow] = useState(() => Date.now());
-  const [scheduleWeekAnchor, setScheduleWeekAnchor] = useState(() => new Date());
-  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<TabType>("roadmap");
+  const [resourceFilter, setResourceFilter] = useState<ResourceFilterType>("ALL");
+  const [resourceSearch, setResourceSearch] = useState("");
+  const [showCourseSwitcher, setShowCourseSwitcher] = useState(false);
 
-  useEffect(() => {
-    const syncTab = () => {
-      const tab = new URLSearchParams(window.location.search).get("tab");
-      setActiveTab(normalizeTab(tab));
-      setIsModulePage(Boolean(tab));
-    };
-    syncTab();
-    window.addEventListener("popstate", syncTab);
-    return () => window.removeEventListener("popstate", syncTab);
-  }, []);
+  const isLR =
+    course.skillPair === "LISTENING_READING" ||
+    (course.skillPair != null && course.skillPair.toLowerCase().includes("listening"));
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const selectTab = (tab: TabType) => {
-    setActiveTab(tab);
-    setIsModulePage(true);
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
+  // Identify next upcoming session from backend data
   const scheduledSession = sessions.find(
-    (session) => session.status === "SCHEDULED" && session.startsAt && new Date(session.startsAt).getTime() >= now,
+    (s) => s.status === "SCHEDULED" && s.startsAt && new Date(s.startsAt).getTime() >= Date.now(),
   );
-  const nextCourseSession = nextSession || scheduledSession || null;
-  const isClassToday = dayKey(nextCourseSession?.startsAt) === dayKey(new Date(now).toISOString());
-  const classCountdown = countdown(nextCourseSession?.startsAt, now);
-  const teacherName =
-    nextSession?.teacherName || course.primaryTeacherName || sessions.find((session) => session.teacherName)?.teacherName || null;
-  const zoomUrl = nextSession?.zoomUrl || scheduledSession?.zoomUrl || course.defaultZoomUrl;
-
-  const upcomingSessions = useMemo(
-    () =>
-      sessions
-        .filter((session) => session.status === "SCHEDULED" && session.startsAt && new Date(session.startsAt).getTime() >= now)
-        .sort((a, b) => new Date(a.startsAt || 0).getTime() - new Date(b.startsAt || 0).getTime()),
-    [sessions, now],
-  );
-
-  const activeAlerts = useMemo(() => {
-    const alerts: {
-      id: string;
-      type: "DANGER" | "WARNING" | "INFO";
-      title: string;
-      body: string;
-      actionLabel?: string;
-      actionUrl?: string;
-      tabRedirect?: TabType;
-      createdAt?: string;
-    }[] = [];
-
-    teacherFeedback.filter((item) => item.isRevisionRequired).forEach((item) => {
-      alerts.push({
-        id: `revision-${item.id}`,
-        type: "DANGER",
-        title: `${item.teacherName} yêu cầu sửa lại bài`,
-        body: item.feedback || "Bài làm cần được bổ sung trước khi hoàn thiện.",
-        actionLabel: "Xem nhận xét",
-        tabRedirect: "history",
-        createdAt: item.reviewedAt,
-      });
-    });
-
-    weaknesses.forEach((weakness, index) => {
-      alerts.push({
-        id: `weakness-${index}`,
-        type: "WARNING",
-        title: `${weakness.questionType} cần luyện thêm`,
-        body: `${weakness.recommendation} Đã ghi nhận ${weakness.errorCount} lỗi gần đây trong ${weakness.skill}.`,
-        actionLabel: "Bắt đầu luyện",
-        actionUrl: nextAction.ctaUrl || undefined,
-      });
-    });
-
-    if (goalProgress.sessionAttendanceRate < 80) {
-      alerts.push({
-        id: "attendance-low",
-        type: "WARNING",
-        title: "Chuyên cần đang dưới mức 80%",
-        body: `Tỷ lệ hiện tại là ${goalProgress.sessionAttendanceRate}%. Hãy kiểm tra các buổi học tiếp theo.`,
-        actionLabel: "Xem thời khóa biểu",
-        tabRedirect: "schedule",
-      });
-    }
-
-    if (goalProgress.weeklyCompletedCount < goalProgress.weeklyTarget) {
-      const remaining = goalProgress.weeklyTarget - goalProgress.weeklyCompletedCount;
-      alerts.push({
-        id: "weekly-goal",
-        type: "INFO",
-        title: `Còn ${remaining} bài để đạt mục tiêu tuần`,
-        body: `Bạn đã hoàn thành ${goalProgress.weeklyCompletedCount}/${goalProgress.weeklyTarget} bài.`,
-        actionLabel: "Làm bài tiếp",
-        actionUrl: nextAction.ctaUrl || undefined,
-      });
-    }
-
-    return alerts;
-  }, [goalProgress, nextAction.ctaUrl, teacherFeedback, weaknesses]);
-
-  const workspaceTasks = useMemo<WorkspaceTask[]>(() => {
-    const tasks: WorkspaceTask[] = [];
-
-    teacherFeedback.filter((item) => item.isRevisionRequired).forEach((item) => {
-      tasks.push({
-        id: `feedback-${item.id}`,
-        title: "Chỉnh sửa bài theo nhận xét",
-        detail: `${item.teacherName} đã gửi phản hồi ${formatDate(item.reviewedAt, false)}.`,
-        label: "Cần sửa",
-        tone: "warning",
-        tab: "alerts",
-      });
-    });
-
-    if (nextAction.title) {
-      tasks.push({
-        id: "next-action",
-        title: nextAction.title,
-        detail: cleanScoreCopy(nextAction.description || "Tiếp tục nội dung đang học."),
-        label: nextAction.deadline ? `Hạn ${formatDate(nextAction.deadline, false)}` : "Ưu tiên",
-        tone: nextAction.priority === "HIGH" ? "warning" : "primary",
-        href: nextAction.ctaUrl || undefined,
-        tab: nextAction.ctaUrl ? undefined : "overview",
-      });
-    }
-
-    studyLogs.filter((log) => !log.completedAt).slice(0, 3).forEach((log) => {
-      tasks.push({
-        id: `attempt-${log.id}`,
-        title: log.testTitle,
-        detail: `${log.skill} | Bài đang làm`,
-        label: "Đang làm",
-        tone: "primary",
-        href: log.reviewUrl,
-      });
-    });
-
-    nextSession?.prerequisiteTasks.forEach((task, index) => {
-      tasks.push({
-        id: `prep-${index}`,
-        title: task,
-        detail: `Chuẩn bị trước buổi ${nextSession.sessionNo}.`,
-        label: checkedTasks[task] ? "Đã xong" : "Chuẩn bị",
-        tone: checkedTasks[task] ? "neutral" : "primary",
-        checklistKey: task,
-      });
-    });
-
-    return tasks;
-  }, [checkedTasks, nextAction, nextSession, studyLogs, teacherFeedback]);
-
-  const skillMetrics = [
-    { label: "Reading", value: skills.readingAccuracy, display: skills.readingAccuracy == null ? null : `${Math.round(skills.readingAccuracy)}%` },
-    { label: "Listening", value: skills.listeningAccuracy, display: skills.listeningAccuracy == null ? null : `${Math.round(skills.listeningAccuracy)}%` },
-    {
-      label: "Writing",
-      value: skills.writingBandScore == null ? null : clamp((skills.writingBandScore / 9) * 100),
-      display: skills.writingBandScore == null ? null : `Band ${skills.writingBandScore}`,
-    },
-    {
-      label: "Speaking",
-      value: skills.speakingBandScore == null ? null : clamp((skills.speakingBandScore / 9) * 100),
-      display: skills.speakingBandScore == null ? null : `Band ${skills.speakingBandScore}`,
-    },
-  ];
-
-  const filteredResources = useMemo(
-    () =>
-      resources.filter((resource) => {
-        const query = librarySearch.trim().toLocaleLowerCase("vi");
-        const searchable = `${resource.title} ${resource.code} ${resource.skill}`.toLocaleLowerCase("vi");
-        const kind = `${resource.resourceType} ${resource.fileRole}`.toUpperCase();
-        return (
-          (!query || searchable.includes(query)) &&
-          (libraryFilter === "ALL" || kind.includes(libraryFilter)) &&
-          (librarySessionFilter === "ALL" ||
-            (librarySessionFilter === "GENERAL" && resource.sessionNo == null) ||
-            resource.sessionNo === Number(librarySessionFilter))
-        );
-      }),
-    [libraryFilter, librarySearch, librarySessionFilter, resources],
-  );
-
-  const completedLogs = useMemo(() => studyLogs.filter((log) => Boolean(log.completedAt)), [studyLogs]);
-  const totalCorrect = completedLogs.reduce((sum, log) => sum + (log.correctCount || 0), 0);
-  const totalQuestions = completedLogs.reduce((sum, log) => sum + (log.totalQuestions || 0), 0);
-  const accuracy = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : null;
-  const scoredLogs = completedLogs.filter((log) => log.score != null && log.maxScore);
-  const averageScore = scoredLogs.length
-    ? Math.round(scoredLogs.reduce((sum, log) => sum + ((log.score || 0) / (log.maxScore || 1)) * 100, 0) / scoredLogs.length)
+  const activeNextSession = nextSession || scheduledSession || null;
+  const nextSessionId = activeNextSession
+    ? "sessionId" in activeNextSession
+      ? activeNextSession.sessionId
+      : activeNextSession.id
     : null;
 
-  const filteredStudyLogs = useMemo(
-    () =>
-      studyLogs.filter((log) => {
-        const matchesQuery = !historySearch.trim() || log.testTitle.toLocaleLowerCase("vi").includes(historySearch.trim().toLocaleLowerCase("vi"));
-        const matchesSkill = reportSkill === "ALL" || log.skill === reportSkill;
-        const matchesStatus = reportStatus === "ALL" || (reportStatus === "COMPLETED" ? Boolean(log.completedAt) : !log.completedAt);
-        return matchesQuery && matchesSkill && matchesStatus;
-      }),
-    [historySearch, reportSkill, reportStatus, studyLogs],
-  );
-  const reportPageCount = Math.max(1, Math.ceil(filteredStudyLogs.length / reportPageSize));
-  const safeReportPage = Math.min(reportPage, reportPageCount);
-  const visibleStudyLogs = filteredStudyLogs.slice((safeReportPage - 1) * reportPageSize, safeReportPage * reportPageSize);
+  const activeZoomUrl = activeNextSession?.zoomUrl || course.defaultZoomUrl;
+  const nextSessionDate = parseDate(activeNextSession?.startsAt);
+  const nextPrepMaterials =
+    activeNextSession && "prepMaterials" in activeNextSession && Array.isArray(activeNextSession.prepMaterials)
+      ? activeNextSession.prepMaterials
+      : null;
 
-  useEffect(() => {
-    setReportPage(1);
-  }, [historySearch, reportPageSize, reportSkill, reportStatus]);
+  const completedCount = enrollment.completedSessions || 0;
+  const totalCount = enrollment.totalSessions || course.totalSessions || sessions.length || 1;
+  const progressPercent = Math.min(100, Math.round((completedCount / totalCount) * 100));
 
-  const scheduleWeekStart = useMemo(() => startOfWeek(scheduleWeekAnchor), [scheduleWeekAnchor]);
-  const scheduleDays = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(scheduleWeekStart, index)),
-    [scheduleWeekStart],
-  );
-  const scheduleWeekEnd = scheduleDays[6];
-  const scheduledSessionsThisWeek = sessions.filter((session) => {
-    if (!session.startsAt) return false;
-    const start = new Date(session.startsAt);
-    return start >= scheduleWeekStart && start < addDays(scheduleWeekStart, 7);
-  });
+  const teacherName =
+    activeNextSession?.teacherName ||
+    course.primaryTeacherName ||
+    sessions.find((s) => s.teacherName)?.teacherName ||
+    null;
 
-  const tabBadges: Partial<Record<TabType, number>> = {
-    schedule: upcomingSessions.length || sessions.length,
-    history: completedLogs.length,
-    alerts: activeAlerts.length,
-    library: resources.length,
-  };
-  const activeTabDefinition = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
-  const ActiveTabIcon = activeTabDefinition.icon;
+  // Group sessions by phase if present
+  const sessionPhases = useMemo(() => {
+    const groups: { phaseName: string; sessions: typeof sessions }[] = [];
+    for (const session of sessions) {
+      const name = session.phaseName || "Lộ trình đào tạo";
+      let grp = groups.find((g) => g.phaseName === name);
+      if (!grp) {
+        grp = { phaseName: name, sessions: [] };
+        groups.push(grp);
+      }
+      grp.sessions.push(session);
+    }
+    return groups;
+  }, [sessions]);
+
+  // Filter resources based on search and active filter
+  const filteredResources = useMemo(() => {
+    return resources.filter((res) => {
+      const format = getResourceFormatMeta(res);
+      const matchType =
+        resourceFilter === "ALL" ||
+        (resourceFilter === "DOCUMENT" && format.type === "pdf") ||
+        (resourceFilter === "AUDIO" && format.type === "audio") ||
+        (resourceFilter === "VIDEO" && format.type === "video") ||
+        (resourceFilter === "KEY" && format.type === "key");
+
+      const q = resourceSearch.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        res.title.toLowerCase().includes(q) ||
+        (res.category && res.category.toLowerCase().includes(q)) ||
+        (res.code && res.code.toLowerCase().includes(q));
+
+      return matchType && matchSearch;
+    });
+  }, [resources, resourceFilter, resourceSearch]);
+
   const switchableCourses = enrolledCourses.filter(
-    (enrollment, index, list) => list.findIndex((item) => item.courseId === enrollment.courseId) === index,
+    (item, idx, list) => list.findIndex((c) => c.courseId === item.courseId) === idx,
   );
-
-  const renderResource = (resource: CourseWorkspaceData["resources"][number]) => {
-    const kind = `${resource.resourceType} ${resource.fileRole}`.toUpperCase();
-    const ResourceIcon = kind.includes("AUDIO") ? Headphones : kind.includes("VIDEO") ? VideoCamera : FilePdf;
-    return (
-      <article key={resource.id} className={styles.resourceItem}>
-        <span className={styles.resourceIcon}><ResourceIcon size={20} weight="duotone" /></span>
-        <div>
-          <strong>{resource.title}</strong>
-          <small>{resource.skill} | {resource.sessionNo ? `Buổi ${resource.sessionNo}` : "Tài liệu chung"}</small>
-        </div>
-        {resource.externalUrl ? (
-          <a href={resource.externalUrl} target="_blank" rel="noreferrer" aria-label={`Mở ${resource.title}`}>
-            <DownloadSimple size={17} weight="bold" />
-          </a>
-        ) : <span className={styles.mutedValue}>Nội bộ</span>}
-      </article>
-    );
-  };
 
   return (
-    <div className={`${styles.workspaceRoot} ${isModulePage ? styles.modulePageRoot : ""}`} data-course-journey>
-      <div className={styles.workspaceShell}>
-        {!isModulePage ? <div className={styles.taskStage}>
-          <aside className={styles.taskPanel} aria-label="Danh sách việc cần làm">
-          <div className={styles.taskPanelHeader}>
-            <h2>Việc cần làm</h2>
-            <span className={styles.taskCount}>{workspaceTasks.length}</span>
+    <div className="w-full max-w-5xl mx-auto space-y-7 pb-24 text-[#1E1B18]">
+      {/* =========================================================================
+          KHU VỰC 1: TỔNG QUAN KHÓA HỌC (COURSE OVERVIEW)
+         ========================================================================= */}
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1C1619] via-[#2A1B22] to-[#3B222D] text-white p-6 sm:p-9 shadow-xl border border-white/10">
+        {/* Ambient atmospheric lighting orbs */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-[#E796A9]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-16 w-72 h-72 rounded-full bg-[#F4C430]/10 blur-3xl pointer-events-none" />
+
+        {/* Top Navigation Bar: Breadcrumb & Quick Switcher */}
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-white/10 text-xs">
+          <Link
+            href="/student/courses"
+            className="inline-flex items-center gap-1.5 font-semibold text-rose-200/90 hover:text-white transition-colors group"
+          >
+            <ArrowLeft size={14} weight="bold" className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>Khóa học của tôi</span>
+            <span className="text-white/30">/</span>
+            <span className="font-mono text-rose-200 font-bold">{course.code}</span>
+          </Link>
+
+          {switchableCourses.length > 1 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCourseSwitcher(!showCourseSwitcher)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs font-semibold hover:bg-white/15 transition-colors shadow-2xs"
+                aria-expanded={showCourseSwitcher}
+                aria-haspopup="true"
+              >
+                <ArrowsLeftRight size={13} weight="bold" className="text-[#F4C430]" />
+                <span>Đổi khóa học ({switchableCourses.length})</span>
+                <CaretDown size={11} weight="bold" />
+              </button>
+
+              {showCourseSwitcher && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-[#251B20] text-white rounded-2xl border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl">
+                  <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#F4C430]">
+                    Khóa học đang tham gia
+                  </div>
+                  {switchableCourses.map((enr) => (
+                    <Link
+                      key={enr.courseId}
+                      href={`/student/courses/${enr.courseId}`}
+                      onClick={() => setShowCourseSwitcher(false)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl text-xs transition-colors ${
+                        enr.courseId === course.id
+                          ? "bg-[#894C5B] text-white font-bold"
+                          : "hover:bg-white/10 text-white/80"
+                      }`}
+                    >
+                      <div className="truncate pr-2">
+                        <div className="truncate font-semibold">{enr.courseName}</div>
+                        <div className="text-[10px] text-white/50 font-mono">{enr.courseCode}</div>
+                      </div>
+                      {enr.courseId === course.id && (
+                        <Check size={14} weight="bold" className="shrink-0 text-[#F4C430]" />
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Hero Content: Left Details & Right Cover Image */}
+        <div className="relative z-10 pt-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3.5 flex-1 min-w-0">
+            {/* Badges Row */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold uppercase tracking-wider font-mono">
+                {course.code}
+              </span>
+
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 backdrop-blur-md border border-rose-300/30 text-rose-100 text-xs font-semibold">
+                <GraduationCap size={14} weight="duotone" />
+                <span>{isLR ? "Listening & Reading" : "Speaking & Writing"}</span>
+              </span>
+
+              {course.level && (
+                <span className="px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-xs font-medium">
+                  Cấp độ: {course.level}
+                </span>
+              )}
+
+              {course.targetBand != null && (
+                <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-[#F4C430] text-[#1E171A] text-xs font-extrabold shadow-xs">
+                  <Target size={13} weight="bold" />
+                  <span>Mục tiêu Band {course.targetBand.toFixed(1)}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Course Title & Description */}
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                {course.name}
+              </h1>
+              {course.description && (
+                <p className="mt-2 text-xs sm:text-sm text-rose-100/75 leading-relaxed max-w-2xl line-clamp-2">
+                  {course.description}
+                </p>
+              )}
+            </div>
+
+            {/* Meta Row: Teacher & Duration */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-rose-100/80 pt-0.5">
+              <div className="flex items-center gap-1.5">
+                <User size={14} weight="bold" className="text-[#F4C430]" />
+                <span>
+                  Giảng viên: <strong className="text-white font-bold">{teacherName || "Đang cập nhật"}</strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <CalendarBlank size={14} weight="bold" className="text-[#F4C430]" />
+                <span>
+                  Thời lượng:{" "}
+                  <strong className="text-white font-bold">
+                    {sessions.length || course.totalSessions || 0} buổi học
+                  </strong>
+                </span>
+              </div>
+
+              {course.startsOn && (
+                <div className="flex items-center gap-1.5 text-rose-200/70">
+                  <Clock size={13} />
+                  <span>
+                    {formatDate(course.startsOn)}
+                    {course.endsOn ? ` - ${formatDate(course.endsOn)}` : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Course Progress Bar */}
+            <div className="pt-1.5 max-w-md space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-rose-200/75 font-medium">Tiến độ khóa học</span>
+                <span className="font-extrabold text-[#F4C430]">
+                  {completedCount}/{totalCount} buổi ({progressPercent}%)
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-white/15 overflow-hidden p-0.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#F4C430] to-[#E796A9] transition-all duration-500 shadow-[0_0_10px_rgba(244,196,48,0.5)]"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className={styles.taskList}>
-            {workspaceTasks.length ? workspaceTasks.map((task) => {
-              const content = (
-                <>
-                  <span className={`${styles.taskMark} ${styles[`taskMark_${task.tone}`]}`}>
-                    {task.checklistKey && checkedTasks[task.checklistKey] ? <Check size={15} weight="bold" /> : <ListChecks size={17} />}
-                  </span>
-                  <span className={styles.taskCopy}>
-                    <strong>{task.title}</strong>
-                  </span>
-                  <span className={`${styles.taskLabel} ${styles[`taskLabel_${task.tone}`]}`}>{task.label}</span>
-                </>
-              );
+          {/* Right: Course Cover Media Thumbnail */}
+          <div className="w-full md:w-64 shrink-0">
+            <div className="relative h-36 w-full rounded-2xl overflow-hidden border border-white/20 shadow-xl bg-black/25 group">
+              <CourseCoverMediaImage
+                coverImageUrl={course.coverImageUrl}
+                coverImageAltText={course.coverImageAltText}
+                courseName={course.name}
+                skillPair={course.skillPair}
+                className="w-full h-full"
+                imageClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-[11px] text-white">
+                <span className="px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-md font-mono font-bold text-rose-200">
+                  {course.code}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/25 backdrop-blur-md text-emerald-300 font-bold border border-emerald-400/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Đang diễn ra
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-              if (task.checklistKey) {
-                const key = task.checklistKey;
-                return (
-                  <button
-                    type="button"
-                    key={task.id}
-                    className={styles.taskRow}
-                    onClick={() => setCheckedTasks((current) => ({ ...current, [key]: !current[key] }))}
-                    aria-pressed={Boolean(checkedTasks[key])}
-                  >
-                    {content}
-                  </button>
-                );
-              }
-              if (task.href) return <a key={task.id} href={task.href} className={styles.taskRow}>{content}</a>;
-              return (
-                <button type="button" key={task.id} className={styles.taskRow} onClick={() => selectTab(task.tab || "overview")}>
-                  {content}
-                </button>
-              );
-            }) : (
-              <div className={styles.taskEmpty}>
-                <CheckCircle size={30} weight="duotone" />
-                <strong>Không có việc tồn đọng</strong>
-                <span>Nhiệm vụ mới sẽ xuất hiện tại đây khi được giao.</span>
+      {/* =========================================================================
+          KHU VỰC 2: BUỔI HỌC TIẾP THEO (NEXT LESSON CARD)
+         ========================================================================= */}
+      {activeNextSession && (
+        <section
+          className="bg-white rounded-2xl border-2 border-[#E8CFD5] p-5 sm:p-6 shadow-xs hover:shadow-sm transition-shadow"
+          aria-label="Buổi học tiếp theo"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            {/* Phân khu A & B: Ngày học và Thông tin buổi học */}
+            <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+              {/* Phân khu A. Ngày học (Calendar Date Tile) */}
+              {nextSessionDate ? (
+                <div
+                  className="shrink-0 w-20 h-22 sm:w-24 sm:h-24 rounded-2xl bg-[#894C5B] text-white flex flex-col items-center justify-center text-center p-2.5 shadow-md shadow-rose-950/15"
+                  aria-label={`Lịch học: ${nextSessionDate.dayName}, ngày ${nextSessionDate.dayNum} ${nextSessionDate.monthStr}`}
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider opacity-90 leading-none">
+                    {nextSessionDate.dayName}
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-black leading-tight my-0.5">
+                    {nextSessionDate.dayNum}
+                  </span>
+                  <span className="text-[10px] font-semibold opacity-90 leading-none">
+                    {nextSessionDate.monthStr}
+                  </span>
+                </div>
+              ) : (
+                <div className="shrink-0 w-20 h-22 sm:w-24 sm:h-24 rounded-2xl bg-[#894C5B] text-white flex flex-col items-center justify-center text-center p-2.5">
+                  <Clock size={28} weight="bold" />
+                  <span className="text-[10px] font-semibold mt-1 opacity-90">Chưa xếp giờ</span>
+                </div>
+              )}
+
+              {/* Phân khu B. Thông tin buổi học */}
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#894C5B] text-white text-[11px] font-bold uppercase font-mono tracking-wider">
+                    <Lightning size={12} weight="fill" className="text-[#F4C430]" />
+                    Buổi {activeNextSession.sessionNo}
+                  </span>
+                  <span className="text-xs font-bold text-[#894C5B] bg-[#F7E5EA] px-2.5 py-0.5 rounded-full">
+                    Sắp diễn ra
+                  </span>
+                  {nextSessionDate && (
+                    <span className="text-xs text-[#5C5752] flex items-center gap-1 font-medium">
+                      <Clock size={13} />
+                      <span>
+                        {nextSessionDate.timeStr} • {nextSessionDate.fullDateStr}
+                      </span>
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="text-base sm:text-lg font-bold text-[#1E1B18] leading-snug truncate">
+                  {activeNextSession.title || `Buổi học số ${activeNextSession.sessionNo}`}
+                </h2>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#5C5752]">
+                  <span className="flex items-center gap-1">
+                    <User size={13} weight="bold" className="text-[#894C5B]" />
+                    <span>
+                      Giảng viên:{" "}
+                      <strong className="text-[#1E1B18]">
+                        {activeNextSession.teacherName || teacherName || "Đang cập nhật"}
+                      </strong>
+                    </span>
+                  </span>
+                  {activeNextSession.phaseName && (
+                    <span>
+                      • Giai đoạn:{" "}
+                      <strong className="text-[#1E1B18]">{activeNextSession.phaseName}</strong>
+                    </span>
+                  )}
+                </div>
+
+                {nextPrepMaterials && nextPrepMaterials.length > 0 && (
+                  <p className="text-xs text-[#5C5752] pt-0.5 line-clamp-1">
+                    <span className="font-semibold text-[#894C5B]">Chuẩn bị:</span>{" "}
+                    {nextPrepMaterials.join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Phân khu C. Hành động (Action CTA) */}
+            {activeZoomUrl && (
+              <div className="shrink-0 pt-2 md:pt-0">
+                <a
+                  href={activeZoomUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#894C5B] hover:bg-[#6D3845] text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all shrink-0 w-full md:w-auto"
+                >
+                  <VideoCamera size={18} weight="fill" />
+                  <span>Vào phòng học Zoom</span>
+                  <ArrowRight size={14} weight="bold" />
+                </a>
               </div>
             )}
           </div>
-          </aside>
-        </div> : null}
+        </section>
+      )}
 
-        <section className={styles.coursePanel}>
-          {isModulePage ? (
-            <header className={`${styles.modulePageHeader} ${activeTab === "schedule" ? styles.schedulePageHeader : ""}`}>
-              <Link
-                href={`/student/courses/${course.id}`}
-                className={styles.moduleBackLink}
-                onClick={() => {
-                  setActiveTab("overview");
-                  setIsModulePage(false);
-                }}
-              >
-                <ArrowLeft size={17} weight="bold" /> Course workspace
-              </Link>
-              <div className={styles.modulePageTitle}>
-                <span><ActiveTabIcon size={21} weight="duotone" /></span>
-                <div><small>{course.name}</small><h1>{activeTabDefinition.label}</h1></div>
+      {/* =========================================================================
+          ĐIỀU HƯỚNG TAB CHÍNH (3 TABS SEGMENTED CONTROL)
+         ========================================================================= */}
+      <nav
+        className="flex items-center gap-2 p-1.5 rounded-2xl bg-white border border-[#E8CFD5] shadow-xs overflow-x-auto"
+        aria-label="Các phân khu chức năng khóa học"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab("roadmap")}
+          className={`min-h-[44px] px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === "roadmap"
+              ? "bg-[#894C5B] text-white shadow-xs"
+              : "bg-transparent text-[#5C5752] hover:text-[#1E1B18] hover:bg-[#FAF8F5]"
+          }`}
+        >
+          <CalendarCheck size={16} weight={activeTab === "roadmap" ? "fill" : "regular"} />
+          <span>Lộ trình bài học</span>
+          <span
+            className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+              activeTab === "roadmap" ? "bg-white/20 text-white" : "bg-stone-100 text-[#5C5752]"
+            }`}
+          >
+            {sessions.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("resources")}
+          className={`min-h-[44px] px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === "resources"
+              ? "bg-[#894C5B] text-white shadow-xs"
+              : "bg-transparent text-[#5C5752] hover:text-[#1E1B18] hover:bg-[#FAF8F5]"
+          }`}
+        >
+          <FolderOpen size={16} weight={activeTab === "resources" ? "fill" : "regular"} />
+          <span>Kho tài liệu</span>
+          <span
+            className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+              activeTab === "resources" ? "bg-white/20 text-white" : "bg-stone-100 text-[#5C5752]"
+            }`}
+          >
+            {resources.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("reports")}
+          className={`min-h-[44px] px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === "reports"
+              ? "bg-[#894C5B] text-white shadow-xs"
+              : "bg-transparent text-[#5C5752] hover:text-[#1E1B18] hover:bg-[#FAF8F5]"
+          }`}
+        >
+          <TrendUp size={16} weight={activeTab === "reports" ? "fill" : "regular"} />
+          <span>Kết quả & Nhận xét</span>
+          <span
+            className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+              activeTab === "reports" ? "bg-white/20 text-white" : "bg-stone-100 text-[#5C5752]"
+            }`}
+          >
+            {studyLogs.length}
+          </span>
+        </button>
+      </nav>
+
+      {/* =========================================================================
+          KHU VỰC 3: TAB LỘ TRÌNH BÀI HỌC (LEARNING ROADMAP)
+         ========================================================================= */}
+      {activeTab === "roadmap" && (
+        <section className="space-y-7" aria-label="Lộ trình các buổi học">
+          {sessionPhases.map((phase) => (
+            <div key={phase.phaseName} className="space-y-4">
+              {/* Module / Phase Header */}
+              <div className="flex items-center gap-3">
+                <div className="px-3.5 py-1 rounded-lg bg-[#894C5B] text-white text-xs font-bold uppercase tracking-wider">
+                  {phase.phaseName}
+                </div>
+                <div className="h-px flex-1 bg-[#E8CFD5]" />
+                <span className="text-xs text-[#5C5752] font-semibold">
+                  {phase.sessions.length} buổi học
+                </span>
               </div>
-            </header>
-          ) : <><header className={styles.courseHeader}>
-            <div className={styles.courseHero}>
-              <div className={styles.courseHeroCopy}>
-                <span className={styles.skillPair}><GraduationCap size={16} weight="duotone" /> {course.skillPair === "LISTENING_READING" ? "Listening & Reading" : "Speaking & Writing"}</span>
-                <div className={styles.courseTitleRow}>
-                  <h1>{course.name}</h1>
-                  {switchableCourses.length > 1 ? (
-                    <details className={styles.courseSwitcher}>
-                      <summary aria-label="Chuyển sang khóa học khác" title="Chuyển khóa học">
-                        <ArrowsLeftRight size={19} weight="bold" />
-                      </summary>
-                      <div className={styles.courseSwitcherMenu}>
-                        <span>My courses</span>
-                        {switchableCourses.map((enrollment) => (
-                          <Link
-                            href={`/student/courses/${enrollment.courseId}`}
-                            key={enrollment.enrollmentId}
-                            aria-current={enrollment.courseId === course.id ? "page" : undefined}
+
+              {/* Sessions List in this Module */}
+              <div className="space-y-3.5">
+                {phase.sessions.map((session) => {
+                  const isCompleted = session.status === "COMPLETED";
+                  const isNext = nextSessionId === session.id;
+                  const sessionDate = parseDate(session.startsAt);
+                  const sessionZoom = session.zoomUrl || (isNext ? course.defaultZoomUrl : null);
+
+                  return (
+                    <article
+                      key={session.id}
+                      className={`rounded-2xl border p-5 transition-all duration-200 ${
+                        isNext
+                          ? "border-2 border-[#894C5B] bg-[#FFFDF8] ring-2 ring-[#894C5B]/15 shadow-xs"
+                          : isCompleted
+                          ? "border-[#E8E2D5] bg-white opacity-95 hover:border-[#894C5B]/40"
+                          : "border-[#E8E2D5] bg-white hover:border-[#894C5B]/40"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        {/* Session Identity & Title */}
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-md bg-[#894C5B] text-white text-xs font-bold font-mono">
+                              Buổi {session.sessionNo}
+                            </span>
+
+                            {isCompleted ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                                <CheckCircle size={13} weight="fill" />
+                                <span>Đã hoàn thành</span>
+                              </span>
+                            ) : isNext ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#F7E5EA] text-[#894C5B] text-xs font-bold border border-[#EAC2CD]">
+                                <Sparkle size={12} weight="fill" />
+                                <span>Buổi tiếp theo</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#5C5752] bg-stone-100 px-2 py-0.5 rounded-md font-medium">
+                                Sắp diễn ra
+                              </span>
+                            )}
+
+                            {sessionDate && (
+                              <span className="text-xs text-[#5C5752] flex items-center gap-1 font-medium">
+                                <Clock size={12} />
+                                <span>
+                                  {sessionDate.dayName}, {sessionDate.fullDateStr} lúc {sessionDate.timeStr}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-bold text-sm sm:text-base text-[#1E1B18]">
+                            {session.title || `Buổi học ${session.sessionNo}`}
+                          </h3>
+
+                          {session.content && (
+                            <p className="text-xs sm:text-sm text-[#5C5752] leading-relaxed">
+                              {session.content}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Direct Zoom CTA if Scheduled */}
+                        {sessionZoom && !isCompleted && (
+                          <a
+                            href={sessionZoom}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#894C5B] hover:bg-[#6D3845] text-white text-xs font-bold shrink-0 transition-colors shadow-2xs"
                           >
-                            <strong>{enrollment.courseName}</strong>
-                            <small>{enrollment.skillPair === "LISTENING_READING" ? "Listening & Reading" : "Speaking & Writing"}</small>
-                            {enrollment.courseId === course.id ? <Check size={15} weight="bold" /> : <ArrowRight size={15} />}
-                          </Link>
-                        ))}
+                            <VideoCamera size={14} weight="fill" />
+                            <span>Vào Zoom</span>
+                          </a>
+                        )}
                       </div>
-                    </details>
-                  ) : null}
-                </div>
-                <div className={styles.courseActions}>
-                  {isClassToday && zoomUrl ? (
-                    <a href={zoomUrl} target="_blank" rel="noreferrer" className={styles.primaryButton}><VideoCamera size={18} weight="fill" /> Vào lớp ngay</a>
-                  ) : nextAction.ctaUrl ? (
-                    <a href={nextAction.ctaUrl} className={styles.primaryButton}><PlayCircle size={18} weight="fill" /> {nextAction.ctaLabel || "Tiếp tục học"}</a>
-                  ) : (
-                    <button type="button" className={styles.primaryButton} onClick={() => selectTab("schedule")}><CalendarBlank size={18} /> Xem lịch học</button>
-                  )}
-                  {classCountdown ? <span className={styles.classCountdown}><Clock size={16} /> Còn {classCountdown}</span> : null}
-                  {activeAlerts.length ? (
-                    <button type="button" className={styles.alertShortcut} onClick={() => selectTab("alerts")}>
-                      <BellRinging size={17} /> {activeAlerts.length} cảnh báo
-                    </button>
-                  ) : null}
-                </div>
+
+                      {/* Attachments Footer: Materials & Assignments */}
+                      {((session.materials && session.materials.length > 0) ||
+                        (session.assignments && session.assignments.length > 0)) && (
+                        <div className="pt-3 mt-3 border-t border-[#F1ECE4] flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                          {/* Attached Materials */}
+                          {session.materials && session.materials.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[#5C5752] font-semibold flex items-center gap-1">
+                                <Paperclip size={13} /> Tài liệu:
+                              </span>
+                              {session.materials.map((m) => (
+                                <a
+                                  key={m.id}
+                                  href={m.externalUrl || "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FAF8F5] border border-[#E8E2D5] text-[#292528] hover:text-[#894C5B] hover:border-[#894C5B] transition-colors"
+                                >
+                                  <FileText size={13} className="text-[#894C5B]" />
+                                  <span className="truncate max-w-[200px] font-medium">{m.title}</span>
+                                  <ArrowSquareOut size={11} className="text-[#5C5752]" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Attached Assignments */}
+                          {session.assignments && session.assignments.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[#5C5752] font-semibold flex items-center gap-1">
+                                <Exam size={13} /> Bài tập:
+                              </span>
+                              {session.assignments.map((a) => (
+                                <span
+                                  key={a.id}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F7E5EA] border border-[#EAC2CD] text-[#894C5B] font-semibold"
+                                >
+                                  <span>{a.title}</span>
+                                  {a.score != null ? (
+                                    <strong className="text-emerald-700 bg-emerald-100/80 px-1 rounded text-[11px]">
+                                      {a.score}đ
+                                    </strong>
+                                  ) : (
+                                    <span className="text-[10px] bg-[#894C5B] text-white px-1 rounded">
+                                      Chưa làm
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </div>
-          </header>
-
-          <nav className={styles.moduleNav} aria-label="Các mục của khóa học">
-            {HERO_TABS.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button key={tab.id} type="button" onClick={() => selectTab(tab.id)}>
-                  <Icon size={18} weight="regular" />
-                  <span>{tab.label}</span>
-                  {tabBadges[tab.id] ? <small>{tabBadges[tab.id]}</small> : null}
-                </button>
-              );
-            })}
-          </nav>
-          </>}
-
-          {isModulePage ? <main className={`${styles.moduleContent} ${activeTab === "schedule" ? styles.scheduleModuleContent : ""}`} key={activeTab}>
-            {activeTab === "overview" ? (
-              <div className={styles.overviewGrid}>
-                <section className={styles.featurePanel}>
-                  <div className={styles.panelHeading}>
-                    <div><span>Tiếp theo</span><h2>{isClassToday ? "Buổi học hôm nay" : "Ưu tiên hiện tại"}</h2></div>
-                    {nextAction.priority === "HIGH" ? <strong className={styles.warningBadge}>Ưu tiên cao</strong> : null}
-                  </div>
-                  <h3>{isClassToday ? `Vào lớp lúc ${formatTime(nextCourseSession?.startsAt)}` : nextAction.title || "Tiếp tục lộ trình học"}</h3>
-                  <p>{isClassToday ? `Buổi ${nextCourseSession?.sessionNo}: ${nextCourseSession?.title || "Nội dung đang cập nhật"}.` : cleanScoreCopy(nextAction.description || "Hoàn thành nội dung tiếp theo trong lộ trình.")}</p>
-                  {nextAction.deadline ? <span className={styles.inlineMeta}><Clock size={15} /> Hạn hoàn thành {formatDate(nextAction.deadline)}</span> : null}
-                </section>
-
-                <section className={styles.activityPanel}>
-                  <div className={styles.panelHeading}><div><span>Activity</span><h2>Bài làm gần đây</h2></div><button type="button" onClick={() => selectTab("history")}>Xem tất cả <ArrowRight size={14} /></button></div>
-                  {studyLogs.length ? <div className={styles.activityList}>{studyLogs.slice(0, 4).map((log) => (
-                    <Link href={log.reviewUrl} key={log.id}>
-                      <span><strong>{log.testTitle}</strong><small>{log.skill} | {log.completedAt ? formatDateTime(log.completedAt) : "Đang làm"}</small></span>
-                      <b>{scoreText(log.score, log.maxScore)}</b>
-                    </Link>
-                  ))}</div> : <p className={styles.emptyState}>Chưa có bài làm nào được ghi nhận.</p>}
-                </section>
-
-                <section className={styles.skillsPanel}>
-                  <div className={styles.panelHeading}><div><span>Skill snapshot</span><h2>Năng lực hiện tại</h2></div></div>
-                  <div className={styles.skillList}>{skillMetrics.map((skill) => (
-                    <div key={skill.label} className={styles.skillRow}>
-                      <span>{skill.label}</span><strong>{skill.display || "Chưa có dữ liệu"}</strong>
-                      <i aria-hidden="true"><em style={{ width: `${skill.value == null ? 0 : clamp(skill.value)}%` }} /></i>
-                    </div>
-                  ))}</div>
-                </section>
-
-                <section className={styles.feedbackPanel}>
-                  <div className={styles.panelHeading}><div><span>Teacher feedback</span><h2>Nhận xét mới nhất</h2></div></div>
-                  {teacherFeedback[0] ? (
-                    <blockquote>
-                      <p>{teacherFeedback[0].feedback || "Giảng viên đã cập nhật kết quả bài làm."}</p>
-                      <footer><UserCircle size={18} /> {teacherFeedback[0].teacherName} | {formatDate(teacherFeedback[0].reviewedAt)}</footer>
-                    </blockquote>
-                  ) : <p className={styles.emptyState}>Chưa có phản hồi mới trong khóa học này.</p>}
-                </section>
-              </div>
-            ) : null}
-
-            {activeTab === "schedule" ? (
-              <section className={styles.contentSection}>
-                {sessions.length ? (
-                  <div className={styles.scheduleBoard} aria-label="Thời khóa biểu tuần, chế độ chỉ xem">
-                    <div className={styles.scheduleBoardMeta}>
-                      <div className={styles.scheduleWeekNavigation}>
-                        <button type="button" onClick={() => setScheduleWeekAnchor((value) => addDays(value, -7))} aria-label="Xem tuần trước"><CaretLeft size={16} weight="bold" /></button>
-                        <strong>{formatDate(scheduleWeekStart.toISOString())} - {formatDate(scheduleWeekEnd.toISOString())}</strong>
-                        <button type="button" onClick={() => setScheduleWeekAnchor((value) => addDays(value, 7))} aria-label="Xem tuần sau"><CaretRight size={16} weight="bold" /></button>
-                      </div>
-                      <span>{scheduledSessionsThisWeek.length} buổi trong tuần</span>
-                    </div>
-                    <div className={styles.scheduleScroll}>
-                      <table className={styles.scheduleGrid}>
-                        <thead><tr><th>Ca học</th>{scheduleDays.map((day, index) => <th key={day.toISOString()}><strong>{index === 6 ? "Chủ nhật" : `Thứ ${index + 2}`}</strong><span>{formatDate(day.toISOString(), false)}</span></th>)}</tr></thead>
-                        <tbody>{SCHEDULE_SLOTS.map((slot) => <tr key={slot.key}>
-                          <th scope="row">{slot.label}</th>
-                          {scheduleDays.map((day) => {
-                            const values = scheduledSessionsThisWeek.filter((session) => {
-                              if (!session.startsAt) return false;
-                              const start = new Date(session.startsAt);
-                              return start.toDateString() === day.toDateString() && start.getHours() >= slot.from && start.getHours() < slot.to;
-                            });
-                            return <td key={day.toISOString()}>{values.map((session) => {
-                              const content = (session.content || "").split("\n").map((item) => item.trim()).filter(Boolean);
-                              const tone = session.status === "CANCELLED" ? "cancelled" : session.hasTest ? "test" : session.zoomUrl ? "online" : "classroom";
-                              return <article key={session.id} className={`${styles.scheduleSession} ${styles[`scheduleSession_${tone}`]}`}>
-                                <div><span>{session.hasTest ? "Mini test" : `Buổi ${String(session.sessionNo).padStart(2, "0")}`}</span>{session.hasTest ? <Exam size={15} weight="fill" /> : session.zoomUrl ? <VideoCamera size={15} weight="fill" /> : <BookOpen size={15} weight="fill" />}</div>
-                                <strong>{session.hasTest ? session.title || "Mini Test" : `Session ${session.sessionNo}`}</strong>
-                                {content.length ? <p>{content.slice(0, 2).join(" · ")}</p> : session.phaseName ? <p>{session.phaseName}</p> : null}
-                                <dl>
-                                  <div><dt><Clock size={11} /></dt><dd>{formatTime(session.startsAt)} - {formatTime(session.endsAt)}</dd></div>
-                                  <div><dt>GV</dt><dd>{session.teacherName || teacherName || "Chưa phân công"}</dd></div>
-                                  <div><dt>{session.zoomUrl ? <VideoCamera size={11} /> : <BookOpen size={11} />}</dt><dd>{session.zoomUrl ? "Có Zoom" : "Tại lớp"}{session.itemCount ? ` · ${session.itemCount} học liệu/bài tập` : ""}</dd></div>
-                                </dl>
-                              </article>;
-                            })}</td>;
-                          })}
-                        </tr>)}</tbody>
-                      </table>
-                    </div>
-                    <div className={styles.scheduleLegend}><span><i className={styles.legendOnline} />Học trực tuyến (Zoom)</span><span><i className={styles.legendTest} />Có bài test</span><span><i className={styles.legendCancelled} />Đã hủy</span></div>
-                  </div>
-                ) : <div className={styles.emptyStateBox}><CalendarBlank size={30} weight="duotone" /><strong>Lịch học đang được cập nhật</strong><span>Các buổi học sẽ xuất hiện khi trung tâm hoàn tất xếp lịch.</span></div>}
-              </section>
-            ) : null}
-
-            {activeTab === "history" ? (
-              <section className={styles.contentSection}>
-                <div className={styles.contentHeader}><div><span>Learning record</span><h2>Lịch sử học tập</h2><p>Theo dõi bài đã làm và kết quả được ghi nhận trong khóa.</p></div></div>
-                <div className={styles.metricStrip}>
-                  <div><span>Bài hoàn tất</span><strong>{completedLogs.length}</strong></div>
-                  <div><span>Độ chính xác</span><strong>{accuracy == null ? "Chưa có" : `${accuracy}%`}</strong></div>
-                  <div><span>Điểm TB quy đổi</span><strong>{averageScore == null ? "Chưa có" : `${averageScore}%`}</strong></div>
-                  <div><span>Chuyên cần</span><strong>{goalProgress.sessionAttendanceRate}%</strong></div>
-                </div>
-                <div className={styles.toolbar}>
-                  <label><MagnifyingGlass size={17} /><input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Tìm tên bài làm" aria-label="Tìm tên bài làm" /></label>
-                  <select value={reportSkill} onChange={(event) => setReportSkill(event.target.value)} aria-label="Lọc theo kỹ năng"><option value="ALL">Tất cả kỹ năng</option><option value="READING">Reading</option><option value="LISTENING">Listening</option><option value="WRITING">Writing</option><option value="SPEAKING">Speaking</option></select>
-                  <select value={reportStatus} onChange={(event) => setReportStatus(event.target.value as ReportStatus)} aria-label="Lọc theo trạng thái"><option value="ALL">Tất cả trạng thái</option><option value="COMPLETED">Đã hoàn thành</option><option value="IN_PROGRESS">Đang làm</option></select>
-                </div>
-                {visibleStudyLogs.length ? <>
-                  <div className={styles.tableWrap}><table><thead><tr><th>Bài làm</th><th>Thời gian</th><th>Kết quả</th><th>Trạng thái</th><th /></tr></thead><tbody>{visibleStudyLogs.map((log) => (
-                    <tr key={log.id}><td><strong>{log.testTitle}</strong><small>{log.skill} | {log.platform}</small></td><td>{log.completedAt ? formatDateTime(log.completedAt) : "Đang làm"}</td><td><b>{scoreText(log.score, log.maxScore)}</b></td><td><span className={styles.statusBadge}>{log.completedAt ? "Đã hoàn thành" : "Đang làm"}</span></td><td><Link href={log.reviewUrl}>Xem lại <ArrowRight size={13} /></Link></td></tr>
-                  ))}</tbody></table></div>
-                  <div className={styles.pagination}><span>Hiển thị {(safeReportPage - 1) * reportPageSize + 1}-{Math.min(safeReportPage * reportPageSize, filteredStudyLogs.length)} / {filteredStudyLogs.length}</span><div><button type="button" disabled={safeReportPage === 1} onClick={() => setReportPage((page) => Math.max(1, page - 1))}><CaretLeft size={16} /></button>{Array.from({ length: reportPageCount }, (_, index) => index + 1).map((page) => <button type="button" key={page} onClick={() => setReportPage(page)} aria-current={page === safeReportPage ? "page" : undefined}>{page}</button>)}<button type="button" disabled={safeReportPage === reportPageCount} onClick={() => setReportPage((page) => Math.min(reportPageCount, page + 1))}><CaretRight size={16} /></button></div><select value={reportPageSize} onChange={(event) => setReportPageSize(Number(event.target.value))} aria-label="Số dòng mỗi trang"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></div>
-                </> : <div className={styles.emptyStateBox}><BookOpen size={30} weight="duotone" /><strong>Không có bài làm phù hợp</strong><span>Hãy thay đổi từ khóa hoặc bộ lọc.</span></div>}
-              </section>
-            ) : null}
-
-            {activeTab === "alerts" ? (
-              <section className={styles.contentSection}>
-                <div className={styles.contentHeader}><div><span>Learning alerts</span><h2>Cảnh báo học tập</h2><p>Các vấn đề cần xử lý dựa trên dữ liệu lớp và phản hồi giảng viên.</p></div><strong className={styles.alertCount}>{activeAlerts.length} mục</strong></div>
-                {activeAlerts.length ? <div className={styles.alertList}>{activeAlerts.map((alert) => (
-                  <article key={alert.id} className={`${styles.alertItem} ${styles[`alert_${alert.type.toLowerCase()}`]}`}>
-                    <span>{alert.type === "DANGER" ? <Warning size={20} weight="fill" /> : <WarningCircle size={20} weight="duotone" />}</span>
-                    <div><small>{alert.type === "DANGER" ? "Cần xử lý" : alert.type === "WARNING" ? "Cần lưu ý" : "Nhắc nhở"}</small><h3>{alert.title}</h3><p>{alert.body}</p>{alert.createdAt ? <time>{formatDate(alert.createdAt)}</time> : null}</div>
-                    {alert.actionUrl ? <a href={alert.actionUrl}>{alert.actionLabel || "Xử lý"} <ArrowRight size={14} /></a> : alert.tabRedirect ? <button type="button" onClick={() => selectTab(alert.tabRedirect!)}>{alert.actionLabel || "Xem chi tiết"} <ArrowRight size={14} /></button> : null}
-                  </article>
-                ))}</div> : <div className={styles.emptyStateBox}><CheckCircle size={30} weight="duotone" /><strong>Không có cảnh báo tồn đọng</strong><span>Tiến độ hiện tại không có vấn đề cần xử lý.</span></div>}
-              </section>
-            ) : null}
-
-            {activeTab === "library" ? (
-              <section className={styles.contentSection}>
-                <div className={styles.contentHeader}><div><span>Course resources</span><h2>Kho học liệu</h2><p>Tài liệu được xuất bản riêng cho khóa học này.</p></div></div>
-                <div className={styles.toolbar}>
-                  <label><MagnifyingGlass size={17} /><input value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder="Tìm tên, mã hoặc kỹ năng" aria-label="Tìm học liệu" /></label>
-                  <select value={librarySessionFilter} onChange={(event) => setLibrarySessionFilter(event.target.value)} aria-label="Lọc theo buổi"><option value="ALL">Tất cả các buổi</option><option value="GENERAL">Tài liệu chung</option>{sessions.map((session) => <option key={session.id} value={session.sessionNo}>Buổi {session.sessionNo}</option>)}</select>
-                </div>
-                <div className={styles.filterChips}>{([{ id: "ALL", label: "Tất cả" }, { id: "DOCUMENT", label: "Tài liệu" }, { id: "AUDIO", label: "Audio" }, { id: "VIDEO", label: "Video" }, { id: "TRANSCRIPT", label: "Transcript" }, { id: "ANSWER_KEY", label: "Đáp án" }] as { id: LibraryFilter; label: string }[]).map((filter) => <button type="button" key={filter.id} onClick={() => setLibraryFilter(filter.id)} aria-pressed={libraryFilter === filter.id}>{filter.label}</button>)}</div>
-                {filteredResources.length ? <div className={styles.resourceList}>{filteredResources.map(renderResource)}</div> : <div className={styles.emptyStateBox}><FolderOpen size={30} weight="duotone" /><strong>Không có học liệu phù hợp</strong><span>Hãy thay đổi từ khóa hoặc bộ lọc.</span></div>}
-              </section>
-            ) : null}
-          </main> : null}
+          ))}
         </section>
-      </div>
+      )}
+
+      {/* =========================================================================
+          KHU VỰC 4: TAB KHO TÀI LIỆU (COURSE MATERIALS)
+         ========================================================================= */}
+      {activeTab === "resources" && (
+        <section className="space-y-4" aria-label="Kho tài liệu khóa học">
+          {/* Header & Controls: Search & Category Filter Chips */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#E8CFD5] space-y-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-[#1E1B18] flex items-center gap-2">
+                  <FolderOpen size={18} weight="bold" className="text-[#894C5B]" />
+                  <span>Kho tài liệu học tập</span>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#F7E5EA] text-[#894C5B]">
+                    {resources.length} tài liệu
+                  </span>
+                </h2>
+                <p className="text-xs text-[#5C5752] mt-0.5">
+                  Tải về giáo trình, audio luyện nghe và tài liệu tham khảo cho các buổi học.
+                </p>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative w-full sm:w-72">
+                <MagnifyingGlass
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5C5752]"
+                />
+                <input
+                  type="text"
+                  value={resourceSearch}
+                  onChange={(e) => setResourceSearch(e.target.value)}
+                  placeholder="Tìm tên giáo trình, audio..."
+                  className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#FAF8F5] border border-[#E8CFD5] text-xs sm:text-sm text-[#1E1B18] placeholder-[#8C857B] focus:outline-hidden focus:border-[#894C5B] transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold pt-1 border-t border-[#F1ECE4]">
+              {[
+                { key: "ALL", label: "Tất cả" },
+                { key: "DOCUMENT", label: "PDF Giáo trình" },
+                { key: "AUDIO", label: "Audio nghe" },
+                { key: "VIDEO", label: "Video bài giảng" },
+                { key: "KEY", label: "Đáp án & Transcript" },
+              ].map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setResourceFilter(chip.key as ResourceFilterType)}
+                  className={`min-h-[36px] px-3.5 py-1.5 rounded-lg transition-colors ${
+                    resourceFilter === chip.key
+                      ? "bg-[#894C5B] text-white font-bold shadow-2xs"
+                      : "bg-[#FAF8F5] text-[#5C5752] hover:text-[#1E1B18] hover:bg-stone-100"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Resources Grid */}
+          {filteredResources.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-dashed border-[#E8CFD5] p-12 text-center space-y-3">
+              <FolderOpen size={40} weight="duotone" className="text-[#894C5B] mx-auto" />
+              <h3 className="font-bold text-sm text-[#1E1B18]">
+                {resourceSearch
+                  ? `Không tìm thấy tài liệu phù hợp với từ khóa "${resourceSearch}"`
+                  : "Chưa có tài liệu nào trong phân loại này"}
+              </h3>
+              <p className="text-xs text-[#5C5752] max-w-sm mx-auto">
+                {resourceSearch
+                  ? "Hãy thử tìm kiếm với từ khóa khác hoặc chuyển sang mục 'Tất cả'."
+                  : "Giảng viên chưa tải lên tài liệu cho danh mục này."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {filteredResources.map((res) => {
+                const formatMeta = getResourceFormatMeta(res);
+
+                return (
+                  <article
+                    key={res.id}
+                    className="bg-white rounded-2xl border border-[#E8E2D5] p-4 flex items-center justify-between gap-3.5 hover:border-[#894C5B]/40 hover:shadow-xs transition-all group"
+                  >
+                    {/* Format Icon on Left */}
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${formatMeta.iconBg} ${formatMeta.iconColor} ${formatMeta.iconBorder}`}
+                      title={formatMeta.label}
+                    >
+                      {formatMeta.type === "pdf" ? (
+                        <FilePdf size={24} weight="duotone" />
+                      ) : formatMeta.type === "audio" ? (
+                        <Headphones size={24} weight="duotone" />
+                      ) : formatMeta.type === "video" ? (
+                        <VideoCamera size={24} weight="duotone" />
+                      ) : formatMeta.type === "key" ? (
+                        <Article size={24} weight="duotone" />
+                      ) : formatMeta.type === "image" ? (
+                        <ImageIcon size={24} weight="duotone" />
+                      ) : formatMeta.type === "doc" ? (
+                        <FileDoc size={24} weight="duotone" />
+                      ) : (
+                        <File size={24} weight="duotone" />
+                      )}
+                    </div>
+
+                    {/* Middle Info: Title, Session & Category */}
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        <span
+                          className={`font-bold uppercase tracking-wider px-2 py-0.2 rounded border ${formatMeta.badgeBg} ${formatMeta.badgeText}`}
+                        >
+                          {formatMeta.label}
+                        </span>
+                        {res.sessionNo && (
+                          <span className="text-[#5C5752] font-mono">
+                            • Buổi {res.sessionNo}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3
+                        className="font-bold text-xs sm:text-sm text-[#1E1B18] line-clamp-2 leading-snug group-hover:text-[#894C5B] transition-colors"
+                        title={res.title}
+                      >
+                        {res.title}
+                      </h3>
+
+                      {res.category && (
+                        <p className="text-[11px] text-[#5C5752] truncate">{res.category}</p>
+                      )}
+                    </div>
+
+                    {/* Right: Download / Open Action */}
+                    {res.externalUrl ? (
+                      <a
+                        href={res.externalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-[#FAF8F5] hover:bg-[#894C5B] hover:text-white text-[#894C5B] border border-[#E8CFD5] transition-all shrink-0"
+                        title="Tải về hoặc mở tài liệu"
+                        aria-label={`Mở hoặc tải về tài liệu ${res.title}`}
+                      >
+                        <DownloadSimple size={18} weight="bold" />
+                      </a>
+                    ) : (
+                      <span
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-stone-50 text-stone-300 shrink-0"
+                        title="Tài liệu chưa có liên kết tải"
+                      >
+                        <DownloadSimple size={18} />
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* =========================================================================
+          KHU VỰC 5: TAB KẾT QUẢ & NHẬN XÉT (RESULTS & FEEDBACK)
+         ========================================================================= */}
+      {activeTab === "reports" && (
+        <section className="space-y-6" aria-label="Báo cáo kết quả và nhận xét">
+          {/* Key Metric Tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="p-4.5 rounded-2xl bg-white border border-[#E8CFD5] space-y-1 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C5752] block">
+                Buổi đã hoàn thành
+              </span>
+              <strong className="text-xl sm:text-2xl font-black text-[#894C5B]">
+                {completedCount}/{totalCount}
+              </strong>
+              <small className="text-[11px] text-[#5C5752] block">{progressPercent}% lộ trình</small>
+            </div>
+
+            <div className="p-4.5 rounded-2xl bg-white border border-[#E8CFD5] space-y-1 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C5752] block">
+                Bài tập hoàn thành
+              </span>
+              <strong className="text-xl sm:text-2xl font-black text-[#894C5B]">
+                {studyLogs.length}
+              </strong>
+              <small className="text-[11px] text-[#5C5752] block">Từ hệ thống luyện đề</small>
+            </div>
+
+            <div className="p-4.5 rounded-2xl bg-white border border-[#E8CFD5] space-y-1 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C5752] block">
+                Mục tiêu Band
+              </span>
+              <strong className="text-xl sm:text-2xl font-black text-emerald-700">
+                {course.targetBand ? course.targetBand.toFixed(1) : "--"}
+              </strong>
+              <small className="text-[11px] text-[#5C5752] block">
+                Hiện tại: {skills?.overallBand ? skills.overallBand.toFixed(1) : "Đang đánh giá"}
+              </small>
+            </div>
+
+            <div className="p-4.5 rounded-2xl bg-white border border-[#E8CFD5] space-y-1 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#5C5752] block">
+                Chuyên cần
+              </span>
+              <strong className="text-xl sm:text-2xl font-black text-blue-700">
+                {goalProgress?.sessionAttendanceRate != null
+                  ? `${goalProgress.sessionAttendanceRate}%`
+                  : "100%"}
+              </strong>
+              <small className="text-[11px] text-[#5C5752] block">Tỷ lệ tham gia buổi học</small>
+            </div>
+          </div>
+
+          {/* Teacher Review Quote Note */}
+          {teacherFeedback.length > 0 && teacherFeedback[0].feedback ? (
+            <div className="rounded-2xl bg-[#FAF8F5] border border-[#E8CFD5] p-5 sm:p-6 space-y-2 shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#894C5B]">
+                <User size={16} weight="bold" />
+                <span>Nhận xét từ giảng viên {teacherFeedback[0].teacherName}</span>
+                {teacherFeedback[0].reviewedAt && (
+                  <span className="text-[#5C5752] font-normal">
+                    • {new Date(teacherFeedback[0].reviewedAt).toLocaleDateString("vi-VN")}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-[#1E1B18] italic leading-relaxed pt-1">
+                "{teacherFeedback[0].feedback}"
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white border border-[#E8E2D5] p-6 text-center text-xs text-[#5C5752]">
+              Chưa có nhận xét nào từ giảng viên cho khóa học này.
+            </div>
+          )}
+
+          {/* Practice History Table */}
+          <div className="bg-white rounded-2xl border border-[#E8CFD5] p-5 sm:p-6 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-[#1E1B18] flex items-center gap-1.5">
+                <Exam size={16} weight="bold" className="text-[#894C5B]" />
+                <span>Nhật ký học tập & Lịch sử làm bài</span>
+              </h3>
+              <span className="text-xs font-semibold text-[#5C5752]">
+                {studyLogs.length} bài đã nộp
+              </span>
+            </div>
+
+            {studyLogs.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#5C5752]">
+                Bạn chưa hoàn thành bài luyện tập nào trong khóa học này.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#F1ECE4]">
+                {studyLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="font-bold text-[#1E1B18] truncate">{log.testTitle}</div>
+                      <div className="text-[11px] text-[#5C5752]">
+                        {log.skill}
+                        {log.completedAt
+                          ? ` • ${new Date(log.completedAt).toLocaleDateString("vi-VN")}`
+                          : ""}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 pt-1 sm:pt-0">
+                      {log.score != null ? (
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100">
+                          {log.correctCount != null
+                            ? `${log.correctCount}/${log.totalQuestions} câu`
+                            : `${log.score}/${log.maxScore}`}
+                        </span>
+                      ) : null}
+
+                      {log.reviewUrl && (
+                        <a
+                          href={log.reviewUrl}
+                          className="inline-flex items-center gap-1 text-[#894C5B] hover:underline font-semibold"
+                        >
+                          <span>Xem lại</span>
+                          <ArrowSquareOut size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

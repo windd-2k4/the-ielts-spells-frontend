@@ -39,6 +39,7 @@ import { getPracticeCatalog } from "@/features/practice/practiceApi";
 import { questionTypeOption, questionTypesBySkill } from "@/features/practice/questionTypeCatalog";
 import { getReadingAttempt, startOrResumeSelfPractice } from "@/features/reading/readingApi";
 import { getWritingAttempt, startOrResumeWritingSelfPractice } from "@/features/writing/writingApi";
+import { getSpeakingAttempt, startOrResumeSpeakingSelfPractice } from "@/features/speaking/speakingApi";
 import styles from "./StudentPracticePage.module.css";
 
 const skills = [
@@ -154,11 +155,15 @@ const landingDetails = {
   SPEAKING: {
     icon: Microphone,
     code: "04",
-    status: "ĐANG PHÁT TRIỂN",
+    status: "SẴN SÀNG",
     label: "Speaking",
     description: "Luyện nói theo chủ đề, ghi âm và theo dõi tiến bộ.",
     eyebrow: "SPEAK · RECORD · GAIN CONFIDENCE",
-    features: [],
+    features: [
+      { icon: ClockCountdown, label: "Ghi âm & Đếm ngược thời gian" },
+      { icon: Sparkle, label: "AI chấm 4 tiêu chí & Phản hồi" },
+      { icon: CheckCircle, label: "Gợi ý từng bước & Tra từ vựng AI" },
+    ],
   },
 } as const;
 
@@ -180,7 +185,7 @@ function PracticeLanding() {
         {skills.map((skill) => {
           const detail = landingDetails[skill.id];
           const Icon = detail.icon;
-          const isReady = skill.id === "READING";
+          const isReady = skill.id === "READING" || skill.id === "SPEAKING";
           return (
             <Link
               key={skill.id}
@@ -205,8 +210,8 @@ function PracticeLanding() {
 
               <LandingArtwork skill={skill.id} />
 
-              {skill.id === "READING" && detail.features.length ? (
-                <ul className={styles.landingFeatureList} aria-label="Điểm nổi bật của khu vực Reading">
+              {(skill.id === "READING" || skill.id === "SPEAKING") && detail.features.length ? (
+                <ul className={styles.landingFeatureList} aria-label={`Điểm nổi bật của khu vực ${detail.label}`}>
                   {detail.features.map((feature) => {
                     const FeatureIcon = feature.icon;
                     return <li key={feature.label}><FeatureIcon size={17} weight="duotone" /><span>{feature.label}</span></li>;
@@ -217,7 +222,7 @@ function PracticeLanding() {
               <div className={styles.landingCardFooter}>
                 <span className={styles.landingMicroCopy}>{detail.eyebrow}</span>
                 <span className={styles.landingAction}>
-                  {isReady ? "Bắt đầu Reading" : "Xem danh mục"}<ArrowRight size={16} weight="bold" />
+                  {isReady ? `Bắt đầu ${detail.label}` : "Xem danh mục"}<ArrowRight size={16} weight="bold" />
                 </span>
               </div>
             </Link>
@@ -357,7 +362,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   }
 
   async function start(item: StudentPracticeCatalogItem) {
-    if (!item.deliveryReady) return;
+    const isReady = item.deliveryReady || item.skill === "SPEAKING";
+    if (!isReady) return;
     const skillPath = item.skill.toLowerCase();
     setStartingId(item.testVersionId);
     setError("");
@@ -365,6 +371,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
       if (item.activeAttemptId) {
         const attempt = item.skill === "WRITING"
           ? await getWritingAttempt(item.activeAttemptId)
+          : item.skill === "SPEAKING"
+          ? await getSpeakingAttempt(item.activeAttemptId)
           : await getReadingAttempt(item.activeAttemptId, skillPath);
         setResumeError("");
         setResumePrompt({
@@ -378,6 +386,9 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
       if (item.skill === "WRITING") {
         const attempt = await startOrResumeWritingSelfPractice(item.testVersionId);
         router.push(`/student/writing/attempts/${attempt.attemptId}`);
+      } else if (item.skill === "SPEAKING") {
+        const attempt = await startOrResumeSpeakingSelfPractice(item.testVersionId);
+        router.push(`/student/speaking/attempts/${attempt.attemptId}`);
       } else {
         const attempt = await startOrResumeSelfPractice(item.testVersionId, item.skill);
         router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
@@ -398,6 +409,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
     try {
       const attempt = item.skill === "WRITING"
         ? await startOrResumeWritingSelfPractice(item.testVersionId, true)
+        : item.skill === "SPEAKING"
+        ? await startOrResumeSpeakingSelfPractice(item.testVersionId, true)
         : await startOrResumeSelfPractice(item.testVersionId, item.skill, true);
       setResumePrompt(null);
       router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
@@ -646,10 +659,20 @@ function PracticeCard({ item, starting, onStart }: { item: StudentPracticeCatalo
       </div>
       <footer className={styles.cardFooter}>
         <span>{item.lastScore == null ? `${item.attemptsCount} lượt đã làm` : `Điểm gần nhất: ${item.lastScore}`}</span>
-        <button type="button" disabled={starting || !item.deliveryReady} onClick={() => onStart(item)} title={!item.deliveryReady ? "Trình làm bài cho kỹ năng này đang được hoàn thiện" : undefined}>
-          {starting ? <CircleNotch size={17} className={styles.spin} /> : item.deliveryReady ? <Play size={16} weight="fill" /> : <Sparkle size={16} />}
-          {starting ? "Đang mở" : !item.deliveryReady ? "Sắp mở" : resume ? "Tiếp tục" : "Bắt đầu"}{item.deliveryReady ? <ArrowRight size={15} weight="bold" /> : null}
-        </button>
+        {(() => {
+          const isReady = item.deliveryReady || item.skill === "SPEAKING";
+          return (
+            <button
+              type="button"
+              disabled={starting || !isReady}
+              onClick={() => onStart(item)}
+              title={!isReady ? "Trình làm bài cho kỹ năng này đang được hoàn thiện" : undefined}
+            >
+              {starting ? <CircleNotch size={17} className={styles.spin} /> : isReady ? <Play size={16} weight="fill" /> : <Sparkle size={16} />}
+              {starting ? "Đang mở" : !isReady ? "Sắp mở" : resume ? "Tiếp tục" : "Bắt đầu"}{isReady ? <ArrowRight size={15} weight="bold" /> : null}
+            </button>
+          );
+        })()}
       </footer>
     </article>
   );

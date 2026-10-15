@@ -499,3 +499,126 @@ export interface StudentSupportCourseProgress {
   required: boolean;
   attempts: StudentSupportActivityAttempt[];
 }
+
+// ================= SPEAKING TEST CONTRACTS =================
+
+export interface SpeakingHintOption {
+  id: string;
+  label: string;
+  phrase: string;
+  fullSentence?: string;
+}
+
+export interface SpeakingHintStep {
+  id: string;
+  title: string;
+  instruction: string;
+  options: SpeakingHintOption[];
+}
+
+export interface SpeakingQuestion {
+  id: string;
+  questionKey: string;
+  questionNo: number;
+  promptText: string;
+  audioUrl?: string | null;
+  hintsEnabled: boolean;
+  hintSteps: SpeakingHintStep[];
+  sampleResponseText?: string | null;
+  answerTimeSeconds?: number | null;
+}
+
+export interface SpeakingPart {
+  id: string;
+  partNo: number;
+  topicTitle: string;
+  cueCardPromptHtml?: string | null;
+  cueCardBullets?: string[];
+  audioUrl?: string | null;
+  hintsEnabled: boolean;
+  hintSteps?: SpeakingHintStep[];
+  preparationTimeSeconds: number;
+  answerTimeSeconds: number;
+  followUpQuestions?: string[];
+  questions: SpeakingQuestion[];
+  sampleResponseText?: string | null;
+}
+
+export interface SpeakingSavedResponse {
+  questionKey: string;
+  audioUrl?: string | null;
+  transcript?: string | null;
+  hintChoices?: Record<string, string>;
+  clientRevision: number;
+  answeredAt?: string | null;
+}
+
+export interface StudentSpeakingAttempt {
+  attemptId: string;
+  testVersionId: string;
+  title: string;
+  description: string | null;
+  durationMinutes: number;
+  remainingSeconds: number;
+  pausedRemainingSeconds: number | null;
+  isPaused: boolean;
+  status: string;
+  startedAt: string;
+  expiresAt: string;
+  allowResultAfterSubmit: boolean;
+  parts: SpeakingPart[];
+  responses: SpeakingSavedResponse[];
+}
+
+export interface SaveSpeakingResponseItem {
+  questionKey: string;
+  audioUrl?: string | null;
+  transcript?: string | null;
+  hintChoices?: Record<string, string>;
+  clientRevision: number;
+}
+
+export interface SpeakingEvaluationResult {
+  questionKey: string;
+  status: string;
+  overallBand: number | null;
+  fluencyBand: number | null;
+  lexicalBand: number | null;
+  grammarBand: number | null;
+  pronunciationBand: number | null;
+  criteriaFeedback: Record<string, string>;
+  strengths: string[];
+  improvements: string[];
+  evaluatedAt: string;
+}
+
+export interface SpeakingAttemptResult {
+  attemptId: string;
+  status: string;
+  submittedAt: string | null;
+  resultVisible: boolean;
+  parts: SpeakingPart[];
+  responses: SpeakingSavedResponse[];
+  evaluations: SpeakingEvaluationResult[];
+}
+
+export interface SpeakingVocabLookupRequest {
+  query: string;
+  direction: "EN_VI" | "VI_EN";
+}
+
+export interface SpeakingVocabExample {
+  english: string;
+  vietnamese: string;
+}
+
+export interface SpeakingVocabLookupResponse {
+  query: string;
+  direction: string;
+  mainTranslation: string;
+  phonetic: string;
+  partOfSpeech: string;
+  synonyms: string[];
+  examples: SpeakingVocabExample[];
+}
+

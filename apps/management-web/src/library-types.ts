@@ -278,6 +278,7 @@ export type SpeakingHintOption = {
   id: string;
   label: string;
   phrase: string;
+  fullSentence?: string;
 };
 
 export type SpeakingHintStep = {
@@ -290,6 +291,7 @@ export type SpeakingHintStep = {
 export type SpeakingQuestionItem = {
   id: string;
   promptText: string;
+  audioUrl?: string;
   hintsEnabled: boolean;
   hintSteps: SpeakingHintStep[];
   sampleResponseText?: string;
@@ -302,6 +304,7 @@ export type SpeakingPartSection = {
   topicTitle: string;
   cueCardPromptHtml: string;
   cueCardBullets?: string[];
+  audioUrl?: string;
   hintsEnabled?: boolean;
   hintSteps?: SpeakingHintStep[];
   preparationTimeSeconds: number; // e.g. 60
