@@ -1,23 +1,19 @@
 import {
   ArrowCounterClockwise,
   ArrowRight,
-  ArrowsDownUp,
   BookOpen,
   CalendarBlank,
+  CaretDown,
   CaretLeft,
   CaretRight,
   ChalkboardTeacher,
-  Check,
-  Copy,
   EnvelopeSimple,
   FunnelSimple,
   GraduationCap,
+  IdentificationCard,
   MagnifyingGlass,
   Phone,
   Target,
-  UserCheck,
-  UserCircleCheck,
-  UserMinus,
   Users,
   WarningCircle,
   X,
@@ -26,7 +22,6 @@ import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "
 import { Link } from "react-router-dom";
 import type { Page, StudentLifecycleStatus, StudentSummary } from "../academic-types";
 import { date } from "../academic-types";
-import { PageHeader } from "../components/AdminUi";
 import { apiFetch } from "../lib/api";
 
 const PAGE_SIZE = 15;
@@ -209,127 +204,69 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
   const currentLifecycleObj = lifecycleOptions.find(item => item.value === lifecycleFilter);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-2.5">
       {!embedded && (
-        <PageHeader
-          eyebrow="Hồ sơ và học vụ"
-          title="Quản lý học viên"
-          description="Theo dõi toàn bộ hồ sơ học viên, phân loại theo học vụ và quản lý mốc thời gian gia nhập."
-        />
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/25 text-primary shadow-2xs ring-1 ring-primary/20">
+              <GraduationCap size={18} weight="duotone" />
+            </span>
+            <h1 className="font-display text-xl md:text-2xl font-extrabold tracking-tight text-on-surface">
+              Tuyển sinh &amp; học viên
+            </h1>
+          </div>
+        </div>
       )}
 
-      {/* Overview Metrics Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          label="Hồ sơ theo bộ lọc"
-          value={total}
-          subtitle="Khớp điều kiện tìm kiếm"
-          icon={<Users size={22} weight="duotone" />}
-          tone="primary"
-        />
-        <MetricCard
-          label="Đang hiển thị"
-          value={processedStudents.length}
-          subtitle={`Trang ${page + 1} · Tối đa ${PAGE_SIZE}/trang`}
-          icon={<ChalkboardTeacher size={22} weight="duotone" />}
-          tone="emerald"
-        />
-        <MetricCard
-          label="Thiếu thông tin liên hệ"
-          value={missingContact}
-          subtitle={missingContact > 0 ? "Chưa có email hoặc SĐT" : "Thông tin đầy đủ 100%"}
-          icon={<WarningCircle size={22} weight="duotone" />}
-          tone={missingContact > 0 ? "amber" : "neutral"}
-        />
-      </div>
-
-      {/* Modern Filter & Search Panel */}
-      <section className="overflow-hidden rounded-2xl border border-outline-variant/35 bg-surface shadow-xs transition-all">
-        {/* Panel Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface-container-low/40 px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FunnelSimple size={18} weight="bold" />
-            </span>
-            <div>
-              <h3 className="text-sm font-bold text-on-surface">Bộ lọc & Tra cứu học viên</h3>
-              <p className="text-xs text-on-surface-variant">
-                Lọc nhanh theo từ khóa, tiến trình học vụ, thời gian gia nhập và tài khoản
-              </p>
-            </div>
-          </div>
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetAllFilters}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
-              title="Khôi phục toàn bộ bộ lọc về mặc định"
-            >
-              <ArrowCounterClockwise size={14} weight="bold" />
-              Đặt lại bộ lọc
-            </button>
-          )}
-        </div>
-
-        {/* Primary Controls Row: Search + Status + Date Preset + Sort */}
-        <div className="grid gap-3 p-4 md:grid-cols-12 md:p-5">
+      {/* Streamlined Filter & Search Toolbar */}
+      <section className="space-y-2 rounded-xl border border-outline-variant/35 bg-surface p-2">
+        {/* Row 1: Search + Dropdown Filters + Reset */}
+        <div className="flex flex-col gap-1.5 md:flex-row md:items-center">
           {/* Search Box */}
-          <div className="md:col-span-5">
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
-              Tìm kiếm học viên
-            </label>
-            <div className="relative flex items-center">
-              <MagnifyingGlass
-                size={18}
-                className="pointer-events-none absolute left-3.5 text-on-surface-variant/70"
-              />
-              <input
-                value={query}
-                onChange={event => setQuery(event.target.value)}
-                placeholder="Tên, mã học viên, email hoặc SĐT..."
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface pl-10 pr-9 text-sm text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full text-on-surface-variant/60 hover:bg-surface-container hover:text-on-surface"
-                  title="Xóa từ khóa"
-                >
-                  <X size={14} weight="bold" />
-                </button>
-              )}
-            </div>
+          <div className="relative flex-1 min-w-[220px]">
+            <MagnifyingGlass
+              size={16}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+            />
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              aria-label="Tìm kiếm học viên"
+              placeholder="Tìm theo tên học viên, mã HV, email, SĐT..."
+              className="h-8 w-full rounded-lg border border-outline-variant/60 bg-surface pl-8 pr-8 text-xs text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary/20"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded-full text-on-surface-variant/60 hover:text-on-surface"
+                title="Xóa từ khóa"
+              >
+                <X size={12} weight="bold" />
+              </button>
+            )}
           </div>
 
-          {/* Account Status */}
-          <div className="md:col-span-2">
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
-              Tài khoản
-            </label>
-            <div className="relative">
+          {/* Controls Group */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Account Status */}
+            <div className="relative min-w-[126px]">
               <select
                 value={activityFilter}
                 onChange={event => setActivityFilter(event.target.value as ActivityFilter)}
-                className="min-h-11 w-full appearance-none rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
               >
                 <option value="all">Tất cả tài khoản</option>
                 <option value="true">Đang hoạt động</option>
                 <option value="false">Đã khóa</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-on-surface-variant">
-                <UserCheck size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
+                <CaretDown size={13} weight="bold" />
               </div>
             </div>
-          </div>
 
-          {/* Date Filter Preset */}
-          <div className="md:col-span-3">
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
-              Thời gian gia nhập
-            </label>
-            <div className="relative">
+            {/* Date Preset */}
+            <div className="relative min-w-[132px]">
               <select
                 value={datePreset}
                 onChange={event => {
@@ -340,7 +277,7 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
                     setToDate("");
                   }
                 }}
-                className="min-h-11 w-full appearance-none rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
               >
                 {datePresets.map(preset => (
                   <option key={preset.value} value={preset.value}>
@@ -348,88 +285,78 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-on-surface-variant">
-                <CalendarBlank size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
+                <CaretDown size={13} weight="bold" />
               </div>
             </div>
-          </div>
 
-          {/* Sort Option */}
-          <div className="md:col-span-2">
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
-              Sắp xếp theo
-            </label>
-            <div className="relative">
+            {/* Sort Option */}
+            <div className="relative min-w-[144px]">
               <select
                 value={sortOption}
                 onChange={event => setSortOption(event.target.value as SortOption)}
-                className="min-h-11 w-full appearance-none rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
               >
                 <option value="JOINED_DESC">Mới gia nhập trước</option>
                 <option value="JOINED_ASC">Gia nhập lâu trước</option>
                 <option value="NAME_ASC">Tên học viên (A-Z)</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-on-surface-variant">
-                <ArrowsDownUp size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
+                <CaretDown size={13} weight="bold" />
               </div>
             </div>
+
+            {/* Reset Button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-primary/25 bg-primary/5 px-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                title="Khôi phục toàn bộ bộ lọc về mặc định"
+              >
+                <ArrowCounterClockwise size={13} weight="bold" />
+                <span>Đặt lại</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Custom Date Range Sub-Bar (revealed when datePreset === 'CUSTOM') */}
+        {/* Custom Date Range if CUSTOM */}
         {datePreset === "CUSTOM" && (
-          <div className="border-t border-outline-variant/20 bg-surface-container-low/30 px-4 py-3 md:px-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-                <CalendarBlank size={16} className="text-primary" />
-                <span>Khoảng ngày cụ thể:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={e => setFromDate(e.target.value)}
-                  className="rounded-lg border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-medium text-on-surface outline-none focus:border-primary"
-                  title="Từ ngày gia nhập"
-                />
-                <span className="text-xs text-on-surface-variant">đến</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={e => setToDate(e.target.value)}
-                  className="rounded-lg border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-medium text-on-surface outline-none focus:border-primary"
-                  title="Đến ngày gia nhập"
-                />
-                {(fromDate || toDate) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFromDate("");
-                      setToDate("");
-                    }}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                  >
-                    <X size={12} weight="bold" /> Xóa ngày
-                  </button>
-                )}
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant/20 pt-2 text-xs">
+            <span className="font-semibold text-on-surface-variant">Khoảng ngày:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={e => setFromDate(e.target.value)}
+              className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
+            />
+            <span className="text-on-surface-variant">đến</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={e => setToDate(e.target.value)}
+              className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
+            />
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:underline"
+              >
+                <X size={12} weight="bold" /> Xóa ngày
+              </button>
+            )}
           </div>
         )}
 
-        {/* Lifecycle Status Navigation Tabs */}
-        <div className="border-t border-outline-variant/25 bg-surface px-4 py-3 md:px-5">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
-              Phân loại theo tiến trình học vụ
-            </span>
-            <span className="text-xs text-on-surface-variant">
-              {currentLifecycleObj?.description}
-            </span>
-          </div>
-
+        {/* Row 2: Lifecycle Status Filter Tabs */}
+        <div className="flex items-center gap-2 border-t border-outline-variant/20 pt-1.5">
           <div
-            className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             role="tablist"
             aria-label="Phân loại học viên theo học vụ"
           >
@@ -443,15 +370,15 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
                   aria-selected={active}
                   title={option.description}
                   onClick={() => setLifecycleFilter(option.value)}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  className={`inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-bold transition-all ${
                     active
-                      ? "border-primary bg-primary text-on-primary shadow-xs scale-[1.01]"
-                      : "border-outline-variant/40 bg-surface text-on-surface-variant hover:border-primary/40 hover:bg-primary-container/10 hover:text-primary"
+                      ? "border-primary bg-primary text-on-primary shadow-2xs"
+                      : "border-outline-variant/35 bg-surface text-on-surface-variant hover:border-primary/40 hover:bg-primary-container/10 hover:text-primary"
                   }`}
                 >
                   <span
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      active ? "bg-white ring-2 ring-white/30" : option.dotColor
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      active ? "bg-white" : option.dotColor
                     }`}
                   />
                   <span>{option.label}</span>
@@ -459,30 +386,31 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
               );
             })}
           </div>
+
         </div>
 
-        {/* Active Filter Badges */}
+        {/* Active Filter Chips */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant/20 bg-surface-container-low/40 px-4 py-2.5 md:px-5">
-            <span className="text-[11px] font-bold text-on-surface-variant">Đang lọc theo:</span>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant/20 pt-2">
+            <span className="text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
             {query.trim() && (
-              <FilterChip label={`Từ khóa: "${query}"`} onClear={() => setQuery("")} />
+              <FilterChip label={`"${query}"`} onClear={() => setQuery("")} />
             )}
             {activityFilter !== "all" && (
               <FilterChip
-                label={`Tài khoản: ${activityFilter === "true" ? "Đang hoạt động" : "Đã khóa"}`}
+                label={activityFilter === "true" ? "Đang hoạt động" : "Đã khóa"}
                 onClear={() => setActivityFilter("all")}
               />
             )}
             {lifecycleFilter !== "ALL" && (
               <FilterChip
-                label={`Học vụ: ${currentLifecycleObj?.label}`}
+                label={currentLifecycleObj?.label || ""}
                 onClear={() => setLifecycleFilter("ALL")}
               />
             )}
             {datePreset !== "ALL" && (
               <FilterChip
-                label={`Gia nhập: ${datePresets.find(p => p.value === datePreset)?.label}`}
+                label={datePresets.find(p => p.value === datePreset)?.label || ""}
                 onClear={() => {
                   setDatePreset("ALL");
                   setFromDate("");
@@ -501,9 +429,7 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
             )}
             {sortOption !== "JOINED_DESC" && (
               <FilterChip
-                label={`Sắp xếp: ${
-                  sortOption === "JOINED_ASC" ? "Gia nhập lâu trước" : "Tên A-Z"
-                }`}
+                label={sortOption === "JOINED_ASC" ? "Cũ nhất" : "A-Z"}
                 onClear={() => setSortOption("JOINED_DESC")}
               />
             )}
@@ -526,37 +452,48 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
 
       {/* Data Table Section */}
       {!loading && !error && (
-        <section className="overflow-hidden rounded-2xl border border-outline-variant/35 bg-surface shadow-xs">
+        <section className="overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-xs">
           {/* Table Header Bar */}
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/25 bg-surface-container-low/40 px-5 py-3.5">
-            <div className="flex items-center gap-2">
-              <strong className="text-sm font-bold text-on-surface">
-                {total.toLocaleString("vi-VN")} hồ sơ phù hợp
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/30 bg-surface px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <strong className="text-sm font-extrabold text-on-surface">
+                {total.toLocaleString("vi-VN")} hồ sơ học viên
               </strong>
-              <span className="text-outline-variant">•</span>
-              <span className="text-xs text-on-surface-variant">
-                {currentLifecycleObj?.description}
-              </span>
+              {missingContact > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/60 px-2 py-0.5 text-xs font-semibold text-amber-800"
+                  title="Có học viên trong danh sách chưa đủ email hoặc số điện thoại"
+                >
+                  <WarningCircle size={13} weight="bold" />
+                  {missingContact} chưa đủ SĐT/Email
+                </span>
+              )}
             </div>
-            <span className="text-xs font-medium text-on-surface-variant">
-              Hiển thị {total ? page * PAGE_SIZE + 1 : 0} đến{" "}
-              {Math.min((page + 1) * PAGE_SIZE, total)} trên {total}
+            <span className="text-[11px] font-medium tabular-nums text-on-surface-variant">
+              {total ? page * PAGE_SIZE + 1 : 0}–{Math.min((page + 1) * PAGE_SIZE, total)} / {total} hồ sơ
             </span>
           </header>
 
           {/* Desktop Table View */}
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[1080px] text-left text-sm">
-              <thead className="bg-surface-container-low/80 text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
+            <table className="w-full min-w-[960px] table-fixed text-left text-sm">
+              <caption className="sr-only">Danh sách hồ sơ học viên và tình trạng học tập</caption>
+              <colgroup>
+                <col className="w-[21%]" />
+                <col className="w-[25%]" />
+                <col className="w-[13%]" />
+                <col className="w-[12%]" />
+                <col className="w-[22%]" />
+                <col className="w-[7%]" />
+              </colgroup>
+              <thead className="border-b border-outline-variant/30 bg-surface-container-low/70 text-[11px] font-bold text-on-surface-variant">
                 <tr>
-                  <th className="px-5 py-3.5">Học viên</th>
-                  <th className="px-5 py-3.5">Thông tin liên hệ</th>
-                  <th className="px-5 py-3.5">Ngày gia nhập</th>
-                  <th className="px-5 py-3.5">Band điểm</th>
-                  <th className="px-5 py-3.5">Tình trạng học vụ</th>
-                  <th className="px-5 py-3.5">Lượt học</th>
-                  <th className="px-5 py-3.5">Tài khoản</th>
-                  <th className="px-5 py-3.5 text-right">Thao tác</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5">Học viên</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5">Liên hệ</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5">Gia nhập</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5">Band hiện tại → mục tiêu</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5">Học vụ &amp; khóa học</th>
+                  <th scope="col" className="whitespace-nowrap px-4 py-2.5 text-right">Chi tiết</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/20">
@@ -606,83 +543,69 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
 
 function StudentRow({ student }: { student: StudentSummary }) {
   return (
-    <tr className="group transition-colors hover:bg-primary-container/[0.05]">
+    <tr className="group align-middle transition-colors even:bg-surface-container-low/[0.16] hover:bg-primary-container/[0.08]">
       {/* Học viên */}
-      <td className="px-5 py-3.5">
+      <td className="px-4 py-3">
         <StudentIdentity student={student} />
       </td>
 
       {/* Thông tin liên hệ */}
-      <td className="px-5 py-3.5">
-        <div className="space-y-1">
-          {student.email ? (
-            <a
-              href={`mailto:${student.email}`}
-              className="flex items-center gap-1.5 text-xs font-medium text-on-surface hover:text-primary transition-colors max-w-56 truncate"
-              title={student.email}
-            >
-              <EnvelopeSimple size={14} className="shrink-0 text-primary/70" />
-              <span className="truncate">{student.email}</span>
-            </a>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
-              <WarningCircle size={12} weight="bold" /> Chưa có email
-            </span>
-          )}
-
-          {student.phone ? (
-            <a
-              href={`tel:${student.phone}`}
-              className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors"
-            >
-              <Phone size={14} className="shrink-0 text-primary/70" />
-              <span>{student.phone}</span>
-            </a>
-          ) : (
-            <span className="block text-[11px] text-amber-700/80 italic">Chưa có số điện thoại</span>
-          )}
-        </div>
+      <td className="px-4 py-3">
+        {student.email || student.phone ? (
+          <div className="space-y-0.5">
+            {student.email && (
+              <a
+                href={`mailto:${student.email}`}
+                className="flex max-w-full items-center gap-1.5 text-xs font-medium text-on-surface transition-colors hover:text-primary"
+                title={student.email}
+              >
+                <EnvelopeSimple size={13} className="shrink-0 text-primary/70" />
+                <span className="truncate">{student.email}</span>
+              </a>
+            )}
+            {student.phone && (
+              <a
+                href={`tel:${student.phone}`}
+                className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors"
+              >
+                <Phone size={13} className="shrink-0 text-primary/70" />
+                <span>{student.phone}</span>
+              </a>
+            )}
+          </div>
+        ) : (
+          <span className="text-[11px] font-medium italic text-on-surface-variant/60">Chưa có thông tin liên hệ</span>
+        )}
       </td>
 
       {/* Ngày gia nhập */}
-      <td className="px-5 py-3.5">
+      <td className="whitespace-nowrap px-4 py-3">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-on-surface">
-          <CalendarBlank size={14} className="shrink-0 text-primary" />
+          <CalendarBlank size={14} className="shrink-0 text-primary/70" />
           {date(student.joinedAt)}
         </span>
       </td>
 
       {/* Band điểm */}
-      <td className="px-5 py-3.5">
+      <td className="px-4 py-3">
         <BandScoreProgress current={student.currentBand} target={student.targetBand} />
       </td>
 
-      {/* Tình trạng học vụ */}
-      <td className="px-5 py-3.5">
+      {/* Tình trạng học vụ (gộp lượt học) */}
+      <td className="px-4 py-3">
         <LifecycleCell student={student} />
       </td>
 
-      {/* Lượt học */}
-      <td className="px-5 py-3.5">
-        <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2.5 py-1 text-xs font-bold text-on-surface">
-          <GraduationCap size={14} className="text-primary" />
-          <span className="tabular-nums">{student.enrollmentCount}</span> khóa
-        </span>
-      </td>
-
-      {/* Tài khoản */}
-      <td className="px-5 py-3.5">
-        <ProfileBadge active={student.active} />
-      </td>
-
       {/* Thao tác */}
-      <td className="px-5 py-3.5 text-right">
+      <td className="whitespace-nowrap px-4 py-3 text-right">
         <Link
           to={`/students/${student.id}`}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary transition-all duration-200 hover:border-primary hover:bg-primary hover:text-on-primary hover:shadow-xs group-hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
+          title="Mở hồ sơ học viên"
+          aria-label={`Mở hồ sơ của ${student.fullName}`}
+          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-primary/25 bg-primary/5 px-2.5 text-[11px] font-bold text-primary transition-all duration-150 hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-on-primary hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
-          <span>Mở hồ sơ</span>
-          <ArrowRight size={14} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+          <IdentificationCard size={17} weight="duotone" />
+          <span>Hồ sơ</span>
         </Link>
       </td>
     </tr>
@@ -753,53 +676,37 @@ function StudentCard({ student }: { student: StudentSummary }) {
 }
 
 function StudentIdentity({ student }: { student: StudentSummary }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyCode = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (navigator?.clipboard) {
-      void navigator.clipboard.writeText(student.studentCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   return (
     <div className="flex min-w-0 items-center gap-3">
       <Avatar name={student.fullName} src={student.avatarPath} active={student.active} />
-      <div className="min-w-0">
+      <div className="min-w-0 leading-tight">
         <Link
           to={`/students/${student.id}`}
-          className="block truncate font-bold text-on-surface hover:text-primary transition-colors"
+          className="block truncate font-bold text-sm text-on-surface hover:text-primary transition-colors"
+          title={`Mã HV: ${student.studentCode}`}
         >
           {student.fullName}
         </Link>
-        <button
-          type="button"
-          onClick={copyCode}
-          className="group/code mt-0.5 inline-flex items-center gap-1 rounded bg-surface-container px-1.5 py-0.5 font-mono text-[11px] font-semibold text-on-surface-variant transition hover:bg-primary-container/20 hover:text-primary"
-          title="Bấm để sao chép mã học viên"
-        >
-          <span>{student.studentCode}</span>
-          {copied ? (
-            <Check size={11} className="text-emerald-600" weight="bold" />
-          ) : (
-            <Copy size={11} className="opacity-40 group-hover/code:opacity-100" />
-          )}
-        </button>
+        <span className="mt-1 block truncate font-mono text-[10px] font-semibold tracking-tight text-on-surface-variant/75">
+          {student.studentCode}
+        </span>
       </div>
     </div>
   );
 }
 
 function BandScoreProgress({ current, target }: { current: number | null; target: number | null }) {
+  if (current == null && target == null) {
+    return <span className="text-xs text-on-surface-variant/40 font-medium">—</span>;
+  }
+
   return (
     <div className="inline-flex items-center gap-1.5 text-xs">
       <span
         className={`rounded px-1.5 py-0.5 font-bold tabular-nums ${
           current != null ? "bg-surface-container text-on-surface" : "text-outline-variant"
         }`}
+        title={current != null ? `Band hiện tại: ${current}` : "Chưa có Band hiện tại"}
       >
         {current != null ? current : "—"}
       </span>
@@ -821,26 +728,61 @@ function BandScoreProgress({ current, target }: { current: number | null; target
 
 function LifecycleCell({ student, compact = false }: { student: StudentSummary; compact?: boolean }) {
   const meta = lifecycleMeta[student.lifecycleStatus];
+  const moreCount = Math.max(0, student.enrollmentCount - 1);
+
   return (
     <div>
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-bold ${meta.badgeClass}`}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
-        {meta.label}
-      </span>
-      {!compact && (
+      <div className="flex items-center gap-2">
         <span
-          className="mt-1 flex max-w-64 items-center gap-1 truncate text-xs text-on-surface-variant"
-          title={student.currentCourseName ? `${student.currentCourseName} · ${student.currentCourseCode}` : undefined}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-bold ${meta.badgeClass}`}
         >
-          <BookOpen size={13} className="shrink-0 text-on-surface-variant/60" />
-          <span className="truncate">
-            {student.currentCourseName
-              ? `${student.currentCourseName} · ${student.currentCourseCode}`
-              : "Chưa có khóa học"}
-          </span>
+          <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
+          {meta.label}
         </span>
+        <span
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant"
+          title={`Học viên đã tham gia ${student.enrollmentCount} khóa học`}
+        >
+          <GraduationCap size={13} className="text-primary/70" />
+          <span className="tabular-nums font-bold text-on-surface">{student.enrollmentCount}</span> khóa
+        </span>
+      </div>
+      {!compact && (
+        <div className="mt-1 flex items-center gap-1.5">
+          {student.currentCourseName ? (
+            <>
+              <Link
+                to={`/students/${student.id}`}
+                className="group/course flex max-w-[200px] items-center gap-1 truncate text-xs text-on-surface-variant hover:text-primary transition-colors"
+                title={`Khóa hiện tại/gần nhất: ${student.currentCourseName} · ${student.currentCourseCode}`}
+              >
+                <BookOpen size={12} className="shrink-0 text-on-surface-variant/60 group-hover/course:text-primary" />
+                <span className="truncate">
+                  {student.currentCourseName}
+                </span>
+              </Link>
+              {moreCount > 0 && (
+                <Link
+                  to={`/students/${student.id}`}
+                  className="inline-flex shrink-0 items-center rounded-md border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                  title={`Khóa hiển thị là khóa gần nhất. Học viên có thêm ${moreCount} khóa khác. Bấm để xem chi tiết toàn bộ trong hồ sơ.`}
+                >
+                  +{moreCount} khác
+                </Link>
+              )}
+            </>
+          ) : student.enrollmentCount > 0 ? (
+            <Link
+              to={`/students/${student.id}`}
+              className="text-xs text-primary hover:underline font-medium"
+              title="Bấm để xem danh sách khóa học"
+            >
+              Xem {student.enrollmentCount} khóa học
+            </Link>
+          ) : (
+            <span className="text-xs text-on-surface-variant/40 font-medium">—</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -878,66 +820,6 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  subtitle,
-  icon,
-  tone = "primary",
-}: {
-  label: string;
-  value: number;
-  subtitle: string;
-  icon: ReactNode;
-  tone?: "primary" | "emerald" | "amber" | "neutral";
-}) {
-  const colorMap = {
-    primary: {
-      bg: "bg-primary/10",
-      text: "text-primary",
-      border: "hover:border-primary/40",
-    },
-    emerald: {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      border: "hover:border-emerald-300",
-    },
-    amber: {
-      bg: "bg-amber-50",
-      text: "text-amber-800",
-      border: "hover:border-amber-300",
-    },
-    neutral: {
-      bg: "bg-surface-container",
-      text: "text-on-surface-variant",
-      border: "hover:border-outline-variant",
-    },
-  };
-
-  const style = colorMap[tone];
-
-  return (
-    <div
-      className={`rounded-2xl border border-outline-variant/35 bg-surface p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${style.border}`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-          {label}
-        </span>
-        <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${style.bg} ${style.text}`}>
-          {icon}
-        </span>
-      </div>
-      <div className="mt-2">
-        <strong className="text-3xl font-extrabold tabular-nums text-on-surface">
-          {value.toLocaleString("vi-VN")}
-        </strong>
-        <p className="mt-1 text-xs text-on-surface-variant">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
 function Avatar({ name, src, active }: { name: string; src: string | null; active: boolean }) {
   const initial = (name.trim().charAt(0) || "U").toUpperCase();
   return (
@@ -946,18 +828,18 @@ function Avatar({ name, src, active }: { name: string; src: string | null; activ
         <img
           src={src}
           alt={name}
-          className="h-11 w-11 rounded-2xl object-cover ring-1 ring-outline-variant/30"
+          className="h-10 w-10 rounded-xl object-cover ring-1 ring-outline-variant/30"
         />
       ) : (
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/30 font-black text-primary shadow-xs">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/30 font-black text-sm text-primary shadow-xs">
           {initial}
         </span>
       )}
       <span
-        className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-surface ${
-          active ? "bg-emerald-500" : "bg-gray-400"
+        className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-surface ${
+          active ? "bg-emerald-500" : "bg-rose-500"
         }`}
-        title={active ? "Tài khoản hoạt động" : "Tài khoản bị khóa"}
+        title={active ? "Tài khoản: Đang hoạt động" : "Tài khoản: Đã khóa"}
       />
     </div>
   );

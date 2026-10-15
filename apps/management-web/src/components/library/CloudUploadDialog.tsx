@@ -1,4 +1,4 @@
-import { File, Link, Trash, UploadSimple, X } from "@phosphor-icons/react";
+import { File, Folder, Link, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import type { LearningResource, LearningResourceType, LibraryFolder, LibrarySkill } from "../../library-types";
 import { apiFetch, apiUpload } from "../../lib/api";
@@ -127,7 +127,7 @@ export default function CloudUploadDialog({ open, folders, folderId, courseId, s
             </div>
           )}
 
-          {folders.length > 0 && <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#211A1D]">Lưu vào thư mục <span className="font-normal text-[#746A6E]">(không bắt buộc)</span></span><select value={selectedFolderId} onChange={event => setSelectedFolderId(event.target.value)} className="min-h-11 w-full rounded-xl border border-[#e3dce2] bg-white px-3 text-sm outline-none focus:border-[#8f4458]"><option value="">Kho dùng chung</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
+          {folderId && selectedFolder ? <div className="flex items-center gap-3 rounded-xl bg-[#f7e7ec] px-3 py-2.5"><Folder size={19} weight="duotone" className="shrink-0 text-[#8f4458]" /><div className="min-w-0"><p className="text-[10px] font-semibold text-[#746A6E]">Thêm vào thư mục hiện tại</p><p className="truncate text-xs font-bold text-[#211A1D]">{selectedFolder.name}</p></div></div> : folders.length > 0 && <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#211A1D]">Lưu vào thư mục <span className="font-normal text-[#746A6E]">(không bắt buộc)</span></span><select value={selectedFolderId} onChange={event => setSelectedFolderId(event.target.value)} className="min-h-11 w-full rounded-xl border border-[#e3dce2] bg-white px-3 text-sm outline-none focus:border-[#8f4458]"><option value="">Kho dùng chung</option>{folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-[#e3dce2] bg-white px-5 py-4"><span className="hidden text-[11px] text-[#746A6E] sm:block">Tài liệu được lưu và hiển thị ngay trong kho.</span><div className="ml-auto flex gap-2"><button type="button" onClick={onClose} className="min-h-10 rounded-xl px-4 text-xs font-bold text-[#746A6E] hover:bg-[#f1eef4]">Hủy</button><button type="button" disabled={submitting} onClick={() => void save()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#8f4458] px-4 text-xs font-bold text-white hover:bg-[#743447] disabled:opacity-50"><UploadSimple size={16} />{submitting ? "Đang lưu..." : source === "FILES" ? `Tải ${files.length || ""} tệp lên` : "Lưu liên kết"}</button></div></footer>

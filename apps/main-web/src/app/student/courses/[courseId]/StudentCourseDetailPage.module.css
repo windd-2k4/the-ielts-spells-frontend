@@ -1,38 +1,72 @@
 .loading {
   display: grid;
-  gap: 26px;
-  max-width: 1320px;
+  width: min(100%, 880px);
+  gap: 0;
   margin: 0 auto;
+  padding-top: 46px;
 }
 
 .loadingHeader,
 .loadingMain,
 .loadingSide {
-  border: 1px solid #e7e0dd;
-  background: linear-gradient(100deg, #eee9e6 25%, #faf8f6 40%, #eee9e6 55%);
-  background-size: 220% 100%;
-  animation: shimmer 1.4s infinite linear;
+  background: #f7f2f4;
+  animation: pulse 1.2s ease-in-out infinite alternate;
 }
 
-.loadingHeader { height: 170px; border-radius: 24px; }
-.loadingGrid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; }
-.loadingMain { height: 520px; border-radius: 22px; }
-.loadingSide { height: 420px; border-radius: 22px; }
+.loadingHeader {
+  width: 78%;
+  height: 132px;
+  border-bottom: 1px solid #e6dde1;
+}
+
+.loadingGrid {
+  display: grid;
+  gap: 56px;
+  padding-top: 56px;
+}
+
+.loadingMain {
+  height: 88px;
+  border-bottom: 1px solid #e6dde1;
+}
+
+.loadingSide {
+  width: 64%;
+  height: 260px;
+  border-bottom: 1px solid #e6dde1;
+}
 
 .stateCard {
-  width: min(100%, 520px);
-  margin: 9vh auto 0;
-  padding: 40px;
-  border: 1px solid #ded7da;
-  border-radius: 22px;
-  background: #fff;
-  color: #894c5b;
-  text-align: center;
+  width: min(100%, 620px);
+  margin: 10vh auto 0;
+  padding: 48px 0;
+  border-top: 1px solid #e6dde1;
+  border-bottom: 1px solid #e6dde1;
+  color: #8b3f56;
+  text-align: left;
 }
 
-.stateCard h1 { margin: 18px 0 8px; color: #292528; font-size: 24px; }
-.stateCard p { margin: 0; color: #6f676c; line-height: 1.65; }
-.stateActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.stateCard h1 {
+  margin: 18px 0 8px;
+  color: #2b2228;
+  font-family: var(--font-course-serif), Georgia, serif;
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.stateCard p {
+  margin: 0;
+  color: #6b5e65;
+  line-height: 1.7;
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
 .stateActions a,
 .stateActions button {
   display: inline-flex;
@@ -40,26 +74,32 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  border: 1px solid #d8cdd1;
-  border-radius: 12px;
-  background: #fff;
-  color: #723c4a;
-  font-weight: 800;
+  padding: 0 16px;
+  border: 1px solid #8b3f56;
+  border-radius: 8px;
+  background: transparent;
+  color: #6e2f43;
+  font-weight: 700;
 }
-.stateActions button { border-color: #894c5b; background: #894c5b; color: #fff; }
 
-@keyframes shimmer { to { background-position-x: -220%; } }
+.stateActions button {
+  background: #8b3f56;
+  color: #ffffff;
+}
+
+@keyframes pulse {
+  to { opacity: 0.52; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .loadingHeader, .loadingMain, .loadingSide { animation: none; }
+  .loadingHeader,
+  .loadingMain,
+  .loadingSide { animation: none; }
 }
 
-@media (max-width: 900px) {
-  .loadingGrid { grid-template-columns: 1fr; }
-  .loadingSide { height: 260px; }
-}
-
-@media (max-width: 520px) {
-  .stateCard { margin-top: 4vh; padding: 28px 20px; }
+@media (max-width: 767px) {
+  .loading { padding-top: 26px; }
+  .loadingHeader { width: 94%; }
+  .loadingSide { width: 100%; }
+  .stateCard { margin-top: 5vh; padding: 36px 4px; }
 }

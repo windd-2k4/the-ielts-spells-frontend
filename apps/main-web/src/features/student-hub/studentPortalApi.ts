@@ -230,11 +230,14 @@ export interface CourseWorkspaceData {
     sessionNo: number;
     title: string | null;
     phaseName: string | null;
+    content: string | null;
     startsAt: string | null;
     endsAt: string | null;
     status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
     teacherName: string | null;
     zoomUrl: string | null;
+    hasTest: boolean;
+    itemCount: number;
     materials: {
       id: string;
       title: string;

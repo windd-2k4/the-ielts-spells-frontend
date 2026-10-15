@@ -424,36 +424,43 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
 
   return (
     <main className={styles.page}>
-      <Link href="/student/practice" className={styles.backToSkills}><ArrowLeft size={16} /> Tất cả kỹ năng</Link>
       <header className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}><Sparkle size={15} weight="fill" /> Thư viện tự luyện</p>
-          <h1>Luyện đề <em>IELTS</em></h1>
-          <p>Chọn kỹ năng, tìm một đề đã xuất bản và luyện theo nhịp của riêng bạn. Kết quả tự luyện được lưu riêng với bài giáo viên giao.</p>
+        <div className={styles.heroMain}>
+          <div className={styles.heroKicker}>
+            <Link href="/student/practice" className={styles.backToSkills}><ArrowLeft size={15} /> Tất cả kỹ năng</Link>
+            <span aria-hidden="true" />
+            <p className={styles.eyebrow}><Sparkle size={14} weight="fill" /> Thư viện tự luyện</p>
+          </div>
+          <div className={styles.heroCopy}>
+            <h1>Luyện đề <em>IELTS</em></h1>
+            <p>Select a skill and practice published tests at your own pace.</p>
+          </div>
         </div>
         <div className={styles.metric} aria-label={`${result.totalElements} đề phù hợp`}>
           <span>Đang hiển thị</span><strong>{loading ? "-" : result.totalElements}</strong><small>đề {currentSkill.label}</small>
         </div>
       </header>
 
-      <nav className={styles.skillTabs} aria-label="Chọn kỹ năng IELTS">
-        {skills.map((item) => {
-          const Icon = item.icon;
-          const active = item.id === skill;
-          return (
-            <Link key={item.id} href={`/student/practice?skill=${item.id}`} aria-current={active ? "page" : undefined}>
-              <Icon size={20} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <div className={styles.catalogNav}>
+        <nav className={styles.skillTabs} aria-label="Chọn kỹ năng IELTS">
+          {skills.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === skill;
+            return (
+              <Link key={item.id} href={`/student/practice?skill=${item.id}`} aria-current={active ? "page" : undefined}>
+                <Icon size={19} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-      <section className={styles.statusBar} aria-label="Trạng thái làm đề">
-        {statusOptions.map((option) => (
-          <button key={option.value} type="button" aria-pressed={progress === option.value}
-            onClick={() => updateParams({ status: option.value })}>{option.label}</button>
-        ))}
-      </section>
+        <section className={styles.statusBar} aria-label="Trạng thái làm đề">
+          {statusOptions.map((option) => (
+            <button key={option.value} type="button" aria-pressed={progress === option.value}
+              onClick={() => updateParams({ status: option.value })}>{option.label}</button>
+          ))}
+        </section>
+      </div>
 
       <div className={styles.workspace}>
         <aside className={styles.filters} aria-label={`Bộ lọc ${currentSkill.label}`}>

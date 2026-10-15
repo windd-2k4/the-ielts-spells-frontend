@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -31,6 +31,7 @@ const StudentPortalContext = createContext<StudentPortalContextValue | null>(nul
 
 export function StudentPortalProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: sessionLoading } = useStudentSession();
   const [data, setData] = useState<StudentPortalOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,11 +54,11 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
     if (sessionLoading) return;
     if (!session) {
       setLoading(false);
-      router.replace("/student/login?next=%2Fstudent");
+      router.replace(`/student/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
     void refresh();
-  }, [refresh, router, session, sessionLoading]);
+  }, [pathname, refresh, router, session, sessionLoading]);
 
   const value = useMemo<StudentPortalContextValue>(() => ({
     data,

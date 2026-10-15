@@ -6,13 +6,13 @@ import {
   List,
   X,
   PhoneCall,
-  Wrench,
-  Warning,
   GraduationCap,
   User,
   Gear,
   SignOut,
   CaretDown,
+  ArrowRight,
+  CheckCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
@@ -20,7 +20,7 @@ import { useStudentSession } from "@/features/student-auth/StudentSessionProvide
 interface NavItem {
   id: string;
   label: string;
-  isDev?: boolean;
+  href?: string;
 }
 const NAV_ITEMS: NavItem[] = [
   { id: "hero", label: "Trang chủ" },
@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "courses", label: "Khóa học" },
   { id: "teachers", label: "Giáo viên" },
   { id: "feedback", label: "Feedback" },
-  { id: "practice", label: "Luyện đề", isDev: true },
+  { id: "practice", label: "Luyện đề", href: "/student/practice" },
 ];
 
 export default function Navbar() {
@@ -38,11 +38,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [practiceLoginOpen, setPracticeLoginOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Development Popup State
-  const [devModalOpen, setDevModalOpen] = useState(false);
-  const [devModalFeature, setDevModalFeature] = useState("");
 
   const studentName = session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "Học viên";
   const avatarInitial = studentName.charAt(0).toUpperCase();
@@ -52,7 +49,7 @@ export default function Navbar() {
       setScrolled(window.scrollY > 20);
 
       // Section scroll spy logic for standard section IDs
-      const sectionItems = NAV_ITEMS.filter((item) => !item.isDev);
+      const sectionItems = NAV_ITEMS.filter((item) => !item.href);
       const sections = sectionItems.map((item) => document.getElementById(item.id));
       const scrollPosition = window.scrollY + 120;
 
@@ -79,6 +76,15 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!practiceLoginOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPracticeLoginOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [practiceLoginOpen]);
+
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
     const element = document.getElementById(id);
@@ -91,12 +97,12 @@ export default function Navbar() {
 
   const handleNavClick = (item: NavItem) => {
     setMobileMenuOpen(false);
-    if (item.isDev) {
-      setDevModalFeature(item.label);
-      setDevModalOpen(true);
-      return;
-    }
     scrollToSection(item.id);
+  };
+
+  const requestPracticeLogin = () => {
+    setMobileMenuOpen(false);
+    setPracticeLoginOpen(true);
   };
 
   return (
@@ -127,16 +133,30 @@ export default function Navbar() {
           {/* Desktop Nav Items */}
           <nav className="hidden lg:flex items-center gap-1 bg-[#FFFDF0]/90 p-1.5 rounded-full border border-[#F3E8C4] backdrop-blur-md shrink-0">
             {NAV_ITEMS.map((item) => {
-              const isActive = !item.isDev && activeSection === item.id;
+              const isActive = !item.href && activeSection === item.id;
+              const className = `px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                isActive
+                  ? "bg-[#F5C842] text-[#1E1B18] font-bold shadow-sm"
+                  : "text-[#5C5752] hover:text-[#1E1B18] hover:bg-white/60"
+              }`;
+
+              if (item.href) {
+                return item.id === "practice" && !session ? (
+                  <button key={item.id} type="button" onClick={requestPracticeLogin} className={className}>
+                    {item.label}
+                  </button>
+                ) : (
+                  <Link key={item.id} href={item.href} className={className}>
+                    {item.label}
+                  </Link>
+                );
+              }
+
               return (
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item)}
-                  className={`px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                    isActive
-                      ? "bg-[#F5C842] text-[#1E1B18] font-bold shadow-sm"
-                      : "text-[#5C5752] hover:text-[#1E1B18] hover:bg-white/60"
-                  }`}
+                  className={className}
                 >
                   {item.label}
                 </button>
@@ -257,19 +277,41 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="lg:hidden fixed inset-x-0 top-[73px] bg-[#FEFDF5] border-b border-[#F3E8C4] shadow-xl p-6 transition-all animate-in fade-in slide-in-from-top-4">
             <div className="flex flex-col gap-2">
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavClick(item)}
-                  className={`text-left px-4 py-3 rounded-xl font-medium text-base transition-colors ${
-                    !item.isDev && activeSection === item.id
-                      ? "bg-[#F5C842] text-[#1E1B18] font-bold"
-                      : "text-[#5C5752] hover:bg-[#FEF9C3]"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {NAV_ITEMS.map((item) => {
+                const className = `text-left px-4 py-3 rounded-xl font-medium text-base transition-colors ${
+                  !item.href && activeSection === item.id
+                    ? "bg-[#F5C842] text-[#1E1B18] font-bold"
+                    : "text-[#5C5752] hover:bg-[#FEF9C3]"
+                }`;
+
+                return item.href && item.id === "practice" && !session ? (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={requestPracticeLogin}
+                    className={className}
+                  >
+                    {item.label}
+                  </button>
+                ) : item.href ? (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={className}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item)}
+                    className={className}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
               <div className="pt-4 border-t border-[#F3E8C4] flex flex-col gap-3">
                 {session ? (
                   <>
@@ -314,45 +356,68 @@ export default function Navbar() {
         )}
       </header>
 
-      {/* Feature Under Development Modal */}
-      {devModalOpen && (
+      {practiceLoginOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
-          onClick={() => setDevModalOpen(false)}
+          className="practice-login-backdrop fixed inset-0 z-[100] grid place-items-center bg-[#2C271D]/45 p-4 backdrop-blur-md"
+          onClick={() => setPracticeLoginOpen(false)}
         >
-          <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border-2 border-[#F3E8C4] shadow-2xl text-center space-y-5 relative animate-in zoom-in-95"
-            onClick={(e) => e.stopPropagation()}
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="practice-login-title"
+            aria-describedby="practice-login-description"
+            className="practice-login-panel relative isolate w-full max-w-[460px] overflow-hidden rounded-[28px] border border-[#E9CD67] bg-[#FFFDF5] p-7 text-center shadow-[0_30px_90px_rgba(92,72,18,0.24)] sm:p-8"
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* Top Icon Badge */}
-            <div className="w-16 h-16 rounded-2xl bg-[#FEF9C3] text-[#894C5B] border-2 border-[#F3E8C4] flex items-center justify-center mx-auto shadow-sm">
-              <Wrench size={32} weight="fill" className="text-[#894C5B]" />
-            </div>
+            <div aria-hidden="true" className="absolute -right-16 -top-20 -z-10 size-52 rounded-full bg-[#F8D85A]/35 blur-2xl" />
+            <div aria-hidden="true" className="absolute -bottom-20 -left-16 -z-10 size-48 rounded-full bg-[#FFF0A8]/60 blur-2xl" />
 
-            {/* Content Text */}
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F7E5EA] text-[#894C5B] rounded-full text-xs font-extrabold uppercase tracking-wider">
-                <Warning size={14} weight="bold" />
-                <span>Thông Báo Tính Năng</span>
-              </div>
-              <h3 className="font-display text-2xl font-extrabold text-[#1E1B18]">
-                Chức Năng Đang Phát Triển
-              </h3>
-              <p className="text-sm text-[#5C5752] leading-relaxed">
-                Tính năng <strong className="text-[#894C5B]">"{devModalFeature}"</strong> đang được hệ thống hoàn thiện kỹ lưỡng và sẽ sớm ra mắt trong thời gian tới. Cảm ơn bạn đã quan tâm!
-              </p>
-            </div>
-
-            {/* Close Button */}
             <button
-              onClick={() => setDevModalOpen(false)}
-              className="w-full py-3 rounded-2xl bg-[#F5C842] text-[#1E1B18] font-extrabold hover:bg-[#E5B520] active:scale-95 transition-all shadow-md text-sm"
+              type="button"
+              aria-label="Đóng thông báo"
+              onClick={() => setPracticeLoginOpen(false)}
+              className="absolute right-4 top-4 grid size-10 place-items-center rounded-full border border-[#E9DDAF] bg-white/75 text-[#6B6043] backdrop-blur transition duration-300 hover:rotate-90 hover:border-[#D6B94A] hover:bg-white hover:text-[#332B18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A16] focus-visible:ring-offset-2"
             >
-              Đã hiểu &amp; Đóng
+              <X size={20} weight="bold" />
             </button>
-          </div>
+
+            <div className="practice-login-icon relative mx-auto grid size-[72px] place-items-center rounded-[22px] border border-[#E6C952] bg-[#F9DC67] text-[#57410B] shadow-[0_12px_28px_rgba(192,145,12,0.22)]">
+              <span aria-hidden="true" className="absolute inset-1 rounded-[17px] border border-white/55" />
+              <GraduationCap size={34} weight="duotone" />
+            </div>
+
+            <h2 id="practice-login-title" className="practice-login-copy mt-6 text-[28px] font-extrabold tracking-[-0.035em] text-[#2B261B]">
+              Đăng nhập để luyện đề
+            </h2>
+            <p id="practice-login-description" className="practice-login-copy mx-auto mt-2 max-w-sm text-[15px] leading-6 text-[#6E654D]">
+              Bạn cần đăng nhập tài khoản học viên để lưu tiến độ, kết quả và xem lại đáp án.
+            </p>
+
+            <div className="practice-login-copy mt-5 flex items-center justify-center gap-2 rounded-2xl border border-[#EEE0A8] bg-[#FFF8D9]/80 px-4 py-3 text-sm font-semibold text-[#62531F]">
+              <CheckCircle size={19} weight="fill" className="shrink-0 text-[#A77C08]" />
+              Tiến độ luyện tập luôn được lưu lại
+            </div>
+
+            <div className="practice-login-actions mt-6 grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+              <button
+                type="button"
+                onClick={() => setPracticeLoginOpen(false)}
+                className="min-h-12 rounded-2xl border border-[#DDD0A2] bg-white/70 px-5 text-sm font-bold text-[#5D5339] transition duration-300 hover:-translate-y-0.5 hover:border-[#C6A83C] hover:bg-white active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C79A16] focus-visible:ring-offset-2"
+              >
+                Để sau
+              </button>
+              <Link
+                href="/student/login?next=%2Fstudent%2Fpractice"
+                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D9B72F] bg-[#F5CD43] px-5 text-sm font-extrabold text-[#2E2715] shadow-[0_10px_24px_rgba(191,143,5,0.22)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#F8D75B] hover:shadow-[0_14px_30px_rgba(191,143,5,0.28)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A77C08] focus-visible:ring-offset-2"
+              >
+                Đăng nhập ngay
+                <ArrowRight size={18} weight="bold" className="transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </section>
         </div>
       )}
+
     </>
   );
 }

@@ -1,14 +1,14 @@
 import {
   Archive, ArrowSquareOut, Article, BookOpenText, Books, Check, ClipboardText, FileAudio,
   DotsThreeVertical, FileDoc, FileText, FileVideo, Folder, FolderOpen, GraduationCap, GridFour,
-  House, Link, List, MagnifyingGlass, NotePencil, Plus, TextT, Trash, UploadSimple, WarningCircle,
+  House, Eye, Link, List, MagnifyingGlass, NotePencil, Plus, TextT, Trash, UploadSimple, WarningCircle,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { Course, Page } from "../../academic-types";
-import type { ContentLifecycleStatus, ExerciseTemplate, LearningResource, LearningResourceType, LibraryFolder, LibraryItem } from "../../library-types";
+import type { ContentLifecycleStatus, ExerciseTemplate, LearningResource, LearningResourceFile, LearningResourceType, LibraryFolder, LibraryItem } from "../../library-types";
 import { isResource } from "../../library-types";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, apiMediaUrl, revokeMediaUrl } from "../../lib/api";
 import LibraryItemModal from "./LibraryItemModal";
 import ResourceFilesDialog from "./ResourceFilesDialog";
 import AttachLibraryModal from "./AttachLibraryModal";
@@ -77,6 +77,97 @@ const statusBadge = (status: ContentLifecycleStatus) => {
   }
 };
 
+function ResourceCardPreview({ resource, onOpen, onResolved }: { resource: LearningResource; onOpen: () => void; onResolved: (count: number, file: LearningResourceFile | null) => void }) {
+  const [fallbackFile, setFallbackFile] = useState<LearningResourceFile | null>(null);
+  const previewFile = resource.previewFile ?? fallbackFile;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+  const [objectUrl, setObjectUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+  const mimeType = previewFile?.mimeType.toLowerCase() ?? "";
+  const canRender = Boolean(previewFile?.previewSupported)
+    && (mimeType.startsWith("image/") || mimeType === "application/pdf" || mimeType.startsWith("text/") || mimeType.startsWith("video/"));
+  const extension = previewFile?.originalFilename.split(".").pop()?.toUpperCase().slice(0, 5) || "FILE";
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || nearViewport) return;
+    if (!("IntersectionObserver" in window)) { setNearViewport(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setNearViewport(true); observer.disconnect(); }
+    }, { rootMargin: "240px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nearViewport]);
+
+  useEffect(() => {
+    if (!nearViewport || resource.externalUrl || resource.previewFile !== undefined) return;
+    let active = true;
+    void apiFetch<LearningResourceFile[]>(`/admin/library/resources/${resource.id}/files`).then(files => {
+      if (!active) return;
+      const file = files.find(item => item.fileRole === "THUMBNAIL")
+        ?? files.find(item => item.fileRole === "MAIN")
+        ?? files.find(item => item.previewSupported)
+        ?? files[0]
+        ?? null;
+      setFallbackFile(file);
+      onResolved(files.length, file);
+    }).catch(() => { if (active) onResolved(0, null); });
+    return () => { active = false; };
+  }, [nearViewport, onResolved, resource.id, resource.previewFile]);
+
+  useEffect(() => {
+    setObjectUrl(""); setFailed(false);
+    if (!previewFile || !nearViewport || !canRender) return;
+    let active = true; let nextUrl = "";
+    void apiMediaUrl(`/admin/library/files/${previewFile.id}/content`)
+      .then(url => { nextUrl = url; if (active) setObjectUrl(url); })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; if (nextUrl) revokeMediaUrl(nextUrl); };
+  }, [canRender, nearViewport, previewFile?.id]);
+
+  let previewContent;
+  if (objectUrl && mimeType.startsWith("image/")) {
+    previewContent = <img src={objectUrl} alt={`Xem trước ${previewFile?.originalFilename}`} className="h-full w-full object-cover" />;
+  } else if (objectUrl && mimeType.startsWith("video/")) {
+    previewContent = <video src={objectUrl} muted preload="metadata" className="h-full w-full object-cover" aria-label={`Xem trước ${previewFile?.originalFilename}`} />;
+  } else if (objectUrl && (mimeType === "application/pdf" || mimeType.startsWith("text/"))) {
+    previewContent = <iframe src={`${objectUrl}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`} title={`Xem trước ${previewFile?.originalFilename}`} tabIndex={-1} className="h-full w-full border-0 bg-white pointer-events-none" />;
+  } else if (resource.externalUrl && !previewFile) {
+    previewContent = (
+      <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_78%_18%,rgba(14,165,233,0.12),transparent_34%),linear-gradient(145deg,#f7fbfd,#edf6fa)] px-5 text-center">
+        <div>
+          <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-sky-700 shadow-sm"><Link size={23} weight="duotone" /></span>
+          <p className="mt-2 max-w-full truncate text-[10px] font-bold text-sky-800">{resource.externalUrl.replace(/^https?:\/\//, "").split("/")[0]}</p>
+        </div>
+      </div>
+    );
+  } else {
+    previewContent = (
+      <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_80%_15%,rgba(143,68,88,0.10),transparent_36%),linear-gradient(145deg,#faf7f8,#f1ebee)]">
+        <div className="relative h-[72%] w-[52%] rounded-md border border-[#ded4d9] bg-white p-3 shadow-[0_8px_20px_rgba(82,48,60,0.10)]">
+          <span className="block h-2 w-2/3 rounded-full bg-[#e9dce1]" />
+          <span className="mt-2 block h-1.5 w-full rounded-full bg-[#f0e9ec]" />
+          <span className="mt-1.5 block h-1.5 w-5/6 rounded-full bg-[#f0e9ec]" />
+          <span className="mt-1.5 block h-1.5 w-3/4 rounded-full bg-[#f0e9ec]" />
+          <span className="absolute bottom-2 right-2 rounded bg-[#8f4458] px-1.5 py-0.5 text-[8px] font-extrabold tracking-wide text-white">{extension}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const hasContent = Boolean(previewFile || resource.externalUrl || resource.attachmentsCount);
+  return (
+    <div ref={containerRef} className="group/preview relative mb-2 aspect-[4/3] overflow-hidden rounded-lg border border-[#e8dfe3] bg-[#f7f2f4]">
+      {previewContent}
+      {!objectUrl && canRender && nearViewport && !failed && <span className="absolute inset-0 animate-pulse bg-[#f1e9ec]" aria-label="Đang tải bản xem trước" />}
+      <button type="button" onClick={onOpen} className="absolute inset-0 grid place-items-center bg-[#211A1D]/0 transition duration-200 hover:bg-[#211A1D]/20 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#8f4458]" aria-label={`${hasContent ? (resource.externalUrl && !previewFile ? "Mở liên kết" : "Xem trước") : "Thêm tệp cho"} ${resource.title}`}>
+        <span className="inline-flex translate-y-1 items-center gap-1.5 rounded-lg bg-white/95 px-3 py-2 text-[11px] font-bold text-[#743447] opacity-0 shadow-md transition duration-200 group-hover/preview:translate-y-0 group-hover/preview:opacity-100 group-focus-within/preview:translate-y-0 group-focus-within/preview:opacity-100">{resource.externalUrl && !previewFile ? <ArrowSquareOut size={15} /> : <Eye size={15} />}{hasContent ? (resource.externalUrl && !previewFile ? "Mở liên kết" : "Xem trước") : "Thêm tệp"}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function LibraryWorkspace({ courseId, compactHeader = false }: Props) {
   const view = "RESOURCES" as const;
   const [selectedFolderId, setSelectedFolderId] = useState<"ALL" | "GLOBAL" | string>("ALL");
@@ -97,6 +188,12 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
   const [archiving, setArchiving] = useState<LibraryItem | null>(null);
   const [resourceFiles, setResourceFiles] = useState<LearningResource | null>(null);
   const [attachingItem, setAttachingItem] = useState<LibraryItem | null>(null);
+
+  const handlePreviewResolved = useCallback((resourceId: string, count: number, previewFile: LearningResourceFile | null) => {
+    setItems(current => current.map(item => isResource(item) && item.id === resourceId
+      ? { ...item, attachmentsCount: count, previewFile }
+      : item));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -310,104 +407,32 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                 const externalUrl = isResource(item) ? item.externalUrl : item.sourceUrl;
                 const meta = itemMeta(item);
                 const ItemIcon = meta.icon;
-                const SourceIcon = externalUrl ? Link : isResource(item) && item.resourceType === "TEACHER_NOTE" ? Article : FileDoc;
-                const prefersExternal = Boolean(externalUrl) && (!isResource(item) || !item.attachmentsCount);
+                const openItem = () => {
+                  if (!isResource(item)) { setEditing(item); setModalOpen(true); return; }
+                  if (item.externalUrl && !item.attachmentsCount) { window.open(item.externalUrl, "_blank", "noopener,noreferrer"); return; }
+                  setResourceFiles(item);
+                };
+                const displayName = isResource(item) && item.previewFile?.originalFilename
+                  ? item.previewFile.originalFilename
+                  : item.title;
                 return (
                   <article
                     key={item.id}
-                    className="flex h-full flex-col rounded-2xl border border-[#e3dce2] bg-white p-4 transition-colors hover:border-[#8f4458]/45 hover:shadow-sm"
+                    onClick={event => { if (!(event.target as HTMLElement).closest("button,a,summary,details")) openItem(); }}
+                    className="group flex h-full cursor-pointer flex-col rounded-xl border border-[#e3dce2] bg-white p-2.5 transition duration-200 hover:border-[#b98292] hover:bg-[#fffdfd] hover:shadow-[0_8px_24px_rgba(82,48,60,0.09)]"
                   >
-                    <div className="flex items-start gap-3">
-                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${meta.tone}`} aria-label={`Loại: ${meta.label}`} title={meta.label}>
-                        <ItemIcon size={21} weight="duotone" aria-hidden="true" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-[11px] font-bold text-[#8f4458]">{item.code}</span>
-                          {statusBadge(item.status)}
-                        </div>
-                        <p className="mt-1 truncate text-[10px] font-semibold text-[#746A6E]" title={`${meta.label} · ${meta.source}`}>
-                          {meta.label} · {meta.source}
-                        </p>
-                      </div>
-                    </div>
-
-                    <h3 className="mt-3 line-clamp-2 min-h-10 font-display text-sm font-bold leading-5 text-[#211A1D]" title={item.title}>
-                      {item.title}
-                    </h3>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <ItemTypeBadge item={item} compact />
-                      {item.scope === "COURSE" && (
-                        <span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold text-[#8a6000]">Riêng khóa</span>
-                      )}
-                    </div>
-
-                    <p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-[#746A6E]">
-                      {isResource(item) ? item.description || "Chưa có mô tả." : item.instructions || "Chưa có hướng dẫn."}
-                    </p>
-
-                    <div className="mt-auto pt-4">
-                      <div className="flex items-center justify-between gap-2 border-t border-[#e3dce2]/70 pt-3 text-[10px] text-[#746A6E]">
-                        <span className="inline-flex min-w-0 items-center gap-1 truncate" title={meta.source}>
-                          <SourceIcon size={13} weight="duotone" className="shrink-0" aria-hidden="true" />
-                          <span className="truncate">{meta.source}</span>
-                        </span>
-                        <time className="shrink-0" dateTime={item.updatedAt}>{formatDate(item.updatedAt)}</time>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        {prefersExternal ? (
-                          <a
-                            href={externalUrl ?? undefined}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#f7e7ec] px-3 text-xs font-bold text-[#743447] hover:bg-[#efd6de] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30"
-                          >
-                            <ArrowSquareOut size={16} />
-                            <span className="truncate">Mở liên kết</span>
-                          </a>
-                        ) : isResource(item) ? (
-                            <button
-                              onClick={() => setResourceFiles(item)}
-                              className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#f7e7ec] px-3 text-xs font-bold text-[#743447] hover:bg-[#efd6de] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30"
-                              aria-label={`Quản lý tệp của ${item.title}`}
-                            >
-                              <FileText size={16} />
-                              <span className="truncate">{item.attachmentsCount ? `${item.attachmentsCount} tệp` : "Thêm tệp"}</span>
-                            </button>
-                        ) : (
-                          <button
-                            onClick={() => { setEditing(item); setModalOpen(true); }}
-                            className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#f7e7ec] px-3 text-xs font-bold text-[#743447] hover:bg-[#efd6de] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30"
-                          >
-                            <BookOpenText size={16} />
-                            <span className="truncate">Xem nội dung</span>
-                          </button>
-                        )}
-
-                        {externalUrl && !prefersExternal && (
-                          <a
-                            href={externalUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#e3dce2] text-[#8f4458] hover:bg-[#f7e7ec] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30"
-                            title="Mở liên kết ngoài"
-                            aria-label={`Mở liên kết của ${item.title}`}
-                          >
-                            <ArrowSquareOut size={17} />
-                          </a>
-                        )}
-
-                        <details className="group relative shrink-0">
+                    <div className="mb-2 flex min-h-9 items-center gap-2 px-1">
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${meta.tone}`} title={meta.label}><ItemIcon size={17} weight="duotone" aria-hidden="true" /></span>
+                      <div className="min-w-0 flex-1"><h3 className="truncate text-xs font-bold text-[#211A1D]" title={displayName}><button type="button" onClick={openItem} className="max-w-full truncate text-left focus:outline-none focus:underline">{displayName}</button></h3><p className="mt-0.5 truncate text-[10px] text-[#746A6E]">{item.code}</p></div>
+                      <details className="relative shrink-0" onClick={event => event.stopPropagation()}>
                           <summary
-                            className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-xl border border-[#e3dce2] text-[#746A6E] hover:border-[#8f4458]/40 hover:bg-[#faf8fb] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30 [&::-webkit-details-marker]:hidden"
+                            className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg text-[#746A6E] hover:bg-[#f7e7ec] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/30 [&::-webkit-details-marker]:hidden"
                             aria-label={`Thao tác khác cho ${item.title}`}
                             title="Thao tác khác"
                           >
-                            <DotsThreeVertical size={19} weight="bold" />
+                            <DotsThreeVertical size={18} weight="bold" />
                           </summary>
-                          <div className="absolute bottom-12 right-0 z-20 w-48 overflow-hidden rounded-xl border border-[#e3dce2] bg-white p-1.5 shadow-lg">
+                          <div className="absolute right-0 top-9 z-20 w-48 overflow-hidden rounded-xl border border-[#e3dce2] bg-white p-1.5 shadow-lg">
                             <button
                               onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setAttachingItem(item); }}
                               className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[#237653] hover:bg-emerald-50"
@@ -428,7 +453,11 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                             </button>
                           </div>
                         </details>
-                      </div>
+                    </div>
+                    {isResource(item) ? <ResourceCardPreview resource={item} onOpen={openItem} onResolved={(count, file) => handlePreviewResolved(item.id, count, file)} /> : <button type="button" onClick={openItem} className="mb-2 grid aspect-[4/3] place-items-center rounded-lg border border-[#e8dfe3] bg-[#f7f2f4] text-indigo-700"><BookOpenText size={40} weight="duotone" /></button>}
+                    <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-[#746A6E]">
+                      <span className="min-w-0 truncate">{item.scope === "COURSE" ? "Riêng khóa" : meta.source}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">{statusBadge(item.status)}<time dateTime={item.updatedAt}>{formatDate(item.updatedAt)}</time></span>
                     </div>
                   </article>
                 );

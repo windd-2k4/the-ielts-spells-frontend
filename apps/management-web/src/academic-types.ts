@@ -127,6 +127,39 @@ export type StudentLearningInsights = {
   }>;
 };
 
+export type StudentAttemptDetail = {
+  id: string;
+  title: string;
+  skill: string;
+  status: string;
+  origin: string;
+  attemptNo: number;
+  startedAt: string;
+  submittedAt: string | null;
+  lastActivityAt: string;
+  durationSeconds: number;
+  allowedDurationSeconds: number;
+  score: number | null;
+  maxScore: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  questions: Array<{
+    questionKey: string;
+    questionNo: number;
+    questionType: string;
+    sectionTitle: string | null;
+    groupTitle: string | null;
+    prompt: string | null;
+    studentAnswers: string[];
+    correctAnswers: string[];
+    correct: boolean | null;
+    score: number;
+    maxScore: number;
+    explanation: string | null;
+  }>;
+};
+
 export const courseEmpty: CourseForm = { name: "", description: "", level: "", skillPair: "LISTENING_READING", coverImageUrl: "", coverImageAltText: "", targetBand: "", totalSessions: "20", tuitionAmount: "", capacity: "20", startsOn: "", endsOn: "", status: "OPEN", defaultZoomUrl: "", isPublic: true, isActive: true };
 export const classStatusLabel: Record<CourseStatus, string> = { OPEN: "Chuẩn bị & tuyển sinh", ACTIVE: "Đang học", COMPLETED: "Đã hoàn thành", CANCELLED: "Đã hủy" };
 export const skillPairLabel: Record<SkillPair, string> = { LISTENING_READING: "Listening & Reading", SPEAKING_WRITING: "Speaking & Writing" };

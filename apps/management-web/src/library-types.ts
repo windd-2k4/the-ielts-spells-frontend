@@ -53,6 +53,7 @@ export type LearningResource = {
   createdAt: string;
   updatedAt: string;
   attachmentsCount?: number;
+  previewFile?: LearningResourceFile | null;
 };
 
 export type LearningResourceFile = {

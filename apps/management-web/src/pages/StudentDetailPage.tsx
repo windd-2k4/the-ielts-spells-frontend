@@ -82,59 +82,58 @@ export function StudentDetailPage() {
   if (error || !student) return <State text={error || "Không tìm thấy học viên"} error />;
 
   return (
-    <section className="space-y-6">
-      {/* Top Header Link */}
-      <div className="flex items-center justify-between">
+    <section className="space-y-4">
+      <div className="flex min-w-0 items-center gap-3">
         <Link
           to="/students"
-          className="inline-flex items-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary transition-all"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold text-on-surface-variant transition-colors hover:text-primary"
         >
           <ArrowLeft size={18} /> Quay lại danh sách học viên
         </Link>
+        <span className="hidden h-5 w-px bg-outline-variant/60 lg:block" aria-hidden="true" />
+        <strong className="hidden max-w-48 truncate text-sm text-on-surface lg:block">{student.fullName}</strong>
+        <nav className="flex min-w-0 flex-1 overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface p-1 no-scrollbar">
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+              activeTab === "profile"
+                ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
+                : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
+            }`}
+          >
+            <UserCircle size={18} /> Hồ sơ & mục tiêu
+          </button>
+          <button
+            onClick={() => setActiveTab("learning")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+              activeTab === "learning"
+                ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
+                : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
+            }`}
+          >
+            <ChartLineUp size={18} /> Kết quả & lỗi thường gặp
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+              activeTab === "history"
+                ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
+                : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
+            }`}
+          >
+            <CalendarBlank size={18} /> Lịch sử học vụ & Khóa học
+            {enrollments.length > 0 && (
+              <span
+                className={`ml-1 px-2 py-0.5 text-xs rounded-full font-black ${
+                  activeTab === "history" ? "bg-white text-[#8B3F56]" : "bg-primary-container/30 text-primary"
+                }`}
+              >
+                {enrollments.length}
+              </span>
+            )}
+          </button>
+        </nav>
       </div>
-
-      {/* Main Category Tabs Navigation */}
-      <nav className="flex border-b border-outline-variant/40 overflow-x-auto no-scrollbar gap-3 mb-6 bg-surface p-1.5 rounded-2xl border">
-        <button
-          onClick={() => setActiveTab("profile")}
-          className={`flex items-center gap-2 px-5 py-3 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${
-            activeTab === "profile"
-              ? "bg-primary text-on-primary shadow-xs"
-              : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
-          }`}
-        >
-          <UserCircle size={18} /> Hồ sơ & mục tiêu
-        </button>
-        <button
-          onClick={() => setActiveTab("learning")}
-          className={`flex items-center gap-2 px-5 py-3 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${
-            activeTab === "learning"
-              ? "bg-primary text-on-primary shadow-xs"
-              : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
-          }`}
-        >
-          <ChartLineUp size={18} /> Kết quả & lỗi thường gặp
-        </button>
-        <button
-          onClick={() => setActiveTab("history")}
-          className={`flex items-center gap-2 px-5 py-3 font-bold text-sm rounded-xl transition-all whitespace-nowrap ${
-            activeTab === "history"
-              ? "bg-primary text-on-primary shadow-xs"
-              : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
-          }`}
-        >
-          <CalendarBlank size={18} /> Lịch sử học vụ & Khóa học
-          {enrollments.length > 0 && (
-            <span
-              className={`ml-1 px-2 py-0.5 text-xs rounded-full font-black ${
-                activeTab === "history" ? "bg-on-primary/20 text-on-primary" : "bg-primary-container/30 text-primary"
-              }`}
-            >
-              {enrollments.length}
-            </span>
-          )}
-        </button>
-      </nav>
 
       {/* Tab Content 1: Overview & Skill Radar Profile */}
       {activeTab === "profile" && (
@@ -150,7 +149,7 @@ export function StudentDetailPage() {
       )}
 
       {activeTab === "learning" && (
-        <StudentLearningInsights data={insights} loading={insightsLoading} error={insightsError} onRetry={() => void loadInsights()} />
+        <StudentLearningInsights studentId={studentId} data={insights} loading={insightsLoading} error={insightsError} onRetry={() => void loadInsights()} />
       )}
 
       {/* Tab Content 2: Academic History & Courses */}
@@ -189,8 +188,8 @@ export function StudentDetailPage() {
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Band hiện tại" value={String(student.currentBand ?? "—")} />
-              <Metric label="Band mục tiêu" value={String(student.targetBand ?? "—")} />
+              <Metric label="Band hiện tại" value={String(student.currentBand ?? "Chưa có")} />
+              <Metric label="Band mục tiêu" value={String(student.targetBand ?? "Chưa có")} />
               <Metric label="Khóa đang mở" value={String(enrollments.filter(x => ["ACTIVE", "PAUSED"].includes(x.status)).length)} />
               <Metric label="Yêu cầu chờ xử lý" value={String(pending)} />
             </div>

@@ -11,12 +11,14 @@
   animation: pageIn 520ms cubic-bezier(.2,.8,.2,1) both;
 }
 
-.masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-.eyebrow { display: flex; align-items: center; gap: 8px; color: var(--rose); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.eyebrow::before { width: 22px; height: 1px; content: ""; background: currentColor; }
-.title { max-width: 760px; margin-top: 8px; color: var(--ink); font-size: clamp(30px, 4vw, 54px); font-weight: 650; letter-spacing: -.055em; line-height: .98; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 88px; padding: 4px 0; }
+.mastheadCopy { min-width: 0; }
+.eyebrow { display: flex; align-items: center; gap: 8px; color: var(--rose); font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.eyebrow::before { width: 18px; height: 1px; content: ""; background: currentColor; }
+.title { max-width: 760px; margin-top: 6px; color: var(--ink); font-size: clamp(28px, 3vw, 40px); font-weight: 650; letter-spacing: -.045em; line-height: 1.05; }
 .title em { color: var(--rose); font-style: normal; }
-.date { flex: 0 0 auto; padding-bottom: 4px; color: #8c8185; font-size: 11px; text-transform: capitalize; }
+.studyQuote { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.date { flex: 0 0 auto; color: #8c8185; font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 
 .hero {
   position: relative;
@@ -147,16 +149,27 @@
 .empty p { max-width: 350px; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 
 .focusColumn { display: grid; gap: 16px; }
-.focusCard { position: relative; min-height: 170px; overflow: hidden; padding: 20px; border-radius: 20px; color: #f9f4f5; background: var(--rose); }
+.focusTop { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.trackBadge { min-height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px 4px 5px; border: 1px solid #decbd1; border-radius: 10px; color: #6f3545; background: #fbf2f4; white-space: nowrap; }
+.trackBadge b { min-width: 24px; height: 20px; display: grid; place-items: center; border-radius: 6px; color: #fff; background: var(--rose); font-size: 8px; letter-spacing: .04em; }
+.trackBadge span { font-size: 8px; font-weight: 750; }
+.trackBadge[data-inverted="true"] { border-color: rgba(255,255,255,.24); color: #fff; background: rgba(255,255,255,.11); }
+.trackBadge[data-inverted="true"] b { color: #713747; background: #fff; }
+.focusCard { position: relative; min-height: 184px; overflow: hidden; display: flex; flex-direction: column; padding: 20px; border-radius: 20px; color: #f9f4f5; background: var(--rose); box-shadow: 0 14px 30px rgba(91,45,58,.12); transition: transform 200ms ease, box-shadow 200ms ease; }
+.focusCard:hover { transform: translateY(-2px); box-shadow: 0 18px 36px rgba(91,45,58,.17); }
 .focusCard::after { position: absolute; right: -46px; bottom: -72px; width: 170px; aspect-ratio: 1; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; content: ""; box-shadow: 0 0 0 24px rgba(255,255,255,.05), 0 0 0 48px rgba(255,255,255,.03); }
 .focusCard small { color: #f0dbe0; font-size: 9px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
 .focusCard strong { position: relative; z-index: 1; display: block; max-width: 220px; margin-top: 10px; font-size: 17px; line-height: 1.25; }
 .focusCard p { position: relative; z-index: 1; margin-top: 7px; color: #efdce1; font-size: 10px; line-height: 1.6; }
-.focusCard a { position: relative; z-index: 2; margin-top: 13px; }
-.sessionCard { padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: #fff; }
-.sessionTop { display: flex; align-items: center; gap: 10px; color: var(--rose); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.sessionCard strong { display: block; margin-top: 12px; font-size: 14px; line-height: 1.35; }
+.focusCard a { position: relative; z-index: 2; width: max-content; margin-top: auto; padding-top: 13px; color: #fff; }
+.sessionCard { position: relative; min-height: 166px; overflow: hidden; display: flex; flex-direction: column; padding: 20px; border: 1px solid var(--line); border-top: 3px solid var(--rose); border-radius: 20px; background: #fff; box-shadow: 0 10px 24px rgba(46,34,39,.045); transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease; }
+.sessionCard::after { position: absolute; right: -34px; bottom: -54px; width: 120px; aspect-ratio: 1; border: 1px solid #f1e1e6; border-radius: 50%; content: ""; box-shadow: 0 0 0 18px #fbf4f6; pointer-events: none; }
+.sessionCard:hover { border-color: #d7bdc5; transform: translateY(-2px); box-shadow: 0 15px 30px rgba(46,34,39,.08); }
+.sessionTop { display: flex; align-items: center; gap: 8px; color: var(--rose); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.sessionTop > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--blush); }
+.sessionCard strong { position: relative; z-index: 1; display: block; max-width: 270px; margin-top: 14px; font-size: 15px; line-height: 1.35; letter-spacing: -.02em; }
 .sessionCard p { margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.sessionCard > a { position: relative; z-index: 2; width: max-content; margin-top: auto; padding-top: 10px; }
 
 .skills { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.74); }
 .skill { position: relative; min-height: 164px; padding: 20px; border-right: 1px solid #e9e3e5; transition: color 180ms ease, background-color 180ms ease; }
@@ -217,9 +230,9 @@
 
 @media (max-width: 767px) {
   .overview { gap: 20px; }
-  .masthead { align-items: flex-start; }
+  .masthead { min-height: 80px; align-items: flex-start; }
   .date { display: none; }
-  .title { font-size: 34px; }
+  .title { font-size: 30px; }
   .hero { min-height: 570px; grid-template-columns: 1fr; border-radius: 20px; }
   .heroContent { min-height: 350px; padding: 28px 24px; }
   .heroTitle { font-size: 38px; }
@@ -256,6 +269,7 @@
   .skill:last-child { border-bottom: 0 !important; }
   .skillLabel { margin-top: 16px; }
   .courseFooter { align-items: flex-start; flex-direction: column; }
+  .trackBadge span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -263,4 +277,5 @@
   .heroAction:hover { transform: none; }
   .orbitSvg, .targetDisc, .orbitLabel, .radarHint, .skillRadar,
   .radarGrid path, .radarAxes path, .radarResult polygon, .radarResult circle, .radarSkill { transition: none; }
+  .focusCard:hover, .sessionCard:hover { transform: none; }
 }

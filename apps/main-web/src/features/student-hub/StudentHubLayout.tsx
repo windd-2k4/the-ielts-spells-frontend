@@ -9,12 +9,12 @@ export function StudentHubLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-student-shell>
       <a className={styles.skip} href="#student-main-content">Đến nội dung học tập</a>
-      <div className={styles.workspace}>
+      <div className={styles.workspace} data-student-workspace>
         <StudentTopbar onToggleMobileMenu={() => setMobileMenuOpen(true)} />
 
-        <main id="student-main-content" tabIndex={-1} className={styles.main}>
+        <main id="student-main-content" tabIndex={-1} className={styles.main} data-student-main>
           {children}
         </main>
       </div>

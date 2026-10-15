@@ -111,7 +111,7 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
       <div className={styles.sectionTitle}>
         <div>
           <p>Learning dashboard</p>
-          <h2 id="study-pulse-title">Mục tiêu &amp; nhịp học của bạn</h2>
+          <h2 id="study-pulse-title">Your goals &amp; study rhythm</h2>
         </div>
         <Link href="/student/progress">Xem phân tích chi tiết</Link>
       </div>
@@ -119,7 +119,7 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
       <div className={styles.topGrid}>
         <article className={styles.card}>
           <header className={styles.cardHeader}>
-            <h3><Target size={18} weight="duotone" /> Mục tiêu của bạn</h3>
+            <h3><Target size={18} weight="duotone" /> Your IELTS goal</h3>
             <Link href="#learning-goal" aria-label="Chỉnh sửa band mục tiêu"><PencilSimple size={17} /></Link>
           </header>
           <div className={styles.scoreGrid}>
@@ -140,7 +140,7 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
 
         <article className={styles.card}>
           <header className={styles.cardHeader}>
-            <h3><CalendarDots size={18} weight="duotone" /> Lịch thi IELTS</h3>
+            <h3><CalendarDots size={18} weight="duotone" /> IELTS exam plan</h3>
             <span className={styles.examStatus}>{examEnrollment?.examRegistrationStatus === "REGISTERED" ? "Đã đăng ký" : "Chưa xác nhận"}</span>
           </header>
           <div className={styles.examGrid}>
@@ -162,11 +162,11 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
         <article className={styles.card}>
           <header className={styles.cardHeader}>
             <div>
-              <h3><ChartBar size={18} weight="duotone" /> Biểu đồ chăm chỉ</h3>
-              <p>Số in đậm là tổng lượt nộp bài trong ngày.</p>
+              <h3><ChartBar size={18} weight="duotone" /> Study consistency</h3>
+              <p>Ô càng đậm, số lượt nộp trong ngày càng nhiều.</p>
             </div>
             <div className={styles.headerActions}>
-              <span className={styles.legend}><i /> Có nộp bài</span>
+              <span className={styles.legend} aria-label="Mức độ hoạt động từ thấp đến cao"><span><i /><i /><i /></span> Mức độ hoạt động</span>
               <MonthPicker id="calendar-activity-month" value={selectedMonth} max={currentMonth} loading={activityLoading} onChange={setSelectedMonth} />
             </div>
           </header>
@@ -192,7 +192,6 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
                     title={`${date.toLocaleDateString("vi-VN")}: ${attempts} bài đã nộp`}
                   >
                     <span className={styles.dayNumber}>{date.getDate()}</span>
-                    {attempts > 0 && <strong className={styles.attemptCount}>{attempts}</strong>}
                   </div>
                 );
               })}
@@ -202,7 +201,7 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
 
         <article className={styles.card}>
           <header className={styles.cardHeader}>
-            <div><h3>Hoạt động trong tháng</h3><p>Dữ liệu từ những bài đã nộp thành công.</p></div>
+            <div><h3>Monthly activity</h3><p>Dữ liệu từ những bài đã nộp thành công.</p></div>
             <div className={styles.headerActions}>
               <strong className={styles.weekTotal}>{monthlyTotals.totalAttempts} bài</strong>
               <MonthPicker id="table-activity-month" value={selectedMonth} max={currentMonth} loading={activityLoading} onChange={setSelectedMonth} />
@@ -215,7 +214,7 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
                 {monthItems.map(({ date, activity: item }) => (
                   <tr key={dateKey(date)} data-today={dateKey(date) === dateKey(today) || undefined}>
                     <th scope="row">{date.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</th>
-                    <td>{item?.reading || "—"}</td><td>{item?.listening || "—"}</td><td>{item?.writing || "—"}</td><td>{item?.speaking || "—"}</td><td>{item?.totalAttempts || "—"}</td>
+                    {[item?.reading, item?.listening, item?.writing, item?.speaking, item?.totalAttempts].map((value, index) => <td key={index} data-empty={!value || undefined}>{value || "—"}</td>)}
                   </tr>
                 ))}
               </tbody>
