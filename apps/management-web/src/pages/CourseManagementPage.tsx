@@ -1,6 +1,6 @@
 import {
   ArrowCounterClockwise, ArrowLeft, ArrowRight, BookOpen, BookOpenText, Books,
-  ArrowsDownUp, CalendarBlank, CaretDown, CaretRight, ChartLineUp, CheckCircle, Clock,
+  CalendarBlank, CaretDown, CaretRight, ChartLineUp, CheckCircle, Clock,
   DotsThreeVertical, FunnelSimple, GridFour,
   MagnifyingGlass, Microphone, PencilSimple, Plus, Rows, SquaresFour, Target,
   Trash, UsersThree, X,
@@ -25,19 +25,8 @@ import CourseEnrollmentModal from "../components/enrollment/CourseEnrollmentModa
 import AuthenticatedMediaImage from "../components/test-builder/AuthenticatedMediaImage";
 
 type Tab = "overview" | "schedule" | "students" | "attendance" | "progress" | "matrix" | "library";
-type CourseActivityFilter = "active" | "inactive" | "all";
 type CourseStatusFilter = "all" | Course["status"];
 type CourseSkillFilter = "all" | Course["skillPair"];
-type CourseCapacityFilter = "all" | "small" | "medium" | "large";
-type CourseSort =
-  | "starts-asc"
-  | "starts-desc"
-  | "name-asc"
-  | "name-desc"
-  | "capacity-desc"
-  | "capacity-asc"
-  | "tuition-desc"
-  | "tuition-asc";
 
 const tabs: { id: Tab; label: string; icon: typeof BookOpenText }[] = [
   { id: "overview", label: "Tổng quan", icon: ChartLineUp },
@@ -83,6 +72,13 @@ function SkillPairMark({ skillPair }: { skillPair: Course["skillPair"] }) {
   );
 }
 
+function startMonthLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(
+    new Date(year, month - 1, 1),
+  );
+}
+
 function CourseList() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -90,10 +86,7 @@ function CourseList() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<CourseStatusFilter>("all");
   const [skillPair, setSkillPair] = useState<CourseSkillFilter>("all");
-  const [levelFilter, setLevelFilter] = useState<string>("all");
-  const [capacityFilter, setCapacityFilter] = useState<CourseCapacityFilter>("all");
-  const [sort, setSort] = useState<CourseSort>("starts-asc");
-  const [activityFilter, setActivityFilter] = useState<CourseActivityFilter>("active");
+  const [startMonth, setStartMonth] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
     return (localStorage.getItem("course_view_mode") as "list" | "grid") || "grid";
   });
@@ -103,18 +96,14 @@ function CourseList() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
   const [openMenuCourseId, setOpenMenuCourseId] = useState<string | null>(null);
-  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      let url = "/admin/courses?size=100";
-      if (activityFilter === "active") url = "/admin/courses?active=true&size=100";
-      else if (activityFilter === "inactive") url = "/admin/courses?active=false&size=100";
       const [coursePage, enrollmentPage] = await Promise.all([
-        apiFetch<Page<Course>>(url),
+        apiFetch<Page<Course>>("/admin/courses?active=true&size=100"),
         // ponytail: one bulk read avoids N+1 requests; add a backend aggregate endpoint beyond 2,000 enrollments.
         apiFetch<Page<Enrollment>>("/admin/enrollments?size=2000"),
       ]);
@@ -131,7 +120,7 @@ function CourseList() {
     } finally {
       setLoading(false);
     }
-  }, [activityFilter]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -148,15 +137,6 @@ function CourseList() {
     setViewMode(mode);
     localStorage.setItem("course_view_mode", mode);
   };
-
-  // Distinct levels dynamically extracted from real loaded courses
-  const distinctLevels = useMemo(() => {
-    const set = new Set<string>();
-    courses.forEach(c => {
-      if (c.level && c.level.trim()) set.add(c.level.trim());
-    });
-    return Array.from(set).sort();
-  }, [courses]);
 
   const visible = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase("vi");
@@ -176,56 +156,27 @@ function CourseList() {
       const matchQuery = !normalizedQuery || searchableText.includes(normalizedQuery);
       const matchStatus = status === "all" || course.status === status;
       const matchSkill = skillPair === "all" || course.skillPair === skillPair;
-      const matchLevel = levelFilter === "all" || (course.level && course.level.trim() === levelFilter);
-      const matchCapacity =
-        capacityFilter === "all" ||
-        (capacityFilter === "small" && course.capacity < 15) ||
-        (capacityFilter === "medium" && course.capacity >= 15 && course.capacity <= 25) ||
-        (capacityFilter === "large" && course.capacity > 25);
+      const matchStartMonth = !startMonth || course.startsOn?.slice(0, 7) === startMonth;
 
-      return matchQuery && matchStatus && matchSkill && matchLevel && matchCapacity;
+      return matchQuery && matchStatus && matchSkill && matchStartMonth;
     });
 
-    return filtered.sort((left, right) => {
-      if (sort === "starts-desc") return (right.startsOn || "").localeCompare(left.startsOn || "");
-      if (sort === "name-asc") return left.name.localeCompare(right.name, "vi");
-      if (sort === "name-desc") return right.name.localeCompare(left.name, "vi");
-      if (sort === "capacity-desc") return right.capacity - left.capacity;
-      if (sort === "capacity-asc") return left.capacity - right.capacity;
-      if (sort === "tuition-desc") return (right.tuitionAmount ?? 0) - (left.tuitionAmount ?? 0);
-      if (sort === "tuition-asc") return (left.tuitionAmount ?? 0) - (right.tuitionAmount ?? 0);
-      return (left.startsOn || "").localeCompare(right.startsOn || "");
-    });
-  }, [courses, deferredQuery, skillPair, levelFilter, capacityFilter, sort, status]);
+    return filtered.sort((left, right) => (left.startsOn || "").localeCompare(right.startsOn || ""));
+  }, [courses, deferredQuery, skillPair, startMonth, status]);
 
-  const active = courses.filter(item => item.status === "ACTIVE").length;
-  const enrolling = courses.filter(item => item.status === "OPEN").length;
-  const completed = courses.filter(item => item.status === "COMPLETED").length;
-  const cancelled = courses.filter(item => item.status === "CANCELLED").length;
-  const activeAdvancedFilterCount = [
-    activityFilter !== "active",
-    skillPair !== "all",
-    levelFilter !== "all",
-    capacityFilter !== "all",
-  ].filter(Boolean).length;
-
+  const listeningReadingCount = courses.filter(item => item.skillPair === "LISTENING_READING").length;
+  const speakingWritingCount = courses.filter(item => item.skillPair === "SPEAKING_WRITING").length;
   const hasActiveFilters =
     Boolean(query.trim()) ||
-    activityFilter !== "active" ||
     status !== "all" ||
     skillPair !== "all" ||
-    levelFilter !== "all" ||
-    capacityFilter !== "all" ||
-    sort !== "starts-asc";
+    Boolean(startMonth);
 
   const resetFilters = () => {
     setQuery("");
-    setActivityFilter("active");
     setStatus("all");
     setSkillPair("all");
-    setLevelFilter("all");
-    setCapacityFilter("all");
-    setSort("starts-asc");
+    setStartMonth("");
   };
 
   return (
@@ -263,46 +214,23 @@ function CourseList() {
               )}
             </div>
 
-          <button
-            type="button"
-            aria-expanded={advancedFiltersOpen}
-            aria-controls="course-advanced-filters"
-            onClick={() => setAdvancedFiltersOpen(value => !value)}
-            className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-bold transition-colors ${
-              advancedFiltersOpen || activeAdvancedFilterCount > 0
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-outline-variant/60 bg-surface text-on-surface hover:border-primary/40 hover:text-primary"
-            }`}
-          >
-            <FunnelSimple size={17} weight="bold" />
-            Bộ lọc
-            {activeAdvancedFilterCount > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-md bg-primary px-1 text-[10px] text-on-primary">
-                {activeAdvancedFilterCount}
-              </span>
-            )}
-          </button>
-
           <label className="group flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface px-2 transition hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/8 text-primary">
-              <ArrowsDownUp size={16} weight="bold" />
+              <FunnelSimple size={16} weight="bold" />
             </span>
-            <span className="hidden text-[11px] font-semibold text-on-surface-variant xl:inline">Sắp xếp:</span>
+            <span className="hidden text-[11px] font-semibold text-on-surface-variant xl:inline">Trạng thái:</span>
             <span className="relative">
               <select
-                aria-label="Sắp xếp khóa học"
-                value={sort}
-                onChange={event => setSort(event.target.value as CourseSort)}
+                aria-label="Lọc theo trạng thái khóa học"
+                value={status}
+                onChange={event => setStatus(event.target.value as CourseStatusFilter)}
                 className="min-w-0 max-w-[180px] appearance-none border-0 bg-transparent bg-none py-2 pl-0 pr-7 text-sm font-bold text-on-surface outline-none focus:ring-0"
               >
-                <option value="starts-asc">Khai giảng gần nhất</option>
-                <option value="starts-desc">Khai giảng xa nhất</option>
-                <option value="name-asc">Tên khóa học (A-Z)</option>
-                <option value="name-desc">Tên khóa học (Z-A)</option>
-                <option value="capacity-desc">Sĩ số giảm dần</option>
-                <option value="capacity-asc">Sĩ số tăng dần</option>
-                <option value="tuition-desc">Học phí cao nhất</option>
-                <option value="tuition-asc">Học phí thấp nhất</option>
+                <option value="all">Tất cả</option>
+                <option value="OPEN">Đang tuyển sinh</option>
+                <option value="ACTIVE">Đang học</option>
+                <option value="COMPLETED">Đã hoàn thành</option>
+                <option value="CANCELLED">Đã hủy</option>
               </select>
               <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-on-surface-variant transition group-hover:text-primary" />
             </span>
@@ -328,139 +256,87 @@ function CourseList() {
           </div>
         </div>
 
-        {/* Status Summary Tabs */}
-        <div className="border-t border-outline-variant/25 bg-surface-container-low/20 px-3 py-2">
-          <div className="flex items-center gap-3">
-            <span className="hidden shrink-0 text-[11px] font-bold text-on-surface-variant md:inline">Trạng thái</span>
-            <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              <div
-                className="inline-flex min-w-max items-center gap-1 rounded-xl bg-surface-container-low p-1"
-                role="tablist"
-                aria-label="Lọc theo trạng thái khóa học"
-              >
-                {[
-                  { value: "all" as CourseStatusFilter, label: "Tất cả", count: courses.length, dot: "bg-primary" },
-                  { value: "OPEN" as CourseStatusFilter, label: "Đang tuyển sinh", count: enrolling, dot: "bg-amber-500" },
-                  { value: "ACTIVE" as CourseStatusFilter, label: "Đang học", count: active, dot: "bg-emerald-500" },
-                  { value: "COMPLETED" as CourseStatusFilter, label: "Đã hoàn thành", count: completed, dot: "bg-violet-500" },
-                  { value: "CANCELLED" as CourseStatusFilter, label: "Đã hủy", count: cancelled, dot: "bg-rose-500" },
-                ].map(tab => {
-                  const isActive = status === tab.value;
-                  return (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() => setStatus(tab.value)}
-                      className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 active:scale-[0.98] ${
-                        isActive
-                          ? "border-primary/20 bg-surface text-primary shadow-xs"
-                          : "border-transparent text-on-surface-variant hover:bg-surface/70 hover:text-on-surface"
-                      }`}
-                    >
-                      <span className={`h-2 w-2 rounded-full ${tab.dot} ${isActive ? "ring-4 ring-current/10" : ""}`} aria-hidden="true" />
-                      <span>{tab.label}</span>
-                      <span className={`min-w-5 rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums ${
-                        isActive ? "bg-primary/10 text-primary" : "bg-surface-container-high/80 text-on-surface-variant"
-                      }`}>
-                        {tab.count}
-                      </span>
-                    </button>
-                  );
-                })}
+        <div className="border-t border-outline-variant/35 bg-surface px-3 py-2.5">
+          <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="hidden shrink-0 px-1 text-xs font-bold text-on-surface-variant md:inline">
+                Loại khóa
+              </span>
+              <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <div
+                  className="inline-flex min-w-max items-center gap-1.5"
+                  role="group"
+                  aria-label="Lọc theo loại khóa học"
+                >
+                  {[
+                    { value: "all" as CourseSkillFilter, label: "Tất cả", count: courses.length, icon: SquaresFour },
+                    { value: "LISTENING_READING" as CourseSkillFilter, label: "Listening & Reading", count: listeningReadingCount, icon: BookOpen },
+                    { value: "SPEAKING_WRITING" as CourseSkillFilter, label: "Speaking & Writing", count: speakingWritingCount, icon: Microphone },
+                  ].map(option => {
+                    const isActive = skillPair === option.value;
+                    const Icon = option.icon;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setSkillPair(option.value)}
+                        className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-xs font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 active:scale-[0.98] ${
+                          isActive
+                            ? "border-primary bg-primary text-on-primary shadow-xs"
+                            : "border-outline-variant/45 bg-surface text-on-surface-variant hover:border-primary/35 hover:bg-primary-container/10 hover:text-primary"
+                        }`}
+                      >
+                        <Icon size={16} weight={isActive ? "fill" : "regular"} aria-hidden="true" />
+                        <span>{option.label}</span>
+                        <span className={`grid h-5 min-w-5 place-items-center rounded-md px-1.5 text-[10px] font-bold tabular-nums ${
+                          isActive ? "bg-surface/20 text-on-primary" : "bg-surface-container-low text-on-surface-variant"
+                        }`}>
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <label
+                htmlFor="course-start-month"
+                className="group relative flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface px-3 transition hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 xl:flex-none"
+              >
+                <CalendarBlank size={17} weight="bold" className="shrink-0 text-primary" aria-hidden="true" />
+                <span className="hidden text-xs font-semibold text-on-surface-variant sm:inline">
+                  Tháng khai giảng
+                </span>
+                <span className="min-w-[118px] text-sm font-bold text-on-surface">
+                  {startMonth ? startMonthLabel(startMonth) : "Tất cả tháng"}
+                </span>
+                <CaretDown size={14} weight="bold" className="shrink-0 text-on-surface-variant transition group-hover:text-primary" aria-hidden="true" />
+                <input
+                  id="course-start-month"
+                  type="month"
+                  value={startMonth}
+                  onChange={event => setStartMonth(event.target.value)}
+                  onClick={event => event.currentTarget.showPicker?.()}
+                  aria-label="Chọn tháng khai giảng"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </label>
+              {startMonth && (
+                <button
+                  type="button"
+                  onClick={() => setStartMonth("")}
+                  aria-label="Xóa tháng khai giảng"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-outline-variant/45 bg-surface text-on-surface-variant transition hover:border-primary/35 hover:bg-primary-container/10 hover:text-primary"
+                >
+                  <X size={16} weight="bold" />
+                </button>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Advanced Filters */}
-        {advancedFiltersOpen && (
-          <div id="course-advanced-filters" className="grid gap-3 border-t border-outline-variant/25 bg-surface-container-low/30 p-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <label htmlFor="course-activity-filter" className="mb-1 block text-xs font-bold text-on-surface-variant">Hoạt động</label>
-              <select
-                id="course-activity-filter"
-                value={activityFilter}
-                onChange={event => setActivityFilter(event.target.value as CourseActivityFilter)}
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              >
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Đã ngừng hoạt động</option>
-                <option value="all">Tất cả khóa học</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="course-skill-filter" className="mb-1 block text-xs font-bold text-on-surface-variant">Cặp kỹ năng</label>
-              <select
-                id="course-skill-filter"
-                value={skillPair}
-                onChange={event => setSkillPair(event.target.value as CourseSkillFilter)}
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              >
-                <option value="all">Tất cả kỹ năng</option>
-                <option value="LISTENING_READING">Listening & Reading</option>
-                <option value="SPEAKING_WRITING">Speaking & Writing</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="course-level-filter" className="mb-1 block text-xs font-bold text-on-surface-variant">Trình độ</label>
-              <select
-                id="course-level-filter"
-                value={levelFilter}
-                onChange={event => setLevelFilter(event.target.value)}
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              >
-                <option value="all">Tất cả trình độ</option>
-                {distinctLevels.map(level => (
-                  <option key={level} value={level}>{level}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="course-capacity-filter" className="mb-1 block text-xs font-bold text-on-surface-variant">Quy mô sĩ số</label>
-              <select
-                id="course-capacity-filter"
-                value={capacityFilter}
-                onChange={event => setCapacityFilter(event.target.value as CourseCapacityFilter)}
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              >
-                <option value="all">Tất cả quy mô</option>
-                <option value="small">Lớp nhỏ (&lt; 15)</option>
-                <option value="medium">Lớp chuẩn (15 - 25)</option>
-                <option value="large">Lớp lớn (&gt; 25)</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Active Advanced Filter Chips */}
-        {activeAdvancedFilterCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant/20 px-3 py-2">
-            <span className="text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
-            {activityFilter !== "active" && (
-              <FilterChip
-                label={`Hoạt động: ${activityFilter === "inactive" ? "Đã ngừng" : "Tất cả"}`}
-                onClear={() => setActivityFilter("active")}
-              />
-            )}
-            {skillPair !== "all" && (
-              <FilterChip label={`Kỹ năng: ${skillPairLabel[skillPair]}`} onClear={() => setSkillPair("all")} />
-            )}
-            {levelFilter !== "all" && (
-              <FilterChip label={`Trình độ: ${levelFilter}`} onClear={() => setLevelFilter("all")} />
-            )}
-            {capacityFilter !== "all" && (
-              <FilterChip
-                label={`Sĩ số: ${capacityFilter === "small" ? "< 15" : capacityFilter === "medium" ? "15 - 25" : "> 25"}`}
-                onClear={() => setCapacityFilter("all")}
-              />
-            )}
-          </div>
-        )}
       </header>
 
       <LoadState loading={loading} error={error} empty={false} onRetry={() => void load()} />
@@ -885,9 +761,7 @@ function CourseList() {
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
             {courses.length
               ? "Hãy thử từ khóa khác hoặc đặt lại bộ lọc để xem toàn bộ danh sách."
-              : activityFilter === "inactive"
-                ? "Chưa có khóa học nào đã ngừng hoạt động."
-                : "Tạo khóa học đầu tiên để bắt đầu quản lý lịch học và học viên."}
+              : "Tạo khóa học đầu tiên để bắt đầu quản lý lịch học và học viên."}
           </p>
           {courses.length > 0 ? (
             <button
@@ -897,7 +771,7 @@ function CourseList() {
             >
               <ArrowCounterClockwise size={17} weight="bold" /> Đặt lại bộ lọc
             </button>
-          ) : activityFilter !== "inactive" ? (
+          ) : (
             <button
               type="button"
               onClick={() => setDialogOpen(true)}
@@ -905,7 +779,7 @@ function CourseList() {
             >
               <Plus size={17} weight="bold" /> Tạo khóa học
             </button>
-          ) : null}
+          )}
         </section>
       )}
 
@@ -944,22 +818,6 @@ function CourseList() {
         />
       )}
     </section>
-  );
-}
-
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-semibold text-primary">
-      <span>{label}</span>
-      <button
-        type="button"
-        onClick={onClear}
-        aria-label={`Xóa bộ lọc ${label}`}
-        className="rounded text-primary/80 hover:text-primary hover:bg-primary/10"
-      >
-        <X size={12} weight="bold" />
-      </button>
-    </span>
   );
 }
 
@@ -1139,26 +997,26 @@ function Workspace() {
   const completed = sessions.filter(item => item.status === "COMPLETED").length;
 
   return (
-    <section className="mx-auto max-w-[1480px] space-y-3">
-      <header className="rounded-2xl border border-outline-variant/40 bg-surface px-3 py-2.5 shadow-xs md:px-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
+    <section className="mx-auto max-w-[1480px] space-y-2">
+      <header className="rounded-xl border border-outline-variant/40 bg-surface px-2.5 py-2 shadow-xs md:px-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               onClick={() => navigate("/courses")}
               aria-label="Quay lại danh sách khóa học"
               title="Quay lại danh sách khóa học"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <ArrowLeft size={18} weight="bold" />
             </button>
 
-            <div className="min-w-0 pt-0.5">
-              <h1 className="truncate font-display text-xl font-bold tracking-tight text-on-surface md:text-2xl" title={course.name}>
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-lg font-bold tracking-tight text-on-surface" title={course.name}>
                 {course.name}
               </h1>
 
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-on-surface-variant">
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] font-semibold text-on-surface-variant">
                 <span className="rounded-md bg-primary-container/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
                   {course.code}
                 </span>
@@ -1168,72 +1026,81 @@ function Workspace() {
                     Đã ngừng
                   </span>
                 )}
-                <span className="flex items-center gap-1.5">
+                <span className="hidden items-center gap-1.5 md:flex">
                   {course.skillPair === "LISTENING_READING" ? <BookOpen size={15} /> : <Microphone size={15} />}
                   {skillPairLabel[course.skillPair]}
                 </span>
-                <span className="hidden items-center gap-1.5 sm:flex">
+                <span className="hidden items-center gap-1.5 lg:flex">
                   <CalendarBlank size={15} /> {date(course.startsOn)} đến {date(course.endsOn)}
                 </span>
-                <span className="flex items-center gap-1.5 tabular-nums">
+                <span className="hidden items-center gap-1.5 tabular-nums sm:flex">
                   <UsersThree size={15} /> {roster.length}/{course.capacity} học viên
                 </span>
-                <span className="hidden items-center gap-1.5 tabular-nums sm:flex">
+                <span className="hidden items-center gap-1.5 tabular-nums xl:flex">
                   <Clock size={15} /> {completed}/{sessions.length} session
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:shrink-0">
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            aria-label="Chỉnh sửa khóa học"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant/60 bg-surface px-3.5 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <PencilSimple size={18} weight="bold" />
-            <span className="hidden sm:inline">Chỉnh sửa</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setEnrollmentOpen(true)}
+              aria-label="Ghi danh học viên"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Ghi danh</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setDeleteOpen(true)}
-            aria-label={course.isActive ? "Ngừng hoạt động hoặc xóa khóa học" : "Khôi phục khóa học"}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-              course.isActive
-                ? "border-outline-variant/60 bg-surface text-on-surface-variant hover:text-error hover:border-error/40 hover:bg-error-container/10"
-                : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-            }`}
-          >
-            {course.isActive ? <Trash size={18} /> : <ArrowCounterClockwise size={18} />}
-            <span className="hidden sm:inline">{course.isActive ? "Ngừng / Xóa" : "Khôi phục"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setEnrollmentOpen(true)}
-            aria-label="Ghi danh học viên"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <Plus size={18} weight="bold" /> <span className="hidden sm:inline">Ghi danh</span>
-          </button>
-        </div>
+            <details className="group relative">
+              <summary
+                aria-label="Thêm thao tác khóa học"
+                title="Thêm thao tác"
+                className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg border border-outline-variant/60 text-on-surface-variant transition-colors hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/30 [&::-webkit-details-marker]:hidden"
+              >
+                <DotsThreeVertical size={19} weight="bold" />
+              </summary>
+              <div className="absolute right-0 top-11 z-30 w-52 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface p-1.5 shadow-xl">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    setEditOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-on-surface hover:bg-surface-container-high"
+                >
+                  <PencilSimple size={17} /> Chỉnh sửa khóa học
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    setDeleteOpen(true);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold ${course.isActive ? "text-error hover:bg-error-container/10" : "text-primary hover:bg-primary/10"}`}
+                >
+                  {course.isActive ? <Trash size={17} /> : <ArrowCounterClockwise size={17} />}
+                  {course.isActive ? "Ngừng hoặc xóa" : "Khôi phục khóa học"}
+                </button>
+              </div>
+            </details>
+          </div>
         </div>
       </header>
 
-      <nav aria-label="Chức năng khóa học" className="flex gap-1 overflow-x-auto border-b border-outline-variant/40">
+      <nav aria-label="Chức năng khóa học" className="flex gap-0.5 overflow-x-auto border-b border-outline-variant/40">
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setTab(tab.id)}
-              className={`inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-bold transition-colors ${
+              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[13px] font-bold transition-colors ${
                 activeTab === tab.id ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              <Icon size={18} />
+              <Icon size={16} />
               {tab.label}
             </button>
           );

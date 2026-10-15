@@ -3,12 +3,13 @@ import {
   UploadSimple, X,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MediaAsset } from "../../library-types";
 import type { Page } from "../../academic-types";
 import { apiFetch, apiMediaUrl, apiUpload, revokeMediaUrl } from "../../lib/api";
 
 type MediaType = "ALL" | MediaAsset["mimeType"];
+const PAGE_SIZE = 24;
 
 const FILTERS: { value: MediaType; label: string; icon: Icon }[] = [
   { value: "ALL", label: "Tất cả tệp", icon: FileText },
@@ -66,23 +67,45 @@ export function MediaLibraryWorkspace() {
   const [filterType, setFilterType] = useState<MediaType>("ALL");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pageNumber, setPageNumber] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [viewerUrl, setViewerUrl] = useState("");
   const [viewerLoading, setViewerLoading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const loadVersion = useRef(0);
 
-  async function load() {
+  async function load(nextPage = 0) {
+    const version = ++loadVersion.current;
     setLoading(true); setError("");
     try {
-      const page = await apiFetch<Page<MediaAsset>>("/admin/library/media?size=100&sort=createdAt,desc");
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        size: String(PAGE_SIZE),
+        sort: "createdAt,desc",
+      });
+      if (filterType !== "ALL") params.set("type", filterType);
+      if (query.trim()) params.set("query", query.trim());
+      const page = await apiFetch<Page<MediaAsset>>(`/admin/library/media?${params}`);
+      if (version !== loadVersion.current) return;
       setAssets(page.content);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể tải kho media"); }
-    finally { setLoading(false); }
+      setTotalElements(page.totalElements);
+      setTotalPages(page.totalPages);
+      setPageNumber(page.page);
+    } catch (reason) {
+      if (version === loadVersion.current) setError(reason instanceof Error ? reason.message : "Không thể tải kho media");
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
+    }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(0), query.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [filterType, query]);
 
   useEffect(() => {
     setViewerUrl("");
@@ -108,7 +131,7 @@ export function MediaLibraryWorkspace() {
   async function upload(file: File) {
     const body = new FormData(); body.append("file", file);
     setUploading(true); setError("");
-    try { await apiUpload<MediaAsset>("/admin/library/media", body); await load(); }
+    try { await apiUpload<MediaAsset>("/admin/library/media", body); await load(0); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể tải file lên"); }
     finally { setUploading(false); }
   }
@@ -126,16 +149,9 @@ export function MediaLibraryWorkspace() {
     try {
       await apiFetch<void>(`/admin/library/media/${asset.id}`, { method: "DELETE" });
       if (selectedAsset?.id === asset.id) setSelectedAsset(null);
-      await load();
+      await load(pageNumber);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể xóa file"); }
   }
-
-  const filteredAssets = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return assets.filter(asset => (filterType === "ALL" || asset.mimeType === filterType)
-      && (!needle || asset.filename.toLowerCase().includes(needle) || asset.code.toLowerCase().includes(needle)
-        || asset.tags.some(tag => tag.toLowerCase().includes(needle))));
-  }, [assets, filterType, query]);
 
   const viewerBody = selectedAsset && (viewerLoading ? <SpinnerGap size={28} className="animate-spin text-white/70" />
     : selectedAsset.mimeType === "IMAGE" && viewerUrl ? <img src={viewerUrl} alt={selectedAsset.filename} className="max-h-[76dvh] max-w-[88%] rounded-md object-contain shadow-2xl" />
@@ -153,22 +169,22 @@ export function MediaLibraryWorkspace() {
 
       <label className="relative mt-4 block"><span className="sr-only">Tìm tệp media</span><MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#746A6E]" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm tên, mã, tag..." className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-[#fdfcfd] pl-9 pr-3 text-xs outline-none focus:border-[#8f4458] focus:ring-2 focus:ring-[#f7e7ec]" /></label>
 
-      <nav className="mt-4 space-y-1" aria-label="Lọc kho media">{FILTERS.map(filter => { const FilterIcon = filter.icon; const count = filter.value === "ALL" ? assets.length : assets.filter(asset => asset.mimeType === filter.value).length; return <button key={filter.value} onClick={() => setFilterType(filter.value)} aria-pressed={filterType === filter.value} className={`flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-xs transition ${filterType === filter.value ? "bg-[#f7e7ec] font-bold text-[#8f4458]" : "font-semibold text-[#5f565a] hover:bg-[#faf8fb]"}`}><FilterIcon size={17} weight={filterType === filter.value ? "fill" : "regular"} /><span className="flex-1">{filter.label}</span><span className="tabular-nums text-[10px] text-[#8d8287]">{count}</span></button>; })}</nav>
+      <nav className="mt-4 space-y-1" aria-label="Lọc kho media">{FILTERS.map(filter => { const FilterIcon = filter.icon; const count = filter.value === filterType ? totalElements : "—"; return <button key={filter.value} onClick={() => setFilterType(filter.value)} aria-pressed={filterType === filter.value} className={`flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-xs transition ${filterType === filter.value ? "bg-[#f7e7ec] font-bold text-[#8f4458]" : "font-semibold text-[#5f565a] hover:bg-[#faf8fb]"}`}><FilterIcon size={17} weight={filterType === filter.value ? "fill" : "regular"} /><span className="flex-1">{filter.label}</span><span className="tabular-nums text-[10px] text-[#8d8287]">{count}</span></button>; })}</nav>
 
       <div className="mt-4 border-t border-[#e3dce2] px-2 pt-3 text-[10px] leading-4 text-[#8d8287]">Bấm vào một tệp để xem và thao tác ngay trong hệ thống.</div>
     </aside>
 
     <main className="min-w-0 flex-1">
-      <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#211A1D]">{FILTERS.find(filter => filter.value === filterType)?.label}</h2><p className="mt-0.5 text-[11px] text-[#746A6E]">{filteredAssets.length} tệp</p></div><span className="text-[11px] text-[#8d8287]">Mới cập nhật</span></div>
+      <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#211A1D]">{FILTERS.find(filter => filter.value === filterType)?.label}</h2><p className="mt-0.5 text-[11px] text-[#746A6E]">{totalElements} tệp</p></div><span className="text-[11px] text-[#8d8287]">Mới cập nhật</span></div>
       {error && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-[#b4232d]">{error}</div>}
       {loading ? <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 8 }, (_, index) => <div key={index} className="animate-pulse rounded-xl border border-[#e3dce2] bg-white p-2.5"><div className="h-9 rounded bg-[#f1eef4]" /><div className="mt-2 aspect-[16/10] rounded-lg bg-[#f1eef4]" /><div className="mt-2 h-3 w-2/3 rounded bg-[#f1eef4]" /></div>)}</div>
-        : filteredAssets.length === 0 ? <div className="rounded-2xl border border-dashed border-[#e3dce2] bg-white p-10 text-center text-sm text-[#746A6E]">Chưa có tệp media phù hợp.</div>
-          : <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{filteredAssets.map(asset => { const AssetIcon = assetIcon(asset.mimeType); return <article key={asset.id} className="group flex h-full min-w-0 flex-col rounded-xl border border-[#e3dce2] bg-white p-2.5 transition duration-200 hover:border-[#b98292] hover:shadow-[0_8px_24px_rgba(82,48,60,0.08)]">
+        : assets.length === 0 ? <div className="rounded-2xl border border-dashed border-[#e3dce2] bg-white p-10 text-center text-sm text-[#746A6E]">Chưa có tệp media phù hợp.</div>
+          : <><div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{assets.map(asset => { const AssetIcon = assetIcon(asset.mimeType); return <article key={asset.id} className="group flex h-full min-w-0 flex-col rounded-xl border border-[#e3dce2] bg-white p-2.5 transition duration-200 hover:border-[#b98292] hover:shadow-[0_8px_24px_rgba(82,48,60,0.08)]">
             <div className="mb-2 flex min-h-9 items-center gap-2 px-1"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7e7ec] text-[#8f4458]"><AssetIcon size={17} weight="duotone" /></span><div className="min-w-0 flex-1"><button onClick={() => setSelectedAsset(asset)} className="block max-w-full truncate text-left text-xs font-bold text-[#211A1D] hover:text-[#8f4458] focus:outline-none focus:underline" title={asset.filename}>{asset.filename}</button><p className="mt-0.5 truncate text-[10px] text-[#746A6E]">{asset.code}</p></div><button onClick={() => void removeAsset(asset)} aria-label={`Xóa ${asset.filename}`} title="Xóa tệp" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#b4232d] opacity-0 transition hover:bg-rose-50 group-hover:opacity-100 focus:opacity-100"><Trash size={15} /></button></div>
             <button onClick={() => setSelectedAsset(asset)} className="block w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8f4458]/40" aria-label={`Xem ${asset.filename}`}><MediaThumbnail asset={asset} /></button>
             <div className="mt-auto flex items-center justify-between gap-2 px-1 pt-2 text-[10px] text-[#746A6E]"><span className="truncate">{FILTERS.find(filter => filter.value === asset.mimeType)?.label}</span><span className="shrink-0 tabular-nums">{readableSize(asset.sizeBytes)}</span></div>
             <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[10px] text-[#8d8287]"><span>{asset.usedLocations.length} nơi sử dụng</span><time dateTime={asset.createdAt}>{new Date(asset.createdAt).toLocaleDateString("vi-VN")}</time></div>
-          </article>; })}</div>}
+          </article>; })}</div><div className="mt-4 flex items-center justify-center gap-3"><button type="button" disabled={pageNumber === 0 || loading} onClick={() => void load(pageNumber - 1)} className="min-h-9 rounded-lg border border-[#e3dce2] px-3 text-xs font-bold text-[#743447] disabled:opacity-40">Trước</button><span className="text-xs font-semibold text-[#746A6E]">Trang {pageNumber + 1}/{totalPages}</span><button type="button" disabled={pageNumber + 1 >= totalPages || loading} onClick={() => void load(pageNumber + 1)} className="min-h-9 rounded-lg border border-[#e3dce2] px-3 text-xs font-bold text-[#743447] disabled:opacity-40">Sau</button></div></>}
     </main>
 
     {selectedAsset && <div className="fixed inset-0 z-50 bg-[#151314]/90 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="media-viewer-title">

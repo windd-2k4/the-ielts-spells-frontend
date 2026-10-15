@@ -8,9 +8,10 @@ import type {
   StudentReadingCatalogItem,
 } from "@ielts/contracts";
 import { ApiClientError } from "@ielts/api-client";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiKeepalivePost } from "@/lib/api";
 
 let timerControlAvailable = true;
+const pendingPauses = new Map<string, Promise<void>>();
 
 function timerControlMissing(error: unknown) {
   return error instanceof ApiClientError
@@ -47,6 +48,7 @@ export function getReadingAttempt(attemptId: string, skill: string = "reading") 
 
 export async function resumeReadingAttempt(attemptId: string, skill: string = "reading") {
   if (!timerControlAvailable) return getReadingAttempt(attemptId, skill);
+  await pendingPauses.get(`${resolvePath(skill)}:${attemptId}`);
   try {
     return await apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/attempts/${attemptId}/resume`, { method: "POST" });
   } catch (error) {
@@ -58,12 +60,21 @@ export async function resumeReadingAttempt(attemptId: string, skill: string = "r
 
 export async function pauseReadingAttempt(attemptId: string, skill: string = "reading") {
   if (!timerControlAvailable) return;
-  try {
-    await apiFetch<void>(`${resolvePath(skill)}/attempts/${attemptId}/pause`, { method: "POST", keepalive: true });
-  } catch (error) {
-    if (!timerControlMissing(error)) throw error;
-    timerControlAvailable = false;
-  }
+  const path = resolvePath(skill);
+  const key = `${path}:${attemptId}`;
+  const inFlight = pendingPauses.get(key);
+  if (inFlight) return inFlight;
+
+  const request = apiKeepalivePost(`${path}/attempts/${attemptId}/pause`)
+    .catch((error) => {
+      if (!timerControlMissing(error)) throw error;
+      timerControlAvailable = false;
+    })
+    .finally(() => {
+      if (pendingPauses.get(key) === request) pendingPauses.delete(key);
+    });
+  pendingPauses.set(key, request);
+  return request;
 }
 
 export function saveReadingResponses(attemptId: string, request: SaveReadingResponsesRequest, skill: string = "reading") {
