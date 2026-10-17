@@ -200,7 +200,7 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
     try {
       const params = new URLSearchParams({ size: "100" });
       if (deferredQuery.trim()) params.set("query", deferredQuery.trim());
-      if (courseId) { params.set("courseId", courseId); params.set("includeGlobal", "true"); }
+      if (courseId) params.set("courseId", courseId);
       else if (selectedFolderId === "GLOBAL") params.set("scope", "GLOBAL");
       else if (selectedFolderId !== "ALL") params.set("folderId", selectedFolderId);
       const endpoint = view === "RESOURCES" ? "resources" : "exercises";
@@ -314,10 +314,10 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
         )}
 
         <main className="min-w-0 space-y-4">
-          <div className="grid gap-3 md:grid-cols-[minmax(180px,auto)_minmax(260px,1fr)_auto] md:items-center">
+          <div className={`grid gap-3 md:grid-cols-[minmax(180px,auto)_minmax(260px,1fr)_auto] md:items-center ${compactHeader ? "rounded-xl border border-[#e3dce2] bg-white p-3" : ""}`}>
             <div className="min-w-0">
-              <h1 className="truncate font-display text-xl font-extrabold tracking-tight text-[#211A1D]">{activeFolder?.name || (selectedFolderId === "GLOBAL" ? "Tài liệu dùng chung" : "Kho học liệu")}</h1>
-              {!compactHeader && <p className="mt-0.5 text-[11px] text-[#746A6E]">Lưu trữ, tìm kiếm và mở tài liệu của hệ thống.</p>}
+              <h1 className="truncate font-display text-xl font-extrabold tracking-tight text-[#211A1D]">{compactHeader ? "Học liệu khóa học" : activeFolder?.name || (selectedFolderId === "GLOBAL" ? "Tài liệu dùng chung" : "Kho học liệu")}</h1>
+              <p className="mt-0.5 text-[11px] text-[#746A6E]">{compactHeader ? "Tài liệu riêng được sử dụng trong khóa học này." : "Lưu trữ, tìm kiếm và mở tài liệu của hệ thống."}</p>
             </div>
             <label className="relative min-w-0"><span className="sr-only">Tìm học liệu</span><MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#746A6E]" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm trong kho học liệu..." className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-white pl-9 pr-3 text-xs outline-none focus:border-[#8f4458] focus:ring-2 focus:ring-[#f7e7ec]" /></label>
             <div className="flex items-center justify-end gap-2">
@@ -346,8 +346,21 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
           )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eee8eb] pt-3 text-xs text-[#746A6E]" aria-live="polite">
-        <p><strong className="font-display text-sm text-[#211A1D]">Tệp</strong>{!loading && !error && <span className="ml-2 text-[11px]">{visibleItems.length} mục</span>}</p>
-        <p className="hidden sm:block">Cập nhật gần nhất</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p><strong className="font-display text-sm text-[#211A1D]">Tệp</strong>{!loading && !error && <span className="ml-2 text-[11px]">{visibleItems.length} mục</span>}</p>
+          {compactHeader && <div className="inline-flex rounded-lg bg-[#f5f1f3] p-0.5" role="group" aria-label="Lọc học liệu theo nguồn">
+            {([
+              { id: "ALL", label: "Tất cả", icon: Books, count: sourceCounts.all },
+              { id: "FILES", label: "Tệp tải lên", icon: FileText, count: sourceCounts.files },
+              { id: "LINKS", label: "Liên kết", icon: Link, count: sourceCounts.links },
+            ] as const).map(option => {
+              const FilterIcon = option.icon;
+              const selected = sourceFilter === option.id;
+              return <button key={option.id} type="button" onClick={() => setSourceFilter(option.id)} aria-pressed={selected} className={`inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold transition-colors ${selected ? "bg-white text-[#8f4458] shadow-sm" : "text-[#746A6E] hover:text-[#211A1D]"}`}><FilterIcon size={14} weight={selected ? "fill" : "regular"} /><span>{option.label}</span><span className="tabular-nums text-[10px] opacity-70">{option.count}</span></button>;
+            })}
+          </div>}
+        </div>
+        <p className="hidden sm:block">{compactHeader ? "Chỉ trong khóa học này" : "Cập nhật gần nhất"}</p>
       </div>
 
       {notice && (
@@ -384,9 +397,9 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
       {!loading && !error && visibleItems.length === 0 && (
         <div className="rounded-[18px] border border-dashed border-[#e3dce2] bg-white p-10 text-center">
           <Archive size={36} className="mx-auto text-[#746A6E]" />
-          <h3 className="mt-3 font-display text-lg font-bold text-[#211A1D]">Chưa có học liệu phù hợp</h3>
+          <h3 className="mt-3 font-display text-lg font-bold text-[#211A1D]">{compactHeader ? "Chưa có học liệu trong khóa học" : "Chưa có học liệu phù hợp"}</h3>
           <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[#746A6E]">
-            Tải tệp, thêm liên kết mới hoặc chọn bộ lọc khác để xem thêm kết quả.
+            {compactHeader ? "Thêm tệp hoặc liên kết để sử dụng riêng cho các buổi học của khóa này." : "Tải tệp, thêm liên kết mới hoặc chọn bộ lọc khác để xem thêm kết quả."}
           </p>
           <button
             onClick={() => setUploadOpen(true)}
@@ -456,7 +469,7 @@ export default function LibraryWorkspace({ courseId, compactHeader = false }: Pr
                     </div>
                     {isResource(item) ? <ResourceCardPreview resource={item} onOpen={openItem} onResolved={(count, file) => handlePreviewResolved(item.id, count, file)} /> : <button type="button" onClick={openItem} className="mb-2 grid aspect-[4/3] place-items-center rounded-lg border border-[#e8dfe3] bg-[#f7f2f4] text-indigo-700"><BookOpenText size={40} weight="duotone" /></button>}
                     <div className="flex items-center justify-between gap-2 px-1 text-[10px] text-[#746A6E]">
-                      <span className="min-w-0 truncate">{item.scope === "COURSE" ? "Riêng khóa" : meta.source}</span>
+                      <span className="min-w-0 truncate">{courseId ? "Trong khóa học" : item.scope === "COURSE" ? "Riêng khóa" : meta.source}</span>
                       <span className="flex shrink-0 items-center gap-1.5">{statusBadge(item.status)}<time dateTime={item.updatedAt}>{formatDate(item.updatedAt)}</time></span>
                     </div>
                   </article>

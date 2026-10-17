@@ -1,13 +1,30 @@
 "use client";
 
-import Link from "next/link";
-import { CalendarDots, ChartBar, PencilSimple, Target } from "@phosphor-icons/react";
+import {
+  BookOpenText,
+  CalendarDots,
+  ChartBar,
+  FloppyDisk,
+  Headphones,
+  Microphone,
+  PencilLine,
+  PencilSimple,
+  SpinnerGap,
+  Target,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { getStudentPortalActivity, type StudentPortalDailyActivity, type StudentPortalOverview } from "./studentPortalApi";
+import { useStudentPortal } from "./StudentPortalProvider";
+import { StudentTargetBandControl } from "./StudentTargetBandControl";
 import { formatBand } from "./studentPortalViewModel";
 import styles from "./StudentStudyPulse.module.css";
 
-const skills = ["Reading", "Listening", "Writing", "Speaking"] as const;
+const skills = [
+  { label: "Reading", target: "readingTarget", icon: BookOpenText },
+  { label: "Listening", target: "listeningTarget", icon: Headphones },
+  { label: "Writing", target: "writingTarget", icon: PencilLine },
+  { label: "Speaking", target: "speakingTarget", icon: Microphone },
+] as const;
 const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
 function dateKey(date: Date) {
@@ -56,6 +73,42 @@ function MonthPicker({ id, value, max, loading, onChange }: {
   );
 }
 
+function StudentExamPlanEditor({ status, plannedExamDate }: {
+  status: "PLANNED" | "NONE" | null;
+  plannedExamDate: string | null;
+}) {
+  const { saveExamPlan } = useStudentPortal();
+  const [choice, setChoice] = useState<"NONE" | "DATE">(status === "PLANNED" ? "DATE" : "NONE");
+  const [date, setDate] = useState(plannedExamDate ?? "");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const today = new Date();
+  const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  async function save() {
+    if (choice === "DATE" && !date) return;
+    setSaving(true);
+    setNotice(null);
+    const error = await saveExamPlan(choice === "NONE", choice === "DATE" ? date : null);
+    setSaving(false);
+    setNotice(error
+      ? { kind: "error", text: error }
+      : { kind: "success", text: "Đã lưu kế hoạch thi." });
+  }
+
+  return (
+    <div className={styles.inlineEditor}>
+      <div className={styles.examPlanChoices}>
+        <label><input type="radio" name="dashboard-exam-plan" checked={choice === "NONE"} onChange={() => setChoice("NONE")} disabled={saving} />Chưa có dự định thi</label>
+        <label><input type="radio" name="dashboard-exam-plan" checked={choice === "DATE"} onChange={() => setChoice("DATE")} disabled={saving} />Có ngày dự kiến</label>
+        {choice === "DATE" && <input type="date" min={minDate} value={date} onChange={(event) => setDate(event.target.value)} disabled={saving} />}
+        <button type="button" onClick={() => void save()} disabled={saving || (choice === "DATE" && !date)}>{saving ? <SpinnerGap size={15} className="animate-spin" /> : <FloppyDisk size={15} />}Lưu</button>
+      </div>
+      {notice && <p role={notice.kind === "error" ? "alert" : "status"} data-error={notice.kind === "error" || undefined}>{notice.text}</p>}
+    </div>
+  );
+}
+
 export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
   const today = new Date();
   const currentMonth = monthKey(today);
@@ -63,6 +116,8 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
   const [activity, setActivity] = useState<StudentPortalDailyActivity[]>(data.activityCalendar ?? []);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [editingExamPlan, setEditingExamPlan] = useState(false);
   const selectedMonthDate = parseLocalDate(`${selectedMonth}-01`);
   const activityByDate = new Map(activity.map((item) => [item.activityDate, item]));
   const monthStart = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1);
@@ -99,55 +154,52 @@ export function StudentStudyPulse({ data }: { data: StudentPortalOverview }) {
 
   const examEnrollment = data.enrollments.find((item) => item.actualExamDate)
     ?? data.enrollments.find((item) => item.plannedExamMonth);
-  const examDate = examEnrollment?.actualExamDate ?? null;
-  const plannedMonth = examEnrollment?.plannedExamMonth ?? null;
+  const profilePlanSelected = data.profile.examPlanStatus != null;
+  const confirmedExamDate = examEnrollment?.actualExamDate ?? null;
+  const examDate = confirmedExamDate ?? (data.profile.examPlanStatus === "PLANNED" ? data.profile.plannedExamDate : null);
+  const plannedMonth = profilePlanSelected ? null : examEnrollment?.plannedExamMonth ?? null;
   const examDateObject = examDate ? parseLocalDate(examDate) : null;
   const daysRemaining = examDateObject
     ? Math.max(0, Math.ceil((examDateObject.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000))
     : null;
 
   return (
-    <section className={styles.pulse} aria-labelledby="study-pulse-title">
-      <div className={styles.sectionTitle}>
-        <div>
-          <p>Learning dashboard</p>
-          <h2 id="study-pulse-title">Your goals &amp; study rhythm</h2>
-        </div>
-        <Link href="/student/progress">Xem phân tích chi tiết</Link>
-      </div>
-
+    <section className={styles.pulse} aria-label="Góc số liệu học tập">
       <div className={styles.topGrid}>
         <article className={styles.card}>
           <header className={styles.cardHeader}>
             <h3><Target size={18} weight="duotone" /> Your IELTS goal</h3>
-            <Link href="#learning-goal" aria-label="Chỉnh sửa band mục tiêu"><PencilSimple size={17} /></Link>
+            <button type="button" onClick={() => setEditingGoal((current) => !current)} aria-label="Chỉnh sửa band mục tiêu" aria-expanded={editingGoal}><PencilSimple size={17} /></button>
           </header>
+          {editingGoal && <div className={styles.inlineEditor}><StudentTargetBandControl compact id="pulse-target-band" /></div>}
           <div className={styles.scoreGrid}>
             <div className={styles.overallScore}>
-              <span>Overall</span>
-              <strong>{data.profile.currentBand == null ? "—" : formatBand(data.profile.currentBand)}</strong>
-              <small>{data.profile.targetBand == null ? "Chưa đặt mục tiêu" : `Mục tiêu ${formatBand(data.profile.targetBand)}`}</small>
+              <span><i><Target size={16} weight="duotone" /></i>Overall</span>
+              <strong>{data.profile.targetBand == null ? "—" : formatBand(data.profile.targetBand)}</strong>
             </div>
-            {skills.map((skill) => (
-              <div key={skill} className={styles.skillScore}>
-                <span>{skill}</span>
-                <strong>—</strong>
-                <small>Chưa đánh giá</small>
-              </div>
-            ))}
+            {skills.map((skill) => {
+              const SkillIcon = skill.icon;
+              return (
+                <div key={skill.label} className={styles.skillScore}>
+                  <span><i><SkillIcon size={16} weight="duotone" /></i>{skill.label}</span>
+                  <strong>{data.profile[skill.target] == null ? "—" : formatBand(data.profile[skill.target])}</strong>
+                </div>
+              );
+            })}
           </div>
         </article>
 
         <article className={styles.card}>
           <header className={styles.cardHeader}>
             <h3><CalendarDots size={18} weight="duotone" /> IELTS exam plan</h3>
-            <span className={styles.examStatus}>{examEnrollment?.examRegistrationStatus === "REGISTERED" ? "Đã đăng ký" : "Chưa xác nhận"}</span>
+            <div className={styles.cardActions}><span className={styles.examStatus}>{examEnrollment?.examRegistrationStatus === "REGISTERED" ? "Đã đăng ký" : data.profile.examPlanStatus === "NONE" ? "Chưa có dự định" : "Dự kiến"}</span><button type="button" onClick={() => setEditingExamPlan((current) => !current)} aria-label="Chỉnh sửa kế hoạch thi" aria-expanded={editingExamPlan}><PencilSimple size={17} /></button></div>
           </header>
+          {editingExamPlan && <StudentExamPlanEditor status={data.profile.examPlanStatus} plannedExamDate={data.profile.plannedExamDate} />}
           <div className={styles.examGrid}>
             <div>
               <span>Ngày dự thi</span>
-              <strong>{examDateObject ? examDateObject.toLocaleDateString("vi-VN") : plannedMonth ? `Tháng ${parseLocalDate(plannedMonth).toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" })}` : "— / — / —"}</strong>
-              <small>{examDate ? "Lịch thi đã được trung tâm xác nhận" : plannedMonth ? "Tháng dự kiến từ hồ sơ ghi danh" : "Chưa có lịch thi trong hồ sơ"}</small>
+              <strong>{examDateObject ? examDateObject.toLocaleDateString("vi-VN") : !profilePlanSelected && plannedMonth ? `Tháng ${parseLocalDate(plannedMonth).toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" })}` : "Chưa có dự định"}</strong>
+              <small>{confirmedExamDate ? "Lịch thi đã được trung tâm xác nhận" : examDate ? "Ngày dự kiến của bạn" : plannedMonth ? "Tháng dự kiến từ hồ sơ ghi danh" : "Có thể cập nhật bất cứ lúc nào"}</small>
             </div>
             <div>
               <span>Số ngày còn lại</span>

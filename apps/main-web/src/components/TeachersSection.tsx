@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 import { Star, X, CheckCircle, ArrowRight, Sparkle } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 interface Teacher {
   id: string;
@@ -54,6 +55,7 @@ const TEACHERS: Teacher[] = [
 ];
 
 export default function TeachersSection() {
+  const content = useLandingSection("teachers");
   const [activeTeacher, setActiveTeacher] = useState<Teacher>(TEACHERS[0]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
@@ -73,13 +75,13 @@ export default function TeachersSection() {
         <ScrollReveal>
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
             <div className="inline-block px-4 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
-              Đội Ngũ Giảng Viên
+              {content?.eyebrow ?? "Đội Ngũ Giảng Viên"}
             </div>
             <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[#1E1B18]">
-              Gặp gỡ các <span className="text-[#894C5B]">"Pháp sư" IELTS</span> đồng hành
+              {content?.title ?? 'Gặp gỡ các "Pháp sư" IELTS đồng hành'}
             </h2>
             <p className="text-base text-[#5C5752]">
-              100% giảng viên sở hữu IELTS 8.0 - 8.5+ Overall. Chọn giảng viên ở danh sách bên trái để xem profile chi tiết và bằng cấp chứng chỉ.
+              {content?.description ?? "100% giảng viên sở hữu IELTS 8.0 - 8.5+ Overall. Chọn giảng viên ở danh sách bên trái để xem profile chi tiết và bằng cấp chứng chỉ."}
             </p>
           </div>
         </ScrollReveal>

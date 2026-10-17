@@ -1,8 +1,4 @@
 .pulse { display: grid; gap: 14px; }
-.sectionTitle { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
-.sectionTitle p { color: #934c5e; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-.sectionTitle h2 { margin-top: 5px; color: #292528; font-size: clamp(20px, 2.2vw, 30px); letter-spacing: -.04em; }
-.sectionTitle > a { min-height: 44px; display: inline-flex; align-items: center; color: #934c5e; font-size: 11px; font-weight: 800; }
 .topGrid, .insightGrid { display: grid; gap: 14px; }
 .topGrid { grid-template-columns: minmax(0, 1.2fr) minmax(350px, .8fr); }
 .insightGrid { grid-template-columns: minmax(0, .9fr) minmax(430px, 1.1fr); }
@@ -11,23 +7,34 @@
 .cardHeader h3 { display: flex; align-items: center; gap: 8px; color: #30292c; font-size: 13px; letter-spacing: -.02em; }
 .cardHeader h3 svg { color: #934c5e; }
 .cardHeader p { margin-top: 3px; color: #85797e; font-size: 9px; }
-.cardHeader > a { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 11px; color: #934c5e; }
-.cardHeader > a:hover { background: #f4dce2; }
-.scoreGrid { display: grid; grid-template-columns: 1.35fr repeat(4, 1fr); gap: 8px; padding: 12px; }
-.overallScore, .skillScore { min-width: 0; min-height: 110px; display: flex; flex-direction: column; justify-content: space-between; padding: 13px; border: 1px solid #e3dcde; border-radius: 14px; }
+.cardHeader > button, .cardActions button { width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 11px; color: #934c5e; background: transparent; cursor: pointer; }
+.cardHeader > button:hover, .cardActions button:hover { background: #f4dce2; }
+.cardActions { display: flex; align-items: center; gap: 6px; }
+.inlineEditor { padding: 12px; border-bottom: 1px solid #ebe5e7; background: #fdfafb; }
+.examPlanChoices { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.examPlanChoices label { min-height: 38px; display: inline-flex; align-items: center; gap: 6px; color: #4e4549; font-size: 10px; font-weight: 700; }
+.examPlanChoices input[type="radio"] { accent-color: #934c5e; }
+.examPlanChoices input[type="date"] { height: 38px; min-width: 145px; border: 1px solid #ded4d7; border-radius: 10px; padding: 0 9px; color: #30292c; background: #fff; font-size: 10px; }
+.examPlanChoices button { min-height: 38px; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 10px; padding: 0 13px; color: #fff; background: #934c5e; font-size: 10px; font-weight: 800; cursor: pointer; }
+.examPlanChoices button:disabled { cursor: not-allowed; opacity: .45; }
+.inlineEditor > p { margin-top: 7px; color: #6f676c; font-size: 9px; font-weight: 650; }
+.inlineEditor > p[data-error] { color: #b42335; }
+.scoreGrid { display: grid; grid-template-columns: 1.1fr repeat(4, 1fr); gap: 8px; padding: 10px 12px 12px; }
+.overallScore, .skillScore { min-width: 0; min-height: 86px; display: flex; flex-direction: column; justify-content: space-between; padding: 11px 12px; border: 1px solid #e6dde0; border-radius: 13px; }
 .overallScore { color: #fff; border-color: #934c5e; background: #934c5e; }
-.overallScore span, .skillScore span { font-size: 9px; font-weight: 750; }
-.overallScore strong, .skillScore strong { font-size: 25px; font-weight: 620; letter-spacing: -.045em; }
-.overallScore small { color: #f4dce2; }
-.skillScore { background: #fff; }
-.skillScore span { color: #5e5357; }
-.skillScore small { color: #91858a; }
-.overallScore small, .skillScore small { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.overallScore > span, .skillScore > span { display: flex; align-items: center; gap: 7px; font-size: 9px; font-weight: 800; }
+.overallScore > span i, .skillScore > span i { width: 24px; height: 24px; display: grid; flex: 0 0 24px; place-items: center; border-radius: 7px; }
+.overallScore > span i { color: #fff; background: rgb(255 255 255 / 14%); }
+.skillScore > span i { color: #934c5e; background: #f7e8ec; }
+.overallScore strong, .skillScore strong { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.04em; line-height: 1; }
+.skillScore { color: #30292c; background: #fdfafb; transition: border-color .2s, background .2s; }
+.skillScore > span { color: #65595e; }
+.skillScore:hover { border-color: #d8c4ca; background: #fff; }
 .examStatus { padding: 4px 7px; border-radius: 999px; color: #7a3d4c; background: #f4dce2; font-size: 8px; font-weight: 800; text-transform: uppercase; }
-.examGrid { min-height: 134px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 8px; padding: 12px; }
-.examGrid > div { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; border: 1px solid #e3dcde; border-radius: 14px; background: #fff; }
+.examGrid { min-height: 86px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 8px; padding: 10px 12px 12px; }
+.examGrid > div { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 12px; border: 1px solid #e3dcde; border-radius: 13px; background: #fff; }
 .examGrid span { color: #74696d; font-size: 9px; }
-.examGrid strong { margin: 11px 0; font-size: 19px; letter-spacing: -.03em; }
+.examGrid strong { margin: 4px 0; font-size: 16px; letter-spacing: -.03em; }
 .examGrid small { color: #92868a; font-size: 8px; line-height: 1.45; }
 .legend { display: inline-flex; align-items: center; gap: 7px; color: #74696d; font-size: 9px; white-space: nowrap; }
 .legend > span { display: inline-flex; gap: 2px; }
@@ -77,11 +84,9 @@
 }
 
 @media (max-width: 700px) {
-  .sectionTitle { align-items: flex-start; flex-direction: column; gap: 4px; }
-  .sectionTitle > a { min-height: 36px; }
   .scoreGrid { grid-template-columns: repeat(2, 1fr); }
-  .overallScore { grid-column: 1 / -1; min-height: 100px; }
-  .skillScore { min-height: 92px; }
+  .overallScore { grid-column: 1 / -1; min-height: 82px; }
+  .skillScore { min-height: 82px; }
   .examGrid { grid-template-columns: 1fr; }
   .headerActions { align-items: flex-end; flex-direction: column; gap: 6px; }
   .monthPicker input { width: 108px; }

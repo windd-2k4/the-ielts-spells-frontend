@@ -32,6 +32,7 @@ import {
 } from "@phosphor-icons/react";
 import type { CourseWorkspaceData, StudentPortalEnrollment } from "../studentPortalApi";
 import styles from "./StudentCourseWorkspace.module.css";
+import StudentProgressTracker from "./StudentProgressTracker";
 
 interface StudentCourseWorkspaceProps {
   data: CourseWorkspaceData;
@@ -672,6 +673,7 @@ export function StudentCourseWorkspace({ data, enrolledCourses }: StudentCourseW
             {activeTab === "history" ? (
               <section className={styles.contentSection}>
                 <div className={styles.contentHeader}><div><span>Learning record</span><h2>Lịch sử học tập</h2><p>Theo dõi bài đã làm và kết quả được ghi nhận trong khóa.</p></div></div>
+                <StudentProgressTracker courseId={course.id} />
                 <div className={styles.metricStrip}>
                   <div><span>Bài hoàn tất</span><strong>{completedLogs.length}</strong></div>
                   <div><span>Độ chính xác</span><strong>{accuracy == null ? "Chưa có" : `${accuracy}%`}</strong></div>

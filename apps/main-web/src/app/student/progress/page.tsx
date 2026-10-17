@@ -7,18 +7,23 @@ import { formatDateTime } from "@/features/student-hub/studentPortalViewModel";
 
 export default function StudentProgressPage() {
   const { data, loading } = useStudentPortal();
-  const attempts: RecentAttemptItem[] = (data?.recentAttempts ?? []).map((attempt) => ({
-    id: attempt.attemptId,
-    testTitle: attempt.title,
-    skill: "IELTS Reading",
-    completedDate: formatDateTime(attempt.submittedAt ?? attempt.startedAt),
-    scoreText: attempt.submittedAt && attempt.score != null
-      ? `${attempt.correctCount ?? 0}/${attempt.totalQuestions} câu · ${Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%`
-      : "Đang làm dở",
-    reviewUrl: attempt.submittedAt
-      ? `/student/reading/attempts/${attempt.attemptId}/result`
-      : `/student/reading/attempts/${attempt.attemptId}`,
-  }));
+  const attempts: RecentAttemptItem[] = (data?.recentAttempts ?? []).map((attempt) => {
+    const skillName = attempt.skill ? attempt.skill.toUpperCase() : "READING";
+    const skillPath = skillName === "WRITING" ? "writing" : skillName === "LISTENING" ? "listening" : "reading";
+    const skillLabel = skillName === "WRITING" ? "IELTS Writing" : skillName === "LISTENING" ? "IELTS Listening" : skillName === "SPEAKING" ? "IELTS Speaking" : "IELTS Reading";
+    return {
+      id: attempt.attemptId,
+      testTitle: attempt.title,
+      skill: skillLabel,
+      completedDate: formatDateTime(attempt.submittedAt ?? attempt.startedAt),
+      scoreText: attempt.submittedAt && attempt.score != null
+        ? `${attempt.correctCount ?? 0}/${attempt.totalQuestions} câu · ${Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%`
+        : "Đang làm dở",
+      reviewUrl: attempt.submittedAt
+        ? `/student/${skillPath}/attempts/${attempt.attemptId}/result`
+        : `/student/${skillPath}/attempts/${attempt.attemptId}`,
+    };
+  });
 
   return (
     <div className="space-y-8">

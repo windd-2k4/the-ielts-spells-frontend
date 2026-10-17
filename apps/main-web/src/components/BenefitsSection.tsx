@@ -2,8 +2,10 @@
 
 import ScrollReveal from "./ScrollReveal";
 import { ChartLineUp, Handshake, CheckCircle, Clock, ShieldCheck, Sparkle, ArrowRight } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 export default function BenefitsSection() {
+  const content = useLandingSection("benefits");
   return (
     <section id="benefits" className="section-padding bg-[#FEFDF5] relative border-b border-[#F3E8C4]">
       <div className="lp-container">
@@ -12,14 +14,13 @@ export default function BenefitsSection() {
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
               <Sparkle size={16} weight="fill" className="text-[#F5C842]" />
-              <span>Quyền Lợi Học Viên</span>
+              <span>{content?.eyebrow ?? "Quyền Lợi Học Viên"}</span>
             </div>
             <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[#1E1B18]">
-              Đồng hành sát sao &amp; <br />
-              <span className="text-[#894C5B]">Theo dõi tiến độ học tập thực tế</span>
+              {content?.title ?? "Đồng hành sát sao & Theo dõi tiến độ học tập thực tế"}
             </h2>
             <p className="text-base text-[#5C5752]">
-              Tại The IELTS Spells, chúng tôi đảm bảo trải nghiệm học tập minh bạch, nơi sự tiến bộ của bạn được đo lường chính xác và hỗ trợ liên tục.
+              {content?.description ?? "Tại The IELTS Spells, chúng tôi đảm bảo trải nghiệm học tập minh bạch, nơi sự tiến bộ của bạn được đo lường chính xác và hỗ trợ liên tục."}
             </p>
           </div>
         </ScrollReveal>
@@ -33,7 +34,7 @@ export default function BenefitsSection() {
                 {/* Image Showcase with Rounded Corners & Sticker Effect */}
                 <div className="relative rounded-2xl overflow-hidden border-2 border-[#F3E8C4] aspect-[16/10] bg-gray-100 shadow-md group-hover:scale-[1.01] transition-transform duration-500">
                   <img
-                    src="/kiemtratiendo.jpg"
+                    src={content?.mediaPath ?? "/kiemtratiendo.jpg"}
                     alt="Kiểm tra & theo dõi tiến độ học tập IELTS Spells"
                     className="w-full h-full object-cover object-top"
                   />
@@ -50,12 +51,12 @@ export default function BenefitsSection() {
                       <ChartLineUp size={26} weight="duotone" />
                     </div>
                     <h3 className="font-display text-2xl font-extrabold text-[#1E1B18] group-hover:text-[#894C5B] transition-colors">
-                      Theo Dõi Tiến Độ &amp; Đánh Giá Năng Lực
+                      {content?.title ?? "Theo Dõi Tiến Độ & Đánh Giá Năng Lực"}
                     </h3>
                   </div>
 
                   <p className="text-sm text-[#5C5752] leading-relaxed">
-                    Hệ thống báo cáo chi tiết theo dõi từng kỹ năng Listening, Reading, Writing, Speaking. Học viên và phụ huynh dễ dàng thấy rõ sự tăng trưởng band điểm và các điểm cần cải thiện sau từng bài test.
+                    {content?.description ?? "Hệ thống báo cáo chi tiết theo dõi từng kỹ năng Listening, Reading, Writing, Speaking. Học viên và phụ huynh dễ dàng thấy rõ sự tăng trưởng band điểm và các điểm cần cải thiện sau từng bài test."}
                   </p>
 
                   <div className="space-y-2 pt-3 border-t border-[#F3E8C4]">

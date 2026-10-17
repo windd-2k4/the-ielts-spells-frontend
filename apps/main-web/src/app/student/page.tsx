@@ -11,8 +11,6 @@ import {
   Headphones,
   Microphone,
   PenNib,
-  Play,
-  Sparkle,
   WarningCircle,
 } from "@phosphor-icons/react";
 import { StudentTargetBandControl } from "@/features/student-hub/StudentTargetBandControl";
@@ -35,8 +33,6 @@ export default function StudentDashboardPage() {
   if (error && !data) return <DashboardError message={error} onRetry={() => void refresh()} />;
   if (!data) return null;
 
-  const firstName = data.profile.fullName.trim().split(/\s+/).at(-1) || "Learner";
-  const activeAttempt = data.recentAttempts.find((attempt) => attempt.status === "IN_PROGRESS");
   const pendingAssignments = data.readingAssignments.filter((item) => item.attemptsUsed < item.maxAttempts);
   const nextSession = data.upcomingSessions[0];
   const activeEnrollment = data.enrollments.find((item) => item.status === "ACTIVE") ?? data.enrollments[0];
@@ -47,27 +43,8 @@ export default function StudentDashboardPage() {
     ? Math.min(100, Math.round((activeEnrollment.completedSessions / activeEnrollment.totalSessions) * 100))
     : 0;
 
-  const primaryAction = activeAttempt
-    ? { label: "Tiếp tục bài đang làm", href: `/student/reading/attempts/${activeAttempt.attemptId}`, title: activeAttempt.title, copy: "Bài làm của bạn vẫn được lưu. Quay lại đúng vị trí đang dừng để hoàn thành." }
-    : pendingAssignments[0]
-      ? { label: "Mở bài được giao", href: "/student/reading", title: pendingAssignments[0].title, copy: "Một bài tập đang chờ bạn. Hoàn thành bài để cập nhật tiến độ học tập." }
-      : nextSession
-        ? { label: "Xem lịch học", href: "/student/schedule", title: nextSession.title || nextSession.courseName, copy: "Buổi học tiếp theo đã có trong lịch. Kiểm tra thời gian và thông tin lớp trước khi bắt đầu." }
-        : { label: "Bắt đầu tự luyện", href: "/student/practice", title: "Chọn một kỹ năng và học theo nhịp của bạn", copy: "Hiện không có bài bắt buộc. Bạn có thể luyện Reading hoặc khám phá các kỹ năng sắp ra mắt." };
-
   return (
     <div className={styles.overview}>
-      <header className={styles.masthead}>
-        <div className={styles.mastheadCopy}>
-          <p className={styles.eyebrow}>IELTS study space</p>
-          <h1 className={styles.title}>Welcome back, <em>{firstName}.</em></h1>
-          <p className={styles.studyQuote}>Practice with purpose. Build your band score with confidence.</p>
-        </div>
-        <time className={styles.date} dateTime={new Date().toISOString().slice(0, 10)}>
-          {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}
-        </time>
-      </header>
-
       {error && (
         <div role="status" className={styles.notice}>
           <span>{error} Dữ liệu hiển thị có thể chưa được cập nhật.</span>
@@ -76,48 +53,6 @@ export default function StudentDashboardPage() {
           </button>
         </div>
       )}
-
-      <section className={styles.hero} aria-labelledby="next-action-title">
-        <div className={styles.heroContent}>
-          <div>
-            <p className={styles.heroKicker}><Sparkle size={13} weight="fill" /> Next best step</p>
-            <h2 id="next-action-title" className={styles.heroTitle}>{primaryAction.title}</h2>
-            <p className={styles.heroText}>{primaryAction.copy}</p>
-            <Link href={primaryAction.href} className={styles.heroAction}>
-              <Play size={17} weight="fill" />{primaryAction.label}<ArrowRight size={16} weight="bold" />
-            </Link>
-          </div>
-          <div className={styles.heroMeta}>
-            <span><BookOpenText size={14} />{pendingAssignments.length} bài đang chờ</span>
-            <span><CheckCircle size={14} />{data.metrics.completedAttempts} lượt đã hoàn thành</span>
-            {data.metrics.currentStreakDays > 0 && <span><Sparkle size={14} />Chuỗi {data.metrics.currentStreakDays} ngày</span>}
-          </div>
-        </div>
-        <div
-          className={styles.orbit}
-          tabIndex={0}
-          aria-label={data.profile.targetBand == null
-            ? "Chưa thiết lập band mục tiêu. Di chuột hoặc nhấn Tab để xem sơ đồ bốn kỹ năng."
-            : `Band mục tiêu ${formatBand(data.profile.targetBand)}. Di chuột hoặc nhấn Tab để xem sơ đồ bốn kỹ năng.`}
-        >
-          <svg className={styles.orbitSvg} viewBox="0 0 520 380" fill="none" aria-hidden="true">
-            <path d="M-35 319C89 244 147 325 246 235C337 153 319 78 554 42" stroke="rgba(241,203,212,.56)" strokeWidth="1.4" />
-            <path d="M-10 350C110 282 178 353 284 270C385 191 377 113 561 81" stroke="rgba(255,255,255,.13)" strokeWidth="1" strokeDasharray="5 9" />
-            <circle cx="92" cy="284" r="5" fill="#F1CBD4" />
-            <circle cx="448" cy="74" r="4" fill="#F1CBD4" />
-          </svg>
-          <div className={styles.targetDisc}>
-            <span className={styles.targetValue}>
-              <small>Band mục tiêu</small>
-              <strong>{data.profile.targetBand == null ? "—" : formatBand(data.profile.targetBand)}</strong>
-              <span>{data.profile.currentBand == null ? "Chưa có band hiện tại" : `Từ band ${formatBand(data.profile.currentBand)}`}</span>
-            </span>
-          </div>
-          <SkillRadar targetBand={data.profile.targetBand} currentBand={data.profile.currentBand} />
-          <p className={styles.radarHint}>Explore your 4 skills</p>
-          <p className={styles.orbitLabel}>{activeEnrollment ? `Đang học · ${activeEnrollment.courseCode}` : "Lộ trình sẽ rõ hơn sau khi bạn đặt mục tiêu và có kết quả đầu vào."}</p>
-        </div>
-      </section>
 
       <StudentStudyPulse data={data} />
 
@@ -248,63 +183,6 @@ function CourseTrackBadge({ skillPair, inverted = false }: { skillPair?: "LISTEN
   if (!skillPair) return null;
   const listeningReading = skillPair === "LISTENING_READING";
   return <span className={styles.trackBadge} data-inverted={inverted || undefined} title={listeningReading ? "Khóa Listening & Reading" : "Khóa Speaking & Writing"}><b>{listeningReading ? "LR" : "SW"}</b><span>{listeningReading ? "Listening & Reading" : "Speaking & Writing"}</span></span>;
-}
-
-function SkillRadar({ targetBand, currentBand }: { targetBand: number | null; currentBand: number | null }) {
-  const targetPoints = targetBand == null ? null : radarPoints(targetBand);
-  const targetLabel = targetBand == null ? "Chưa đặt mục tiêu" : `Mục tiêu ${formatBand(targetBand)}`;
-  const currentLabel = currentBand == null ? "Chưa có kết quả đầu vào" : `Band tổng quan ${formatBand(currentBand)}`;
-
-  return (
-    <div className={styles.skillRadar} role="img" aria-label={`Sơ đồ mục tiêu bốn kỹ năng. ${targetLabel}. ${currentLabel}.`}>
-      <div className={styles.radarHeading}>
-        <span>Bức tranh 4 kỹ năng</span>
-        <strong>{targetLabel}</strong>
-      </div>
-      <div className={styles.radarChart}>
-        <svg viewBox="0 0 360 320" fill="none" aria-hidden="true">
-          <g className={styles.radarGrid}>
-            <path d="M180 132L208 160L180 188L152 160Z" />
-            <path d="M180 104L236 160L180 216L124 160Z" />
-            <path d="M180 76L264 160L180 244L96 160Z" />
-            <path d="M180 48L292 160L180 272L68 160Z" />
-          </g>
-          <g className={styles.radarAxes}>
-            <path d="M180 48V272" />
-            <path d="M68 160H292" />
-          </g>
-          {targetPoints && (
-            <g className={styles.radarResult}>
-              <polygon points={targetPoints.polygon} />
-              {targetPoints.nodes.map((node, index) => <circle key={index} cx={node.x} cy={node.y} r="4.5" />)}
-            </g>
-          )}
-          <circle className={styles.radarCenter} cx="180" cy="160" r="3.5" />
-        </svg>
-        <span className={`${styles.radarSkill} ${styles.radarReading}`}>Reading</span>
-        <span className={`${styles.radarSkill} ${styles.radarListening}`}>Listening</span>
-        <span className={`${styles.radarSkill} ${styles.radarWriting}`}>Writing</span>
-        <span className={`${styles.radarSkill} ${styles.radarSpeaking}`}>Speaking</span>
-      </div>
-      <p className={styles.radarFoot}>{currentLabel}</p>
-    </div>
-  );
-}
-
-function radarPoints(band: number) {
-  const center = 180;
-  const radius = 112 * Math.max(0, Math.min(9, band)) / 9;
-  const nodes = [
-    { x: center, y: center - radius },
-    { x: center + radius, y: center },
-    { x: center, y: center + radius },
-    { x: center - radius, y: center },
-  ];
-
-  return {
-    nodes,
-    polygon: nodes.map((node) => `${node.x},${node.y}`).join(" "),
-  };
 }
 
 function DashboardSkeleton() {

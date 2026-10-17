@@ -45,6 +45,19 @@ export function apiKeepalivePost(path: string): Promise<void> {
   });
 }
 
+export async function apiUpload(path: string, body: FormData): Promise<void> {
+  const send = (token?: string) => fetch(`${apiUrl}/${path.replace(/^\//, "")}`, {
+    method: "POST",
+    body,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  let response = await send(await accessToken());
+  if (response.status === 401) response = await send(await refreshedAccessToken());
+  if (response.ok) return;
+  const payload = await response.json().catch(() => undefined) as { message?: string } | undefined;
+  throw new ApiClientError(response.status, payload?.message ?? "Không thể tải ảnh minh chứng.");
+}
+
 export async function apiBlob(path: string): Promise<Blob> {
   const external = /^https?:\/\//i.test(path);
   if (external) {

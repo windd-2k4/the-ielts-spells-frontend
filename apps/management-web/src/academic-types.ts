@@ -40,6 +40,7 @@ export type StudentLifecycleStatus = EnrollmentStatus | "NONE";
 export type Enrollment = {
   id: string; courseId: string; studentId: string; status: EnrollmentStatus;
   enrolledAt: string; startedOn: string | null; endedOn: string | null; notes: string | null;
+  attendanceNote: string | null;
   plannedExamMonth: string | null; actualExamDate: string | null;
   examRegistrationStatus: "NOT_REGISTERED" | "REGISTERED" | "ISSUE";
   targetNote: string | null;
@@ -86,7 +87,7 @@ export type ScheduleTemplate = {
   entries: ScheduleTemplateEntry[];
 };
 export type AttendanceStatus = "PENDING" | "PRESENT" | "LATE" | "LEFT_EARLY" | "ABSENT" | "EXCUSED";
-export type AttendanceRecord = { id: string; sessionId: string; studentId: string; status: AttendanceStatus; joinedAt: string | null; leftAt: string | null; durationSeconds: number | null; confirmed: boolean; adjustmentReason: string | null };
+export type AttendanceRecord = { id: string; sessionId: string; studentId: string; status: AttendanceStatus; joinedAt: string | null; leftAt: string | null; durationSeconds: number | null; interactionCount: number; confirmed: boolean; adjustmentReason: string | null };
 export type AttendanceSheetStatus = "DRAFT" | "LOCKED";
 export type AttendanceSessionSummary = {
   sessionId: string; sessionNo: number; title: string | null; startsAt: string; endsAt: string;
@@ -98,11 +99,14 @@ export type AttendanceSessionSummary = {
 export type AttendanceStudentRow = {
   recordId: string; studentId: string; studentCode: string; fullName: string; email: string | null;
   avatarPath: string | null; status: AttendanceStatus; joinedAt: string | null; leftAt: string | null;
-  durationSeconds: number | null; source: "MANUAL" | "ZOOM"; note: string | null;
+  durationSeconds: number | null; interactionCount: number; source: "MANUAL" | "ZOOM"; note: string | null;
 };
 export type AttendanceSheet = { session: AttendanceSessionSummary; students: AttendanceStudentRow[] };
-export type ActivityAttempt = { id: string; studentId: string; attemptNo: number; source: string; status: string; reviewStatus: string; score: number | null; maxScore: number | null; correctCount: number | null; incorrectCount: number | null; unansweredCount: number | null; durationSeconds: number | null; comprehensionPercent: number | null; errorAnalysis: string | null; improvementPlan: string | null; submittedAt: string | null; completedAt: string | null; late: boolean };
-export type ClassActivityProgress = { classActivityId: string; sessionId: string | null; activityId: string; title: string; skill: "LISTENING" | "READING" | "WRITING" | "SPEAKING" | "VOCABULARY" | "GENERAL"; activityType: string; completionMethod: string; opensAt: string | null; dueAt: string | null; required: boolean; attempts: ActivityAttempt[] };
+export type ActivityChecklistItem = { id: string; label: string; description: string | null; displayOrder: number; required: boolean };
+export type AttemptChecklistResult = { checklistItemId: string; completed: boolean; completedAt: string | null; note: string | null };
+export type ActivityEvidence = { id: string; evidenceType: string; originalName: string | null; uploadedAt: string };
+export type ActivityAttempt = { id: string; studentId: string; attemptNo: number; source: string; status: string; reviewStatus: string; score: number | null; maxScore: number | null; correctCount: number | null; incorrectCount: number | null; unansweredCount: number | null; durationSeconds: number | null; comprehensionPercent: number | null; errorAnalysis: string | null; improvementPlan: string | null; submittedAt: string | null; completedAt: string | null; late: boolean; checklistResults: AttemptChecklistResult[]; evidence: ActivityEvidence[] };
+export type ClassActivityProgress = { classActivityId: string; sessionId: string | null; activityId: string; title: string; skill: "LISTENING" | "READING" | "WRITING" | "SPEAKING" | "VOCABULARY" | "GENERAL"; activityType: string; completionMethod: string; opensAt: string | null; dueAt: string | null; required: boolean; checklistItems: ActivityChecklistItem[]; attempts: ActivityAttempt[] };
 export type StudentLearningInsights = {
   summary: {
     totalAttempts: number; completedAttempts: number; inProgressAttempts: number;

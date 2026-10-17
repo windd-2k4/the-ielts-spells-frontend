@@ -1,11 +1,11 @@
 import {
-  Brain,
+  ArrowRight,
+  CalendarBlank,
+  CaretDown,
   CheckCircle,
   Clock,
-  Sparkle,
   TrendUp,
   WarningCircle,
-  Users,
   Notebook,
   ChalkboardTeacher,
 } from "@phosphor-icons/react";
@@ -47,29 +47,61 @@ interface CourseOverviewProps {
 }
 
 function ProgressBar({ value, label }: { value: number | null; label: string }) {
-  const isEmerald = value != null && value >= 80;
-  const isAmber = value != null && value >= 65 && value < 80;
-  
+  const needsAttention = value != null && value < 65;
+
   return (
-    <div className="bg-surface-container/30 p-4 rounded-xl border border-outline-variant/30">
-      <div className="mb-2 flex items-center justify-between">
+    <div className="rounded-xl bg-surface-container-low/55 p-3 ring-1 ring-inset ring-outline-variant/20">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-sm font-bold text-on-surface">{label}</span>
-        <span className={`text-sm font-extrabold tabular-nums px-2 py-0.5 rounded-md ${
-          value == null ? "bg-surface-container text-on-surface-variant" : isEmerald ? "bg-emerald-50 text-emerald-700" : isAmber ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
-        }`}>
-          {value == null ? "—" : `${value}%`}
-        </span>
+        <strong className={`text-sm tabular-nums ${needsAttention ? "text-error" : "text-primary"}`}>{value == null ? "-" : `${value}%`}</strong>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-surface-container" aria-label={value == null ? `${label} chưa có dữ liệu` : `${label} ${value}%`}>
-        <div 
-          className={`h-full rounded-full transition-all duration-500 ${
-            isEmerald ? "bg-emerald-500" : isAmber ? "bg-amber-500" : "bg-rose-500"
-          }`} 
-          style={{ width: `${value ?? 0}%` }}
-        />
+      <div className="relative h-2.5 overflow-hidden rounded-full bg-surface-container-high" aria-label={value == null ? `${label} chưa có dữ liệu` : `${label} ${value}%`}>
+        <div className={`h-full rounded-full transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${needsAttention ? "bg-error" : "bg-primary"}`} style={{ width: `${value ?? 0}%` }} />
+        <span className="absolute inset-y-0 left-[80%] w-px bg-on-surface/25" title="Mục tiêu 80%" />
       </div>
     </div>
   );
+}
+
+function MetricRing({ value, warning = false }: { value: number | null; warning?: boolean }) {
+  const normalized = Math.max(0, Math.min(100, value ?? 0));
+  return (
+    <span className="relative grid h-14 w-14 shrink-0 place-items-center" aria-hidden="true">
+      <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" className="text-surface-container-high" />
+        <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - normalized} className={warning ? "text-error" : "text-primary"} />
+      </svg>
+      <strong className={`relative text-xs font-black tabular-nums ${warning ? "text-error" : "text-on-surface"}`}>{value == null ? "-" : `${value}%`}</strong>
+    </span>
+  );
+}
+
+function TrendChart({ values }: { values: Array<{ label: string; value: number }> }) {
+  const width = 420;
+  const height = 112;
+  const points = values.map((item, index) => {
+    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+    const y = height - (item.value / 100) * (height - 20) - 10;
+    return { ...item, x, y };
+  });
+  const polyline = points.map((item) => `${item.x},${item.y}`).join(" ");
+
+  return (
+    <div className="mt-3">
+      {values.length > 1 ? <>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-28 w-full overflow-visible" role="img" aria-label="Xu hướng kết quả trung bình theo buổi">
+          {[25, 50, 75].map((value) => <line key={value} x1="0" x2={width} y1={height - (value / 100) * (height - 20) - 10} y2={height - (value / 100) * (height - 20) - 10} className="stroke-outline-variant/35" strokeDasharray="4 6" />)}
+          <polyline points={polyline} fill="none" className="stroke-primary" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map((item) => <circle key={item.label} cx={item.x} cy={item.y} r="4" className="fill-surface stroke-primary" strokeWidth="3"><title>{item.label}: {item.value}%</title></circle>)}
+        </svg>
+        <div className="mt-1 flex justify-between text-[10px] font-semibold text-on-surface-variant"><span>{values[0]?.label}</span><span>{values.at(-1)?.label}</span></div>
+      </> : <div className="grid h-28 place-items-center rounded-xl bg-surface-container-low/60 text-xs text-on-surface-variant">Chưa đủ dữ liệu xu hướng</div>}
+    </div>
+  );
+}
+
+function sessionTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 export default function CourseOverview({
@@ -194,256 +226,116 @@ export default function CourseOverview({
   const average=knownRates.length?Math.round(knownRates.reduce((a,b)=>a+b,0)/knownRates.length):null;
   const risks = roster.filter(item => {const value=studentRates.get(item.student.id);return value!=null&&value<65});
   
-  const classStrengths = courseProgress.length ? "Dữ liệu phân tích được tổng hợp từ các bài làm đã nộp trong lớp." : "Chưa có đủ bài làm để tạo phân tích.";
-  const classWeaknesses = courseProgress.length ? "Giáo viên cần xem chi tiết từng kỹ năng và xác nhận các kết quả tự nhập." : "Chưa có dữ liệu để xác định điểm nghẽn học thuật.";
-  
-  const aiRecommendations: {id:string;title:string;target:string;action:string}[] = [];
+  const markedAttendance = attendance.filter((item) => item.status !== "PENDING");
+  const attended = markedAttendance.filter((item) => ["PRESENT", "LATE", "LEFT_EARLY"].includes(item.status)).length;
+  const attendanceRate = markedAttendance.length ? Math.round((attended / markedAttendance.length) * 100) : null;
+  const recordedSessions = new Set(markedAttendance.map((item) => item.sessionId)).size;
+  const nextSession = sessions.filter((item) => item.status === "SCHEDULED" && new Date(item.endsAt).getTime() >= Date.now()).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0];
+  const sessionTrend = useMemo(() => sessions
+    .map((session) => {
+      const values = courseProgress
+        .filter((activity) => activity.sessionId === session.id)
+        .flatMap((activity) => activity.attempts)
+        .map((attempt) => attempt.comprehensionPercent ?? (attempt.score != null && attempt.maxScore ? Math.round((attempt.score / attempt.maxScore) * 100) : null))
+        .filter((value): value is number => value != null);
+      return values.length ? { label: `Buổi ${session.sessionNo}`, value: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length), sessionNo: session.sessionNo } : null;
+    })
+    .filter((item): item is { label: string; value: number; sessionNo: number } => item != null)
+    .sort((a, b) => a.sessionNo - b.sessionNo)
+    .slice(-6), [courseProgress, sessions]);
+  const primaryTeacher = courseTeachers.find((item) => item.primary);
+  const assignedSupports = studentSupportOptions.filter((item) => assignedSupportIds.includes(item.authUserId));
+
+  const metrics = [
+    { label: "Tiến độ khóa", value: totalSessions ? `${Math.round((completedSessions / totalSessions) * 100)}%` : "-", note: `${completedSessions}/${totalSessions} buổi`, icon: Clock, progress: totalSessions ? Math.round((completedSessions / totalSessions) * 100) : null },
+    { label: "Kết quả trung bình", value: average == null ? "-" : `${average}%`, note: `${skills.length} kỹ năng`, icon: TrendUp, progress: average },
+    { label: "Chuyên cần", value: attendanceRate == null ? "-" : `${attendanceRate}%`, note: `${recordedSessions} buổi đã ghi nhận`, icon: CheckCircle, progress: attendanceRate },
+    { label: "Cần chú ý", value: String(risks.length), note: "Dưới 65%", icon: WarningCircle, progress: null },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            label: "Tiến độ lớp học",
-            value: totalSessions ? `${Math.round((completedSessions / totalSessions) * 100)}%` : "—",
-            note: `${completedSessions}/${totalSessions} session học`,
-            icon: Clock,
-            color: "text-primary bg-primary/10 border-primary/20",
-          },
-          {
-            label: "Hoàn thành hoạt động",
-            value: average == null ? "—" : `${average}%`,
-            note: "Trung bình 2 kỹ năng của khóa",
-            icon: TrendUp,
-            color: "text-emerald-700 bg-emerald-50 border-emerald-200",
-          },
-          {
-            label: "Học viên cần hỗ trợ",
-            value: risks.length,
-            note: "Học viên có tiến độ dưới 65%",
-            icon: WarningCircle,
-            color: "text-rose-700 bg-rose-50 border-rose-200",
-          },
-          {
-            label: "Sĩ số hiện tại",
-            value: `${roster.length}/${selectedClass?.capacity ?? 0}`,
-            note: "Học viên đang học tích cực",
-            icon: Users,
-            color: "text-blue-700 bg-blue-50 border-blue-200",
-          },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.label}
-              className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface px-3 py-2.5"
-            >
-              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${item.color}`}>
-                <Icon size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
-                  {item.label}
-                </p>
-                <p className="font-display text-lg font-black leading-6 text-on-surface tabular-nums">
-                  {item.value}
-                </p>
-                <p className="truncate text-[11px] text-on-surface-variant">
-                  {item.note}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+    <div className="space-y-3 rounded-[20px] bg-surface-container-low/45 p-3">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <section aria-labelledby="course-health-heading">
+          <h2 id="course-health-heading" className="sr-only">Tình trạng khóa học</h2>
+          <div className="grid h-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {metrics.map((item) => {
+              const Icon = item.icon;
+              const warning = item.label === "Cần chú ý" && risks.length > 0;
+              return <article key={item.label} className={`flex min-h-[104px] items-center gap-3 rounded-2xl bg-surface p-3 shadow-[0_8px_24px_rgba(82,48,60,0.055)] ring-1 ${warning ? "ring-error/25" : "ring-primary/10"}`}>
+                {item.progress != null ? <MetricRing value={item.progress} warning={item.progress < 65} /> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-error-container/30 text-error"><Icon size={22} weight="duotone" /></span>}
+                <span className="min-w-0"><span className="block truncate text-xs font-bold text-on-surface-variant">{item.label}</span>{item.progress == null && <strong className="mt-0.5 block font-display text-xl font-black tabular-nums text-error">{item.value}</strong>}<span className="mt-1 block truncate text-[11px] font-medium text-on-surface-variant">{item.note}</span></span>
+              </article>;
+            })}
+          </div>
+        </section>
+
+        <aside className="relative overflow-hidden rounded-2xl bg-primary p-4 text-on-primary shadow-[0_12px_28px_rgba(82,48,60,0.18)]" aria-labelledby="next-session-heading">
+          <span className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10" />
+          <div className="relative flex h-full min-h-[104px] flex-col">
+            <div className="flex items-center justify-between gap-3"><h2 id="next-session-heading" className="flex items-center gap-2 text-xs font-bold"><CalendarBlank size={17} weight="duotone" />Buổi tiếp theo</h2><ArrowRight size={16} /></div>
+            {nextSession ? <><strong className="mt-3 line-clamp-2 text-sm leading-5">Buổi {nextSession.sessionNo}: {nextSession.title || "Chưa đặt tên"}</strong><span className="mt-1 text-[11px] text-on-primary/75">{sessionTime(nextSession.startsAt)}</span></> : <p className="mt-3 text-sm font-semibold text-on-primary/75">Chưa có lịch sắp tới</p>}
+            <button type="button" onClick={() => setTab("schedule")} className="mt-auto self-start rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold text-primary transition hover:bg-primary-container active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface">Mở thời khóa biểu</button>
+          </div>
+        </aside>
       </div>
 
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-12">
-        {/* Left Column: Skill Breakdown & Operational Rules */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Skill Performance Card */}
-          <div className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4">
-              <div>
-                <h2 className="font-display text-lg font-extrabold flex items-center gap-2">
-                  <Notebook size={20} className="text-primary" />
-                  Trung bình các kỹ năng
-                </h2>
-                <p className="text-sm text-on-surface-variant mt-0.5">
-                  Tỉ lệ hoàn thành trung bình của cả lớp
-                </p>
-              </div>
-              <button
-                onClick={() => setTab("progress")}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-primary hover:bg-primary-container/20 border border-primary/20 transition-colors"
-              >
-                Chi tiết 2 kỹ năng
-              </button>
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.55fr)_300px]">
+        <section className="rounded-2xl bg-surface p-4 shadow-[0_10px_28px_rgba(82,48,60,0.055)] ring-1 ring-primary/10" aria-labelledby="skill-overview-heading">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="skill-overview-heading" className="flex items-center gap-2 font-display text-base font-extrabold"><Notebook size={19} className="text-primary" />Tiến độ học tập</h2>
+            <button type="button" onClick={() => setTab("progress")} className="group inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-bold text-primary transition hover:bg-primary-container/25 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></button>
+          </div>
+          <div className="mt-3 grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:divide-x lg:divide-outline-variant/30">
+            <div className="space-y-2 lg:pr-4">
+              <p className="text-xs font-bold text-on-surface-variant">Theo kỹ năng</p>
               {skills.map((skill) => {
                 const attempts=courseProgress.filter(value=>value.skill===skill.key).flatMap(value=>value.attempts);const values=attempts.map(value=>value.comprehensionPercent??(value.score!=null&&value.maxScore?Math.round(value.score/value.maxScore*100):null)).filter((value):value is number=>value!=null);const val=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):null;
                 return <ProgressBar key={skill.key} label={skill.label} value={val} />;
               })}
             </div>
-          </div>
-
-          {/* Operational Rules Card */}
-          <div className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
-            <h2 className="font-display text-lg font-extrabold mb-4">Quy tắc vận hành lớp học</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="p-4 bg-surface-container-low border border-outline-variant/20 rounded-xl">
-                <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm mb-1">
-                  <CheckCircle size={18} />
-                  Kết quả học vụ
-                </div>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Kết quả do học viên tự nhập cần được giáo viên phê duyệt mới được tính vào tiến độ chính thức.
-                </p>
-              </div>
-              <div className="p-4 bg-surface-container-low border border-outline-variant/20 rounded-xl">
-                <div className="flex items-center gap-2 text-amber-700 font-bold text-sm mb-1">
-                  <WarningCircle size={18} />
-                  Cảnh báo chuyên cần
-                </div>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Hệ thống tự động gắn cờ đỏ khi học viên có tỷ lệ chuyên cần (attendance) dưới 80%.
-                </p>
-              </div>
-              <div className="p-4 bg-surface-container-low border border-outline-variant/20 rounded-xl">
-                <div className="flex items-center gap-2 text-primary font-bold text-sm mb-1">
-                  <Clock size={18} />
-                  Thông báo tự động
-                </div>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Hệ thống gửi email/Zalo nhắc nhở nộp bài tự động trước thời hạn kết thúc bài tập 24 giờ.
-                </p>
-              </div>
+            <div className="lg:pl-4">
+              <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-on-surface-variant">Kết quả theo buổi</p>{sessionTrend.length > 0 && <strong className="text-xs tabular-nums text-primary">{sessionTrend.at(-1)?.value}% gần nhất</strong>}</div>
+              <TrendChart values={sessionTrend} />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Right Column: AI Analysis & Insights Panel */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-surface to-primary-container/5 p-6 shadow-sm relative overflow-hidden">
-            {/* Decorative background logo */}
-            <Brain size={120} className="absolute -right-8 -bottom-8 text-primary/5 pointer-events-none" />
-
-            <div className="flex items-center gap-2 text-primary font-extrabold text-lg border-b border-primary/10 pb-3">
-              <Brain size={22} className="text-primary animate-pulse" />
-              <span>AI Insights học tập</span>
-              <span className="ml-auto inline-flex items-center gap-0.5 bg-primary-container/20 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">
-                <Sparkle size={10} weight="fill" /> Active
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-primary">Điểm mạnh nổi bật</h4>
-                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                  {classStrengths}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-rose-700">Điểm nghẽn học thuật</h4>
-                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                  {classWeaknesses}
-                </p>
-              </div>
-
-              {risks.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-700">Học viên cần quan tâm đặc biệt</h4>
-                  <div className="mt-1.5 space-y-2">
-                    {risks.slice(0, 2).map(item => (
-                      <div 
-                        key={item.student.id} 
-                        onClick={() => onSelectStudent?.(item.student.id)}
-                        className="flex items-start gap-2 bg-amber-50/50 p-2 rounded-lg border border-amber-100 cursor-pointer hover:bg-amber-100/50 transition-colors"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary shrink-0">
-                          {item.student.fullName.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-on-surface truncate hover:underline">{item.student.fullName}</p>
-                          <p className="text-[10px] text-on-surface-variant truncate">
-                            Tiến độ hiện tại {studentRates.get(item.student.id)}%
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-outline-variant/30 pt-4">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-on-surface">Đề xuất từ AI cho giáo viên</h4>
-                <div className="mt-2 space-y-2">
-                  {aiRecommendations.map(rec => (
-                    <div key={rec.id} className="bg-surface border border-outline-variant/40 p-2.5 rounded-xl text-xs space-y-1">
-                      <p className="font-bold text-on-surface flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                        {rec.title}
-                      </p>
-                      <p className="text-[11px] text-on-surface-variant leading-relaxed pl-2.5">{rec.target}</p>
-                      <span className="inline-block mt-1 text-[10px] text-primary font-bold bg-primary-container/20 px-2 py-0.5 rounded-md">
-                        {rec.action}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <aside className="rounded-2xl bg-surface p-4 shadow-[0_10px_28px_rgba(82,48,60,0.055)] ring-1 ring-error/15" aria-labelledby="attention-heading">
+          <div className="flex items-center justify-between gap-3"><h2 id="attention-heading" className="font-display text-base font-extrabold">Cần chú ý</h2><span className={`grid h-7 min-w-7 place-items-center rounded-lg px-2 text-xs font-black tabular-nums ${risks.length ? "bg-error-container/35 text-error" : "bg-emerald-50 text-emerald-700"}`}>{risks.length}</span></div>
+          {risks.length ? <div className="mt-3 space-y-2">
+            {risks.slice(0, 3).map((item) => <button type="button" key={item.student.id} onClick={() => onSelectStudent?.(item.student.id)} className="flex min-h-12 w-full items-center gap-2.5 rounded-xl px-2 text-left transition hover:bg-error-container/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-error">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-error-container/30 text-xs font-black text-error">{item.student.fullName.trim().charAt(0).toUpperCase()}</span>
+              <span className="min-w-0 flex-1"><strong className="block truncate text-xs">{item.student.fullName}</strong><span className="text-[10px] text-on-surface-variant">Tiến độ học tập</span></span>
+              <strong className="text-xs tabular-nums text-error">{studentRates.get(item.student.id)}%</strong>
+            </button>)}
+          </div> : <div className="mt-3 grid min-h-32 place-items-center rounded-xl bg-surface-container-low/60 text-center"><span><CheckCircle size={24} className="mx-auto text-emerald-600" /><span className="mt-2 block text-xs font-bold">Không có cảnh báo</span></span></div>}
+          <button type="button" onClick={() => setTab("progress")} className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-full border border-primary/15 text-xs font-bold text-primary transition hover:bg-primary-container/20 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Xem tiến độ lớp <ArrowRight size={14} /></button>
+        </aside>
       </div>
 
-      {canAssignTeacher && selectedClass && (
-        <section className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
-          <div className="flex items-start gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><ChalkboardTeacher size={22} /></span>
-            <div>
-              <h2 className="font-display text-lg font-extrabold">Phân công giảng dạy</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Giáo viên chính được dùng làm mặc định cho lịch học. Có thể chọn giáo viên dạy thay ở từng buổi.</p>
-            </div>
-          </div>
-          {teacherError && <p role="alert" className="mt-4 rounded-xl border border-error/30 bg-error-container/20 px-3 py-2 text-sm text-error">{teacherError}</p>}
-          {teacherSuccess && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{teacherSuccess}</p>}
-          {isLoadingTeachers ? <p className="mt-4 text-sm text-on-surface-variant">Đang tải danh sách giáo viên...</p> : teacherOptions.length === 0 ? <p className="mt-4 text-sm text-on-surface-variant">Chưa có giáo viên đang hoạt động. Hãy kích hoạt tài khoản giáo viên trong mục Nhân sự.</p> : (
-            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Giáo viên chính</span><select value={primaryTeacherId} onChange={(event) => { setPrimaryTeacherId(event.target.value); setTeacherSuccess(""); }} className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"><option value="">Chọn giáo viên</option>{teacherOptions.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.fullName} ({teacher.email})</option>)}</select></label>
-              <button type="button" onClick={() => void savePrimaryTeacher()} disabled={!primaryTeacherId || isSavingTeacher} className="min-h-11 rounded-xl bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-50">{isSavingTeacher ? "Đang lưu..." : "Lưu giáo viên chính"}</button>
-            </div>
-          )}
-          {courseTeachers.some((item) => !item.primary) && <div className="mt-5 border-t border-outline-variant/30 pt-4"><p className="text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Giáo viên từng dạy thay</p><div className="mt-2 flex flex-wrap gap-2">{courseTeachers.filter((item) => !item.primary).map((teacher) => <span key={teacher.teacherId} className="rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-2 text-xs font-semibold">{teacher.fullName ?? teacher.email ?? "Giáo viên"}</span>)}</div></div>}
-        </section>
-      )}
+      {(canAssignTeacher || canAssignStudentSupport) && selectedClass && <details className="group overflow-hidden rounded-[22px] bg-surface shadow-[0_12px_32px_rgba(82,48,60,0.055)] ring-1 ring-primary/10">
+        <summary className="flex min-h-[72px] cursor-pointer list-none items-center gap-3 px-4 transition duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-primary/[0.035] [&::-webkit-details-marker]:hidden">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-container/25 text-primary ring-1 ring-primary/10"><ChalkboardTeacher size={22} weight="duotone" /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-sm">Nhân sự phụ trách</strong><span className="block truncate text-[11px] text-on-surface-variant">{primaryTeacher?.fullName || "Chưa phân công giáo viên"} · {assignedSupports.length} hỗ trợ</span></span>
+          <span className="rounded-full bg-primary-container/20 px-3 py-1.5 text-xs font-bold text-primary">Quản lý</span><CaretDown size={17} className="text-on-surface-variant transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-open:rotate-180" />
+        </summary>
+        <div className="grid gap-3 border-t border-outline-variant/25 bg-surface-container-low/30 p-4 lg:grid-cols-2">
+          {canAssignTeacher && <section className="rounded-2xl bg-surface p-4 ring-1 ring-primary/10" aria-labelledby="teacher-assignment-heading">
+            <h3 id="teacher-assignment-heading" className="text-sm font-extrabold">Giáo viên chính</h3>
+            {teacherError && <p role="alert" className="mt-3 rounded-lg bg-error-container/25 px-3 py-2 text-xs text-error">{teacherError}</p>}
+            {teacherSuccess && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{teacherSuccess}</p>}
+            {isLoadingTeachers ? <p className="mt-3 text-xs text-on-surface-variant">Đang tải...</p> : teacherOptions.length === 0 ? <p className="mt-3 text-xs text-on-surface-variant">Chưa có giáo viên hoạt động.</p> : <div className="mt-3 flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Chọn giáo viên chính</span><select value={primaryTeacherId} onChange={(event) => { setPrimaryTeacherId(event.target.value); setTeacherSuccess(""); }} className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10"><option value="">Chọn giáo viên</option>{teacherOptions.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.fullName}</option>)}</select></label><button type="button" onClick={() => void savePrimaryTeacher()} disabled={!primaryTeacherId || isSavingTeacher} className="min-h-11 rounded-xl bg-primary px-4 text-xs font-bold text-on-primary disabled:opacity-50">{isSavingTeacher ? "Đang lưu" : "Lưu"}</button></div>}
+          </section>}
 
-      {canAssignStudentSupport && selectedClass && (
-        <section className="rounded-2xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display text-lg font-extrabold">Phân công Student Support</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Nhân sự được chọn chỉ xem học viên, chuyên cần và tiến độ của khóa này.</p>
-            </div>
-            <button type="button" onClick={() => void saveStudentSupports()} disabled={isLoadingSupport || isSavingSupport} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary disabled:opacity-50">
-              {isSavingSupport ? "Đang lưu..." : "Lưu phân công"}
-            </button>
-          </div>
-          {studentSupportError && <p role="alert" className="mt-4 rounded-xl border border-error/30 bg-error-container/20 px-3 py-2 text-sm text-error">{studentSupportError}</p>}
-          {studentSupportSuccess && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{studentSupportSuccess}</p>}
-          {isLoadingSupport ? <p className="mt-4 text-sm text-on-surface-variant">Đang tải nhân sự hỗ trợ...</p> : studentSupportOptions.length === 0 ? <p className="mt-4 text-sm text-on-surface-variant">Chưa có nhân sự Student Support đang hoạt động.</p> : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {studentSupportOptions.map((staff) => {
-                const supportId = staff.authUserId;
-                const checked = assignedSupportIds.includes(supportId);
-                return <label key={supportId} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${checked ? "border-primary bg-primary-container/10" : "border-outline-variant/50"}`}><input type="checkbox" checked={checked} onChange={() => setAssignedSupportIds((current) => checked ? current.filter((id) => id !== supportId) : [...current, supportId])} className="mt-1 h-4 w-4 accent-primary" /><span><strong className="block text-sm">{staff.fullName}</strong><span className="text-xs text-on-surface-variant">{staff.email}</span></span></label>;
-              })}
-            </div>
-          )}
-        </section>
-      )}
+          {canAssignStudentSupport && <section className="rounded-2xl bg-surface p-4 ring-1 ring-primary/10" aria-labelledby="support-assignment-heading">
+            <div className="flex items-center justify-between gap-3"><h3 id="support-assignment-heading" className="text-sm font-extrabold">Student Support</h3><button type="button" onClick={() => void saveStudentSupports()} disabled={isLoadingSupport || isSavingSupport} className="min-h-9 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary disabled:opacity-50">{isSavingSupport ? "Đang lưu" : "Lưu"}</button></div>
+            {studentSupportError && <p role="alert" className="mt-3 rounded-lg bg-error-container/25 px-3 py-2 text-xs text-error">{studentSupportError}</p>}
+            {studentSupportSuccess && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{studentSupportSuccess}</p>}
+            {isLoadingSupport ? <p className="mt-3 text-xs text-on-surface-variant">Đang tải...</p> : studentSupportOptions.length === 0 ? <p className="mt-3 text-xs text-on-surface-variant">Chưa có nhân sự hỗ trợ.</p> : <div className="mt-3 grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">{studentSupportOptions.map((staff) => { const supportId=staff.authUserId; const checked=assignedSupportIds.includes(supportId); return <label key={supportId} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 ${checked ? "border-primary/45 bg-primary-container/15" : "border-outline-variant/40"}`}><input type="checkbox" checked={checked} onChange={() => setAssignedSupportIds((current) => checked ? current.filter((id) => id !== supportId) : [...current, supportId])} className="h-4 w-4 rounded border-outline accent-primary" /><span className="min-w-0 truncate text-xs font-semibold">{staff.fullName}</span></label>; })}</div>}
+          </section>}
+        </div>
+      </details>}
     </div>
   );
 }

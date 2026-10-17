@@ -2,6 +2,7 @@
 
 import ScrollReveal from "./ScrollReveal";
 import { CheckCircle, Target, Brain, ChartLineUp } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 const PILLARS = [
   {
@@ -22,6 +23,7 @@ const PILLARS = [
 ];
 
 export default function AboutSection() {
+  const content = useLandingSection("about");
   return (
     <section id="about" className="section-padding bg-white relative overflow-hidden border-b border-[#F3E8C4]">
       <div className="lp-container">
@@ -32,7 +34,7 @@ export default function AboutSection() {
               <div className="relative">
                 <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-[#FFFDF0] aspect-[4/3]">
                   <img
-                    src="/gioithieu.png"
+                    src={content?.mediaPath ?? "/gioithieu.png"}
                     alt="Không gian lớp học The IELTS Spells"
                     className="w-full h-full object-cover"
                   />
@@ -58,14 +60,13 @@ export default function AboutSection() {
             <ScrollReveal>
               <div className="space-y-4">
                 <div className="inline-block px-3 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
-                  Về The IELTS Spells
+                  {content?.eyebrow ?? "Về The IELTS Spells"}
                 </div>
                 <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[#1E1B18] leading-tight">
-                  Không chỉ học IELTS — <br />
-                  <span className="text-[#894C5B] italic">bạn học cách tiến bộ</span>
+                  {content?.title ?? "Không chỉ học IELTS — bạn học cách tiến bộ"}
                 </h2>
                 <p className="text-base sm:text-lg text-[#5C5752] leading-relaxed">
-                  Tại The IELTS Spells, chúng tôi tin rằng mỗi học viên đều sở hữu tiềm năng bứt phá. Chúng tôi mang tới giải pháp tinh gọn, giúp bạn chinh phục bằng tư duy học thuật thực chất thay vì áp lực học mẹo.
+                  {content?.description ?? "Tại The IELTS Spells, chúng tôi tin rằng mỗi học viên đều sở hữu tiềm năng bứt phá. Chúng tôi mang tới giải pháp tinh gọn, giúp bạn chinh phục bằng tư duy học thuật thực chất thay vì áp lực học mẹo."}
                 </p>
               </div>
             </ScrollReveal>

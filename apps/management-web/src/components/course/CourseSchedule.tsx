@@ -13,7 +13,7 @@ import ScheduleSetupModal from "./ScheduleSetupModal";
 import SessionDrawer from "./SessionDrawer";
 import AttachLibraryModal, { type SessionPickerItem } from "../library/AttachLibraryModal";
 
-interface CourseScheduleProps { courseId: string; skillPair: SkillPair }
+interface CourseScheduleProps { courseId: string; skillPair: SkillPair; initialSessions?: ClassSession[] }
 type ScheduleType = "ALL" | "CLASS" | "EXAM";
 type ViewMode = "LIST" | "CALENDAR";
 export type ItemDraft = {
@@ -92,7 +92,7 @@ function fromSession(value: ClassSession): SessionDraft {
   };
 }
 
-export default function CourseSchedule({ courseId, skillPair }: CourseScheduleProps) {
+export default function CourseSchedule({ courseId, skillPair, initialSessions }: CourseScheduleProps) {
   const { roles } = useAuth();
   const canManage = roles.some(role => role === "admin" || role === "teacher");
   const canAssignTeacher = roles.includes("admin");
@@ -114,12 +114,24 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
   const [shiftFollowing, setShiftFollowing] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
+  const ensureTeachers = useCallback(async () => {
+    if (!canAssignTeacher || teachers.length) return;
+    try {
+      setTeachers(await apiFetch<TeacherOption[]>("/admin/teacher-options"));
+    } catch {
+      setTeachers([]);
+    }
+  }, [canAssignTeacher, teachers.length]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
+      const sessionRequest = initialSessions?.length
+        ? Promise.resolve(initialSessions)
+        : apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`);
       const [values, teacherAssignments] = await Promise.all([
-        apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`),
+        sessionRequest,
         apiFetch<CourseTeacherAssignment[]>(`/admin/courses/${courseId}/teachers`),
       ]);
       setSessions([...values].sort((a, b) => a.sessionNo - b.sessionNo));
@@ -129,14 +141,9 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, initialSessions]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    if (!canAssignTeacher) return;
-    void apiFetch<TeacherOption[]>("/admin/teacher-options")
-      .then(setTeachers).catch(() => setTeachers([]));
-  }, [canAssignTeacher]);
 
   const drawerTeachers = useMemo(() => canAssignTeacher ? teachers : courseTeachers.map(teacher => ({
     id: teacher.teacherId,
@@ -169,6 +176,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
   }), [filterType, sessions]);
 
   function openCreate(day?: Date, slot?: "MORNING" | "AFTERNOON" | "EVENING", mode: "SESSION" | "TEST" = "SESSION") {
+    void ensureTeachers();
     const value = emptyDraft(Math.max(0, ...sessions.map(item => item.sessionNo)) + 1);
     value.teacherId = primaryTeacherId;
     if (day) {
@@ -191,6 +199,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
     setError("");
   }
   function openEdit(session: ClassSession) {
+    void ensureTeachers();
     setEditingId(session.id);
     setConfirmDelete(false);
     setDraft(fromSession(session));
@@ -393,7 +402,7 @@ export default function CourseSchedule({ courseId, skillPair }: CourseSchedulePr
                 <MenuButton icon={<ArrowsOut size={16} />} label="Toàn màn hình" onClick={() => document.documentElement.requestFullscreen?.()} />
               </>}
               {canManage && <>
-                {canAssignTeacher && <MenuButton icon={<GearSix size={16} />} label="Thiết lập lộ trình" onClick={() => setShowSetup(true)} />}
+                {canAssignTeacher && <MenuButton icon={<GearSix size={16} />} label="Thiết lập lộ trình" onClick={() => { void ensureTeachers(); setShowSetup(true); }} />}
                 <MenuButton icon={<Exam size={16} />} label="Thêm mini test" onClick={() => openCreate(undefined, undefined, "TEST")} />
               </>}
             </div>
@@ -465,13 +474,19 @@ function CalendarView({ days, sessions, primaryTeacherId, canManage, onOpen, onE
     { key: "AFTERNOON" as const, label: "Chiều", from: 12, to: 18 },
     { key: "EVENING" as const, label: "Tối", from: 18, to: 24 },
   ];
-  return <div className="overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] table-fixed border-collapse"><thead><tr className="border-b border-outline-variant/40 bg-surface-container-low"><th className="w-20 border-r border-outline-variant/20 px-3 py-4 text-xs font-extrabold uppercase text-on-surface-variant">Ca học</th>{days.map((day, index) => <th key={day.toISOString()} className="border-r border-outline-variant/20 px-3 py-4 text-center last:border-r-0"><p className="text-sm font-extrabold">{index === 6 ? "Chủ nhật" : `Thứ ${index + 2}`}</p><p className="mt-0.5 text-xs font-semibold text-on-surface-variant">{day.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</p></th>)}</tr></thead><tbody>{slots.map(slot => <tr key={slot.key} className="h-40 border-b border-outline-variant/25 last:border-0"><td className="border-r border-outline-variant/20 bg-surface-container-low/20 text-center text-xs font-extrabold text-on-surface-variant">{slot.label}</td>{days.map(day => {
+  return <div className="overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] table-fixed border-collapse"><thead><tr className="border-b border-outline-variant/40 bg-surface-container-low"><th className="w-20 border-r border-outline-variant/20 px-3 py-4 text-xs font-extrabold uppercase text-on-surface-variant">Ca học</th>{days.map((day, index) => <th key={day.toISOString()} className="border-r border-outline-variant/20 px-3 py-4 text-center last:border-r-0"><p className="text-sm font-extrabold">{index === 6 ? "Chủ nhật" : `Thứ ${index + 2}`}</p><p className="mt-0.5 text-xs font-semibold text-on-surface-variant">{day.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</p></th>)}</tr></thead><tbody>{slots.map(slot => {
+    const slotHasSessions = sessions.some(session => {
+      const start = new Date(session.startsAt);
+      return days.some(day => start.toDateString() === day.toDateString()) && start.getHours() >= slot.from && start.getHours() < slot.to;
+    });
+    return <tr key={slot.key} className={`${slotHasSessions ? "h-40" : "h-12"} border-b border-outline-variant/25 last:border-0`}><td className="border-r border-outline-variant/20 bg-surface-container-low/20 text-center text-xs font-extrabold text-on-surface-variant">{slot.label}</td>{days.map(day => {
     const values = sessions.filter(session => {
       const start = new Date(session.startsAt);
       return start.toDateString() === day.toDateString() && start.getHours() >= slot.from && start.getHours() < slot.to;
     });
-    return <td key={day.toISOString()} onDoubleClick={() => canManage && onEmptyCell(day, slot.key)} className="align-top border-r border-outline-variant/20 p-2 last:border-r-0">{values.map(session => <SessionCard key={session.id} session={session} primaryTeacherId={primaryTeacherId} onClick={() => canManage && onOpen(session)} />)}{values.length === 0 && canManage && <button onClick={() => onEmptyCell(day, slot.key)} className="flex h-full min-h-28 w-full items-center justify-center rounded-xl border border-dashed border-transparent text-outline/0 transition hover:border-primary/25 hover:text-primary/70"><Plus size={20} /></button>}</td>;
-  })}</tr>)}</tbody></table></div><div className="flex flex-wrap items-center justify-center gap-5 border-t border-outline-variant/30 bg-surface-container-low px-5 py-4 text-xs font-semibold text-on-surface-variant"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-blue-100 ring-1 ring-blue-300" />Học trực tuyến (Zoom)</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />Có bài test</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" />Đã hủy</span></div></div>;
+    return <td key={day.toISOString()} onDoubleClick={() => canManage && onEmptyCell(day, slot.key)} className="align-top border-r border-outline-variant/20 p-2 last:border-r-0">{values.map(session => <SessionCard key={session.id} session={session} primaryTeacherId={primaryTeacherId} onClick={() => canManage && onOpen(session)} />)}{values.length === 0 && canManage && <button onClick={() => onEmptyCell(day, slot.key)} className={`flex h-full w-full items-center justify-center rounded-xl border border-dashed border-transparent text-outline/0 transition hover:border-primary/25 hover:text-primary/70 ${slotHasSessions ? "min-h-28" : "min-h-8"}`}><Plus size={20} /></button>}</td>;
+  })}</tr>;
+  })}</tbody></table></div><div className="flex flex-wrap items-center justify-center gap-5 border-t border-outline-variant/30 bg-surface-container-low px-5 py-4 text-xs font-semibold text-on-surface-variant"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-blue-100 ring-1 ring-blue-300" />Học trực tuyến (Zoom)</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />Có bài test</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300" />Đã hủy</span></div></div>;
 }
 function SessionCard({ session, primaryTeacherId, onClick }: { session: ClassSession; primaryTeacherId: string; onClick: () => void }) {
   const start = new Date(session.startsAt);

@@ -9,10 +9,15 @@ import TeachersSection from "@/components/TeachersSection";
 import FeedbackSection from "@/components/FeedbackSection";
 import ConsultationForm from "@/components/ConsultationForm";
 import Footer from "@/components/Footer";
+import { LandingContentProvider } from "@/components/LandingContentProvider";
+import { getPublicLandingContent } from "@/lib/landingContent";
 
-export default function Home() {
+export default async function Home() {
+  const landingContent = await getPublicLandingContent();
+
   return (
-    <main className="min-h-screen bg-[#FEFDF5] text-[#1E1B18] font-sans antialiased">
+    <LandingContentProvider content={landingContent}>
+      <main className="min-h-screen bg-[#FEFDF5] text-[#1E1B18] font-sans antialiased">
       {/* 1. Header Navigation */}
       <Navbar />
 
@@ -45,6 +50,7 @@ export default function Home() {
 
       {/* 11. Footer Liên Hệ */}
       <Footer />
-    </main>
+      </main>
+    </LandingContentProvider>
   );
 }

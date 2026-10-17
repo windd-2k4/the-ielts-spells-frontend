@@ -3,8 +3,10 @@
 import { useState, FormEvent } from "react";
 import ScrollReveal from "./ScrollReveal";
 import { PaperPlaneRight, CheckCircle, Sparkle, PhoneCall, ShieldCheck, Spinner } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 export default function ConsultationForm() {
+  const content = useLandingSection("consultation");
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -55,20 +57,19 @@ export default function ConsultationForm() {
               <ScrollReveal>
                 <div className="inline-flex items-center gap-2 px-4 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
                   <Sparkle size={16} weight="fill" className="text-[#F5C842]" />
-                  <span>Tư Vấn Miễn Phí</span>
+                  <span>{content?.eyebrow ?? "Tư Vấn Miễn Phí"}</span>
                 </div>
               </ScrollReveal>
 
               <ScrollReveal delay={1}>
                 <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[#1E1B18] leading-tight">
-                  Nhận tư vấn lộ trình <br />
-                  <span className="text-[#894C5B]">&amp; Test đầu vào 0đ</span>
+                  {content?.title ?? "Nhận tư vấn lộ trình & Test đầu vào 0đ"}
                 </h2>
               </ScrollReveal>
 
               <ScrollReveal delay={2}>
                 <p className="text-sm sm:text-base text-[#5C5752] leading-relaxed">
-                  Đội ngũ cố vấn chuyên môn tại The IELTS Spells sẽ liên hệ đánh giá hổng kiến thức và đề xuất lộ trình tinh gọn nhất cho mục tiêu của bạn.
+                  {content?.description ?? "Đội ngũ cố vấn chuyên môn tại The IELTS Spells sẽ liên hệ đánh giá hổng kiến thức và đề xuất lộ trình tinh gọn nhất cho mục tiêu của bạn."}
                 </p>
               </ScrollReveal>
 
@@ -258,7 +259,7 @@ export default function ConsultationForm() {
                       ) : (
                         <>
                           <PaperPlaneRight size={20} weight="bold" />
-                          <span>Đăng Ký Tư Vấn &amp; Test Đầu Vào</span>
+                          <span>{content?.primaryCta ?? "Đăng Ký Tư Vấn & Test Đầu Vào"}</span>
                         </>
                       )}
                     </button>

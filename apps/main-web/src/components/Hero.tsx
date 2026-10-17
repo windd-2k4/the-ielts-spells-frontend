@@ -2,8 +2,12 @@
 
 import ScrollReveal from "./ScrollReveal";
 import { Sparkle, MagicWand, Star, ArrowRight, CheckCircle } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 export default function Hero() {
+  const content = useLandingSection("hero");
+  const title = content?.title ?? "Cast the Spells, Claim the Band";
+  const [titleLead, titleAccent] = title.split(", ");
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -26,15 +30,15 @@ export default function Hero() {
             <ScrollReveal>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FEF9C3] text-[#894C5B] rounded-full border border-[#F3E8C4] shadow-sm font-semibold text-xs uppercase tracking-wider">
                 <MagicWand size={18} weight="fill" className="text-[#F5C842]" />
-                <span>The IELTS Spells • Học Thuật Kỳ Diệu</span>
+                <span>{content?.eyebrow ?? "The IELTS Spells • Học Thuật Kỳ Diệu"}</span>
               </div>
             </ScrollReveal>
 
             <ScrollReveal delay={1}>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#1E1B18] leading-[1.1] tracking-tight">
-                Cast the Spells, <br />
+                {titleLead}{titleAccent ? "," : ""} <br />
                 <span className="relative inline-block text-[#894C5B] italic">
-                  Claim the Band
+                  {titleAccent ?? "Claim the Band"}
                   <span className="absolute bottom-1 left-0 w-full h-3 bg-[#F5C842]/40 -z-10 rounded" />
                 </span>
               </h1>
@@ -42,7 +46,7 @@ export default function Hero() {
 
             <ScrollReveal delay={2}>
               <p className="text-lg sm:text-xl text-[#5C5752] max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
-                Chinh phục IELTS bằng một lộ trình rõ ràng, kết hợp giữa phương pháp học thuật tinh gọn và sự hỗ trợ từ các giáo viên từ 8.0 - 8.5 IELTS hàng đầu.
+                {content?.description ?? "Chinh phục IELTS bằng một lộ trình rõ ràng, kết hợp giữa phương pháp học thuật tinh gọn và sự hỗ trợ từ các giáo viên từ 8.0 - 8.5 IELTS hàng đầu."}
               </p>
             </ScrollReveal>
 
@@ -71,14 +75,14 @@ export default function Hero() {
                   onClick={() => scrollToSection("consultation")}
                   className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold bg-[#F5C842] text-[#1E1B18] hover:bg-[#E5B520] shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
                 >
-                  <span>Tư Vấn & Test Đầu Vào</span>
+                  <span>{content?.primaryCta ?? "Tư Vấn & Test Đầu Vào"}</span>
                   <ArrowRight size={18} weight="bold" />
                 </button>
                 <button
                   onClick={() => scrollToSection("courses")}
                   className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold bg-white text-[#894C5B] border-2 border-[#894C5B]/20 hover:bg-[#F7E5EA] transition-all flex items-center justify-center gap-2"
                 >
-                  <span>Khám Phá Khóa Học</span>
+                  <span>{content?.secondaryCta ?? "Khám Phá Khóa Học"}</span>
                 </button>
               </div>
             </ScrollReveal>
@@ -91,7 +95,7 @@ export default function Hero() {
                 {/* Main Sticker Image Card */}
                 <div className="sticker-card rounded-3xl overflow-hidden bg-white aspect-[4/5] relative">
                   <img
-                    src="/banner.png"
+                    src={content?.mediaPath ?? "/banner.png"}
                     alt="Giảng viên IELTS Spells hướng dẫn học viên"
                     className="w-full h-full object-cover object-center"
                   />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ScrollReveal from "./ScrollReveal";
+import { useLandingSection } from "./LandingContentProvider";
 import {
   MagnifyingGlassPlus,
   X,
@@ -133,6 +134,7 @@ interface LightboxItem {
 }
 
 export default function FeedbackSection() {
+  const content = useLandingSection("feedback");
   const [selectedItem, setSelectedItem] = useState<LightboxItem | null>(null);
   const [showAllFeedbacks, setShowAllFeedbacks] = useState(false);
 
@@ -144,15 +146,15 @@ export default function FeedbackSection() {
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
               <Trophy size={16} weight="fill" className="text-[#F5C842]" />
-              <span>Bảng Vàng Vinh Danh</span>
+              <span>{content?.eyebrow ?? "Bảng Vàng Vinh Danh"}</span>
             </div>
 
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1E1B18] tracking-tight">
-              Tiến bộ được thể hiện bằng kết quả
+              {content?.title ?? "Tiến bộ được thể hiện bằng kết quả"}
             </h2>
 
             <p className="text-base sm:text-lg text-[#5C5752] font-medium">
-              Câu chuyện thật từ các học viên đã "luyện phép" thành công.
+              {content?.description ?? 'Câu chuyện thật từ các học viên đã "luyện phép" thành công.'}
             </p>
           </div>
         </ScrollReveal>

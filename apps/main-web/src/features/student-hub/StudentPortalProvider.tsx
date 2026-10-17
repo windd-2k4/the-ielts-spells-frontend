@@ -12,9 +12,12 @@ import {
   type ReactNode,
 } from "react";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
+import { StudentLearningSetupGate } from "./StudentLearningSetupGate";
 import {
   getStudentPortalOverview,
+  updateStudentExamPlan,
   updateStudentTargetBand,
+  type StudentSkillTargets,
   type StudentPortalOverview,
 } from "./studentPortalApi";
 import { studentPortalErrorMessage } from "./studentPortalViewModel";
@@ -24,7 +27,8 @@ interface StudentPortalContextValue {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  saveTargetBand: (targetBand: number) => Promise<string | null>;
+  saveTargetBand: (targetBand: number, skillTargets: StudentSkillTargets) => Promise<string | null>;
+  saveExamPlan: (noExamPlan: boolean, plannedExamDate: string | null) => Promise<string | null>;
 }
 
 const StudentPortalContext = createContext<StudentPortalContextValue | null>(null);
@@ -65,12 +69,19 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
     loading: loading || sessionLoading,
     error,
     refresh,
-    saveTargetBand: async (targetBand) => {
+    saveTargetBand: async (targetBand, skillTargets) => {
       try {
-        const result = await updateStudentTargetBand(targetBand);
+        const result = await updateStudentTargetBand(targetBand, skillTargets);
         setData((current) => current ? {
           ...current,
-          profile: { ...current.profile, targetBand: result.targetBand },
+          profile: {
+            ...current.profile,
+            targetBand: result.targetBand,
+            listeningTarget: result.listeningTarget,
+            readingTarget: result.readingTarget,
+            writingTarget: result.writingTarget,
+            speakingTarget: result.speakingTarget,
+          },
           recommendedCourses: [...current.recommendedCourses].sort((left, right) => {
             const leftDistance = Math.abs((left.targetBand ?? result.targetBand) - result.targetBand);
             const rightDistance = Math.abs((right.targetBand ?? result.targetBand) - result.targetBand);
@@ -85,6 +96,23 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
           .catch(() => {
             setError("Band mục tiêu đã được lưu nhưng chưa thể làm mới danh sách khóa học.");
           });
+        return null;
+      } catch (saveError) {
+        return studentPortalErrorMessage(saveError);
+      }
+    },
+    saveExamPlan: async (noExamPlan, plannedExamDate) => {
+      try {
+        const result = await updateStudentExamPlan(noExamPlan, plannedExamDate);
+        setData((current) => current ? {
+          ...current,
+          profile: {
+            ...current.profile,
+            plannedExamDate: result.plannedExamDate,
+            examPlanStatus: result.noExamPlan ? "NONE" : "PLANNED",
+            learningSetupComplete: result.learningSetupComplete,
+          },
+        } : current);
         return null;
       } catch (saveError) {
         return studentPortalErrorMessage(saveError);
@@ -109,7 +137,27 @@ export function StudentPortalProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return <StudentPortalContext.Provider value={value}>{children}</StudentPortalContext.Provider>;
+  return (
+    <StudentPortalContext.Provider value={value}>
+      {data && !data.profile.learningSetupComplete
+        ? <StudentLearningSetupGate
+            currentBand={data.profile.currentBand}
+            targetBand={data.profile.targetBand}
+            skillTargets={{
+              listeningTarget: data.profile.listeningTarget,
+              readingTarget: data.profile.readingTarget,
+              writingTarget: data.profile.writingTarget,
+              speakingTarget: data.profile.speakingTarget,
+            }}
+            onSave={async (targetBand, skillTargets, noExamPlan, plannedExamDate) => {
+              const targetError = await value.saveTargetBand(targetBand, skillTargets);
+              if (targetError) return targetError;
+              return value.saveExamPlan(noExamPlan, plannedExamDate);
+            }}
+          />
+        : children}
+    </StudentPortalContext.Provider>
+  );
 }
 
 export function useStudentPortal() {

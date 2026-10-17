@@ -2,6 +2,7 @@
 
 import ScrollReveal from "./ScrollReveal";
 import { Path, NumberCircleOne, NumberCircleTwo, NumberCircleThree, NumberCircleFour, Star } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 const STAGES = [
   {
@@ -35,6 +36,7 @@ const STAGES = [
 ];
 
 export default function RoadmapSection() {
+  const content = useLandingSection("roadmap");
   return (
     <section id="roadmap" className="section-padding bg-[#1E1B18] text-white relative overflow-hidden">
       {/* Background Decorative Glow */}
@@ -47,14 +49,13 @@ export default function RoadmapSection() {
           <div className="text-center max-w-3xl mx-auto space-y-4 mb-20">
             <div className="inline-flex items-center gap-2 px-4 py-1 bg-[#FEF9C3]/10 text-[#F5C842] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F5C842]/20">
               <Path size={16} />
-              <span>Lộ Trình Đào Tạo</span>
+              <span>{content?.eyebrow ?? "Lộ Trình Đào Tạo"}</span>
             </div>
             <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-white">
-              Hành trình bứt phá từ mất gốc <br />
-              <span className="text-[#F5C842]">đến Band điểm ước mơ</span>
+              {content?.title ?? "Hành trình bứt phá từ mất gốc đến Band điểm ước mơ"}
             </h2>
             <p className="text-base text-white/70">
-              Mỗi giai đoạn được thiết kế đồng bộ giúp bạn tự tin tiến bước mà không bị ngợp hay nản lòng.
+              {content?.description ?? "Mỗi giai đoạn được thiết kế đồng bộ giúp bạn tự tin tiến bước mà không bị ngợp hay nản lòng."}
             </p>
           </div>
         </ScrollReveal>

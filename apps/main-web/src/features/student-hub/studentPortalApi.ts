@@ -1,7 +1,7 @@
 "use client";
 
 import type { StudentReadingAssignment } from "@ielts/contracts";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiUpload } from "@/lib/api";
 
 export interface StudentCourseItem {
   id: string;
@@ -32,7 +32,21 @@ export interface StudentPortalProfile {
   avatarPath: string | null;
   currentBand: number | null;
   targetBand: number | null;
+  listeningTarget: number | null;
+  readingTarget: number | null;
+  writingTarget: number | null;
+  speakingTarget: number | null;
   joinedAt: string;
+  plannedExamDate: string | null;
+  examPlanStatus: "PLANNED" | "NONE" | null;
+  learningSetupComplete: boolean;
+}
+
+export interface StudentSkillTargets {
+  listeningTarget: number;
+  readingTarget: number;
+  writingTarget: number;
+  speakingTarget: number;
 }
 
 export interface StudentPortalMetrics {
@@ -83,7 +97,7 @@ export interface StudentPortalAttempt {
   attemptId: string;
   assignmentId: string | null;
   title: string;
-  skill: "READING";
+  skill: "READING" | "LISTENING" | "WRITING" | "SPEAKING" | string;
   status: StudentAttemptStatus;
   startedAt: string;
   submittedAt: string | null;
@@ -145,12 +159,22 @@ export function getStudentPortalActivity(month: string, signal?: AbortSignal) {
   );
 }
 
-export function updateStudentTargetBand(targetBand: number) {
-  return apiFetch<{ currentBand: number | null; targetBand: number }>(
+export function updateStudentTargetBand(targetBand: number, skillTargets: StudentSkillTargets) {
+  return apiFetch<{ currentBand: number | null; targetBand: number } & StudentSkillTargets>(
     "/student/portal/target-band",
     {
       method: "PATCH",
-      body: JSON.stringify({ targetBand }),
+      body: JSON.stringify({ targetBand, ...skillTargets }),
+    },
+  );
+}
+
+export function updateStudentExamPlan(noExamPlan: boolean, plannedExamDate: string | null) {
+  return apiFetch<{ noExamPlan: boolean; plannedExamDate: string | null; learningSetupComplete: boolean }>(
+    "/student/portal/exam-plan",
+    {
+      method: "PATCH",
+      body: JSON.stringify({ noExamPlan, plannedExamDate }),
     },
   );
 }
@@ -315,6 +339,61 @@ export interface CourseWorkspaceData {
 
 export function fetchStudentCourseWorkspace(courseId: string) {
   return apiFetch<CourseWorkspaceData>(`/student/portal/courses/${courseId}/workspace`);
+}
+
+export interface StudentProgressTask {
+  classActivityId: string;
+  sessionId: string;
+  sessionNo: number;
+  sessionTitle: string;
+  activityId: string;
+  title: string;
+  skill: string;
+  completionMethod: string;
+  attemptId: string | null;
+  source: string | null;
+  status: string | null;
+  score: number | null;
+  maxScore: number | null;
+  durationSeconds: number | null;
+  comprehensionPercent: number | null;
+  errorAnalysis: string | null;
+  evidenceCount: number;
+  checklist: { id: string; label: string; description: string | null; required: boolean; completed: boolean }[];
+}
+
+export function fetchStudentCourseProgress(courseId: string) {
+  return apiFetch<StudentProgressTask[]>(`/student/portal/courses/${courseId}/progress`);
+}
+
+export function uploadStudentProgressEvidence(courseId: string, classActivityId: string, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return apiUpload(`/student/portal/courses/${courseId}/activities/${classActivityId}/evidence`, body);
+}
+
+export function updateStudentProgressChecklist(
+  courseId: string,
+  attemptId: string,
+  checklistItemId: string,
+  completed: boolean,
+) {
+  return apiFetch<void>(`/student/portal/courses/${courseId}/progress/${attemptId}/checklist/${checklistItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ completed }),
+  });
+}
+
+export function updateStudentProgressSummary(
+  courseId: string,
+  attemptId: string,
+  durationSeconds: number | null,
+  comprehensionPercent: number | null,
+) {
+  return apiFetch<void>(`/student/portal/courses/${courseId}/progress/${attemptId}/summary`, {
+    method: "PATCH",
+    body: JSON.stringify({ durationSeconds, comprehensionPercent }),
+  });
 }
 
 

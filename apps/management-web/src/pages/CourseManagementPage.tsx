@@ -954,28 +954,43 @@ function Workspace() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const loadRoster = useCallback(async () => {
+    try {
+      const studentPage = await apiFetch<Page<StudentSummary>>("/admin/students?size=100");
+      setStudents(studentPage.content);
+    } catch {
+      // Keep the existing roster visible if the optional directory refresh fails.
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [courseData, enrollmentPage, studentPage, sessionItems] = await Promise.all([
+      const [courseData, enrollmentPage] = await Promise.all([
         apiFetch<Course>(`/admin/courses/${courseId}`),
         apiFetch<Page<Enrollment>>(`/admin/enrollments?courseId=${courseId}&size=100`),
-        apiFetch<Page<StudentSummary>>("/admin/students?size=100"),
-        apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`),
       ]);
       setCourse(courseData);
       setEnrollments(enrollmentPage.content);
-      setStudents(studentPage.content);
-      setSessions(sessionItems);
+      void loadRoster();
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không tải được khóa học");
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, loadRoster]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (activeTab !== "overview") return;
+    let cancelled = false;
+    void apiFetch<ClassSession[]>(`/admin/courses/${courseId}/sessions`)
+      .then(value => { if (!cancelled) setSessions(value); })
+      .catch(() => { if (!cancelled) setSessions([]); });
+    return () => { cancelled = true; };
+  }, [activeTab, courseId]);
 
   const roster = enrollments
     .map(enrollment => ({ enrollment, student: students.find(item => item.id === enrollment.studentId) }))
@@ -995,10 +1010,11 @@ function Workspace() {
   if (error || !course) return <LoadState loading={false} error={error || "Không tìm thấy khóa học"} empty={false} onRetry={() => void load()} />;
 
   const completed = sessions.filter(item => item.status === "COMPLETED").length;
+  const sessionCount = sessions.length || course.totalSessions;
 
   return (
     <section className="mx-auto max-w-[1480px] space-y-2">
-      <header className="rounded-xl border border-outline-variant/40 bg-surface px-2.5 py-2 shadow-xs md:px-3">
+      <header className="rounded-xl border border-outline-variant/40 bg-surface px-2 py-1.5 shadow-xs md:px-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -1006,38 +1022,39 @@ function Workspace() {
               onClick={() => navigate("/courses")}
               aria-label="Quay lại danh sách khóa học"
               title="Quay lại danh sách khóa học"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              <ArrowLeft size={18} weight="bold" />
+              <ArrowLeft size={17} weight="bold" />
             </button>
 
-            <div className="min-w-0">
-              <h1 className="truncate font-display text-lg font-bold tracking-tight text-on-surface" title={course.name}>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="truncate font-display text-[17px] font-bold tracking-tight text-on-surface" title={course.name}>
                 {course.name}
               </h1>
-
-              <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] font-semibold text-on-surface-variant">
-                <span className="rounded-md bg-primary-container/20 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
-                  {course.code}
+              <span
+                role="img"
+                aria-label={`Trạng thái: ${classStatusLabel[course.status]}`}
+                title={classStatusLabel[course.status]}
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                  course.status === "ACTIVE" ? "text-emerald-600" :
+                  course.status === "OPEN" ? "text-amber-600" :
+                  course.status === "COMPLETED" ? "text-primary" : "text-error"
+                }`}
+              >
+                {course.status === "CANCELLED" ? <X size={16} weight="bold" /> : course.status === "OPEN" ? <Target size={16} weight="fill" /> : <CheckCircle size={16} weight="fill" />}
+              </span>
+              <div className="hidden shrink-0 items-center text-xs font-bold tabular-nums text-on-surface-variant sm:flex">
+                <span aria-label={`Thời gian: ${date(course.startsOn)} đến ${date(course.endsOn)}`} title="Thời gian khóa học" className="hidden h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary lg:flex">
+                  <CalendarBlank size={16} />
+                  {date(course.startsOn)}–{date(course.endsOn)}
                 </span>
-                <StatusBadge value={course.status}>{classStatusLabel[course.status]}</StatusBadge>
-                {!course.isActive && (
-                  <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700">
-                    Đã ngừng
-                  </span>
-                )}
-                <span className="hidden items-center gap-1.5 md:flex">
-                  {course.skillPair === "LISTENING_READING" ? <BookOpen size={15} /> : <Microphone size={15} />}
-                  {skillPairLabel[course.skillPair]}
+                <span aria-label={`Sĩ số: ${roster.length} trên ${course.capacity} học viên`} title="Sĩ số học viên" className="flex h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary">
+                  <UsersThree size={16} />
+                  {roster.length}/{course.capacity}
                 </span>
-                <span className="hidden items-center gap-1.5 lg:flex">
-                  <CalendarBlank size={15} /> {date(course.startsOn)} đến {date(course.endsOn)}
-                </span>
-                <span className="hidden items-center gap-1.5 tabular-nums sm:flex">
-                  <UsersThree size={15} /> {roster.length}/{course.capacity} học viên
-                </span>
-                <span className="hidden items-center gap-1.5 tabular-nums xl:flex">
-                  <Clock size={15} /> {completed}/{sessions.length} session
+                <span aria-label={`Tiến độ: ${sessions.length ? `${completed} trên ${sessions.length}` : `chưa tải trên ${course.totalSessions}`} buổi`} title="Tiến độ buổi học" className="hidden h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary md:flex">
+                  <Clock size={16} />
+                  {sessions.length ? `${completed}/${sessionCount}` : `—/${sessionCount}`}
                 </span>
               </div>
             </div>
@@ -1048,20 +1065,21 @@ function Workspace() {
               type="button"
               onClick={() => setEnrollmentOpen(true)}
               aria-label="Ghi danh học viên"
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-2 focus:ring-primary/30"
+              title="Ghi danh học viên"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Ghi danh</span>
+              <Plus size={16} weight="bold" /> Ghi danh
             </button>
 
             <details className="group relative">
               <summary
                 aria-label="Thêm thao tác khóa học"
                 title="Thêm thao tác"
-                className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg border border-outline-variant/60 text-on-surface-variant transition-colors hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/30 [&::-webkit-details-marker]:hidden"
+                className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg border border-outline-variant/60 text-on-surface-variant transition-colors hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-primary/30 [&::-webkit-details-marker]:hidden"
               >
-                <DotsThreeVertical size={19} weight="bold" />
+                <DotsThreeVertical size={18} weight="bold" />
               </summary>
-              <div className="absolute right-0 top-11 z-30 w-52 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface p-1.5 shadow-xl">
+              <div className="absolute right-0 top-10 z-30 w-52 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface p-1.5 shadow-xl">
                 <button
                   type="button"
                   onClick={(event) => {
@@ -1108,10 +1126,10 @@ function Workspace() {
       </nav>
 
       {activeTab === "overview" && <CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={openStudentProfile} />}
-      {activeTab === "schedule" && <CourseSchedule courseId={course.id} skillPair={course.skillPair} />}
+      {activeTab === "schedule" && <CourseSchedule courseId={course.id} skillPair={course.skillPair} initialSessions={sessions.length ? sessions : undefined} />}
       {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={openStudentProfile} onRosterChanged={load} />}
-      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={openStudentProfile} />}
-      {activeTab === "progress" && <CourseProgress courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={openStudentProfile} />}
+      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={openStudentProfile} onEnrollmentUpdated={updated => setEnrollments(current => current.map(item => item.id === updated.id ? updated : item))} />}
+      {activeTab === "progress" && <CourseProgress courseId={course.id} skillPair={course.skillPair} roster={roster} initialSessions={sessions.length ? sessions : undefined} onSelectStudent={openStudentProfile} />}
       {activeTab === "matrix" && <CourseMatrix courseId={course.id} roster={roster} />}
       {activeTab === "library" && <CourseLibrary courseId={course.id} />}
 

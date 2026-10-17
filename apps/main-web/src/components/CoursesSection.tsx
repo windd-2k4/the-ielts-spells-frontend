@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 import { Clock, Check, X, ArrowRight, Star } from "@phosphor-icons/react";
+import { useLandingSection } from "./LandingContentProvider";
 
 interface Course {
   id: string;
@@ -92,6 +93,7 @@ const COURSES: Course[] = [
 ];
 
 export default function CoursesSection() {
+  const content = useLandingSection("courses");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
@@ -106,14 +108,13 @@ export default function CoursesSection() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
             <div className="space-y-3 max-w-xl">
               <div className="inline-block px-4 py-1 bg-[#FEF9C3] text-[#894C5B] rounded-full text-xs font-bold uppercase tracking-wider border border-[#F3E8C4]">
-                Các Khóa Học IELTS
+                {content?.eyebrow ?? "Các Khóa Học IELTS"}
               </div>
               <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-[#1E1B18]">
-                Lộ trình thiết kế chuẩn <br />
-                <span className="text-[#894C5B]">cho từng mục tiêu</span>
+                {content?.title ?? "Lộ trình thiết kế chuẩn cho từng mục tiêu"}
               </h2>
               <p className="text-base text-[#5C5752]">
-                Chọn khóa học phù hợp với xuất phát điểm và nhu cầu bứt phá của bạn.
+                {content?.description ?? "Chọn khóa học phù hợp với xuất phát điểm và nhu cầu bứt phá của bạn."}
               </p>
             </div>
 
