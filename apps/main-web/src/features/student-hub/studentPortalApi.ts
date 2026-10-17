@@ -18,6 +18,8 @@ export interface StudentCourseItem {
   endsOn: string | null;
   status: "PLANNED" | "OPEN" | "ACTIVE" | "COMPLETED" | "CANCELLED";
   defaultZoomUrl: string | null;
+  coverImageUrl?: string | null;
+  coverImageAltText?: string | null;
 }
 
 export type StudentEnrollmentStatus = "PENDING" | "ACTIVE" | "PAUSED" | "COMPLETED";
@@ -76,6 +78,8 @@ export interface StudentPortalEnrollment {
   plannedExamMonth: string | null;
   actualExamDate: string | null;
   examRegistrationStatus: "NOT_REGISTERED" | "REGISTERED" | "ISSUE";
+  coverImageUrl?: string | null;
+  coverImageAltText?: string | null;
 }
 
 export interface StudentPortalSession {
@@ -217,6 +221,8 @@ export interface CourseWorkspaceData {
     status: string;
     defaultZoomUrl: string | null;
     primaryTeacherName: string | null;
+    coverImageUrl?: string | null;
+    coverImageAltText?: string | null;
   };
   enrollment: {
     enrollmentId: string;

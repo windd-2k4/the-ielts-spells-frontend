@@ -62,6 +62,8 @@ export default function StudentCoursesPage() {
       nextSessionText: item.nextSessionAt ? formatDateTime(item.nextSessionAt) : undefined,
       status: item.status,
       href: `#course-${item.courseId}`,
+      coverImageUrl: item.coverImageUrl,
+      coverImageAltText: item.coverImageAltText,
     }));
   }, [data?.enrollments]);
 
