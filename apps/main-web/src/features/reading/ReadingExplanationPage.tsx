@@ -683,7 +683,7 @@ function ReadingExplanationContent({
                       {group.instructions ? <p className={styles.groupInstructions}>{group.instructions}</p> : null}
                     </div>
 
-                    {group.sharedOptions.length > 0 ? (
+                    {!isListeningSkill && group.sharedOptions.length > 0 ? (
                       <div className={styles.sharedOptions}>
                         <p><ListBullets size={16} /> Danh sách lựa chọn chung:</p>
                         <ul>
@@ -718,6 +718,19 @@ function ReadingExplanationContent({
                         );
                       })}
                     </div>
+
+                    {isListeningSkill && group.sharedOptions && group.sharedOptions.length > 0 ? (
+                      <div className={styles.matchingListeningOptionsBox}>
+                        <h4 className={styles.matchingListeningOptionsBoxTitle}>List of options</h4>
+                        <div className={styles.matchingListeningOptionsBoxList}>
+                          {group.sharedOptions.map((opt) => (
+                            <span key={opt.key} className={styles.matchingListeningOptionsBoxItem}>
+                              {opt.text || optionLabel(opt.code, opt.text)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </section>
                 );
               })}
@@ -1399,8 +1412,105 @@ function QuestionReviewCard({
         : group.questions.flatMap((q) => q.options);
     const matchedOption = bankOptions.find((o) => o.key === studentAnswerText || o.code === studentAnswerText);
     const displayLabel = matchedOption
-      ? optionLabel(matchedOption.code, matchedOption.text)
+      ? (matchedOption.text || optionLabel(matchedOption.code, matchedOption.text))
       : (formatReadingAnswerValue(studentAnswerText, optionMap) || studentAnswerText);
+
+    const correctMatchedOption = bankOptions.find(
+      (o) => (Boolean(o.key) && qResult?.correctAnswers.includes(o.key)) || (Boolean(o.code) && qResult?.correctAnswers.includes(o.code!))
+    );
+    const correctDisplayLabel = correctMatchedOption
+      ? (correctMatchedOption.text || optionLabel(correctMatchedOption.code, correctMatchedOption.text))
+      : formatReadingAnswerList(qResult?.correctAnswers ?? [], optionMap);
+
+    // Chuẩn giao diện Listening Matching Review (Ảnh 2)
+    if (isListening) {
+      return (
+        <article
+          id={`question-card-${question.key}`}
+          className={`${styles.matchingListeningReviewCard} ${isSelected ? styles.matchingListeningReviewCardActive : ""}`}
+          onClick={onSelect}
+        >
+          <div className={styles.matchingListeningReviewTopRow}>
+            <div className={styles.matchingListeningReviewPromptGroup}>
+              <button
+                type="button"
+                className={styles.matchingListeningPlayBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect();
+                  if (timestampSeconds !== null && onSeekAndPlay) {
+                    onSeekAndPlay(timestampSeconds);
+                  } else if (onSeekAndPlay) {
+                    onSeekAndPlay(0);
+                  }
+                }}
+                title={timestampSeconds !== null ? `Phát audio từ ${formatTime(timestampSeconds)}` : "Phát audio câu này"}
+                aria-label={`Phát audio câu ${question.number}`}
+              >
+                <Play size={10} weight="fill" />
+                <span>{question.number}</span>
+              </button>
+              <span className={styles.matchingListeningReviewPrompt}>
+                {question.prompt || `Câu hỏi ${question.number}`}
+              </span>
+            </div>
+
+            <div className={`${styles.matchingListeningSlotReview} ${
+              isCorrect
+                ? styles.matchingListeningSlotReviewCorrect
+                : isIncorrect
+                ? styles.matchingListeningSlotReviewIncorrect
+                : styles.matchingListeningSlotReviewUnanswered
+            }`}>
+              <span className="truncate max-w-[200px]">{displayLabel || `[ Chưa điền ]`}</span>
+              {isCorrect ? (
+                <Check size={14} weight="bold" />
+              ) : isIncorrect ? (
+                <X size={14} weight="bold" />
+              ) : null}
+            </div>
+          </div>
+
+          {(isIncorrect || isUnanswered) && qResult?.correctAnswers.length ? (
+            <div className={styles.matchingListeningAnswerBottomRow}>
+              <span className={styles.matchingListeningCorrectText}>
+                <span>Đáp án:</span>
+                <strong>{correctDisplayLabel}</strong>
+                {onSeekAndPlay ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect();
+                      if (timestampSeconds !== null) onSeekAndPlay(timestampSeconds);
+                    }}
+                    className="text-emerald-700 hover:text-emerald-900 inline-flex items-center ml-1"
+                    title="Nghe lại đoạn này"
+                  >
+                    <SpeakerHigh size={15} weight="bold" />
+                  </button>
+                ) : null}
+              </span>
+
+              <button
+                type="button"
+                className={`${styles.magnifierIconButton} ${
+                  isSelected && isExplanationOpen ? styles.magnifierIconButtonActive : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLocateEvidence?.(question.key, undefined, true);
+                }}
+                title="Xem vị trí bằng chứng trong transcript"
+                aria-label={`Xem giải thích câu ${question.number}`}
+              >
+                <MagnifyingGlass size={13} weight="bold" />
+              </button>
+            </div>
+          ) : null}
+        </article>
+      );
+    }
 
     return (
       <article

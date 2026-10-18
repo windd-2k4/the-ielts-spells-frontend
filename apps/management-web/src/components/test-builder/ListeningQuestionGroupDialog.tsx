@@ -36,6 +36,7 @@ type Props = {
 const listeningTypes: QuestionTypeFormat[] = [
   "MULTIPLE_CHOICE",
   "MULTIPLE_ANSWERS",
+  "MATCHING_INFORMATION",
   "MATCHING_FEATURES",
   "FILL_IN_BLANK",
   "NOTE_COMPLETION",
@@ -50,6 +51,7 @@ const listeningTypes: QuestionTypeFormat[] = [
 const listeningInstructions: Partial<Record<QuestionTypeFormat, string>> = {
   MULTIPLE_CHOICE: "Choose the correct letter, A, B or C.",
   MULTIPLE_ANSWERS: "Choose TWO letters, A-E.",
+  MATCHING_INFORMATION: "What positive feature do the speakers identify for each type of item? Choose the correct letter, A-H.",
   MATCHING_FEATURES: "Match each item with the correct option from the list below.",
   FILL_IN_BLANK: "Complete the form below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
   NOTE_COMPLETION: "Complete the notes below. Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.",
@@ -100,6 +102,8 @@ export default function ListeningQuestionGroupDialog({
   const effectiveAnswerSource: QuestionGroupAnswerSource =
     typeFormat === "DIAGRAM_LABELING"
       ? diagramSubtype === "MATCHING" ? "OPTION_BANK" : "PASSAGE"
+      : typeFormat === "MATCHING_INFORMATION" || typeFormat === "MATCHING_FEATURES"
+      ? "OPTION_BANK"
       : "PASSAGE";
 
   const usesSharedOptions = questionTypeUsesSharedOptions(typeFormat, effectiveAnswerSource);
@@ -131,6 +135,21 @@ export default function ListeningQuestionGroupDialog({
         setWordLimitRule("NO MORE THAN TWO WORDS AND/OR A NUMBER");
         setSharedOptionsText("");
       }
+    } else if (typeFormat === "MATCHING_INFORMATION") {
+      setInstructions(`What positive feature do the speakers identify for each type of item? Choose SIX answers from the box and write the correct letter, A–H.`);
+      setWordLimitRule("");
+      const options = ["A", "B", "C", "D", "E", "F", "G", "H"].map((code) => ({
+        id: createId(),
+        code,
+        text: "",
+      }));
+      setSharedOptionsText(options.map((opt) => `${opt.code}. `).join("\n"));
+      setQuestionCount(6);
+    } else if (typeFormat === "TABLE_COMPLETION") {
+      setInstructions("Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.");
+      setWordLimitRule("ONE WORD AND/OR A NUMBER");
+      setSharedOptionsText("");
+      setQuestionCount(6);
     } else {
       setInstructions(listeningInstructions[typeFormat] ?? definition.defaultInstructions);
       setWordLimitRule(defaultWordLimit(typeFormat));
@@ -195,7 +214,7 @@ export default function ListeningQuestionGroupDialog({
                   const item = getReadingQuestionTypeDefinition(type);
                   return <button key={type} type="button" aria-pressed={typeFormat === type} onClick={() => setTypeFormat(type)} className={`flex min-h-[72px] items-start gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]/35 ${typeFormat === type ? "border-[#8f4458] bg-[#fff8fa]" : "border-[#e3dce2] hover:bg-[#f8f6fa]"}`}>
                     <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border ${typeFormat === type ? "border-[#8f4458] bg-[#8f4458] text-white" : "border-[#cfc5ca] text-transparent"}`}><Check size={13} weight="bold" /></span>
-                    <span><strong className="block text-xs text-[#211A1D]">{type === "DIAGRAM_LABELING" ? "Plan / Map / Diagram Labelling" : item.label}</strong><span className="mt-1 block text-[11px] leading-4 text-[#746A6E]">{item.shortLabel}</span></span>
+                    <span><strong className="block text-xs text-[#211A1D]">{type === "DIAGRAM_LABELING" ? "Plan / Map / Diagram Labelling" : type === "MATCHING_INFORMATION" ? "Matching Information" : item.label}</strong><span className="mt-1 block text-[11px] leading-4 text-[#746A6E]">{type === "MATCHING_INFORMATION" ? "Nối thông tin với List of Options (A–H)" : item.shortLabel}</span></span>
                   </button>;
                 })}
               </div>

@@ -1786,6 +1786,158 @@
   font-weight: 800;
 }
 
+/* Listening Matching Review (Ảnh 2) */
+.matchingListeningReviewCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+
+.matchingListeningReviewCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.matchingListeningReviewCardActive {
+  border-color: rgba(143, 68, 88, 0.35) !important;
+  background: #fffbfa !important;
+  box-shadow: 0 0 0 2px rgba(143, 68, 88, 0.12) !important;
+}
+
+.matchingListeningReviewTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.matchingListeningReviewPromptGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.matchingListeningPlayBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 48px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 14px;
+  border: 1px solid #0284c7;
+  background: #f0f9ff;
+  color: #0284c7;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.matchingListeningPlayBtn:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.matchingListeningReviewPrompt {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.matchingListeningSlotReview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 140px;
+  max-width: 260px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.matchingListeningSlotReviewCorrect {
+  border: 1.5px solid #22c55e;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.matchingListeningSlotReviewIncorrect {
+  border: 1.5px solid #f87171;
+  background: #fef2f2;
+  color: #dc2626;
+  text-decoration: line-through;
+  text-decoration-color: #ef4444;
+}
+
+.matchingListeningSlotReviewUnanswered {
+  border: 1.5px dashed #94a3b8;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.matchingListeningAnswerBottomRow {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.matchingListeningCorrectText {
+  color: #15803d;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.matchingListeningOptionsBox {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.matchingListeningOptionsBoxTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.matchingListeningOptionsBoxList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.matchingListeningOptionsBoxItem {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
 /* Gap-filling Review in Explanation Mode */
 .gapFillReviewCard {
   border: 1px solid #dce3ea;

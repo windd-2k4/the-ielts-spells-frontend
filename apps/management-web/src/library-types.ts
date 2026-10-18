@@ -210,7 +210,7 @@ export type QuestionGroupItem = {
   sharedOptions?: SharedOptionItem[];
   allowOptionReused?: boolean;
   gapFillTemplate?: string;
-  gapFillLayout?: "PARAGRAPH" | "LIST";
+  gapFillLayout?: "PARAGRAPH" | "LIST" | "TABLE";
   illustration?: QuestionGroupIllustration;
   linkedAudioTimestamp?: string; // "02:15"
   questionTimestamps?: Record<string, string>;

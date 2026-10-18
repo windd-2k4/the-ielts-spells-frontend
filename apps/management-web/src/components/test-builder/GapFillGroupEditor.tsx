@@ -1,8 +1,8 @@
-import { BracketsCurly, ListBullets, Paragraph, Plus } from "@phosphor-icons/react";
+import { BracketsCurly, ListBullets, Paragraph, Plus, Table } from "@phosphor-icons/react";
 import { useMemo, useRef } from "react";
 import type { QuestionCardItem } from "../../library-types";
 
-type GapFillLayout = "PARAGRAPH" | "LIST";
+export type GapFillLayout = "PARAGRAPH" | "LIST" | "TABLE";
 
 const TOKEN_PATTERN = /\[\[(\d+)\]\]/g;
 
@@ -36,9 +36,46 @@ export function inspectGapFillTemplate(template: string, questionCount: number) 
 
 function templateWithSlots(questionCount: number, layout: GapFillLayout) {
   const slots = Array.from({ length: questionCount }, (_, index) => `[[${index + 1}]]`);
+  if (layout === "TABLE") {
+    const lines: string[] = [
+      "| Course | Details | Cost | Notes |",
+      "| --- | --- | --- | --- |",
+    ];
+    let slotIdx = 0;
+    let rowNum = 1;
+    while (slotIdx < slots.length) {
+      const s1 = slots[slotIdx++] ?? "";
+      const s2 = slotIdx < slots.length ? slots[slotIdx++] : "";
+      const s3 = slotIdx < slots.length ? slots[slotIdx++] : "";
+      lines.push(`| Course ${rowNum++} | • one day<br>• make a small ${s1} | £ ${s2 ? `${s2} (includes materials)` : "120"} | tutor: Lydia ${s3 || "..."} |`);
+    }
+    return lines.join("\n");
+  }
   return layout === "LIST"
     ? slots.map((slot) => `• ${slot}  Nội dung cần hoàn thành`).join("\n")
     : `Nhập nội dung summary tại đây. ${slots.map((slot) => `${slot} __________`).join(" ")}`;
+}
+
+function renderTokensInText(text: string, questions: QuestionCardItem[]) {
+  const parts: Array<{ text?: string; slot?: number; offset: number }> = [];
+  let cursor = 0;
+  for (const match of text.matchAll(TOKEN_PATTERN)) {
+    if (match.index > cursor) parts.push({ text: text.slice(cursor, match.index), offset: cursor });
+    parts.push({ slot: Number(match[1]), offset: match.index });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), offset: cursor });
+
+  return parts.map((part) => {
+    if (part.text !== undefined) return <span key={`text-${part.offset}`}>{part.text}</span>;
+    const question = questions[Number(part.slot) - 1];
+    if (!question) return <span key={`invalid-${part.offset}`} className="font-bold text-[#b4232d]">[[{part.slot}]]</span>;
+    return (
+      <span key={`slot-${part.offset}`} className="mx-1 inline-flex min-w-[70px] items-center justify-center rounded-md border border-[#8f4458] bg-[#fbf5f7] px-2 py-0.5 text-xs font-bold text-[#8f4458]">
+        {question.number}
+      </span>
+    );
+  });
 }
 
 export function GapFillTemplatePreview({
@@ -50,6 +87,47 @@ export function GapFillTemplatePreview({
   questions: QuestionCardItem[];
   layout?: GapFillLayout;
 }) {
+  const isTable = layout === "TABLE" || (template.includes("|") && template.includes("\n"));
+
+  if (isTable) {
+    const rawLines = template.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const tableLines = rawLines.filter((l) => l.startsWith("|") || l.includes(" | "));
+    if (tableLines.length >= 2) {
+      const nonSep = tableLines.filter((l) => !/^[|\s-:]+$/.test(l));
+      if (nonSep.length >= 1) {
+        const headers = nonSep[0].split("|").map((c) => c.trim()).filter((c, idx, arr) => (idx > 0 && idx < arr.length - 1) || c.length > 0);
+        const rows = nonSep.slice(1).map((line) => line.split("|").map((c) => c.trim()).filter((c, idx, arr) => (idx > 0 && idx < arr.length - 1) || c.length > 0));
+
+        return (
+          <div className="overflow-x-auto rounded-xl border border-[#e3dce2] bg-white">
+            <table className="w-full border-collapse text-left text-xs">
+              {headers.length > 0 && (
+                <thead className="bg-[#f8f6fa] text-[#746A6E] font-bold">
+                  <tr>
+                    {headers.map((h, i) => (
+                      <th key={i} className="border border-[#e3dce2] px-3 py-2">{renderTokensInText(h, questions)}</th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody>
+                {rows.map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-slate-50/50">
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} className="border border-[#e3dce2] px-3 py-2 align-top leading-6">
+                        {renderTokensInText(cell, questions)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+    }
+  }
+
   const parts = useMemo(() => {
     const result: Array<{ text?: string; slot?: number; offset: number }> = [];
     let cursor = 0;
@@ -134,6 +212,7 @@ export default function GapFillGroupEditor({
         <div className="flex rounded-xl border border-[#e3dce2] bg-white p-1" aria-label="Kiểu trình bày">
           <button type="button" onClick={() => onLayoutChange("PARAGRAPH")} aria-pressed={layout === "PARAGRAPH"} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-[11px] font-bold ${layout === "PARAGRAPH" ? "bg-[#f7e7ec] text-[#743447]" : "text-[#746A6E]"}`}><Paragraph size={15} /> Đoạn văn</button>
           <button type="button" onClick={() => onLayoutChange("LIST")} aria-pressed={layout === "LIST"} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-[11px] font-bold ${layout === "LIST" ? "bg-[#f7e7ec] text-[#743447]" : "text-[#746A6E]"}`}><ListBullets size={15} /> Danh sách</button>
+          <button type="button" onClick={() => onLayoutChange("TABLE")} aria-pressed={layout === "TABLE"} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-[11px] font-bold ${layout === "TABLE" ? "bg-[#f7e7ec] text-[#743447]" : "text-[#746A6E]"}`}><Table size={15} /> Điền bảng</button>
         </div>
       </div>
 
@@ -148,12 +227,12 @@ export default function GapFillGroupEditor({
             spellCheck
             lang="en"
             onChange={(event) => onTemplateChange(event.target.value)}
-            placeholder="Ví dụ: Bondi Beach attracts many [[1]] during the holidays..."
-            className="mt-1 w-full resize-y rounded-xl border border-[#d8ced6] bg-white p-3 text-sm leading-6 focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/10"
+            placeholder={layout === "TABLE" ? "| Cột 1 | Cột 2 | Cột 3 |\n| --- | --- | --- |\n| Hàng 1 | [[1]] | [[2]] |" : "Ví dụ: Bondi Beach attracts many [[1]] during the holidays..."}
+            className="mt-1 w-full resize-y rounded-xl border border-[#d8ced6] bg-white p-3 font-mono text-sm leading-6 focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/10"
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" onClick={insertNextSlot} disabled={inspection.missing.length === 0} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#8f4458] bg-white px-3 text-xs font-bold text-[#8f4458] hover:bg-[#f7e7ec] disabled:cursor-not-allowed disabled:border-[#d8ced6] disabled:text-[#9a9195] disabled:hover:bg-white"><Plus size={15} /> {inspection.missing.length === 0 ? "Đã đủ vị trí" : "Chèn ô tiếp theo"}</button>
-            <button type="button" onClick={() => onTemplateChange(templateWithSlots(questions.length, layout))} className="min-h-10 rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-bold text-[#746A6E] hover:bg-[#f1eef4]">Tạo mẫu {questions.length} ô</button>
+            <button type="button" onClick={() => onTemplateChange(templateWithSlots(questions.length, layout))} className="min-h-10 rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-bold text-[#746A6E] hover:bg-[#f1eef4]">Tạo mẫu {layout === "TABLE" ? "bảng" : layout === "LIST" ? "danh sách" : "đoạn"} {questions.length} ô</button>
           </div>
         </div>
 

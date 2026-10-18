@@ -1,6 +1,6 @@
 import {
   ArrowLeft, CaretDown, CaretUp, Clock, Copy, Eye, FastForward, FileAudio, FloppyDisk,
-  Pause, Play, Plus, Rewind, ShieldCheck, SpinnerGap, Trash, UploadSimple, WarningCircle,
+  Pause, Play, Plus, Rewind, ShieldCheck, SpinnerGap, Trash, UploadSimple, WarningCircle, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -143,7 +143,7 @@ function normalizeGroups(value: unknown): QuestionGroupItem[] {
       answerSource: group.answerSource ?? "PASSAGE", requiredAnswerCount: group.requiredAnswerCount,
       sharedOptions: group.sharedOptions ?? [], allowOptionReused: Boolean(group.allowOptionReused),
       gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
-      gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
+      gapFillLayout: group.gapFillLayout === "TABLE" ? "TABLE" : group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
       illustration: readGroupIllustration(group.illustration),
       linkedAudioTimestamp: group.linkedAudioTimestamp,
       questionTimestamps: typeof group.questionTimestamps === "object" && group.questionTimestamps ? (group.questionTimestamps as Record<string, string>) : undefined,
@@ -1015,34 +1015,86 @@ export function ListeningTestBuilder() {
               <div className="mt-3 rounded-xl border border-[#e3dce2] bg-[#f8f6fa] p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-bold text-[#746A6E]">
-                    {group.typeFormat === "DIAGRAM_LABELING" ? "Danh sách chữ cái trên bản đồ (Option bank)" : "Option bank"}
+                    {group.typeFormat === "DIAGRAM_LABELING"
+                      ? "Danh sách chữ cái trên bản đồ (Option bank)"
+                      : group.typeFormat === "MATCHING_INFORMATION"
+                      ? "List of Options (Ngân hàng lựa chọn A–H)"
+                      : "Option bank"}
                   </p>
-                  {group.typeFormat === "DIAGRAM_LABELING" && (
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => updateGroup(group.id, (value) => ({
-                        ...value,
-                        sharedOptions: createDefaultSharedOptions("DIAGRAM_LABELING", () => newId("opt")),
-                      }))}
+                      onClick={() => updateGroup(group.id, (value) => {
+                        const current = value.sharedOptions ?? [];
+                        const nextIndex = current.length;
+                        const nextCode = String.fromCharCode(65 + nextIndex);
+                        return {
+                          ...value,
+                          sharedOptions: [...current, { id: newId("opt"), code: nextCode, text: "" }],
+                        };
+                      })}
                       className="text-[11px] font-bold text-[#8f4458] hover:underline"
                     >
-                      Đặt lại A–H
+                      + Thêm phương án
                     </button>
-                  )}
+                    {(group.typeFormat === "DIAGRAM_LABELING" || group.typeFormat === "MATCHING_INFORMATION") && (
+                      <button
+                        type="button"
+                        onClick={() => updateGroup(group.id, (value) => ({
+                          ...value,
+                          sharedOptions: ["A", "B", "C", "D", "E", "F", "G", "H"].map((code) => ({
+                            id: newId("opt"),
+                            code,
+                            text: "",
+                          })),
+                        }))}
+                        className="text-[11px] font-bold text-[#8f4458] hover:underline"
+                      >
+                        Đặt lại A–H
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {group.sharedOptions.map((option) => (
-                    <label key={option.id} className="flex items-center gap-2">
+                    <div key={option.id} className="flex items-center gap-1.5">
                       <span className="w-5 text-xs font-bold text-[#8f4458]">{option.code}.</span>
                       <input
                         value={option.text}
-                        onChange={(event) => updateGroup(group.id, (value) => ({ ...value, sharedOptions: value.sharedOptions?.map((item) => item.id === option.id ? { ...item, text: event.target.value } : item) }))}
-                        className="min-h-9 flex-1 rounded-lg border border-[#e3dce2] px-2.5 text-xs"
-                        placeholder={`Ký hiệu ${option.code}`}
+                        onChange={(event) => updateGroup(group.id, (value) => ({
+                          ...value,
+                          sharedOptions: value.sharedOptions?.map((item) => item.id === option.id ? { ...item, text: event.target.value } : item)
+                        }))}
+                        className="min-h-9 flex-1 rounded-lg border border-[#e3dce2] px-2.5 text-xs focus:border-[#8f4458] focus:outline-none"
+                        placeholder={group.typeFormat === "MATCHING_INFORMATION" ? `Nội dung lựa chọn ${option.code}...` : `Ký hiệu ${option.code}`}
                       />
-                    </label>
+                      {group.sharedOptions && group.sharedOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => updateGroup(group.id, (value) => ({
+                            ...value,
+                            sharedOptions: value.sharedOptions?.filter((item) => item.id !== option.id),
+                          }))}
+                          className="grid size-7 shrink-0 place-items-center rounded-lg text-[#746A6E] hover:bg-rose-50 hover:text-rose-600"
+                          title="Xóa lựa chọn này"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
+                {group.typeFormat === "MATCHING_INFORMATION" && (
+                  <label className="mt-2.5 flex items-center gap-2 text-xs font-semibold text-[#746A6E]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(group.allowOptionReused)}
+                      onChange={(event) => updateGroup(group.id, (value) => ({ ...value, allowOptionReused: event.target.checked }))}
+                      className="accent-[#8f4458]"
+                    />
+                    Cho phép dùng lại phương án (You may use any letter more than once)
+                  </label>
+                )}
               </div>
             )}
             {group.typeFormat === "MULTIPLE_ANSWERS" ? (
@@ -1053,6 +1105,29 @@ export function ListeningTestBuilder() {
                 onRenumberParts={setParts}
                 activePartNo={activePartNo}
               />
+            ) : questionTypeUsesGapTemplate(group.typeFormat, group.answerSource) ? (
+              <div className="mt-4 space-y-4">
+                <GapFillGroupEditor
+                  title={group.title}
+                  template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)}
+                  layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)}
+                  questions={group.questions}
+                  onTemplateChange={(template) => updateGroup(group.id, (current) => ({
+                    ...current,
+                    gapFillTemplate: template,
+                    questions: current.questions.map((question, index) => ({
+                      ...question,
+                      prompt: gapFillPrompt(template, index + 1, current.title),
+                    })),
+                  }))}
+                  onLayoutChange={(layout) => updateGroup(group.id, (current) => ({ ...current, gapFillLayout: layout }))}
+                  onAnswerChange={(questionId, correctAnswers, acceptableAnswers) => updateQuestion(
+                    group.id,
+                    questionId,
+                    (question) => ({ ...question, correctAnswers, acceptableAnswers }),
+                  )}
+                />
+              </div>
             ) : (
               <>
                 <div className="mt-4 space-y-3">

@@ -226,7 +226,8 @@ export function questionTypeUsesGapTemplate(type: QuestionTypeFormat, answerSour
   return gapTemplateTypes.has(type) && answerSource !== "OPTION_BANK";
 }
 
-export function defaultGapFillLayout(type: QuestionTypeFormat): "PARAGRAPH" | "LIST" {
+export function defaultGapFillLayout(type: QuestionTypeFormat): "PARAGRAPH" | "LIST" | "TABLE" {
+  if (type === "TABLE_COMPLETION") return "TABLE";
   return type === "SUMMARY_COMPLETION" || type === "SENTENCE_COMPLETION" || type === "FILL_IN_BLANK"
     ? "PARAGRAPH"
     : "LIST";

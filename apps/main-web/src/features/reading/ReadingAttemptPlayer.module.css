@@ -2152,3 +2152,685 @@
   .timerWarning, .spin, .submitDialog { animation: none; }
   .answerOption, .submitButton { transition: none; }
 }
+
+/* ========================================================
+   Listening Matching Information 2-Column Layout (Ảnh 1)
+   ======================================================== */
+.matchingListeningSplitLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 1fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .matchingListeningSplitLayout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.matchingListeningQuestionsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.matchingListeningRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--exam-card-bg);
+  border: 1px solid transparent;
+  transition: all 150ms ease;
+}
+
+.matchingListeningRow:hover {
+  background: var(--exam-soft);
+}
+
+.matchingListeningRowActive {
+  background: rgba(143, 68, 88, 0.04);
+  border-color: rgba(143, 68, 88, 0.25);
+}
+
+.matchingListeningPrompt {
+  font-size: var(--exam-content-size);
+  font-weight: 600;
+  color: var(--exam-navy);
+  flex: 1;
+  line-height: 1.4;
+}
+
+.matchingListeningSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 90px;
+  max-width: 260px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 180ms ease;
+  user-select: none;
+  position: relative;
+}
+
+.matchingListeningSlotEmpty {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #0284c7;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.matchingListeningSlotEmpty:hover,
+.matchingListeningSlotActive {
+  border-color: #894C5B;
+  color: #894C5B;
+  background: #fdf2f4;
+  box-shadow: 0 0 0 3px rgba(137, 76, 91, 0.18);
+}
+
+.matchingListeningSlotFilled {
+  border: 1.5px solid #894C5B;
+  background: #ffffff;
+  color: #211A1D;
+  box-shadow: 0 2px 6px rgba(137, 76, 91, 0.08);
+}
+
+.matchingListeningBankCol {
+  background: #ffffff;
+  border: 1px solid var(--exam-line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.matchingListeningBankList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.matchingListeningOptionCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: var(--exam-navy);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: grab;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.matchingListeningOptionCard:hover:not(.matchingListeningOptionCardUsed) {
+  border-color: #894C5B;
+  background: #faf7f8;
+  box-shadow: 0 3px 8px rgba(137, 76, 91, 0.1);
+  transform: translateY(-1px);
+}
+
+.matchingListeningOptionCardActive {
+  border-color: #894C5B !important;
+  background: #fbf1f4 !important;
+  color: #894C5B !important;
+  box-shadow: 0 0 0 2px rgba(137, 76, 91, 0.25) !important;
+  font-weight: 700;
+}
+
+.matchingListeningOptionCardUsed {
+  opacity: 0.42;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  text-decoration-color: #94a3b8;
+}
+
+/* ========================================================
+   REAL EXAM MODE (CD-IELTS Standard) QUESTION STYLES
+   ======================================================== */
+
+/* 1. Exam Rectangular Input Box (Table / Note / Gap Filling) */
+.examInputBox {
+  display: inline-block;
+  min-width: 80px;
+  width: 125px;
+  max-width: 220px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1.5px solid #475569;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  outline: none;
+  vertical-align: middle;
+  margin: 0 4px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.examInputBox::placeholder {
+  color: #64748b;
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.examInputBox:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+  background: #ffffff;
+}
+
+.examInputBoxActive {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+.examInputBoxFilled {
+  border-color: #1e293b;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+/* 2. Real Exam Table Completion */
+.examTableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 14px;
+  border: 1px solid #475569;
+  background: #ffffff;
+}
+
+.examTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.examTable th {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 10px 14px;
+  border: 1px solid #475569;
+  text-transform: none;
+  font-size: 14px;
+}
+
+.examTable td {
+  padding: 10px 14px;
+  border: 1px solid #475569;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.examTable tr:hover td {
+  background: #f8fafc;
+}
+
+/* 3. Real Exam Diagram Labeling (Side-by-Side Split) */
+.examDiagramSplit {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: 24px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .examDiagramSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.examDiagramImageCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.examDiagramQuestionsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 4. Real Exam Multiple Choice */
+.examMcQuestion {
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 120ms ease;
+  background: transparent;
+}
+
+.examMcQuestionActive {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.examMcTopline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.examMcPromptWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+}
+
+.examMcNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1.5px solid #475569;
+  border-radius: 3px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.examMcNumberRange {
+  min-width: 48px;
+  font-size: 13px;
+}
+
+.examBookmarkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 120ms ease;
+}
+
+.examBookmarkBtn:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.examBookmarkBtnActive {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.examOptionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  margin: 3px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14.5px;
+  color: #1e293b;
+  transition: background 100ms ease;
+}
+
+.examOptionRow:hover {
+  background: #f1f5f9;
+}
+
+.examOptionRowChecked {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* 5. Real Exam Matching Information (Dashed Target Slot & Minimalist Options Bank) */
+.examMatchingDashedSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 130px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1.5px dashed #475569;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  user-select: none;
+}
+
+.examMatchingDashedSlot:hover,
+.examMatchingDashedSlotActive {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.examMatchingDashedSlotFilled {
+  border: 1.5px solid #1e293b;
+  border-style: solid;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.examMatchingBankCol {
+  border: 1px solid #475569;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+
+.examMatchingBankTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.examMatchingBankCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: grab;
+  transition: all 120ms ease;
+}
+
+.examMatchingBankCard:hover:not(.examMatchingBankCardUsed) {
+  border-color: #475569;
+  background: #f8fafc;
+}
+
+.examMatchingBankCardActive {
+  border-color: #0284c7 !important;
+  background: #f0f9ff !important;
+  color: #0284c7 !important;
+  font-weight: 700;
+}
+
+.examMatchingBankCardUsed {
+  opacity: 0.35;
+  background: #f1f5f9;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* ========================================================
+   REAL EXAM MODE: TOP BANNER & BOTTOM NAVIGATION BAR
+   ======================================================== */
+
+.examTopBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 24px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+  flex-shrink: 0;
+}
+
+.examTopBannerPart {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.examTopBannerInstruction {
+  font-size: 13.5px;
+  color: #475569;
+  margin: 0;
+  font-weight: 500;
+}
+
+.examBottomBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 20px;
+  background: #ffffff;
+  border-top: 1.5px solid #cbd5e1;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.examBottomLeft {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.examBottomPartTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.examBottomPartTab:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.examBottomPartTabActive {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.examBottomPartBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.examBottomPartTabActive .examBottomPartBadge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.examBottomQuestionsTrack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 12px;
+  max-width: calc(100vw - 380px);
+}
+
+.examBottomQBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 100ms ease;
+}
+
+.examBottomQBtn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.examBottomQBtnActive {
+  border: 2px solid #0284c7 !important;
+  color: #0284c7 !important;
+  font-weight: 800;
+  background: #f0f9ff;
+}
+
+.examBottomQBtnAnswered {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.examBottomQBtnFlagged {
+  border-color: #d97706 !important;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.examBottomRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.examBottomNavArrow {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examBottomNavArrow:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.examBottomNavArrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.examBottomSubmitBtn {
+  width: 38px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examBottomSubmitBtn:hover {
+  background: #15803d;
+}
+
+.examPartTransitionCard {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.examPartTransitionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.examPartTransitionNotice {
+  font-size: 14px;
+  color: #475569;
+  margin: 0 0 16px;
+}
+
+.examPartTransitionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examPartTransitionBtn:hover {
+  background: #1e293b;
+}
+

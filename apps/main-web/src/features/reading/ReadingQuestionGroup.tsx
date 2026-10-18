@@ -1,13 +1,13 @@
 "use client";
 
 import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup as ReadingQuestionGroupModel } from "@ielts/contracts";
-import { ArrowDown, CheckSquare, Flag, Lightbulb, ListBullets, TextT, TreeStructure, X } from "@phosphor-icons/react";
+import { ArrowDown, BookmarkSimple, CheckSquare, Flag, Lightbulb, ListBullets, TextT, TreeStructure, X } from "@phosphor-icons/react";
 import { Fragment, useMemo, useState } from "react";
 import { answerValues, groupQuestionLabel, optionLabel, questionOptions } from "./readingFormat";
 import { AuthenticatedDiagramImage } from "./AuthenticatedDiagramImage";
 import styles from "./ReadingAttemptPlayer.module.css";
 
-type ReadingQuestionGroupProps = {
+export type ReadingQuestionGroupProps = {
   group: ReadingQuestionGroupModel;
   answers: Record<string, ReadingAnswer>;
   onAnswer: (questionKey: string, answer: ReadingAnswer) => void;
@@ -15,6 +15,9 @@ type ReadingQuestionGroupProps = {
   flaggedKeys: Set<string>;
   onQuestionFocus: (questionKey: string) => void;
   onToggleFlag: (questionKey: string) => void;
+  skill?: "READING" | "LISTENING";
+  onSeekAudio?: (timestampSeconds: number) => void;
+  isExamMode?: boolean;
 };
 
 export function ReadingQuestionGroup({
@@ -25,6 +28,9 @@ export function ReadingQuestionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  skill,
+  onSeekAudio,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const isMatching =
     group.typeFormat === "MATCHING_HEADINGS" ||
@@ -62,6 +68,9 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        skill={skill}
+        onSeekAudio={onSeekAudio}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -76,6 +85,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -90,6 +100,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -104,6 +115,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -118,6 +130,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -132,6 +145,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -146,6 +160,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -160,6 +175,7 @@ export function ReadingQuestionGroup({
         flaggedKeys={flaggedKeys}
         onQuestionFocus={onQuestionFocus}
         onToggleFlag={onToggleFlag}
+        isExamMode={isExamMode}
       />
     );
   }
@@ -217,6 +233,7 @@ function TFNGQuestionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const options =
     group.typeFormat === "TRUE_FALSE_NOT_GIVEN"
@@ -245,35 +262,60 @@ function TFNGQuestionGroup({
             <article
               key={question.key}
               id={`reading-question-${question.key}`}
-              className={`${styles.tfngQuestion} ${active ? styles.tfngQuestionActive : ""}`}
+              className={`${isExamMode ? styles.examMcQuestion : styles.tfngQuestion} ${
+                active ? (isExamMode ? styles.examMcQuestionActive : styles.tfngQuestionActive) : ""
+              }`}
               onClick={() => onQuestionFocus(question.key)}
             >
-              <div className={styles.tfngTopline}>
-                <div className={styles.tfngPromptWrapper}>
-                  <span className={styles.circleQuestionBadge}>{question.number}</span>
-                  <p className={styles.tfngPrompt}>{question.prompt || "Nội dung câu hỏi"}</p>
+              <div className={isExamMode ? styles.examMcTopline : styles.tfngTopline}>
+                <div className={isExamMode ? styles.examMcPromptWrapper : styles.tfngPromptWrapper}>
+                  {isExamMode ? (
+                    <strong className={styles.examMcNumber}>{question.number}</strong>
+                  ) : (
+                    <span className={styles.circleQuestionBadge}>{question.number}</span>
+                  )}
+                  <p className={isExamMode ? styles.mcPromptText : styles.tfngPrompt}>{question.prompt || "Nội dung câu hỏi"}</p>
                 </div>
-                <button
-                  type="button"
-                  className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFlag(question.key);
-                  }}
-                  aria-pressed={flagged}
-                  title="Đánh dấu câu này"
-                >
-                  <Flag size={15} weight={flagged ? "fill" : "regular"} />
-                </button>
+
+                {isExamMode ? (
+                  <button
+                    type="button"
+                    className={`${styles.examBookmarkBtn} ${flagged ? styles.examBookmarkBtnActive : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFlag(question.key);
+                    }}
+                    aria-pressed={flagged}
+                    title="Đánh dấu xem lại"
+                  >
+                    <BookmarkSimple size={14} weight={flagged ? "fill" : "regular"} />
+                    <span>Review</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFlag(question.key);
+                    }}
+                    aria-pressed={flagged}
+                    title="Đánh dấu câu này"
+                  >
+                    <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                  </button>
+                )}
               </div>
 
-              <div className={styles.radioOptionsList}>
+              <div className={isExamMode ? styles.mcOptionsList : styles.radioOptionsList}>
                 {options.map((opt) => {
                   const isChecked = selectedValue === opt;
                   return (
                     <label
                       key={opt}
-                      className={`${styles.radioOptionRow} ${isChecked ? styles.radioOptionRowChecked : ""}`}
+                      className={`${isExamMode ? styles.examOptionRow : styles.radioOptionRow} ${
+                        isChecked ? (isExamMode ? styles.examOptionRowChecked : styles.radioOptionRowChecked) : ""
+                      }`}
                     >
                       <input
                         type="radio"
@@ -306,6 +348,7 @@ function MCQuestionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const isMultipleAnswers = group.typeFormat === "MULTIPLE_ANSWERS";
   const requiredCount =
@@ -383,57 +426,85 @@ function MCQuestionGroup({
               <article
                 key={primaryQuestion.key}
                 id={`reading-question-${primaryQuestion.key}`}
-                className={`${styles.mcQuestion} ${styles.mcMultipleCluster} ${active ? styles.mcQuestionActive : ""}`}
+                className={`${isExamMode ? styles.examMcQuestion : `${styles.mcQuestion} ${styles.mcMultipleCluster}`} ${
+                  active ? (isExamMode ? styles.examMcQuestionActive : styles.mcQuestionActive) : ""
+                }`}
                 onClick={() => onQuestionFocus(primaryQuestion.key)}
               >
                 {cluster.slice(1).map((q) => (
                   <span key={q.key} id={`reading-question-${q.key}`} className="sr-only" />
                 ))}
 
-                <div className={styles.mcTopline}>
-                  <div className={styles.mcPromptWrapper}>
-                    <div className={styles.multipleBadgeRow}>
-                      <span className={styles.multipleBadgeCircle}>{startNum}</span>
-                      {hasMultipleNumbers && (
-                        <>
-                          <span className={styles.multipleBadgeDash}>–</span>
-                          <span className={styles.multipleBadgeCircle}>{endNum}</span>
-                        </>
-                      )}
-                    </div>
+                <div className={isExamMode ? styles.examMcTopline : styles.mcTopline}>
+                  <div className={isExamMode ? styles.examMcPromptWrapper : styles.mcPromptWrapper}>
+                    {isExamMode ? (
+                      <span className={`${styles.examMcNumber} ${styles.examMcNumberRange}`}>
+                        {startNum}{hasMultipleNumbers ? `–${endNum}` : ""}
+                      </span>
+                    ) : (
+                      <div className={styles.multipleBadgeRow}>
+                        <span className={styles.multipleBadgeCircle}>{startNum}</span>
+                        {hasMultipleNumbers && (
+                          <>
+                            <span className={styles.multipleBadgeDash}>–</span>
+                            <span className={styles.multipleBadgeCircle}>{endNum}</span>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <span className={styles.mcPromptText}>{primaryQuestion.prompt || "Nội dung câu hỏi"}</span>
                   </div>
 
-                  <button
-                    type="button"
-                    className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      cluster.forEach((q) => onToggleFlag(q.key));
-                    }}
-                    aria-pressed={flagged}
-                    title="Đánh dấu câu này"
-                  >
-                    <Flag size={15} weight={flagged ? "fill" : "regular"} />
-                  </button>
+                  {isExamMode ? (
+                    <button
+                      type="button"
+                      className={`${styles.examBookmarkBtn} ${flagged ? styles.examBookmarkBtnActive : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cluster.forEach((q) => onToggleFlag(q.key));
+                      }}
+                      aria-pressed={flagged}
+                      title="Đánh dấu xem lại"
+                    >
+                      <BookmarkSimple size={14} weight={flagged ? "fill" : "regular"} />
+                      <span>Review</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cluster.forEach((q) => onToggleFlag(q.key));
+                      }}
+                      aria-pressed={flagged}
+                      title="Đánh dấu câu này"
+                    >
+                      <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                    </button>
+                  )}
                 </div>
 
-                <div className={styles.mcCounterWrapper}>
-                  <span className={`${styles.mcCounterBadge} ${currentCount === requiredCount ? styles.mcCounterBadgeDone : ""}`}>
-                    <CheckSquare size={14} weight="bold" />
-                    Đã chọn {currentCount} / {requiredCount} đáp án
-                  </span>
-                </div>
+                {!isExamMode ? (
+                  <div className={styles.mcCounterWrapper}>
+                    <span className={`${styles.mcCounterBadge} ${currentCount === requiredCount ? styles.mcCounterBadgeDone : ""}`}>
+                      <CheckSquare size={14} weight="bold" />
+                      Đã chọn {currentCount} / {requiredCount} đáp án
+                    </span>
+                  </div>
+                ) : null}
 
                 <div className={styles.mcOptionsList} style={{ marginLeft: 0 }}>
                   {options.map((option) => {
                     const isChecked = selectedValues.includes(option.key) || selectedValues.includes(option.code ?? "");
-                    const label = optionLabel(option.code, option.text);
+                    const label = isExamMode ? (option.text || option.code) : optionLabel(option.code, option.text);
 
                     return (
                       <label
                         key={option.key}
-                        className={`${styles.mcOptionRow} ${styles.mcOptionRowMultiple} ${isChecked ? styles.mcOptionRowChecked : ""}`}
+                        className={`${isExamMode ? styles.examOptionRow : `${styles.mcOptionRow} ${styles.mcOptionRowMultiple}`} ${
+                          isChecked ? (isExamMode ? styles.examOptionRowChecked : styles.mcOptionRowChecked) : ""
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -482,37 +553,62 @@ function MCQuestionGroup({
             <article
               key={question.key}
               id={`reading-question-${question.key}`}
-              className={`${styles.mcQuestion} ${active ? styles.mcQuestionActive : ""}`}
+              className={`${isExamMode ? styles.examMcQuestion : styles.mcQuestion} ${
+                active ? (isExamMode ? styles.examMcQuestionActive : styles.mcQuestionActive) : ""
+              }`}
               onClick={() => onQuestionFocus(question.key)}
             >
-              <div className={styles.mcTopline}>
-                <div className={styles.mcPromptWrapper}>
-                  <strong className={styles.mcNumber}>{question.number}</strong>
+              <div className={isExamMode ? styles.examMcTopline : styles.mcTopline}>
+                <div className={isExamMode ? styles.examMcPromptWrapper : styles.mcPromptWrapper}>
+                  {isExamMode ? (
+                    <strong className={styles.examMcNumber}>{question.number}</strong>
+                  ) : (
+                    <strong className={styles.mcNumber}>{question.number}</strong>
+                  )}
                   <span className={styles.mcPromptText}>{question.prompt || "Nội dung câu hỏi"}</span>
                 </div>
-                <button
-                  type="button"
-                  className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFlag(question.key);
-                  }}
-                  aria-pressed={flagged}
-                  title="Đánh dấu câu này"
-                >
-                  <Flag size={15} weight={flagged ? "fill" : "regular"} />
-                </button>
+
+                {isExamMode ? (
+                  <button
+                    type="button"
+                    className={`${styles.examBookmarkBtn} ${flagged ? styles.examBookmarkBtnActive : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFlag(question.key);
+                    }}
+                    aria-pressed={flagged}
+                    title="Đánh dấu xem lại"
+                  >
+                    <BookmarkSimple size={14} weight={flagged ? "fill" : "regular"} />
+                    <span>Review</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFlag(question.key);
+                    }}
+                    aria-pressed={flagged}
+                    title="Đánh dấu câu này"
+                  >
+                    <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                  </button>
+                )}
               </div>
 
               <div className={styles.mcOptionsList}>
                 {options.map((option) => {
                   const isChecked = selectedValues.includes(option.key) || selectedValues.includes(option.code ?? "");
-                  const label = optionLabel(option.code, option.text);
+                  const label = isExamMode ? (option.text || option.code) : optionLabel(option.code, option.text);
 
                   return (
                     <label
                       key={option.key}
-                      className={`${styles.mcOptionRow} ${isChecked ? styles.mcOptionRowChecked : ""}`}
+                      className={`${isExamMode ? styles.examOptionRow : styles.mcOptionRow} ${
+                        isChecked ? (isExamMode ? styles.examOptionRowChecked : styles.mcOptionRowChecked) : ""
+                      }`}
                     >
                       <input
                         type="radio"
@@ -545,16 +641,22 @@ function MatchingQuestionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  skill,
+  onSeekAudio,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const [selectedOptionKey, setSelectedOptionKey] = useState("");
   const [dragOverKey, setDragOverKey] = useState("");
 
+  const isListening = skill === "LISTENING" || Boolean(group.answerConfig?.linkedAudioTimestamp);
   const isHeadings = group.typeFormat === "MATCHING_HEADINGS";
   const isFeatures = group.typeFormat === "MATCHING_FEATURES";
   const isSentenceEndings = group.typeFormat === "MATCHING_SENTENCE_ENDINGS";
   const isInformation = group.typeFormat === "MATCHING_INFORMATION";
 
-  const bankTitle = isHeadings
+  const bankTitle = isListening
+    ? "List of options"
+    : isHeadings
     ? "List of Headings"
     : isFeatures
     ? "List of Features / People"
@@ -564,7 +666,9 @@ function MatchingQuestionGroup({
     ? "List of Paragraphs"
     : "List of options";
 
-  const canReuseOptions = isFeatures || isInformation;
+  const canReuseOptions = group.answerConfig && typeof group.answerConfig.allowOptionReused === "boolean"
+    ? group.answerConfig.allowOptionReused
+    : isFeatures || (isInformation && !isListening);
 
   const bankOptions =
     group.sharedOptions.length > 0
@@ -592,21 +696,22 @@ function MatchingQuestionGroup({
     onAnswer(questionKey, { value: "" });
   };
 
+  // Render option bank for Reading
   const renderOptionBank = () => (
-    <div className={styles.matchingBankSection}>
-      <h4 className={styles.matchingBankTitle}>{bankTitle}</h4>
+    <div className={isExamMode ? styles.examMatchingBankCol : styles.matchingBankSection}>
+      <h4 className={isExamMode ? styles.examMatchingBankTitle : styles.matchingBankTitle}>{bankTitle}</h4>
       {isFeatures ? (
         <span className={styles.matchingFeaturesNote}>
           NB You may use any letter more than once.
         </span>
       ) : null}
       <p className={styles.matchingBankHint}>
-        <Lightbulb size={16} className="text-amber-500" />
+        <Lightbulb size={16} className="text-amber-500 shrink-0" />
         {isFeatures
           ? "Kéo đáp án thả vào ô trống, hoặc bấm chọn đáp án rồi bấm vào ô trống. (Một lựa chọn có thể dùng nhiều lần)."
           : "Kéo đáp án thả vào ô trống, hoặc bấm chọn đáp án rồi bấm vào ô trống để điền."}
       </p>
-      <div className={styles.matchingOptionsPillsGrid}>
+      <div className={isExamMode ? styles.matchingListeningBankList : styles.matchingOptionsPillsGrid}>
         {bankOptions.map((opt) => {
           const isSelected = selectedOptionKey === opt.key;
           const isUsed = !canReuseOptions && (usedOptionKeys.has(opt.key) || usedOptionKeys.has(opt.code ?? ""));
@@ -615,17 +720,29 @@ function MatchingQuestionGroup({
             <button
               key={opt.key}
               type="button"
-              draggable
+              draggable={!isUsed}
+              disabled={isUsed}
               onDragStart={(e) => {
+                if (isUsed) return;
                 e.dataTransfer.setData("text/plain", opt.key);
                 setSelectedOptionKey(opt.key);
               }}
-              onClick={() => setSelectedOptionKey(isSelected ? "" : opt.key)}
-              className={`${styles.matchingOptionPill} ${
-                isSelected ? styles.matchingOptionPillActive : isUsed ? styles.matchingOptionPillUsed : ""
+              onClick={() => {
+                if (isUsed) return;
+                setSelectedOptionKey(isSelected ? "" : opt.key);
+              }}
+              className={`${
+                isExamMode
+                  ? `${styles.examMatchingBankCard} ${
+                      isSelected ? styles.examMatchingBankCardActive : isUsed ? styles.examMatchingBankCardUsed : ""
+                    }`
+                  : `${styles.matchingOptionPill} ${
+                      isSelected ? styles.matchingOptionPillActive : isUsed ? styles.matchingOptionPillUsed : ""
+                    }`
               }`}
+              title={isUsed ? "Lựa chọn này đã được sử dụng" : "Bấm hoặc kéo để điền vào câu hỏi"}
             >
-              {optionLabel(opt.code, opt.text)}
+              <span>{optionLabel(opt.code, opt.text)}</span>
             </button>
           );
         })}
@@ -633,6 +750,7 @@ function MatchingQuestionGroup({
     </div>
   );
 
+  // Render questions for Reading
   const renderQuestions = () => (
     <div className={styles.matchingQuestionsList}>
       {group.questions.map((question) => {
@@ -647,7 +765,9 @@ function MatchingQuestionGroup({
           <div
             key={question.key}
             id={`reading-question-${question.key}`}
-            className={`${styles.matchingQuestionItem} ${active ? styles.matchingQuestionItemActive : ""}`}
+            className={`${isExamMode ? styles.matchingListeningRow : styles.matchingQuestionItem} ${
+              active ? (isExamMode ? styles.matchingListeningRowActive : styles.matchingQuestionItemActive) : ""
+            }`}
             onClick={() => onQuestionFocus(question.key)}
           >
             <div className={styles.matchingQuestionLeft}>
@@ -675,14 +795,20 @@ function MatchingQuestionGroup({
                   }
                 }}
                 onClick={() => handleSlotClick(question.key)}
-                className={`${styles.matchingTargetSlot} ${
-                  val ? styles.matchingTargetSlotFilled : styles.matchingTargetSlotEmpty
-                } ${isDragOver || (selectedOptionKey && !val) ? styles.matchingTargetSlotActive : ""}`}
+                className={`${
+                  isExamMode
+                    ? `${styles.examMatchingDashedSlot} ${val ? styles.examMatchingDashedSlotFilled : ""} ${
+                        isDragOver || (selectedOptionKey && !val) ? styles.examMatchingDashedSlotActive : ""
+                      }`
+                    : `${styles.matchingTargetSlot} ${
+                        val ? styles.matchingTargetSlotFilled : styles.matchingTargetSlotEmpty
+                      } ${isDragOver || (selectedOptionKey && !val) ? styles.matchingTargetSlotActive : ""}`
+                }`}
                 title={val ? "Bấm để thay thế hoặc xóa" : selectedOptionKey ? "Bấm để điền đáp án đã chọn" : "Kéo hoặc chọn đáp án vào đây"}
               >
                 {val ? (
                   <>
-                    <span>{displayLabel}</span>
+                    <span className="truncate max-w-[200px] text-xs font-semibold">{displayLabel}</span>
                     <button
                       type="button"
                       className={styles.matchingSlotClearBtn}
@@ -693,24 +819,40 @@ function MatchingQuestionGroup({
                     </button>
                   </>
                 ) : (
-                  <span>{question.number}</span>
+                  <span className="font-bold">{isExamMode ? `[ ${question.number} ]` : question.number}</span>
                 )}
               </div>
 
               {isSentenceEndings ? <strong className="text-slate-400 text-lg">.</strong> : null}
 
-              <button
-                type="button"
-                className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleFlag(question.key);
-                }}
-                aria-pressed={flagged}
-                title="Đánh dấu câu này"
-              >
-                <Flag size={15} weight={flagged ? "fill" : "regular"} />
-              </button>
+              {isExamMode ? (
+                <button
+                  type="button"
+                  className={`${styles.examBookmarkBtn} ${flagged ? styles.examBookmarkBtnActive : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFlag(question.key);
+                  }}
+                  aria-pressed={flagged}
+                  title="Đánh dấu xem lại"
+                >
+                  <BookmarkSimple size={14} weight={flagged ? "fill" : "regular"} />
+                  <span>Review</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFlag(question.key);
+                  }}
+                  aria-pressed={flagged}
+                  title="Đánh dấu câu này"
+                >
+                  <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                </button>
+              )}
             </div>
           </div>
         );
@@ -729,8 +871,168 @@ function MatchingQuestionGroup({
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
 
-      {/* Headings show bank at top; Sentence endings / Information show bank at bottom */}
-      {isHeadings ? (
+      {/* Listening Matching Information: 2-Column Split Layout (Ảnh 1) */}
+      {isListening ? (
+        <div className={styles.matchingListeningSplitLayout}>
+          {/* Cột trái: Danh sách câu hỏi */}
+          <div className={styles.matchingListeningQuestionsCol}>
+            {group.questions.map((question) => {
+              const val = answerValues(answers[question.key])[0] ?? "";
+              const matchedOption = bankOptions.find((o) => o.key === val || o.code === val);
+              const displayLabel = matchedOption ? (matchedOption.text || matchedOption.code) : val;
+              const active = activeQuestionKey === question.key;
+              const flagged = flaggedKeys.has(question.key);
+              const isDragOver = dragOverKey === question.key;
+
+              return (
+                <div
+                  key={question.key}
+                  id={`listening-question-${question.key}`}
+                  className={`${styles.matchingListeningRow} ${active ? styles.matchingListeningRowActive : ""}`}
+                  onClick={() => onQuestionFocus(question.key)}
+                >
+                  <span className={styles.matchingListeningPrompt}>
+                    {question.prompt || `Câu hỏi ${question.number}`}
+                  </span>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverKey(question.key);
+                      }}
+                      onDragLeave={() => setDragOverKey("")}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverKey("");
+                        const droppedKey = e.dataTransfer.getData("text/plain");
+                        if (droppedKey) {
+                          onAnswer(question.key, { value: droppedKey });
+                          setSelectedOptionKey("");
+                        }
+                      }}
+                      onClick={() => handleSlotClick(question.key)}
+                      className={`${
+                        isExamMode
+                          ? `${styles.examMatchingDashedSlot} ${val ? styles.examMatchingDashedSlotFilled : ""} ${
+                              isDragOver || (selectedOptionKey && !val) ? styles.examMatchingDashedSlotActive : ""
+                            }`
+                          : `${styles.matchingListeningSlot} ${
+                              val ? styles.matchingListeningSlotFilled : styles.matchingListeningSlotEmpty
+                            } ${isDragOver || (selectedOptionKey && !val) ? styles.matchingListeningSlotActive : ""}`
+                      }`}
+                      title={val ? "Bấm để thay thế hoặc xóa" : selectedOptionKey ? "Bấm để điền đáp án đã chọn" : "Kéo hoặc chọn đáp án vào đây"}
+                    >
+                      {val ? (
+                        <>
+                          <span className="truncate max-w-[200px] text-xs font-semibold">{displayLabel}</span>
+                          <button
+                            type="button"
+                            className={styles.matchingSlotClearBtn}
+                            onClick={(e) => handleClearSlot(question.key, e)}
+                            title="Xóa đáp án"
+                          >
+                            <X size={12} weight="bold" />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="font-bold">{isExamMode ? `[ ${question.number} ]` : question.number}</span>
+                      )}
+                    </div>
+
+                    {isExamMode ? (
+                      <button
+                        type="button"
+                        className={`${styles.examBookmarkBtn} ${flagged ? styles.examBookmarkBtnActive : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFlag(question.key);
+                        }}
+                        aria-pressed={flagged}
+                        title="Đánh dấu xem lại"
+                      >
+                        <BookmarkSimple size={14} weight={flagged ? "fill" : "regular"} />
+                        <span>Review</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`${styles.flagButton} ${flagged ? styles.flagButtonActive : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFlag(question.key);
+                        }}
+                        aria-pressed={flagged}
+                        title="Đánh dấu câu này"
+                      >
+                        <Flag size={15} weight={flagged ? "fill" : "regular"} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Cột phải: List of options */}
+          <div className={isExamMode ? styles.examMatchingBankCol : styles.matchingListeningBankCol}>
+            <h4 className={isExamMode ? styles.examMatchingBankTitle : styles.matchingBankTitle}>List of options</h4>
+            {canReuseOptions ? (
+              <span className={styles.matchingFeaturesNote}>
+                NB You may use any letter more than once.
+              </span>
+            ) : null}
+            {!isExamMode ? (
+              <p className={styles.matchingBankHint}>
+                <Lightbulb size={16} className="text-amber-500 shrink-0" />
+                <span>Kéo đáp án thả vào ô trống, hoặc bấm chọn đáp án rồi bấm vào ô trống để điền.</span>
+              </p>
+            ) : null}
+
+            <div className={styles.matchingListeningBankList}>
+              {bankOptions.map((opt) => {
+                const isSelected = selectedOptionKey === opt.key;
+                const isUsed = !canReuseOptions && (usedOptionKeys.has(opt.key) || usedOptionKeys.has(opt.code ?? ""));
+                const labelText = opt.text ? `${opt.code ? `${opt.code}. ` : ""}${opt.text}` : opt.code;
+
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    draggable={!isUsed}
+                    disabled={isUsed}
+                    onDragStart={(e) => {
+                      if (isUsed) return;
+                      e.dataTransfer.setData("text/plain", opt.key);
+                      setSelectedOptionKey(opt.key);
+                    }}
+                    onClick={() => {
+                      if (isUsed) return;
+                      setSelectedOptionKey(isSelected ? "" : opt.key);
+                    }}
+                    className={`${
+                      isExamMode
+                        ? `${styles.examMatchingBankCard} ${
+                            isSelected ? styles.examMatchingBankCardActive : isUsed ? styles.examMatchingBankCardUsed : ""
+                          }`
+                        : `${styles.matchingListeningOptionCard} ${
+                            isSelected
+                              ? styles.matchingListeningOptionCardActive
+                              : isUsed
+                              ? styles.matchingListeningOptionCardUsed
+                              : ""
+                          }`
+                    }`}
+                    title={isUsed ? "Lựa chọn này đã được sử dụng" : "Bấm hoặc kéo để điền vào câu hỏi"}
+                  >
+                    <span>{labelText}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : isHeadings ? (
         <>
           {renderOptionBank()}
           {renderQuestions()}
@@ -822,6 +1124,7 @@ function GapInlineSlot({
   flagged,
   onFocus,
   onToggleFlag,
+  isExamMode,
 }: {
   question: ReadingQuestion;
   answer: ReadingAnswer | undefined;
@@ -830,10 +1133,33 @@ function GapInlineSlot({
   flagged: boolean;
   onFocus: (questionKey: string) => void;
   onToggleFlag: (questionKey: string) => void;
+  isExamMode?: boolean;
 }) {
   const values = answerValues(answer);
   const textValue = values[0] ?? "";
   const isFilled = textValue.trim().length > 0;
+
+  if (isExamMode) {
+    return (
+      <span
+        id={`reading-question-${question.key}`}
+        style={{ display: "inline-block", verticalAlign: "middle" }}
+        onClick={() => onFocus(question.key)}
+      >
+        <input
+          type="text"
+          className={`${styles.examInputBox} ${active ? styles.examInputBoxActive : ""} ${isFilled ? styles.examInputBoxFilled : ""}`}
+          value={textValue}
+          onChange={(e) => onAnswer(question.key, { value: e.target.value })}
+          onFocus={() => onFocus(question.key)}
+          placeholder={String(question.number)}
+          aria-label={`Câu ${question.number}`}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </span>
+    );
+  }
 
   return (
     <span
@@ -898,6 +1224,7 @@ function GapFillQuestionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const wordLimit =
     typeof group.answerConfig?.wordLimitRule === "string" && group.answerConfig.wordLimitRule.trim()
@@ -1001,6 +1328,7 @@ function GapFillQuestionGroup({
                         flagged={flaggedKeys.has(q.key)}
                         onFocus={onQuestionFocus}
                         onToggleFlag={onToggleFlag}
+                        isExamMode={isExamMode}
                       />
                     );
                   })}
@@ -1033,6 +1361,7 @@ function GapFillQuestionGroup({
                           flagged={flaggedKeys.has(q.key)}
                           onFocus={onQuestionFocus}
                           onToggleFlag={onToggleFlag}
+                          isExamMode={isExamMode}
                         />
                       );
                     })}
@@ -1056,6 +1385,7 @@ function GapFillQuestionGroup({
                             flagged={flaggedKeys.has(question.key)}
                             onFocus={onQuestionFocus}
                             onToggleFlag={onToggleFlag}
+                            isExamMode={isExamMode}
                           />
                         ) : null}
                       </Fragment>
@@ -1076,6 +1406,7 @@ function GapFillQuestionGroup({
                     flagged={flaggedKeys.has(question.key)}
                     onFocus={onQuestionFocus}
                     onToggleFlag={onToggleFlag}
+                    isExamMode={isExamMode}
                   />
                 </div>
               );
@@ -1098,6 +1429,7 @@ function TableCompletionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const wordLimit =
     typeof group.answerConfig?.wordLimitRule === "string" && group.answerConfig.wordLimitRule.trim()
@@ -1156,9 +1488,9 @@ function TableCompletionGroup({
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
 
-      <div className={styles.tableWrapper}>
+      <div className={isExamMode ? styles.examTableWrapper : styles.tableWrapper}>
         {parsedTable ? (
-          <table className={styles.cdIeltsTable}>
+          <table className={isExamMode ? styles.examTable : styles.cdIeltsTable}>
             {parsedTable.headers.length > 0 ? (
               <thead>
                 <tr>
@@ -1191,6 +1523,7 @@ function TableCompletionGroup({
                               flagged={flaggedKeys.has(q.key)}
                               onFocus={onQuestionFocus}
                               onToggleFlag={onToggleFlag}
+                              isExamMode={isExamMode}
                             />
                           );
                         })}
@@ -1202,7 +1535,7 @@ function TableCompletionGroup({
             </tbody>
           </table>
         ) : (
-          <table className={styles.cdIeltsTable}>
+          <table className={isExamMode ? styles.examTable : styles.cdIeltsTable}>
             <thead>
               <tr>
                 <th style={{ width: "80px" }}>Số câu</th>
@@ -1228,6 +1561,7 @@ function TableCompletionGroup({
                         flagged={flaggedKeys.has(question.key)}
                         onFocus={onQuestionFocus}
                         onToggleFlag={onToggleFlag}
+                        isExamMode={isExamMode}
                       />
                     </td>
                   </tr>
@@ -1252,6 +1586,7 @@ function FlowChartCompletionGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const wordLimit =
     typeof group.answerConfig?.wordLimitRule === "string" && group.answerConfig.wordLimitRule.trim()
@@ -1339,6 +1674,7 @@ function FlowChartCompletionGroup({
                         flagged={flaggedKeys.has(q.key)}
                         onFocus={onQuestionFocus}
                         onToggleFlag={onToggleFlag}
+                        isExamMode={isExamMode}
                       />
                     );
                   })
@@ -1353,6 +1689,7 @@ function FlowChartCompletionGroup({
                       flagged={flaggedKeys.has(step.question.key)}
                       onFocus={onQuestionFocus}
                       onToggleFlag={onToggleFlag}
+                      isExamMode={isExamMode}
                     />
                   </>
                 ) : (
@@ -1384,6 +1721,7 @@ function DiagramLabelingGroup({
   flaggedKeys,
   onQuestionFocus,
   onToggleFlag,
+  isExamMode,
 }: ReadingQuestionGroupProps) {
   const wordLimit =
     typeof group.answerConfig?.wordLimitRule === "string" && group.answerConfig.wordLimitRule.trim()
@@ -1407,6 +1745,137 @@ function DiagramLabelingGroup({
     ? group.sharedOptions.filter((opt) => opt.text?.trim() && opt.text !== opt.code && !opt.text.startsWith("Vị trí "))
     : [];
 
+  const renderImageContent = () => (
+    imageUrl ? (
+      <div className={styles.diagramImageWrapper}>
+        <AuthenticatedDiagramImage src={imageUrl} alt={imageAlt} className={styles.diagramImage} />
+        {rawIllustration?.altText?.trim() ? (
+          <p className={styles.diagramImageCaption}>{rawIllustration.altText}</p>
+        ) : null}
+      </div>
+    ) : (
+      <div className={styles.diagramImageWrapper}>
+        <div className="flex flex-col items-center justify-center gap-2 py-6 text-slate-500">
+          <TreeStructure size={36} className="text-slate-400" />
+          <span className="text-xs font-semibold">Sơ đồ gắn nhãn các vị trí được đánh số</span>
+        </div>
+      </div>
+    )
+  );
+
+  const renderGridTable = () => (
+    <>
+      <div className={styles.diagramGridWrapper}>
+        <table className={styles.diagramGridTable}>
+          <thead>
+            <tr>
+              <th scope="col" className={styles.diagramGridPromptCell}>
+                {group.title || "Questions"}
+              </th>
+              {group.sharedOptions.map((opt) => (
+                <th key={opt.key || opt.code} scope="col" className={styles.diagramGridOptionHeader}>
+                  {opt.code}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {group.questions.map((question) => {
+              const currentValues = answerValues(answers[question.key]);
+              const selectedVal = currentValues[0];
+              const isActive = activeQuestionKey === question.key;
+              const isFlagged = flaggedKeys.has(question.key);
+              const prompt = question.prompt || `Vị trí ${question.number}`;
+
+              return (
+                <tr
+                  key={question.key}
+                  id={`reading-question-${question.key}`}
+                  className={`${styles.diagramGridRow} ${isActive ? styles.diagramGridRowActive : ""}`}
+                  onClick={() => onQuestionFocus(question.key)}
+                >
+                  <td className={styles.diagramGridPromptCell}>
+                    <div className={styles.diagramGridPromptContent}>
+                      <span className={isExamMode ? styles.examMcNumber : styles.diagramLabelIndex}>{question.number}</span>
+                      <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
+                      {isExamMode ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFlag(question.key);
+                          }}
+                          className={`${styles.examBookmarkBtn} ${isFlagged ? styles.examBookmarkBtnActive : ""}`}
+                          title={isFlagged ? "Bỏ đánh dấu" : "Đánh dấu xem lại"}
+                          aria-label={`Đánh dấu câu ${question.number}`}
+                        >
+                          <BookmarkSimple size={13} weight={isFlagged ? "fill" : "regular"} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFlag(question.key);
+                          }}
+                          className={`p-1 rounded transition ${isFlagged ? "text-amber-500" : "text-slate-300 hover:text-slate-400"}`}
+                          title={isFlagged ? "Bỏ đánh dấu" : "Đánh dấu xem lại"}
+                          aria-label={`Đánh dấu câu ${question.number}`}
+                        >
+                          <Flag size={14} weight={isFlagged ? "fill" : "regular"} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  {group.sharedOptions.map((opt) => {
+                    const isChecked = selectedVal === opt.key || selectedVal === opt.code;
+                    return (
+                      <td
+                        key={opt.key || opt.code}
+                        className={styles.diagramGridCell}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onQuestionFocus(question.key);
+                          onAnswer(question.key, { value: opt.key });
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`diagram-grid-${question.key}`}
+                          checked={isChecked}
+                          onChange={() => {
+                            onQuestionFocus(question.key);
+                            onAnswer(question.key, { value: opt.key });
+                          }}
+                          className={styles.diagramGridRadio}
+                          aria-label={`Câu ${question.number} chọn ${opt.code}`}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {optionsWithText.length > 0 && (
+        <div className={styles.diagramGridLegend}>
+          <p className={styles.diagramGridLegendTitle}>Danh sách lựa chọn</p>
+          <div className={styles.diagramGridLegendList}>
+            {optionsWithText.map((opt) => (
+              <div key={opt.key || opt.code} className="flex items-center gap-1.5">
+                <strong className="text-[#8f4458] font-bold">{opt.code}:</strong>
+                <span>{opt.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <section className={styles.questionGroup} aria-labelledby={`group-${group.key}`}>
       <div className={styles.groupHeading}>
@@ -1424,147 +1893,57 @@ function DiagramLabelingGroup({
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
 
-      <div className={styles.diagramCard}>
-        {imageUrl ? (
-          <div className={styles.diagramImageWrapper}>
-            <AuthenticatedDiagramImage src={imageUrl} alt={imageAlt} className={styles.diagramImage} />
-            {rawIllustration?.altText?.trim() ? (
-              <p className={styles.diagramImageCaption}>{rawIllustration.altText}</p>
-            ) : null}
-          </div>
-        ) : (
-          <div className={styles.diagramImageWrapper}>
-            <div className="flex flex-col items-center justify-center gap-2 py-6 text-slate-500">
-              <TreeStructure size={36} className="text-slate-400" />
-              <span className="text-xs font-semibold">Sơ đồ gắn nhãn các vị trí được đánh số</span>
+      {isExamMode && hasSharedOptions ? (
+        imageUrl ? (
+          <div className={styles.examDiagramSplit}>
+            <div className={styles.examDiagramImageCol}>
+              {renderImageContent()}
+            </div>
+            <div className={styles.examDiagramQuestionsCol}>
+              {renderGridTable()}
             </div>
           </div>
-        )}
-
-        {hasSharedOptions ? (
-          <>
-            <div className={styles.diagramGridWrapper}>
-              <table className={styles.diagramGridTable}>
-                <thead>
-                  <tr>
-                    <th scope="col" className={styles.diagramGridPromptCell}>
-                      {group.title || "Questions"}
-                    </th>
-                    {group.sharedOptions.map((opt) => (
-                      <th key={opt.key || opt.code} scope="col" className={styles.diagramGridOptionHeader}>
-                        {opt.code}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.questions.map((question) => {
-                    const currentValues = answerValues(answers[question.key]);
-                    const selectedVal = currentValues[0];
-                    const isActive = activeQuestionKey === question.key;
-                    const isFlagged = flaggedKeys.has(question.key);
-                    const prompt = question.prompt || `Vị trí ${question.number}`;
-
-                    return (
-                      <tr
-                        key={question.key}
-                        id={`reading-question-${question.key}`}
-                        className={`${styles.diagramGridRow} ${isActive ? styles.diagramGridRowActive : ""}`}
-                        onClick={() => onQuestionFocus(question.key)}
-                      >
-                        <td className={styles.diagramGridPromptCell}>
-                          <div className={styles.diagramGridPromptContent}>
-                            <span className={styles.diagramLabelIndex}>{question.number}</span>
-                            <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleFlag(question.key);
-                              }}
-                              className={`p-1 rounded transition ${isFlagged ? "text-amber-500" : "text-slate-300 hover:text-slate-400"}`}
-                              title={isFlagged ? "Bỏ đánh dấu" : "Đánh dấu xem lại"}
-                              aria-label={`Đánh dấu câu ${question.number}`}
-                            >
-                              <Flag size={14} weight={isFlagged ? "fill" : "regular"} />
-                            </button>
-                          </div>
-                        </td>
-                        {group.sharedOptions.map((opt) => {
-                          const isChecked = selectedVal === opt.key || selectedVal === opt.code;
-                          return (
-                            <td
-                              key={opt.key || opt.code}
-                              className={styles.diagramGridCell}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onQuestionFocus(question.key);
-                                onAnswer(question.key, { value: opt.key });
-                              }}
-                            >
-                              <input
-                                type="radio"
-                                name={`diagram-grid-${question.key}`}
-                                checked={isChecked}
-                                onChange={() => {
-                                  onQuestionFocus(question.key);
-                                  onAnswer(question.key, { value: opt.key });
-                                }}
-                                className={styles.diagramGridRadio}
-                                aria-label={`Câu ${question.number} chọn ${opt.code}`}
-                              />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {optionsWithText.length > 0 && (
-              <div className={styles.diagramGridLegend}>
-                <p className={styles.diagramGridLegendTitle}>Danh sách lựa chọn</p>
-                <div className={styles.diagramGridLegendList}>
-                  {optionsWithText.map((opt) => (
-                    <div key={opt.key || opt.code} className="flex items-center gap-1.5">
-                      <strong className="text-[#8f4458] font-bold">{opt.code}:</strong>
-                      <span>{opt.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
         ) : (
-          <div className={styles.diagramLabelsList}>
-            {group.questions.map((question) => {
-              const prompt = question.prompt || `Vị trí ${question.number}`;
-              return (
-                <div
-                  key={question.key}
-                  id={`reading-question-${question.key}`}
-                  className={styles.diagramLabelRow}
-                  onClick={() => onQuestionFocus(question.key)}
-                >
-                  <span className={styles.diagramLabelIndex}>{question.number}</span>
-                  <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
-                  <GapInlineSlot
-                    question={question}
-                    answer={answers[question.key]}
-                    onAnswer={onAnswer}
-                    active={activeQuestionKey === question.key}
-                    flagged={flaggedKeys.has(question.key)}
-                    onFocus={onQuestionFocus}
-                    onToggleFlag={onToggleFlag}
-                  />
-                </div>
-              );
-            })}
+          <div className="w-full">
+            {renderGridTable()}
           </div>
-        )}
-      </div>
+        )
+      ) : (
+        <div className={styles.diagramCard}>
+          {renderImageContent()}
+
+          {hasSharedOptions ? (
+            renderGridTable()
+          ) : (
+            <div className={styles.diagramLabelsList}>
+              {group.questions.map((question) => {
+                const prompt = question.prompt || `Vị trí ${question.number}`;
+                return (
+                  <div
+                    key={question.key}
+                    id={`reading-question-${question.key}`}
+                    className={styles.diagramLabelRow}
+                    onClick={() => onQuestionFocus(question.key)}
+                  >
+                    <span className={isExamMode ? styles.examMcNumber : styles.diagramLabelIndex}>{question.number}</span>
+                    <span className={styles.diagramLabelPrompt}>{prompt.replace(/_{2,}/g, "")}</span>
+                    <GapInlineSlot
+                      question={question}
+                      answer={answers[question.key]}
+                      onAnswer={onAnswer}
+                      active={activeQuestionKey === question.key}
+                      flagged={flaggedKeys.has(question.key)}
+                      onFocus={onQuestionFocus}
+                      onToggleFlag={onToggleFlag}
+                      isExamMode={isExamMode}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
