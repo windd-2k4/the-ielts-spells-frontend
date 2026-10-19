@@ -475,6 +475,7 @@ export function BillingWorkspace() {
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
   const [invoicePreviewError, setInvoicePreviewError] = useState<string | null>(null);
+  const [invoicePreviewAttempt, setInvoicePreviewAttempt] = useState(0);
   const [isExportingInvoices, setIsExportingInvoices] = useState(false);
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
 
@@ -511,7 +512,7 @@ export function BillingWorkspace() {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [selectedInvoice?.id, selectedInvoice?.status]);
+  }, [selectedInvoice?.id, selectedInvoice?.status, invoicePreviewAttempt]);
 
   // VIN-HOADON Filter Matrix States (12 fields)
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -1980,6 +1981,25 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
       setFeedback({ type: "error", text: msg });
     } finally {
       setRetryingInvoiceId(null);
+    }
+  };
+
+  const handleRetryInvoicePreview = async () => {
+    if (!selectedInvoice) return;
+    setInvoicePreviewError(null);
+    setInvoicePreviewLoading(true);
+    try {
+      const refreshed = await apiFetch<InvoiceAdminDto>(
+        `/admin/billing/invoices/${selectedInvoice.id}/recheck`,
+        { method: "POST" }
+      );
+      setSelectedInvoice(refreshed);
+      setFeedback({ type: "success", text: "Đã đồng bộ trạng thái hóa đơn từ SePay và thử tải lại PDF." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Chưa thể đồng bộ trạng thái từ SePay";
+      setFeedback({ type: "error", text: msg });
+    } finally {
+      setInvoicePreviewAttempt((attempt) => attempt + 1);
     }
   };
 
@@ -4882,17 +4902,30 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   <div className="h-[74vh] min-h-[560px] w-full rounded-lg border border-rose-500/30 bg-white flex flex-col items-center justify-center gap-3 px-6 text-center">
                     <WarningCircle size={30} className="text-rose-600" />
                     <p className="text-sm font-semibold text-rose-700">{invoicePreviewError}</p>
-                    {selectedInvoice.pdfUrl && (
-                      <a
-                        href={selectedInvoice.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold"
+                    <p className="max-w-lg text-xs text-slate-600">
+                      Lỗi tải PDF không làm thay đổi trạng thái phát hành hoặc tạo thêm hóa đơn.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetryInvoicePreview}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-xs font-bold hover:bg-primary/15"
                       >
-                        <DownloadSimple size={14} />
-                        Tải PDF gốc
-                      </a>
-                    )}
+                        <ArrowClockwise size={14} />
+                        Đồng bộ &amp; thử lại
+                      </button>
+                      {selectedInvoice.pdfUrl && (
+                        <a
+                          href={selectedInvoice.pdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold"
+                        >
+                          <DownloadSimple size={14} />
+                          Tải PDF gốc
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
