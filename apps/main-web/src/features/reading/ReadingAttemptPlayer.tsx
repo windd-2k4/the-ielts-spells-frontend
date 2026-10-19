@@ -3,12 +3,12 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { ReadingAnnotation, ReadingAnswer, ReadingQuestion, ReadingSection, SaveReadingResponseItem, StudentReadingAttempt } from "@ielts/contracts";
 import {
-  ArrowLeft, ArrowsHorizontal, CaretLeft, CaretRight, CheckCircle, CircleNotch, Clock,
+  ArrowLeft, ArrowRight, ArrowsHorizontal, CaretLeft, CaretRight, Check, CheckCircle, CircleNotch, Clock,
   CornersIn, CornersOut, Eye, Flag, FloppyDisk, NotePencil, PaperPlaneTilt, Rows, SidebarSimple, WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingQuestionGroup } from "./ReadingQuestionGroup";
 import { ReadingAnnotations } from "./ReadingAnnotations";
@@ -72,11 +72,33 @@ function clearLocalDraft(attemptId: string) {
 }
 
 export function ReadingAttemptPlayer({ attemptId }: { attemptId: string }) {
-  return <StudentSessionGate><ReadingAttemptContent attemptId={attemptId} /></StudentSessionGate>;
+  return (
+    <Suspense fallback={<main className={styles.statePage} aria-busy="true"><span><CircleNotch size={21} className={styles.spin} aria-hidden="true" />Đang chuẩn bị phòng thi Reading</span></main>}>
+      <StudentSessionGate>
+        <ReadingAttemptContent attemptId={attemptId} />
+      </StudentSessionGate>
+    </Suspense>
+  );
 }
 
 function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isExamMode, setIsExamMode] = useState(() => {
+    if (searchParams.get("mode") === "exam") return true;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(`ielts_attempt_mode_${attemptId}`) === "exam";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isExamMode && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`ielts_attempt_mode_${attemptId}`, "exam");
+      } catch {}
+    }
+  }, [isExamMode, attemptId]);
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, ReadingAnswer>>({});
   const [activeSectionKey, setActiveSectionKey] = useState("");
@@ -166,6 +188,12 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       for (const response of localResponses) mergedAnswers[response.questionKey] = response.answer;
 
       setAttempt(value);
+      if (typeof window !== "undefined") {
+        const savedMode = localStorage.getItem(`ielts_attempt_mode_${attemptId}`) || localStorage.getItem(`ielts_test_mode_${value.testVersionId}`);
+        if (savedMode === "exam") {
+          setIsExamMode(true);
+        }
+      }
       setRemainingSeconds(value.remainingSeconds);
       setActiveSectionKey(value.sections[0]?.key ?? "");
       setActiveQuestionKey(firstQuestion);
@@ -341,6 +369,94 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const activeQuestionIndex = locatedQuestionIndex >= 0 ? locatedQuestionIndex : 0;
   const currentQuestion = questions[activeQuestionIndex];
 
+  // Group questions for Bottom Bar (supporting multi-choice ranges like 20-21)
+  const examQuestionItems = useMemo(() => {
+    if (!activeSection) return [];
+    const items: {
+      key: string;
+      label: string;
+      questionKeys: string[];
+      firstQuestion: ReadingQuestion;
+      isAnswered: boolean;
+      isActive: boolean;
+      isFlagged: boolean;
+    }[] = [];
+
+    for (const group of activeSection.questionGroups) {
+      if (group.typeFormat === "MULTIPLE_ANSWERS") {
+        const k = typeof group.answerConfig?.requiredAnswerCount === "number" && group.answerConfig.requiredAnswerCount > 1
+          ? group.answerConfig.requiredAnswerCount
+          : 2;
+        for (let i = 0; i < group.questions.length; i += k) {
+          const cluster = group.questions.slice(i, i + k);
+          const first = cluster[0];
+          const last = cluster[cluster.length - 1];
+          const startNum = first.number;
+          const endNum = last.number;
+          const label = startNum !== endNum ? `${startNum}-${endNum}` : String(startNum);
+          const qKeys = cluster.map((q) => q.key);
+          const answered = cluster.some((q) => isAnswered(answers[q.key]));
+          const active = cluster.some((q) => q.key === activeQuestionKey);
+          const flagged = cluster.some((q) => flaggedKeys.has(q.key));
+
+          items.push({
+            key: `cluster-${first.key}`,
+            label,
+            questionKeys: qKeys,
+            firstQuestion: first,
+            isAnswered: answered,
+            isActive: active,
+            isFlagged: flagged,
+          });
+        }
+      } else {
+        for (const q of group.questions) {
+          items.push({
+            key: q.key,
+            label: String(q.number),
+            questionKeys: [q.key],
+            firstQuestion: q,
+            isAnswered: isAnswered(answers[q.key]),
+            isActive: q.key === activeQuestionKey,
+            isFlagged: flaggedKeys.has(q.key),
+          });
+        }
+      }
+    }
+    return items;
+  }, [activeSection, answers, activeQuestionKey, flaggedKeys]);
+
+  const currentExamItemIndex = examQuestionItems.findIndex((item) => item.isActive || item.questionKeys.includes(activeQuestionKey));
+
+  const handlePrevExamItem = () => {
+    if (currentExamItemIndex > 0) {
+      const prevItem = examQuestionItems[currentExamItemIndex - 1];
+      if (prevItem && activeSection) {
+        goToQuestion(activeSection, prevItem.firstQuestion);
+      }
+    }
+  };
+
+  const handleNextExamItem = () => {
+    if (currentExamItemIndex >= 0 && currentExamItemIndex < examQuestionItems.length - 1) {
+      const nextItem = examQuestionItems[currentExamItemIndex + 1];
+      if (nextItem && activeSection) {
+        goToQuestion(activeSection, nextItem.firstQuestion);
+      }
+    }
+  };
+
+  const currentSectionIndex = attempt?.sections.findIndex((s) => s.key === activeSection?.key) ?? 0;
+  const nextSection = attempt?.sections[currentSectionIndex + 1] ?? null;
+
+  const handleNextPart = () => {
+    if (nextSection) {
+      selectSection(nextSection);
+      const firstQ = nextSection.questionGroups[0]?.questions[0];
+      if (firstQ) goToQuestion(nextSection, firstQ);
+    }
+  };
+
   function selectSection(section: ReadingSection) {
     setActiveSectionKey(section.key);
     const firstQuestion = section.questionGroups.flatMap((group) => group.questions)[0];
@@ -394,7 +510,7 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
     } catch {
       // Navigation still proceeds; pagehide keeps a second chance to persist the pause.
     } finally {
-      router.push("/student/reading");
+      router.push("/student/practice?skill=READING");
     }
   }
 
@@ -421,11 +537,11 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
   const lastQ = activeSectionQuestions[activeSectionQuestions.length - 1]?.number;
   const questionRangeText = firstQ && lastQ ? `câu ${firstQ}–${lastQ}` : "các câu hỏi";
 
-  return <div className={`${styles.examShell} ${fontClass} ${themeClass} ${controlLayout === "sidebar" ? styles.layoutSidebar : styles.layoutBottom}`} style={examStyle}>
+  return <div className={`${styles.examShell} ${fontClass} ${themeClass} ${!isExamMode && controlLayout === "sidebar" ? styles.layoutSidebar : styles.layoutBottom}`} style={examStyle}>
     <a href="#reading-workspace" className="student-skip-link">Đến nội dung bài thi</a>
     <header className={styles.examHeader}>
       <div className={styles.brandBlock}>
-        <Link href="/student/reading" onClick={exitPlayer} className={styles.exitButton} aria-label="Thoát về danh sách đề"><ArrowLeft size={20} aria-hidden="true" /></Link>
+        <Link href="/student/practice?skill=READING" onClick={exitPlayer} className={styles.exitButton} aria-label="Thoát về danh sách đề"><ArrowLeft size={20} aria-hidden="true" /></Link>
         <img src="/logo.jpg" width={38} height={38} alt="" />
         <div><strong>The IELTS Spells</strong><span>{attempt.title}</span></div>
       </div>
@@ -434,6 +550,27 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
         <button type="button" onClick={() => void flushRef.current()} disabled={saveState === "saving" || pendingCount === 0} className={styles.iconButton} aria-label="Lưu đáp án ngay"><FloppyDisk size={19} aria-hidden="true" /></button>
       </div>
       <div className={styles.headerActions}>
+        {!isExamMode ? (
+          <button
+            type="button"
+            onClick={() => {
+              setIsExamMode(true);
+              if (typeof window !== "undefined") {
+                try {
+                  localStorage.setItem(`ielts_attempt_mode_${attemptId}`, "exam");
+                  if (attempt?.testVersionId) {
+                    localStorage.setItem(`ielts_test_mode_${attempt.testVersionId}`, "exam");
+                  }
+                } catch {}
+              }
+            }}
+            className={styles.themeButton}
+            style={{ width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700 }}
+            title="Chuyển sang Giao diện Thi thật"
+          >
+            Thi thật
+          </button>
+        ) : null}
         <div className={styles.fontControls} role="group" aria-label="Cỡ chữ nội dung bài thi">
           {READING_FONT_SCALE_OPTIONS.map((option) => <button key={option.value} type="button" onClick={() => changeFontScale(option.value)} aria-pressed={fontScale === option.value} aria-label={`Cỡ chữ ${option.label}, ${option.pixels} pixel`} title={`${option.label}: ${option.pixels} px (${option.points} pt)`}><span className={styles.fontGlyph} data-size={option.value} aria-hidden="true">{option.glyph}</span></button>)}
         </div>
@@ -442,24 +579,37 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
           <Eye size={18} aria-hidden="true" />
           <span>{themeShortLabel}</span>
         </button>
-        <button type="button" onClick={() => setNotesOpen(true)} className={`${styles.notesButton} ${notesOpen ? styles.notesButtonActive : ""}`} aria-expanded={notesOpen} aria-label={`Mở ghi chú và tô sáng, ${annotations.length} mục`}>
-          <NotePencil size={18} aria-hidden="true" />
-          {annotations.length > 0 ? <strong>{annotations.length}</strong> : null}
-        </button>
-        <button type="button" onClick={toggleControlLayout} className={styles.layoutButton} aria-label={controlLayout === "bottom" ? "Đưa bảng điều khiển sang bên phải" : "Đưa bảng điều khiển xuống dưới"} title={controlLayout === "bottom" ? "Hiển thị bảng điều khiển bên phải" : "Hiển thị bảng điều khiển bên dưới"}>
-          {controlLayout === "bottom" ? <SidebarSimple size={18} aria-hidden="true" /> : <Rows size={18} aria-hidden="true" />}
-        </button>
+        {!isExamMode ? (
+          <>
+            <button type="button" onClick={() => setNotesOpen(true)} className={`${styles.notesButton} ${notesOpen ? styles.notesButtonActive : ""}`} aria-expanded={notesOpen} aria-label={`Mở ghi chú và tô sáng, ${annotations.length} mục`}>
+              <NotePencil size={18} aria-hidden="true" />
+              {annotations.length > 0 ? <strong>{annotations.length}</strong> : null}
+            </button>
+            <button type="button" onClick={toggleControlLayout} className={styles.layoutButton} aria-label={controlLayout === "bottom" ? "Đưa bảng điều khiển sang bên phải" : "Đưa bảng điều khiển xuống dưới"} title={controlLayout === "bottom" ? "Hiển thị bảng điều khiển bên phải" : "Hiển thị bảng điều khiển bên dưới"}>
+              {controlLayout === "bottom" ? <SidebarSimple size={18} aria-hidden="true" /> : <Rows size={18} aria-hidden="true" />}
+            </button>
+          </>
+        ) : null}
         <button type="button" onClick={() => void toggleFullscreen()} className={styles.iconButton} aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}>{isFullscreen ? <CornersIn size={20} /> : <CornersOut size={20} />}</button>
         <div className={`${styles.timer} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`} role="timer" aria-label={`Thời gian còn lại ${formatDuration(remainingSeconds)}`}><Clock size={19} aria-hidden="true" /><span>{formatDuration(remainingSeconds)}</span><small>còn lại</small></div>
         <button type="button" onClick={() => setShowSubmitConfirmation(true)} disabled={isSubmitting} className={styles.submitButton}><PaperPlaneTilt size={18} aria-hidden="true" />Nộp bài</button>
       </div>
     </header>
 
-    <section className={styles.sectionBar}>
-      <div><span>READING</span><strong>Passage {activeSection.sectionNo}</strong></div>
-      <p>Đọc bài văn và trả lời {questionRangeText} trong phần này.</p>
-      <span>{answeredCount}/{questions.length} câu đã trả lời</span>
-    </section>
+    {isExamMode ? (
+      <section className={styles.examTopBanner}>
+        <h2 className={styles.examTopBannerPart}>Part {activeSection.sectionNo}</h2>
+        <p className={styles.examTopBannerInstruction}>
+          Read the text and answer questions {questionRangeText}
+        </p>
+      </section>
+    ) : (
+      <section className={styles.sectionBar}>
+        <div><span>READING</span><strong>Passage {activeSection.sectionNo}</strong></div>
+        <p>Đọc bài văn và trả lời {questionRangeText} trong phần này.</p>
+        <span>{answeredCount}/{questions.length} câu đã trả lời</span>
+      </section>
+    )}
 
     {saveError ? <div className={styles.saveError} role="alert"><WarningCircle size={18} weight="fill" aria-hidden="true" />{saveError}<button type="button" onClick={() => void flushRef.current()}>Thử lưu lại</button></div> : null}
 
@@ -486,126 +636,229 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
 
         <section className={`${styles.questionsPane} ${fontClass}`} aria-label={`Câu hỏi passage ${activeSection.sectionNo}`}>
           <div className={styles.paneInner}>
-            {activeSection.questionGroups.map((group) => <ReadingQuestionGroup key={group.key} group={group} answers={answers} onAnswer={updateAnswer} activeQuestionKey={activeQuestionKey} flaggedKeys={flaggedKeys} onQuestionFocus={setActiveQuestionKey} onToggleFlag={toggleFlag} />)}
+            {activeSection.questionGroups.map((group) => (
+              <ReadingQuestionGroup
+                key={group.key}
+                group={group}
+                answers={answers}
+                onAnswer={updateAnswer}
+                activeQuestionKey={activeQuestionKey}
+                flaggedKeys={flaggedKeys}
+                onQuestionFocus={setActiveQuestionKey}
+                onToggleFlag={toggleFlag}
+                skill="READING"
+                isExamMode={isExamMode}
+              />
+            ))}
+
+            {isExamMode && nextSection ? (
+              <div className={styles.examPartTransitionCard}>
+                <h4 className={styles.examPartTransitionTitle}>Đã hoàn thành Passage {activeSection.sectionNo}</h4>
+                <p className={styles.examPartTransitionNotice}>Nhấn &quot;Tiếp tục&quot; để chuyển sang phần thi tiếp theo.</p>
+                <button
+                  type="button"
+                  onClick={handleNextPart}
+                  className={styles.examPartTransitionBtn}
+                >
+                  <span>Tiếp tục sang Passage {nextSection.sectionNo}</span>
+                  <ArrowRight size={16} weight="bold" />
+                </button>
+              </div>
+            ) : null}
           </div>
         </section>
       </main>
 
-      {/* Right Sidebar: Sticky Exam Card (Study4 style) */}
-      <aside className={styles.examSidebar} aria-label="Bảng điều khiển bài thi">
-        <div className={styles.sidebarCard}>
-          {/* 1. Timer */}
-          <div className={styles.sidebarTimerBlock}>
-            <span className={styles.sidebarTimerLabel}>Thời gian làm bài:</span>
-            <span className={`${styles.sidebarTimerValue} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`}>
-              <Clock size={18} weight="bold" />
-              {formatDuration(remainingSeconds)}
-            </span>
-          </div>
+      {/* Right Sidebar: Sticky Exam Card (Only for Practice mode!) */}
+      {!isExamMode ? (
+        <aside className={styles.examSidebar} aria-label="Bảng điều khiển bài thi">
+          <div className={styles.sidebarCard}>
+            {/* 1. Timer */}
+            <div className={styles.sidebarTimerBlock}>
+              <span className={styles.sidebarTimerLabel}>Thời gian làm bài:</span>
+              <span className={`${styles.sidebarTimerValue} ${remainingSeconds <= 300 ? styles.timerWarning : ""}`}>
+                <Clock size={18} weight="bold" />
+                {formatDuration(remainingSeconds)}
+              </span>
+            </div>
 
-          {/* 2. Prominent Submit Button */}
+            {/* 2. Prominent Submit Button */}
+            <button
+              type="button"
+              onClick={() => setShowSubmitConfirmation(true)}
+              disabled={isSubmitting}
+              className={styles.sidebarSubmitBtn}
+            >
+              <PaperPlaneTilt size={16} weight="fill" />
+              NỘP BÀI
+            </button>
+
+            {/* 3. Autosave info & Hint */}
+            <div className={styles.sidebarMeta}>
+              <div className={styles.sidebarSaveRow}>
+                {saveState === "saving" ? (
+                  <CircleNotch size={14} className={styles.spin} />
+                ) : (
+                  <CheckCircle size={14} weight="fill" color="#10b981" />
+                )}
+                <span>
+                  {saveState === "saving"
+                    ? "Đang lưu bài làm..."
+                    : saveState === "saved"
+                    ? "Đã lưu tự động"
+                    : "Tự động lưu bài làm"}
+                </span>
+              </div>
+              <p className={styles.sidebarHint}>
+                <em>Chú ý: bạn có thể click vào số thứ tự câu hỏi trong bài để đánh dấu review</em>
+              </p>
+            </div>
+
+            {/* 4. Passages & 5-Column Question Grid */}
+            <div className={styles.sidebarSectionsList}>
+              {attempt.sections.map((section) => {
+                const sectionQuestions = section.questionGroups.flatMap((g) => g.questions);
+                const isCurrentSec = section.key === activeSection.key;
+                const answeredSecCount = sectionQuestions.filter((q) => isAnswered(answers[q.key])).length;
+
+                return (
+                  <div key={section.key} className={styles.sidebarPartSection}>
+                    <button
+                      type="button"
+                      onClick={() => selectSection(section)}
+                      className={`${styles.sidebarPartHeading} ${isCurrentSec ? styles.sidebarPartHeadingActive : ""}`}
+                    >
+                      <span className={styles.sidebarPartName}>Passage {section.sectionNo}</span>
+                      <span className={styles.sidebarPartBadge}>
+                        {answeredSecCount}/{sectionQuestions.length}
+                      </span>
+                    </button>
+
+                    <div className={styles.paletteGrid} role="navigation" aria-label={`Bảng câu hỏi Passage ${section.sectionNo}`}>
+                      {sectionQuestions.map((q) => {
+                        const answered = isAnswered(answers[q.key]);
+                        const active = q.key === activeQuestionKey;
+                        const flagged = flaggedKeys.has(q.key);
+
+                        return (
+                          <button
+                            key={q.key}
+                            type="button"
+                            onClick={() => goToQuestion(section, q)}
+                            className={`${styles.paletteSquare} ${
+                              answered ? styles.paletteSquareAnswered : ""
+                            } ${active ? styles.paletteSquareActive : ""} ${
+                              flagged ? styles.paletteSquareFlagged : ""
+                            }`}
+                            title={`Câu ${q.number}${flagged ? " (Đã đánh dấu review)" : answered ? " (Đã làm)" : " (Chưa làm)"}`}
+                          >
+                            <span className={styles.paletteSquareNumber}>{q.number}</span>
+                            {flagged ? (
+                              <Flag size={8} weight="fill" className={styles.paletteSquareFlag} />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+      ) : null}
+    </div>
+
+    {isExamMode ? (
+      <footer className={styles.examBottomBar} role="navigation" aria-label="Điều hướng câu hỏi">
+        <div className={styles.examBottomLeft}>
+          {attempt.sections.map((sec) => {
+            const secQuestions = sec.questionGroups.flatMap((g) => g.questions);
+            const answeredSec = secQuestions.filter((q) => isAnswered(answers[q.key])).length;
+            const isActive = sec.key === activeSection.key;
+            return (
+              <button
+                key={sec.key}
+                type="button"
+                onClick={() => selectSection(sec)}
+                className={`${styles.examBottomPartTab} ${isActive ? styles.examBottomPartTabActive : ""}`}
+              >
+                <span>Part {sec.sectionNo}</span>
+                <span className={styles.examBottomPartBadge}>
+                  {answeredSec}/{secQuestions.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.examBottomQuestionsTrack}>
+          {examQuestionItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => goToQuestion(activeSection, item.firstQuestion)}
+              className={`${styles.examBottomQBtn} ${item.isActive ? styles.examBottomQBtnActive : ""} ${
+                item.isAnswered ? styles.examBottomQBtnAnswered : ""
+              } ${item.isFlagged ? styles.examBottomQBtnFlagged : ""}`}
+              title={`Câu ${item.label}${item.isAnswered ? " (Đã làm)" : ""}${item.isFlagged ? " (Đánh dấu xem lại)" : ""}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.examBottomRight}>
+          <button
+            type="button"
+            onClick={handlePrevExamItem}
+            disabled={currentExamItemIndex <= 0}
+            className={styles.examBottomNavArrow}
+            title="Câu trước"
+            aria-label="Câu trước"
+          >
+            <CaretLeft size={20} weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={handleNextExamItem}
+            disabled={currentExamItemIndex >= examQuestionItems.length - 1}
+            className={styles.examBottomNavArrow}
+            title="Câu tiếp theo"
+            aria-label="Câu tiếp theo"
+          >
+            <CaretRight size={20} weight="bold" />
+          </button>
           <button
             type="button"
             onClick={() => setShowSubmitConfirmation(true)}
-            disabled={isSubmitting}
-            className={styles.sidebarSubmitBtn}
+            className={styles.examBottomSubmitBtn}
+            title="Nộp bài thi"
+            aria-label="Nộp bài thi"
           >
-            <PaperPlaneTilt size={16} weight="fill" />
-            NỘP BÀI
+            <Check size={20} weight="bold" />
           </button>
-
-          {/* 3. Autosave info & Hint */}
-          <div className={styles.sidebarMeta}>
-            <div className={styles.sidebarSaveRow}>
-              {saveState === "saving" ? (
-                <CircleNotch size={14} className={styles.spin} />
-              ) : (
-                <CheckCircle size={14} weight="fill" color="#10b981" />
-              )}
-              <span>
-                {saveState === "saving"
-                  ? "Đang lưu bài làm..."
-                  : saveState === "saved"
-                  ? "Đã lưu tự động"
-                  : "Tự động lưu bài làm"}
-              </span>
-            </div>
-            <p className={styles.sidebarHint}>
-              <em>Chú ý: bạn có thể click vào số thứ tự câu hỏi trong bài để đánh dấu review</em>
-            </p>
-          </div>
-
-          {/* 4. Passages & 5-Column Question Grid */}
-          <div className={styles.sidebarSectionsList}>
-            {attempt.sections.map((section) => {
-              const sectionQuestions = section.questionGroups.flatMap((g) => g.questions);
-              const isCurrentSec = section.key === activeSection.key;
-              const answeredSecCount = sectionQuestions.filter((q) => isAnswered(answers[q.key])).length;
-
-              return (
-                <div key={section.key} className={styles.sidebarPartSection}>
-                  <button
-                    type="button"
-                    onClick={() => selectSection(section)}
-                    className={`${styles.sidebarPartHeading} ${isCurrentSec ? styles.sidebarPartHeadingActive : ""}`}
-                  >
-                    <span className={styles.sidebarPartName}>Passage {section.sectionNo}</span>
-                    <span className={styles.sidebarPartBadge}>
-                      {answeredSecCount}/{sectionQuestions.length}
-                    </span>
-                  </button>
-
-                  <div className={styles.paletteGrid} role="navigation" aria-label={`Bảng câu hỏi Passage ${section.sectionNo}`}>
-                    {sectionQuestions.map((q) => {
-                      const answered = isAnswered(answers[q.key]);
-                      const active = q.key === activeQuestionKey;
-                      const flagged = flaggedKeys.has(q.key);
-
-                      return (
-                        <button
-                          key={q.key}
-                          type="button"
-                          onClick={() => goToQuestion(section, q)}
-                          className={`${styles.paletteSquare} ${
-                            answered ? styles.paletteSquareAnswered : ""
-                          } ${active ? styles.paletteSquareActive : ""} ${
-                            flagged ? styles.paletteSquareFlagged : ""
-                          }`}
-                          title={`Câu ${q.number}${flagged ? " (Đã đánh dấu review)" : answered ? " (Đã làm)" : " (Chưa làm)"}`}
-                        >
-                          <span className={styles.paletteSquareNumber}>{q.number}</span>
-                          {flagged ? (
-                            <Flag size={8} weight="fill" className={styles.paletteSquareFlag} />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
-      </aside>
-    </div>
-
-    <footer className={styles.examFooter}>
-      <nav className={styles.sectionTabs} aria-label="Chọn passage">
-        {attempt.sections.map((section) => {
-          const sectionQuestions = section.questionGroups.flatMap((group) => group.questions);
-          return <button key={section.key} type="button" onClick={() => selectSection(section)} aria-current={section.key === activeSection.key ? "page" : undefined}><strong>Part {section.sectionNo}</strong><span>{sectionQuestions.filter((question) => isAnswered(answers[question.key])).length}/{sectionQuestions.length}</span></button>;
-        })}
-      </nav>
-      <nav className={styles.questionNav} aria-label="Điều hướng câu hỏi">
-        {questions.map(({ section, question }) => {
-          const answered = isAnswered(answers[question.key]);
-          const active = question.key === activeQuestionKey;
-          const flagged = flaggedKeys.has(question.key);
-          return <button key={question.key} type="button" onClick={() => goToQuestion(section, question)} className={`${answered ? styles.answered : ""} ${active ? styles.active : ""} ${flagged ? styles.flagged : ""}`} aria-current={active ? "step" : undefined} aria-label={`Câu ${question.number}, ${answered ? "đã trả lời" : "chưa trả lời"}${flagged ? ", đã đánh dấu" : ""}`}>{question.number}{flagged ? <Flag size={10} weight="fill" aria-hidden="true" /> : null}</button>;
-        })}
-      </nav>
-      <div className={styles.nextControls}><button type="button" onClick={() => moveQuestion(-1)} disabled={activeQuestionIndex <= 0} aria-label="Câu trước"><CaretLeft size={22} /></button><span>Câu {currentQuestion?.question.number ?? "–"}</span><button type="button" onClick={() => moveQuestion(1)} disabled={activeQuestionIndex >= questions.length - 1} aria-label="Câu tiếp theo"><CaretRight size={22} /></button></div>
-    </footer>
+      </footer>
+    ) : (
+      <footer className={styles.examFooter}>
+        <nav className={styles.sectionTabs} aria-label="Chọn passage">
+          {attempt.sections.map((section) => {
+            const sectionQuestions = section.questionGroups.flatMap((group) => group.questions);
+            return <button key={section.key} type="button" onClick={() => selectSection(section)} aria-current={section.key === activeSection.key ? "page" : undefined}><strong>Part {section.sectionNo}</strong><span>{sectionQuestions.filter((question) => isAnswered(answers[question.key])).length}/{sectionQuestions.length}</span></button>;
+          })}
+        </nav>
+        <nav className={styles.questionNav} aria-label="Điều hướng câu hỏi">
+          {questions.map(({ section, question }) => {
+            const answered = isAnswered(answers[question.key]);
+            const active = question.key === activeQuestionKey;
+            const flagged = flaggedKeys.has(question.key);
+            return <button key={question.key} type="button" onClick={() => goToQuestion(section, question)} className={`${answered ? styles.answered : ""} ${active ? styles.active : ""} ${flagged ? styles.flagged : ""}`} aria-current={active ? "step" : undefined} aria-label={`Câu ${question.number}, ${answered ? "đã trả lời" : "chưa trả lời"}${flagged ? ", đã đánh dấu" : ""}`}>{question.number}{flagged ? <Flag size={10} weight="fill" aria-hidden="true" /> : null}</button>;
+          })}
+        </nav>
+        <div className={styles.nextControls}><button type="button" onClick={() => moveQuestion(-1)} disabled={activeQuestionIndex <= 0} aria-label="Câu trước"><CaretLeft size={22} /></button><span>Câu {currentQuestion?.question.number ?? "–"}</span><button type="button" onClick={() => moveQuestion(1)} disabled={activeQuestionIndex >= questions.length - 1} aria-label="Câu tiếp theo"><CaretRight size={22} /></button></div>
+      </footer>
+    )}
 
     {showSubmitConfirmation ? <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isSubmitting) setShowSubmitConfirmation(false); }}>
       <section className={styles.submitDialog} role="dialog" aria-modal="true" aria-labelledby="submit-confirmation-title">

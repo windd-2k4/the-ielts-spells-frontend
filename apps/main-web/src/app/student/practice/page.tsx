@@ -146,7 +146,7 @@ const landingDetails = {
   WRITING: {
     icon: PencilCircle,
     code: "03",
-    status: "ĐANG PHÁT TRIỂN",
+    status: "SẴN SÀNG",
     label: "Writing",
     description: "Luyện Task 1, Task 2 và nhận phản hồi theo tiêu chí IELTS.",
     eyebrow: "WRITE · REFINE · PROGRESS",
@@ -159,11 +159,7 @@ const landingDetails = {
     label: "Speaking",
     description: "Luyện nói theo chủ đề, ghi âm và theo dõi tiến bộ.",
     eyebrow: "SPEAK · RECORD · GAIN CONFIDENCE",
-    features: [
-      { icon: ClockCountdown, label: "Ghi âm & Đếm ngược thời gian" },
-      { icon: Sparkle, label: "AI chấm 4 tiêu chí & Phản hồi" },
-      { icon: CheckCircle, label: "Gợi ý từng bước & Tra từ vựng AI" },
-    ],
+    features: [],
   },
 } as const;
 
@@ -185,12 +181,11 @@ function PracticeLanding() {
         {skills.map((skill) => {
           const detail = landingDetails[skill.id];
           const Icon = detail.icon;
-          const isReady = skill.id === "READING" || skill.id === "SPEAKING";
           return (
             <Link
               key={skill.id}
               href={`/student/practice?skill=${skill.id}`}
-              className={`${styles.landingCard} ${landingCardClasses[skill.id]} ${isReady ? styles.landingAvailableCard : styles.landingUpcomingCard}`}
+              className={`${styles.landingCard} ${landingCardClasses[skill.id]} ${styles.landingAvailableCard}`}
               aria-label={`Mở danh mục luyện IELTS ${detail.label}`}
             >
               <span className={styles.landingGlow} aria-hidden="true" />
@@ -210,7 +205,7 @@ function PracticeLanding() {
 
               <LandingArtwork skill={skill.id} />
 
-              {(skill.id === "READING" || skill.id === "SPEAKING") && detail.features.length ? (
+              {skill.id === "READING" && detail.features.length ? (
                 <ul className={styles.landingFeatureList} aria-label={`Điểm nổi bật của khu vực ${detail.label}`}>
                   {detail.features.map((feature) => {
                     const FeatureIcon = feature.icon;
@@ -222,7 +217,7 @@ function PracticeLanding() {
               <div className={styles.landingCardFooter}>
                 <span className={styles.landingMicroCopy}>{detail.eyebrow}</span>
                 <span className={styles.landingAction}>
-                  {isReady ? `Bắt đầu ${detail.label}` : "Xem danh mục"}<ArrowRight size={16} weight="bold" />
+                  {`Bắt đầu ${detail.label}`}<ArrowRight size={16} weight="bold" />
                 </span>
               </div>
             </Link>
@@ -306,6 +301,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   const [startingId, setStartingId] = useState("");
   const [resumePrompt, setResumePrompt] = useState<ResumePrompt | null>(null);
   const [resumeError, setResumeError] = useState("");
+  const [modePrompt, setModePrompt] = useState<{ item: StudentPracticeCatalogItem } | null>(null);
+  const [selectedMode, setSelectedMode] = useState<"PRACTICE" | "EXAM">("PRACTICE");
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   function updateParams(updates: Record<string, string | null>, resetPage = true) {
@@ -361,7 +358,7 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
     updateParams({ questionTypes: next.length ? next.join(",") : null });
   }
 
-  async function start(item: StudentPracticeCatalogItem) {
+  async function start(item: StudentPracticeCatalogItem, mode: "PRACTICE" | "EXAM" = "PRACTICE") {
     const isReady = item.deliveryReady || item.skill === "SPEAKING";
     if (!isReady) return;
     const skillPath = item.skill.toLowerCase();
@@ -383,15 +380,25 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
         });
         return;
       }
+      const isExam = mode === "EXAM";
+      const querySuffix = isExam ? "?mode=exam" : "";
       if (item.skill === "WRITING") {
         const attempt = await startOrResumeWritingSelfPractice(item.testVersionId);
-        router.push(`/student/writing/attempts/${attempt.attemptId}`);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`ielts_attempt_mode_${attempt.attemptId}`, isExam ? "exam" : "practice");
+          localStorage.setItem(`ielts_test_mode_${item.testVersionId}`, isExam ? "exam" : "practice");
+        }
+        router.push(`/student/writing/attempts/${attempt.attemptId}${querySuffix}`);
       } else if (item.skill === "SPEAKING") {
         const attempt = await startOrResumeSpeakingSelfPractice(item.testVersionId);
         router.push(`/student/speaking/attempts/${attempt.attemptId}`);
       } else {
         const attempt = await startOrResumeSelfPractice(item.testVersionId, item.skill);
-        router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`ielts_attempt_mode_${attempt.attemptId}`, isExam ? "exam" : "practice");
+          localStorage.setItem(`ielts_test_mode_${item.testVersionId}`, isExam ? "exam" : "practice");
+        }
+        router.push(`/student/${skillPath}/attempts/${attempt.attemptId}${querySuffix}`);
       }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể bắt đầu đề này.");
@@ -407,13 +414,23 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
     setStartingId(item.testVersionId);
     setResumeError("");
     try {
+      const savedMode = typeof window !== "undefined"
+        ? (localStorage.getItem(`ielts_attempt_mode_${resumePrompt.attemptId}`) || localStorage.getItem(`ielts_test_mode_${item.testVersionId}`))
+        : null;
+      const isExam = savedMode === "exam";
       const attempt = item.skill === "WRITING"
         ? await startOrResumeWritingSelfPractice(item.testVersionId, true)
         : item.skill === "SPEAKING"
         ? await startOrResumeSpeakingSelfPractice(item.testVersionId, true)
         : await startOrResumeSelfPractice(item.testVersionId, item.skill, true);
+      let querySuffix = "";
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`ielts_attempt_mode_${attempt.attemptId}`, isExam ? "exam" : "practice");
+        localStorage.setItem(`ielts_test_mode_${item.testVersionId}`, isExam ? "exam" : "practice");
+        if (isExam) querySuffix = "?mode=exam";
+      }
       setResumePrompt(null);
-      router.push(`/student/${skillPath}/attempts/${attempt.attemptId}`);
+      router.push(`/student/${skillPath}/attempts/${attempt.attemptId}${querySuffix}`);
     } catch (failure) {
       setResumeError(failure instanceof Error ? failure.message : "Không thể làm lại đề này.");
     } finally {
@@ -532,8 +549,20 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           ) : null}
           {!loading && result.content.length > 0 ? (
             <div className={styles.catalog} aria-label={`Danh sách đề ${currentSkill.label}`}>
-              {result.content.map((item) => <PracticeCard key={item.testVersionId} item={item}
-                starting={startingId === item.testVersionId} onStart={start} />)}
+              {result.content.map((item) => (
+                <PracticeCard
+                  key={item.testVersionId}
+                  item={item}
+                  starting={startingId === item.testVersionId}
+                  onStart={(clickedItem) => {
+                    if (clickedItem.activeAttemptId) {
+                      void start(clickedItem, "PRACTICE");
+                    } else {
+                      setModePrompt({ item: clickedItem });
+                    }
+                  }}
+                />
+              ))}
             </div>
           ) : null}
 
@@ -552,8 +581,31 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           busy={startingId === resumePrompt.item.testVersionId}
           error={resumeError}
           onClose={() => { setResumePrompt(null); setResumeError(""); }}
-          onContinue={() => router.push(`/student/${resumePrompt.item.skill.toLowerCase()}/attempts/${resumePrompt.attemptId}`)}
+          onContinue={() => {
+            let modeSuffix = "";
+            if (typeof window !== "undefined") {
+              const savedMode = localStorage.getItem(`ielts_attempt_mode_${resumePrompt.attemptId}`) || localStorage.getItem(`ielts_test_mode_${resumePrompt.item.testVersionId}`);
+              if (savedMode === "exam") {
+                modeSuffix = "?mode=exam";
+              }
+            }
+            router.push(`/student/${resumePrompt.item.skill.toLowerCase()}/attempts/${resumePrompt.attemptId}${modeSuffix}`);
+          }}
           onRestart={() => void restart()}
+        />
+      ) : null}
+      {modePrompt ? (
+        <ModeSelectionDialog
+          prompt={modePrompt}
+          selectedMode={selectedMode}
+          onSelectMode={setSelectedMode}
+          onClose={() => setModePrompt(null)}
+          onSubmit={() => {
+            const target = modePrompt.item;
+            setModePrompt(null);
+            void start(target, selectedMode);
+          }}
+          busy={startingId === modePrompt.item.testVersionId}
         />
       ) : null}
     </main>
@@ -621,6 +673,166 @@ function ResumeAttemptDialog({
           <Play size={17} weight="fill" />Tiếp tục làm bài
         </button>
       </div>
+    </dialog>
+  );
+}
+
+function PracticePreviewMockup() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <rect width="280" height="140" fill="#faf8f5" />
+      <rect x="0" y="0" width="280" height="20" fill="#ffffff" />
+      <circle cx="16" cy="10" r="4" fill="#f97316" />
+      <rect x="26" y="8" width="60" height="4" rx="2" fill="#e2e8f0" />
+      <rect x="26" y="8" width="24" height="4" rx="2" fill="#f97316" />
+      <rect x="210" y="6" width="24" height="8" rx="4" fill="#ffedd5" />
+      <rect x="240" y="6" width="28" height="8" rx="4" fill="#f97316" />
+      <rect x="12" y="28" width="120" height="100" rx="6" fill="#ffffff" stroke="#e2e8f0" />
+      <rect x="20" y="36" width="50" height="6" rx="3" fill="#cbd5e1" />
+      <rect x="20" y="48" width="104" height="4" rx="2" fill="#f1f5f9" />
+      <rect x="20" y="56" width="96" height="4" rx="2" fill="#fef08a" />
+      <rect x="20" y="64" width="100" height="4" rx="2" fill="#f1f5f9" />
+      <rect x="20" y="76" width="40" height="14" rx="3" fill="#ecfdf5" stroke="#10b981" />
+      <rect x="140" y="28" width="128" height="100" rx="6" fill="#ffffff" stroke="#e2e8f0" />
+      <circle cx="152" cy="42" r="5" fill="#10b981" />
+      <rect x="162" y="40" width="70" height="4" rx="2" fill="#94a3b8" />
+      <circle cx="152" cy="60" r="3" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="162" y="58" width="80" height="4" rx="2" fill="#cbd5e1" />
+      <circle cx="152" cy="74" r="3" stroke="#94a3b8" strokeWidth="1.5" />
+      <rect x="162" y="72" width="65" height="4" rx="2" fill="#cbd5e1" />
+      <rect x="148" y="104" width="112" height="14" rx="4" fill="#fff7ed" stroke="#fdba74" />
+      <rect x="156" y="109" width="45" height="4" rx="2" fill="#ea580c" />
+    </svg>
+  );
+}
+
+function ExamPreviewMockup() {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <rect width="280" height="140" fill="#ffffff" />
+      <rect x="0" y="0" width="280" height="18" fill="#1e293b" />
+      <rect x="10" y="6" width="70" height="5" rx="2" fill="#ffffff" />
+      <rect x="210" y="6" width="40" height="5" rx="2" fill="#94a3b8" />
+      <rect x="14" y="26" width="252" height="84" rx="4" fill="#ffffff" stroke="#94a3b8" />
+      <line x1="14" y1="44" x2="266" y2="44" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="14" y1="62" x2="266" y2="62" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="14" y1="80" x2="266" y2="80" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="14" y1="98" x2="266" y2="98" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="80" y1="26" x2="80" y2="110" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="150" y1="26" x2="150" y2="110" stroke="#cbd5e1" strokeWidth="1" />
+      <line x1="210" y1="26" x2="210" y2="110" stroke="#cbd5e1" strokeWidth="1" />
+      <rect x="86" y="49" width="36" height="9" rx="2" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+      <rect x="156" y="67" width="36" height="9" rx="2" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+      <rect x="86" y="85" width="36" height="9" rx="2" fill="#ffffff" stroke="#000000" strokeWidth="1" />
+      <rect x="0" y="118" width="280" height="22" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+      <rect x="10" y="125" width="22" height="8" rx="2" fill="#000000" />
+      <rect x="36" y="127" width="140" height="4" rx="2" fill="#64748b" />
+      <rect x="236" y="122" width="14" height="14" rx="2" fill="#0f172a" />
+      <rect x="254" y="122" width="14" height="14" rx="2" fill="#0f172a" />
+    </svg>
+  );
+}
+
+function ModeSelectionDialog({
+  prompt,
+  selectedMode,
+  onSelectMode,
+  onClose,
+  onSubmit,
+  busy,
+}: {
+  prompt: { item: StudentPracticeCatalogItem };
+  selectedMode: "PRACTICE" | "EXAM";
+  onSelectMode: (mode: "PRACTICE" | "EXAM") => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  busy: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className={styles.modeDialog}
+      aria-labelledby="mode-selection-title"
+      onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }}
+      onKeyDown={(e) => { if (e.key === "Escape" && !busy) { e.preventDefault(); onClose(); } }}
+    >
+      <div className={styles.modeHeader}>
+        <span className={styles.modeTitleText}>
+          [{prompt.item.title}] - {formatLabel(prompt.item)}
+        </span>
+        <button
+          type="button"
+          className={styles.modeCloseBtn}
+          onClick={onClose}
+          disabled={busy}
+          aria-label="Đóng"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <h3 id="mode-selection-title" className={styles.modeHeading}>
+        Chọn giao diện làm bài
+      </h3>
+
+      <div className={styles.modeGrid}>
+        {/* Option 1: Giao diện Luyện tập */}
+        <div
+          role="button"
+          tabIndex={0}
+          className={`${styles.modeCard} ${selectedMode === "PRACTICE" ? styles.modeCardSelected : ""}`}
+          onClick={() => onSelectMode("PRACTICE")}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelectMode("PRACTICE"); }}
+        >
+          <div className={styles.modeCardPreview}>
+            <PracticePreviewMockup />
+          </div>
+          <h4 className={styles.modeCardTitle}>
+            Giao diện Luyện tập
+          </h4>
+          <p className={styles.modeCardDesc}>
+            Hỗ trợ tối đa các chức năng: Tra từ vựng, gợi ý viết bài,... Phù hợp để luyện tập
+          </p>
+        </div>
+
+        {/* Option 2: Giao diện Thi thật */}
+        <div
+          role="button"
+          tabIndex={0}
+          className={`${styles.modeCard} ${selectedMode === "EXAM" ? styles.modeCardSelected : ""}`}
+          onClick={() => onSelectMode("EXAM")}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelectMode("EXAM"); }}
+        >
+          <span className={styles.modeBadgeExam}>Giống 100%</span>
+          <div className={styles.modeCardPreview}>
+            <ExamPreviewMockup />
+          </div>
+          <h4 className={styles.modeCardTitle}>
+            Giao diện Thi thật
+          </h4>
+          <p className={styles.modeCardDesc}>
+            Mô phỏng 100% giao diện thi máy, giúp các bạn quen với chức năng khi thi thật
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className={styles.modeSubmitBtn}
+        onClick={onSubmit}
+        disabled={busy}
+      >
+        {busy ? <CircleNotch size={18} className={styles.spin} /> : null}
+        <span>Bắt đầu làm bài</span>
+      </button>
     </dialog>
   );
 }

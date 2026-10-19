@@ -1087,3 +1087,453 @@
 .modalConfirmBtn:hover {
   background: var(--exam-accent-dark);
 }
+
+/* ========================================================
+   REAL EXAM MODE (CD-IELTS Computer Simulation) STYLES
+   ======================================================== */
+
+/* 1. Audio Intro / Headphone Equipment Test Screen */
+.examIntroOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.examIntroCard {
+  width: 100%;
+  max-width: 580px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  padding: 36px 32px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  color: #0f172a;
+  animation: examCardPop 200ms ease-out;
+}
+
+@keyframes examCardPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.examIntroIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #0f172a;
+  margin-bottom: 16px;
+}
+
+.examIntroTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.examIntroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.examIntroNotice {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 18px;
+  text-align: left;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.examIntroNotice ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.examIntroNotice li {
+  margin-bottom: 4px;
+}
+
+.examIntroVolumeTest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 24px;
+}
+
+.examIntroVolumeLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.examIntroStartBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-radius: 8px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.examIntroStartBtn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+.examIntroSecondaryBtn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.examIntroSecondaryBtn:hover {
+  color: #0f172a;
+}
+
+/* 2. Real Exam Top Bar */
+.examTopBar {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.examTopLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.examTopTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.examTopSectionBadge {
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.examTopCenter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.examAudioIndicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.examTopRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.examTimerText {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.02em;
+}
+
+.examModeSwitchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #475569;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.examModeSwitchBtn:hover {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #64748b;
+}
+
+/* 3. Real Exam Workspace */
+.examWorkspaceSingle {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 100px 28px;
+  background: #ffffff;
+}
+
+.examWorkspaceInner {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* 4. Real Exam Bottom Navigation Bar (CD-IELTS Standard) */
+.examBottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #e2e8f0;
+  border-top: 1.5px solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 60;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.examBottomLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.examBottomPartTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.examBottomPartTab:hover {
+  background: #ffffff;
+}
+
+.examBottomPartTabActive {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+
+.examBottomPartBadge {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.examBottomQuestionsTrack {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0 12px;
+  max-width: calc(100vw - 380px);
+}
+
+.examBottomQBtn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 100ms ease;
+}
+
+.examBottomQBtn:hover {
+  border-color: #0f172a;
+}
+
+.examBottomQBtnActive {
+  border: 2px solid #0f172a !important;
+  font-weight: 800;
+}
+
+.examBottomQBtnAnswered {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  background: #f1f5f9;
+}
+
+.examBottomQBtnFlagged {
+  border-color: #d97706 !important;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.examBottomRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.examBottomNavArrow {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examBottomNavArrow:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.examBottomNavArrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.examBottomSubmitBtn {
+  width: 38px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examBottomSubmitBtn:hover {
+  background: #15803d;
+}
+
+/* 5. Part Transition Banner */
+.examPartTransitionCard {
+  margin-top: 32px;
+  padding: 24px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.examPartTransitionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.examPartTransitionNotice {
+  font-size: 14px;
+  color: #475569;
+  margin: 0 0 16px;
+}
+
+.examPartTransitionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.examPartTransitionBtn:hover {
+  background: #1e293b;
+}
+
