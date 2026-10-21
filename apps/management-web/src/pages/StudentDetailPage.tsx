@@ -82,11 +82,11 @@ export function StudentDetailPage() {
   if (error || !student) return <State text={error || "Không tìm thấy học viên"} error />;
 
   return (
-    <section className="space-y-4">
+    <section className="mx-auto w-full max-w-[1440px] space-y-4">
       <div className="flex min-w-0 items-center gap-3">
         <Link
           to="/students"
-          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold text-on-surface-variant transition-colors hover:text-primary"
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold text-on-surface-variant transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
         >
           <ArrowLeft size={18} /> Quay lại danh sách học viên
         </Link>
@@ -95,17 +95,17 @@ export function StudentDetailPage() {
         <nav className="flex min-w-0 flex-1 overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface p-1 no-scrollbar">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+            className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
               activeTab === "profile"
                 ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
                 : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
             }`}
           >
-            <UserCircle size={18} /> Hồ sơ & mục tiêu
+            <UserCircle size={18} /> Tổng quan học viên
           </button>
           <button
             onClick={() => setActiveTab("learning")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+            className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
               activeTab === "learning"
                 ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
                 : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
@@ -115,7 +115,7 @@ export function StudentDetailPage() {
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap ${
+            className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
               activeTab === "history"
                 ? "bg-[#F3E6EB] text-[#8B3F56] shadow-[inset_0_-2px_0_#8B3F56]"
                 : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"

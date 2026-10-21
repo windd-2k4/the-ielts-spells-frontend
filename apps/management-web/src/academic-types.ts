@@ -119,6 +119,9 @@ export type StudentLearningInsights = {
     skill: string; attempts: number; answeredQuestions: number; correctAnswers: number;
     accuracy: number | null; averageScorePercent: number | null;
   }>;
+  monthlyCompletedAttempts: Array<{
+    month: string; skill: string; completedAttempts: number;
+  }>;
   attempts: Array<{
     id: string; title: string; skill: string; status: string; origin: string;
     courseCode: string | null; courseName: string | null; attemptNo: number;

@@ -93,9 +93,7 @@ export default function StudentProfileDetail({
 
   return (
     <div className="space-y-4">
-      {/* Student Profile Header Banner */}
-      <header className="profile-saas-panel profile-enter relative overflow-hidden rounded-[20px] border p-5">
-        <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-primary-container/10" aria-hidden="true" />
+      <header className="profile-saas-panel profile-enter rounded-[20px] border px-4 py-3.5 md:px-5">
         {onClose && (
           <button
             type="button"
@@ -106,42 +104,45 @@ export default function StudentProfileDetail({
             <X size={18} />
           </button>
         )}
-        <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div className="flex min-w-0 items-center gap-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 xl:grid-cols-[minmax(260px,1fr)_minmax(0,1.25fr)_auto] xl:gap-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Avatar student={student} />
             <div className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="rounded-lg bg-primary-container/30 px-2.5 py-1 font-mono text-xs font-bold text-primary">
+              <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-md bg-primary-container/20 px-2 py-1 font-mono text-[11px] font-semibold text-primary">
                   {student.studentCode}
                 </span>
                 <span
-                  className={`rounded-lg px-2.5 py-1 text-xs font-black ${
+                  className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
                     student.active ? "bg-emerald-50 text-emerald-700" : "bg-surface-container text-on-surface-variant"
                   }`}
                 >
                   {student.active ? "Hồ sơ hoạt động" : "Hồ sơ đã khóa"}
                 </span>
-                <span className="rounded-lg bg-surface-container-low border border-outline-variant/30 px-2.5 py-1 text-xs font-bold text-on-surface-variant flex items-center gap-1">
-                  <CalendarBlank size={14} className="text-primary" /> Gia nhập: {date(student.joinedAt)}
-                </span>
               </div>
-              <h1 className="truncate font-display text-2xl font-extrabold text-on-surface">
+              <h1 className="font-display text-xl font-bold tracking-tight text-on-surface">
                 {student.fullName}
               </h1>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <p className="mt-0.5 break-words text-xs text-on-surface-variant">
                 {student.email ?? "Chưa có email"} · {student.phone ?? "Chưa có số điện thoại"}
               </p>
             </div>
           </div>
+          <dl className="col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-outline-variant/30 pt-3 text-xs sm:grid-cols-4 xl:col-span-1 xl:border-l xl:border-t-0 xl:py-1 xl:pl-5">
+            <div><dt className="text-on-surface-variant">Ngày tham gia</dt><dd className="mt-0.5 font-semibold text-on-surface">{date(student.joinedAt)}</dd></div>
+            <div><dt className="text-on-surface-variant">Band hiện tại</dt><dd className="mt-0.5 font-semibold text-on-surface">{student.currentBand == null ? "Chưa có" : student.currentBand.toFixed(1)}</dd></div>
+            <div><dt className="text-on-surface-variant">Band mục tiêu</dt><dd className="mt-0.5 font-semibold text-on-surface">{student.targetBand == null ? "Chưa đặt" : student.targetBand.toFixed(1)}</dd></div>
+            <div><dt className="text-on-surface-variant">Hồ sơ</dt><dd className="mt-0.5 font-semibold tabular-nums text-on-surface">{profileCompleteness}% <span className="font-normal text-on-surface-variant">· {missingFields.length} mục thiếu</span></dd></div>
+          </dl>
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2"
+            aria-label="Chỉnh sửa hồ sơ"
+            className="col-start-2 row-start-1 inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 xl:col-start-3"
           >
-            <NotePencil size={18} /> Chỉnh sửa hồ sơ
+            <NotePencil size={16} /> <span className="hidden sm:inline">Chỉnh sửa hồ sơ</span>
           </button>
         </div>
-
       </header>
 
       {insights !== undefined && (
@@ -184,42 +185,22 @@ export default function StudentProfileDetail({
           </div>
         </Panel>
 
-        <Panel icon={<CheckCircle size={20} weight="duotone" />} title="Tình trạng hồ sơ" description="Theo dõi nhanh dữ liệu cần bổ sung.">
-          <div className="rounded-xl border border-primary/10 bg-primary-container/10 p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <strong className="text-3xl tabular-nums text-on-surface">{profileCompleteness}%</strong>
-                <span className="ml-2 text-xs font-semibold text-on-surface-variant">đã hoàn thiện</span>
-              </div>
-              <span className="rounded-lg bg-surface px-2.5 py-1 text-xs font-bold text-primary shadow-sm">{missingFields.length ? `${missingFields.length} mục còn thiếu` : "Đã đầy đủ"}</span>
-            </div>
-            <div
-              className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface"
-              role="progressbar"
-              aria-label="Mức độ hoàn thiện hồ sơ"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={profileCompleteness}
-            >
-              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${profileCompleteness}%` }} />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">{missingFields.length ? "Cần bổ sung" : "Hồ sơ sẵn sàng"}</h3>
+        <Panel icon={<CheckCircle size={20} weight="duotone" />} title="Cần bổ sung & ghi chú" description="Thông tin phục vụ theo dõi và liên hệ học viên.">
+          <div>
+            <h3 className="text-xs font-semibold text-on-surface-variant">{missingFields.length ? `${missingFields.length} mục cần bổ sung` : "Thông tin đã đầy đủ"}</h3>
             {missingFields.length ? (
-              <ul className="mt-2 grid gap-2 text-sm text-on-surface-variant sm:grid-cols-2">
+              <ul className="mt-2 flex flex-wrap gap-2 text-sm text-on-surface-variant">
                 {missingFields.map(field => (
-                  <li key={field} className="flex items-center gap-2 rounded-lg bg-surface-container-low/65 px-3 py-2"><WarningCircle size={16} className="shrink-0 text-amber-600" />{field}</li>
+                  <li key={field} className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1.5"><WarningCircle size={15} className="shrink-0 text-primary" />{field}</li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"><CheckCircle size={17} /> Dữ liệu thiết yếu đã được cập nhật.</p>
+              <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700"><CheckCircle size={17} /> Dữ liệu thiết yếu đã được cập nhật.</p>
             )}
           </div>
 
-          <div className="mt-4 rounded-xl border border-outline-variant/25 bg-surface-container-low/35 p-4">
-            <h3 className="text-xs font-bold uppercase tracking-[0.07em] text-on-surface-variant">Ghi chú học vụ</h3>
+          <div className="mt-5 border-t border-outline-variant/30 pt-4">
+            <h3 className="text-xs font-semibold text-on-surface-variant">Ghi chú học vụ nội bộ</h3>
             <p className={`mt-1 whitespace-pre-wrap text-sm leading-6 ${student.notes ? "text-on-surface" : "text-on-surface-variant"}`}>
               {student.notes || "Chưa có ghi chú học vụ."}
             </p>
@@ -423,9 +404,9 @@ function EditStudentModal({ student, onClose, onSaved }: { student: StudentDetai
 
 function Panel({ icon, title, description, children }: { icon: ReactNode; title: string; description?: string; children: ReactNode }) {
   return (
-    <section className="profile-saas-panel rounded-[18px] border p-5 md:p-6">
-      <div className="mb-5 flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-container/20 text-primary">{icon}</span>
+    <section className="profile-saas-panel rounded-[18px] border p-4 md:p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-container/20 text-primary">{icon}</span>
         <div>
           <h2 className="font-display text-lg font-bold text-on-surface">{title}</h2>
           {description && <p className="mt-0.5 text-sm text-on-surface-variant">{description}</p>}
@@ -438,11 +419,11 @@ function Panel({ icon, title, description, children }: { icon: ReactNode; title:
 
 function InfoRow({ icon, label, value, missing }: { icon: ReactNode; label: string; value: string | null | undefined; missing: string }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-outline-variant/25 bg-surface-container-low/35 p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-container/20 text-primary">{icon}</span>
+    <div className="flex min-w-0 items-start gap-2.5 border-b border-outline-variant/25 py-2.5">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary-container/15 text-primary">{icon}</span>
       <div className="min-w-0">
-        <span className="block text-[11px] font-bold uppercase tracking-[0.07em] text-on-surface-variant">{label}</span>
-        <span className={`mt-0.5 block break-words text-sm font-bold ${value ? "text-on-surface" : "text-amber-700"}`}>{value || missing}</span>
+        <span className="block text-xs text-on-surface-variant">{label}</span>
+        <span className={`mt-0.5 block break-words text-sm font-semibold ${value ? "text-on-surface" : "text-primary"}`}>{value || missing}</span>
       </div>
     </div>
   );
