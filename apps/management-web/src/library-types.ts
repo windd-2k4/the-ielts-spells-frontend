@@ -209,6 +209,7 @@ export type QuestionGroupItem = {
   requiredAnswerCount?: number;
   sharedOptions?: SharedOptionItem[];
   allowOptionReused?: boolean;
+  gapFillTitle?: string;
   gapFillTemplate?: string;
   gapFillLayout?: "PARAGRAPH" | "LIST" | "TABLE";
   illustration?: QuestionGroupIllustration;

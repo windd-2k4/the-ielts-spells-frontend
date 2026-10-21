@@ -101,7 +101,7 @@ export default function TestCoverImageControl({ value, onChange }: Props) {
               <AiImportCoverImageField value={value} onChange={onChange} />
             </div>
             <footer className="flex justify-end border-t border-[#DED7DA] p-5">
-              <button type="button" onClick={close} disabled={Boolean(value && !value.altText.trim())} className="min-h-11 rounded-xl bg-[#AD4C64] px-5 text-xs font-bold text-white transition hover:bg-[#943B52] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA] disabled:cursor-not-allowed disabled:opacity-50">Hoàn tất</button>
+              <button type="button" onClick={close} className="min-h-11 rounded-xl bg-[#AD4C64] px-5 text-xs font-bold text-white transition hover:bg-[#943B52] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA]">Hoàn tất</button>
             </footer>
           </div>
         </div>

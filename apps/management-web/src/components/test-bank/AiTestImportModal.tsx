@@ -198,10 +198,6 @@ export function AiTestImportModal({ onClose, onSuccess }: Props) {
   }
 
   function openPreview() {
-    if (coverImage && !coverImage.altText.trim()) {
-      setError("Hãy thêm mô tả cho ảnh minh họa trước khi mở bản xem trước.");
-      return;
-    }
     setError("");
     setShowVisualPreview(true);
   }
@@ -235,10 +231,6 @@ export function AiTestImportModal({ onClose, onSuccess }: Props) {
 
   async function createDraft() {
     if (!parseResult) return;
-    if (coverImage && !coverImage.altText.trim()) {
-      setError("Hãy thêm mô tả cho ảnh minh họa trước khi tạo bản nháp.");
-      return;
-    }
     setCreating(true);
     setError("");
     try {

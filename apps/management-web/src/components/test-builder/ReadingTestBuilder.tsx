@@ -41,6 +41,7 @@ import {
   defaultGapFillLayout,
   defaultWordLimit,
   getReadingQuestionTypeDefinition,
+  normalizeGroupedQuestionCount,
   questionTypeUsesQuestionOptions,
   questionTypeUsesGapTemplate,
   questionTypeUsesSharedOptions,
@@ -249,7 +250,8 @@ function createGroup(
   draft?: ReadingQuestionGroupDraft,
 ): QuestionGroupItem {
   const definition = getReadingQuestionTypeDefinition(typeFormat);
-  const safeQuestionCount = Math.min(20, Math.max(1, questionCount));
+  const requiredAnswerCount = draft?.requiredAnswerCount ?? definition.defaultRequiredAnswerCount ?? 2;
+  const safeQuestionCount = normalizeGroupedQuestionCount(typeFormat, questionCount, requiredAnswerCount);
   const endQuestionNo = startQuestionNo + safeQuestionCount - 1;
   const answerSource = draft?.answerSource ?? definition.defaultAnswerSource ?? "PASSAGE";
   const sharedOptions = draft?.sharedOptions
@@ -266,9 +268,10 @@ function createGroup(
     instructions: draft?.instructions || definition.defaultInstructions,
     wordLimitRule: draft?.wordLimitRule ?? defaultWordLimit(typeFormat),
     answerSource,
-    requiredAnswerCount: draft?.requiredAnswerCount ?? definition.defaultRequiredAnswerCount,
+    requiredAnswerCount: typeFormat === "MULTIPLE_ANSWERS" ? requiredAnswerCount : definition.defaultRequiredAnswerCount,
     sharedOptions,
     allowOptionReused: draft?.allowOptionReused ?? definition.usesSharedOptions ?? false,
+    gapFillTitle: undefined,
     gapFillTemplate: questionTypeUsesGapTemplate(typeFormat, answerSource) ? "" : undefined,
     gapFillLayout: defaultGapFillLayout(typeFormat),
     questions: Array.from({ length: safeQuestionCount }, (_, index) => createQuestion(startQuestionNo + index, typeFormat)),
@@ -283,22 +286,14 @@ function toQuestionGroups(value: unknown): QuestionGroupItem[] {
       ? (group.questions as QuestionCardItem[]).map(normalizeQuestion)
       : [];
     const type = isQuestionType(group.typeFormat) ? group.typeFormat : "FILL_IN_BLANK";
+    const answerSource = group.answerSource === "OPTION_BANK" ? "OPTION_BANK" : "PASSAGE";
     if (type === "MULTIPLE_ANSWERS" && questions.length > 0) {
       const k = typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : 2;
       for (let i = 0; i < questions.length; i += k) {
         const primary = questions[i];
         for (let j = 1; j < k && i + j < questions.length; j++) {
           const sibling = questions[i + j];
-          if (!sibling.prompt && primary.prompt) sibling.prompt = primary.prompt;
-          if ((!sibling.options || sibling.options.length === 0) && primary.options?.length) {
-            sibling.options = primary.options;
-          }
-          if ((!sibling.correctAnswers || sibling.correctAnswers.length === 0) && primary.correctAnswers?.length) {
-            sibling.correctAnswers = primary.correctAnswers;
-          }
-          if (!sibling.explanation && primary.explanation) {
-            sibling.explanation = primary.explanation;
-          }
+          questions[i + j] = normalizeQuestion({ ...primary, id: sibling.id, number: sibling.number });
         }
       }
     }
@@ -316,12 +311,17 @@ function toQuestionGroups(value: unknown): QuestionGroupItem[] {
         ? group.instructions
         : getReadingQuestionTypeDefinition(type).defaultInstructions,
       wordLimitRule: typeof group.wordLimitRule === "string" ? group.wordLimitRule : "",
-      answerSource: group.answerSource === "OPTION_BANK" ? "OPTION_BANK" : "PASSAGE",
+      answerSource,
       requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
       sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as SharedOptionItem[] : [],
       allowOptionReused: typeof group.allowOptionReused === "boolean" ? group.allowOptionReused : false,
-      gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
-      gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
+      gapFillTitle: typeof group.gapFillTitle === "string" ? group.gapFillTitle : undefined,
+      gapFillTemplate: typeof group.gapFillTemplate === "string"
+        ? group.gapFillTemplate
+        : questionTypeUsesGapTemplate(type, answerSource)
+        ? gapFillTemplateFromQuestions(questions)
+        : undefined,
+      gapFillLayout: group.gapFillLayout === "TABLE" ? "TABLE" : group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
       illustration: readGroupIllustration(group.illustration),
       linkedAudioTimestamp: typeof group.linkedAudioTimestamp === "string" ? group.linkedAudioTimestamp : undefined,
       questions,
@@ -750,7 +750,7 @@ export function ReadingTestBuilder() {
   const [coverImage, setCoverImage] = useState<QuestionGroupIllustration>();
   const [passages, setPassages] = useState<PassageSection[]>([emptyPassage(1)]);
   const [activePassageId, setActivePassageId] = useState("");
-  const [leftWidth, setLeftWidth] = useState(50);
+  const [leftWidth, setLeftWidth] = useState(42);
   const [isResizing, setIsResizing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"SAVING" | "SAVED" | "ERROR">("SAVED");
@@ -1140,6 +1140,25 @@ export function ReadingTestBuilder() {
     }));
   }
 
+  function updateQuestionBlock(groupId: string, questionId: string, updater: (question: QuestionCardItem) => QuestionCardItem) {
+    updateGroup(groupId, (group) => {
+      const questionIndex = group.questions.findIndex((question) => question.id === questionId);
+      if (questionIndex < 0) return group;
+      const blockSize = group.typeFormat === "MULTIPLE_ANSWERS" ? group.requiredAnswerCount ?? 2 : 1;
+      const blockStart = Math.floor(questionIndex / blockSize) * blockSize;
+      const blockEnd = Math.min(group.questions.length, blockStart + blockSize);
+      const updated = normalizeQuestion(updater(group.questions[blockStart]));
+      return {
+        ...group,
+        questions: group.questions.map((question, index) => (
+          index >= blockStart && index < blockEnd
+            ? normalizeQuestion({ ...updated, id: question.id, number: question.number })
+            : question
+        )),
+      };
+    });
+  }
+
   function addQuestionGroup(typeFormat: QuestionTypeFormat = "FILL_IN_BLANK") {
     const nextNo = nextQuestionNumber(passages);
     setAllPassages((current) => current.map((passage) => (
@@ -1181,7 +1200,7 @@ export function ReadingTestBuilder() {
       questions: current.questions.map((question) => normalizeQuestion({
         ...question,
         typeFormat,
-        options: needsOptions(typeFormat) ? defaultOptions() : [],
+        options: typeFormat === "MULTIPLE_ANSWERS" ? defaultMultipleOptions() : needsOptions(typeFormat) ? defaultOptions() : [],
         correctAnswers: [],
       })),
     }));
@@ -1232,12 +1251,18 @@ export function ReadingTestBuilder() {
   }
 
   function deleteQuestion(groupId: string, questionId: string) {
-    const question = activePassage.questionGroups
-      .find((group) => group.id === groupId)
-      ?.questions.find((item) => item.id === questionId);
-    const hasEnteredData = question ? questionHasAuthoredContent(question) : false;
+    const group = activePassage.questionGroups.find((item) => item.id === groupId);
+    const questionIndex = group?.questions.findIndex((item) => item.id === questionId) ?? -1;
+    if (!group || questionIndex < 0) return;
+    const blockSize = group?.typeFormat === "MULTIPLE_ANSWERS" ? group.requiredAnswerCount ?? 2 : 1;
+    const blockStart = questionIndex < 0 ? -1 : Math.floor(questionIndex / blockSize) * blockSize;
+    const removedIds = new Set(group?.questions.slice(blockStart, blockStart + blockSize).map((question) => question.id) ?? []);
+    const question = blockStart >= 0 ? group?.questions[blockStart] : undefined;
+    const hasEnteredData = group?.questions.slice(blockStart, blockStart + blockSize).some(questionHasAuthoredContent) ?? false;
     if (hasEnteredData && !window.confirm(
-      `Câu ${question?.number} đã có dữ liệu. Bạn có muốn xóa câu này?`,
+      blockSize > 1
+        ? `Nhóm câu ${question?.number}–${group?.questions[Math.min(group.questions.length - 1, blockStart + blockSize - 1)]?.number} đã có dữ liệu. Bạn có muốn xóa cả nhóm?`
+        : `Câu ${question?.number} đã có dữ liệu. Bạn có muốn xóa câu này?`,
     )) return;
     setAllPassages((current) => renumberPassageQuestions(current.map((passage) => (
       passage.id !== activePassage.id
@@ -1246,7 +1271,7 @@ export function ReadingTestBuilder() {
             ...passage,
             questionGroups: passage.questionGroups.map((group) => (
               group.id === groupId
-                ? { ...group, questions: group.questions.filter((question) => question.id !== questionId) }
+                ? { ...group, questions: group.questions.filter((question) => !removedIds.has(question.id)) }
                 : group
             )),
           }
@@ -1254,7 +1279,6 @@ export function ReadingTestBuilder() {
   }
 
   function updateGroupQuestionCount(groupId: string, requestedCount: number) {
-    const safeCount = Math.min(20, Math.max(1, requestedCount || 1));
     setAllPassages((current) => renumberPassageQuestions(current.map((passage) => (
       passage.id !== activePassage.id
         ? passage
@@ -1262,6 +1286,11 @@ export function ReadingTestBuilder() {
             ...passage,
             questionGroups: passage.questionGroups.map((group) => {
               if (group.id !== groupId) return group;
+              const safeCount = normalizeGroupedQuestionCount(
+                group.typeFormat,
+                requestedCount,
+                group.requiredAnswerCount,
+              );
               if (safeCount <= group.questions.length) {
                 return { ...group, questions: group.questions.slice(0, safeCount) };
               }
@@ -1276,7 +1305,11 @@ export function ReadingTestBuilder() {
   }
 
   function requestGroupQuestionCount(group: QuestionGroupItem, requestedCount: number) {
-    const safeCount = Math.min(20, Math.max(1, requestedCount || 1));
+    const safeCount = normalizeGroupedQuestionCount(
+      group.typeFormat,
+      requestedCount,
+      group.requiredAnswerCount,
+    );
     const removedQuestions = group.questions.slice(safeCount);
     const removesEnteredData = removedQuestions.some(questionHasAuthoredContent);
     if (removesEnteredData && !window.confirm(
@@ -1372,8 +1405,8 @@ export function ReadingTestBuilder() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#F8F6FA] text-[#211A1D]">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#e3dce2] bg-white px-5 shadow-sm">
-        <div className="flex min-w-0 items-center gap-4">
+      <header className="sticky top-0 z-30 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-[#e3dce2] bg-white px-4 shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/test-bank"
             className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#746A6E] hover:text-[#8f4458]"
@@ -1387,14 +1420,14 @@ export function ReadingTestBuilder() {
             value={testTitle}
             onChange={(event) => setTestTitle(event.target.value)}
             placeholder="Tên đề Reading"
-            className="min-w-[220px] flex-1 border-b border-transparent bg-transparent font-display text-sm font-bold text-[#211A1D] focus:border-[#8f4458] focus:outline-none lg:min-w-[420px]"
+            className="w-[clamp(180px,28vw,460px)] min-w-0 border-b border-transparent bg-transparent font-display text-sm font-bold text-[#211A1D] focus:border-[#8f4458] focus:outline-none"
           />
           <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-[#746A6E]">
             {testRecord?.status ?? "DRAFT"}
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
           <div className="hidden items-center gap-1.5 text-xs text-[#746A6E] md:flex">
             {saveStatus === "SAVING" ? (
               <span className="flex items-center gap-1 text-[#8a6000]">
@@ -1426,7 +1459,7 @@ export function ReadingTestBuilder() {
             }`}
           >
             <WarningCircle size={14} />
-            <span>{validationIssues.length} mục cần xử lý</span>
+            <span>{validationIssues.length} mục</span>
           </button>
 
           <button
@@ -1444,7 +1477,7 @@ export function ReadingTestBuilder() {
             disabled={!loaded || saveStatus === "SAVING"}
             className="min-h-[38px] rounded-xl border border-[#e3dce2] px-3.5 text-xs font-bold text-[#211A1D] hover:bg-[#f1eef4] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Lưu nháp
+            Lưu
           </button>
 
           <button
@@ -1468,7 +1501,7 @@ export function ReadingTestBuilder() {
         </div>
       </header>
 
-      <nav id="reading-passage-navigation" className="flex h-11 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-5">
+      <nav id="reading-passage-navigation" className="flex h-10 shrink-0 items-center justify-between border-b border-[#e3dce2] bg-[#f1eef4] px-4">
         <div className="flex gap-1">
           {passages.map((passage) => (
             <button
@@ -1600,7 +1633,7 @@ export function ReadingTestBuilder() {
                 label: evidence.label ?? undefined,
                 mode: evidence.mode === "WHOLE_PARAGRAPH" ? "WHOLE_PARAGRAPH" : "DIRECT_QUOTE",
               };
-              updateQuestion(evidenceCaptureTarget.groupId, evidenceCaptureTarget.questionId, (question) => ({
+              updateQuestionBlock(evidenceCaptureTarget.groupId, evidenceCaptureTarget.questionId, (question) => ({
                 ...withEvidenceSpans(
                   question,
                   evidenceCaptureTarget.evidenceId
@@ -1641,6 +1674,13 @@ export function ReadingTestBuilder() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLeftWidth((current) => current <= 35 ? 42 : 34)}
+                className="min-h-[36px] rounded-xl border border-[#e3dce2] px-3 text-xs font-bold text-[#746A6E] hover:border-[#8f4458] hover:text-[#8f4458]"
+              >
+                {leftWidth <= 35 ? "Chia đôi màn hình" : "Mở rộng vùng soạn"}
+              </button>
               <button
                 type="button"
                 onClick={renumberQuestions}
@@ -1737,11 +1777,14 @@ export function ReadingTestBuilder() {
               <div className="mt-4 space-y-4">
                 <div className="grid gap-3 rounded-xl border border-[#e3dce2] bg-[#f8f6fa] p-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                   <label>
-                    <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">Số lượng câu hỏi</span>
+                    <span className="mb-1 block text-[11px] font-bold text-[#746A6E]">
+                      {group.typeFormat === "MULTIPLE_ANSWERS" ? "Số thứ tự câu trong nhóm" : "Số lượng câu hỏi"}
+                    </span>
                     <input
                       type="number"
-                      min={1}
+                      min={group.typeFormat === "MULTIPLE_ANSWERS" ? group.requiredAnswerCount ?? 2 : 1}
                       max={20}
+                      step={group.typeFormat === "MULTIPLE_ANSWERS" ? group.requiredAnswerCount ?? 2 : 1}
                       value={group.questions.length}
                       onChange={(event) => requestGroupQuestionCount(group, Number(event.target.value) || 1)}
                       className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-bold focus:border-[#8f4458] focus:outline-none"
@@ -1761,6 +1804,9 @@ export function ReadingTestBuilder() {
                         }))}
                         className="min-h-10 w-full rounded-xl border border-[#e3dce2] bg-white px-3 text-xs font-bold focus:border-[#8f4458] focus:outline-none"
                       />
+                      <span className="mt-1 block text-[10px] leading-4 text-[#746A6E]">
+                        Editor sẽ gộp mỗi {group.requiredAnswerCount ?? 2} số câu thành một khối, chỉ cần nhập nội dung và lựa chọn một lần.
+                      </span>
                     </label>
                   ) : (
                     <div className="flex items-center rounded-xl px-2 text-[11px] leading-5 text-[#746A6E]">
@@ -1828,9 +1874,12 @@ export function ReadingTestBuilder() {
                 {usesGapTemplate && (
                   <GapFillGroupEditor
                     title={group.title}
+                    heading={group.gapFillTitle ?? ""}
                     template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)}
                     layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)}
                     questions={group.questions}
+                    sharedOptions={usesSharedOptions ? group.sharedOptions : undefined}
+                    onHeadingChange={(gapFillTitle) => updateGroup(group.id, (current) => ({ ...current, gapFillTitle }))}
                     onTemplateChange={(template) => updateGroup(group.id, (current) => ({
                       ...current,
                       gapFillTemplate: template,
@@ -1889,7 +1938,13 @@ export function ReadingTestBuilder() {
                 )}
 
                 <div className="space-y-3">
-                  {group.questions.map((question) => (
+                  {group.questions.map((question, questionIndex) => {
+                    const blockSize = group.typeFormat === "MULTIPLE_ANSWERS" ? group.requiredAnswerCount ?? 2 : 1;
+                    if (questionIndex % blockSize !== 0) return null;
+                    const blockQuestions = group.questions.slice(questionIndex, questionIndex + blockSize);
+                    const blockEndNumber = blockQuestions.at(-1)?.number ?? question.number;
+                    const blockSelected = blockQuestions.some((item) => item.number === selectedQuestionNo);
+                    return (
                     <div
                       key={question.id}
                       id={question.id}
@@ -1897,7 +1952,7 @@ export function ReadingTestBuilder() {
                       className={`rounded-xl border p-4 transition ${
                         question.hasError
                           ? "border-rose-200 bg-rose-50/30"
-                          : selectedQuestionNo === question.number
+                          : blockSelected
                           ? "border-[#8f4458] bg-white ring-2 ring-[#8f4458]/20"
                           : "border-[#e3dce2] bg-white"
                       }`}
@@ -1907,7 +1962,9 @@ export function ReadingTestBuilder() {
                           <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#8f4458] text-xs font-bold text-white">
                             {question.number}
                           </span>
-                          <span className="text-xs font-bold text-[#211A1D]">Câu hỏi {question.number}</span>
+                          <span className="text-xs font-bold text-[#211A1D]">
+                            {blockEndNumber === question.number ? `Câu hỏi ${question.number}` : `Nhóm câu ${question.number}–${blockEndNumber}`}
+                          </span>
                           {question.hasError && (
                             <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-[#b4232d]">
                               {question.errorMessage}
@@ -1937,7 +1994,7 @@ export function ReadingTestBuilder() {
                         <textarea
                           rows={2}
                           value={question.prompt}
-                          onChange={(event) => updateQuestion(group.id, question.id, (current) => ({ ...current, prompt: event.target.value }))}
+                          onChange={(event) => updateQuestionBlock(group.id, question.id, (current) => ({ ...current, prompt: event.target.value }))}
                           className="w-full rounded-xl border border-[#e3dce2] p-3 text-xs focus:border-[#8f4458] focus:outline-none"
                           placeholder="Nhập câu hỏi hoặc câu cần điền..."
                         />
@@ -1954,11 +2011,11 @@ export function ReadingTestBuilder() {
                             question={question}
                             sharedOptions={usesSharedOptions ? group.sharedOptions : undefined}
                             requiredAnswerCount={group.requiredAnswerCount}
-                            onChange={(nextQuestion) => updateQuestion(group.id, question.id, () => nextQuestion)}
+                            onChange={(nextQuestion) => updateQuestionBlock(group.id, question.id, () => nextQuestion)}
                           />
                         )}
-                        onQuestionChange={(patch) => updateQuestion(group.id, question.id, (current) => ({ ...current, ...patch }))}
-                        onEvidenceSpansChange={(evidenceSpans) => updateQuestion(
+                        onQuestionChange={(patch) => updateQuestionBlock(group.id, question.id, (current) => ({ ...current, ...patch }))}
+                        onEvidenceSpansChange={(evidenceSpans) => updateQuestionBlock(
                           group.id,
                           question.id,
                           (current) => withEvidenceSpans(current, evidenceSpans),
@@ -1981,7 +2038,8 @@ export function ReadingTestBuilder() {
                         createEvidenceId={() => newId("evidence")}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
 
                   <button
                     type="button"
@@ -1999,7 +2057,7 @@ export function ReadingTestBuilder() {
         </section>
         </div>
 
-        <aside className="hidden w-56 shrink-0 border-l border-[#e3dce2] bg-white p-4 xl:block">
+        <aside className={`${leftWidth <= 35 ? "hidden" : "hidden xl:block"} w-56 shrink-0 border-l border-[#e3dce2] bg-white p-4`}>
           <div className="flex items-center justify-between border-b border-[#e3dce2] pb-2">
             <span className="font-display text-xs font-bold text-[#211A1D]">Question Navigator</span>
             <span className="text-[10px] font-extrabold text-[#746A6E]">1–{navigationCount}</span>
@@ -2007,7 +2065,14 @@ export function ReadingTestBuilder() {
 
           <div className="q-nav-grid mt-4">
             {Array.from({ length: navigationCount }, (_, index) => index + 1).map((no) => {
-              const question = passages.flatMap((passage) => passage.questionGroups).flatMap((group) => group.questions).find((item) => item.number === no);
+              const allGroups = passages.flatMap((passage) => passage.questionGroups);
+              const ownerGroup = allGroups.find((group) => group.questions.some((item) => item.number === no));
+              const question = ownerGroup?.questions.find((item) => item.number === no);
+              const questionIndex = ownerGroup?.questions.findIndex((item) => item.number === no) ?? -1;
+              const blockSize = ownerGroup?.typeFormat === "MULTIPLE_ANSWERS" ? ownerGroup.requiredAnswerCount ?? 2 : 1;
+              const scrollTarget = questionIndex >= 0
+                ? ownerGroup?.questions[Math.floor(questionIndex / blockSize) * blockSize]
+                : question;
               const completed = question?.isComplete && !question?.hasError;
               const hasError = question?.hasError;
               const active = selectedQuestionNo === no;
@@ -2018,7 +2083,7 @@ export function ReadingTestBuilder() {
                   type="button"
                   onClick={() => {
                     setSelectedQuestionNo(no);
-                    if (question) document.getElementById(question.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    if (scrollTarget) document.getElementById(scrollTarget.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
                   className={`q-nav-btn ${completed ? "is-completed" : ""} ${hasError ? "has-error" : ""} ${active ? "is-active" : ""}`}
                 >

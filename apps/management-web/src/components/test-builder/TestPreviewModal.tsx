@@ -158,6 +158,7 @@ function readGroups(value: unknown): QuestionGroupItem[] {
     requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
     sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as QuestionGroupItem["sharedOptions"] : [],
     allowOptionReused: Boolean(group.allowOptionReused),
+    gapFillTitle: typeof group.gapFillTitle === "string" ? group.gapFillTitle : undefined,
     gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
     gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
     illustration: readGroupIllustration(group.illustration),
@@ -461,6 +462,7 @@ function GapTemplate({ group, responses, review, showAnswers, showExplanations, 
   onAnswer: (questionId: string, value: string[]) => void;
 }) {
   const template = group.gapFillTemplate ?? "";
+  const contentTitle = group.gapFillTitle?.trim();
   const parts: Array<{ text?: string; slot?: number; offset: number }> = [];
   let cursor = 0;
   for (const match of template.matchAll(GAP_TOKEN)) {
@@ -470,6 +472,7 @@ function GapTemplate({ group, responses, review, showAnswers, showExplanations, 
   }
   if (cursor < template.length) parts.push({ text: template.slice(cursor), offset: cursor });
   return <div className="mt-4 rounded-2xl border border-[#DED7DA] bg-[#FFFCFC] p-4 sm:p-5">
+    {contentTitle ? <h4 className="mb-4 border-b border-[#DED7DA] pb-3 text-center font-display text-base font-extrabold text-[#292528]">{contentTitle}</h4> : null}
     <div className="whitespace-pre-wrap text-[15px] leading-9 text-[#292528]">{parts.map((part) => {
       if (part.text !== undefined) return <span key={`text-${part.offset}`}>{part.text}</span>;
       const question = group.questions[Number(part.slot) - 1];

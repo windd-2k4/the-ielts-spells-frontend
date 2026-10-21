@@ -20,6 +20,12 @@ export type ReadingQuestionGroupProps = {
   isExamMode?: boolean;
 };
 
+function gapFillContentTitle(group: ReadingQuestionGroupModel) {
+  return typeof group.answerConfig?.gapFillTitle === "string"
+    ? group.answerConfig.gapFillTitle.trim()
+    : "";
+}
+
 export function ReadingQuestionGroup({
   group,
   answers,
@@ -1235,6 +1241,7 @@ function GapFillQuestionGroup({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -1278,8 +1285,8 @@ function GapFillQuestionGroup({
       ) : null}
 
       <div className={styles.gapFillCard}>
-        {group.title && rawTemplate ? (
-          <h4 className={styles.gapFillTitle}>{group.title}</h4>
+        {contentTitle ? (
+          <h4 className={styles.gapFillTitle}>{contentTitle}</h4>
         ) : null}
 
         <div className={styles.gapFillBody}>
@@ -1440,6 +1447,7 @@ function TableCompletionGroup({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -1489,6 +1497,7 @@ function TableCompletionGroup({
       </div>
 
       <div className={isExamMode ? styles.examTableWrapper : styles.tableWrapper}>
+        {contentTitle ? <h4 className={styles.gapFillTitle}>{contentTitle}</h4> : null}
         {parsedTable ? (
           <table className={isExamMode ? styles.examTable : styles.cdIeltsTable}>
             {parsedTable.headers.length > 0 ? (
@@ -1597,6 +1606,7 @@ function FlowChartCompletionGroup({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -1650,6 +1660,7 @@ function FlowChartCompletionGroup({
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
 
+      {contentTitle ? <h4 className={styles.gapFillTitle}>{contentTitle}</h4> : null}
       <div className={styles.flowChartContainer}>
         {steps.map((step, idx) => (
           <Fragment key={idx}>
