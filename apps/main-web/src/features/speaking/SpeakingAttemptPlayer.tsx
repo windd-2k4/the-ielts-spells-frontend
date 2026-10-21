@@ -4,48 +4,54 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowCounterClockwise,
   ArrowLeft,
   ArrowRight,
-  BookmarkSimple,
-  CaretLeft,
   CaretRight,
+  Check,
   CheckCircle,
-  Clock,
-  FloppyDisk,
-  Lightbulb,
+  Eye,
   Microphone,
+  Note,
   Pause,
   Play,
-  ArrowCounterClockwise,
+  ShareNetwork,
   Sparkle,
   SpeakerHigh,
+  SpeakerLow,
+  SpeakerSimpleHigh,
   SpinnerGap,
   Stop,
-  Translate,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import type {
-  SpeakingEvaluationResult,
+  SaveSpeakingResponseItem,
   SpeakingPart,
   SpeakingQuestion,
   StudentSpeakingAttempt,
 } from "@ielts/contracts";
 import {
-  evaluateSpeakingQuestion,
   getSpeakingAttempt,
   saveSpeakingResponses,
   submitSpeakingAttempt,
 } from "./speakingApi";
-import { SpeakingBuilderPanel } from "./SpeakingBuilderPanel";
-import { SpeakingVocabPanel } from "./SpeakingVocabPanel";
 import styles from "./SpeakingAttemptPlayer.module.css";
 
 interface SpeakingAttemptPlayerProps {
   attemptId: string;
 }
 
-type RecordState = "IDLE" | "RECORDING" | "RECORDED";
+type Stage =
+  | "INTRO_GUIDE"
+  | "INTRO_TEST_MIC"
+  | "INTRO_RECORDING_MIC"
+  | "INTRO_PLAYBACK_MIC"
+  | "PART_COVER"
+  | "PART2_THINKING"
+  | "QUESTION_READING"
+  | "QUESTION_RECORDING"
+  | "SUMMARY";
 
 export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps) {
   const router = useRouter();
@@ -55,74 +61,97 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [evaluating, setEvaluating] = useState(false);
-  const [savingSpeech, setSavingSpeech] = useState(false);
 
-  // Active question navigation
+  // General configuration options (Màn 1)
+  const [alwaysShowQuestion, setAlwaysShowQuestion] = useState(false);
+  const [revealedQuestions, setRevealedQuestions] = useState<Record<string, boolean>>({});
+
+  // Active navigation
+  const [stage, setStage] = useState<Stage>("INTRO_GUIDE");
   const [activePartIndex, setActivePartIndex] = useState(0);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
 
-  // Sidebar Tab
-  const [sidebarTab, setSidebarTab] = useState<"BUILDER" | "VOCAB">("BUILDER");
+  // Persistent student notes (Part 2 & Part 3)
+  const [notes, setNotes] = useState("");
+  const [isNoteDrawerOpen, setIsNoteDrawerOpen] = useState(false);
 
-  // Speaking Builder Choices per question: questionKey -> { stepId -> optionId }
-  const [hintChoicesMap, setHintChoicesMap] = useState<Record<string, Record<string, string>>>({});
-
-  // Question Responses: questionKey -> { audioUrl, transcript, blob }
-  const [recordedAudios, setRecordedAudios] = useState<Record<string, { url: string; blob?: Blob }>>({});
+  // Recorded answers: questionKey -> { url, durationSeconds, blob }
+  const [recordedAudios, setRecordedAudios] = useState<
+    Record<string, { url: string; durationSeconds: number; blob?: Blob }>
+  >({});
   const [transcripts, setTranscripts] = useState<Record<string, string>>({});
-  const [evaluations, setEvaluations] = useState<Record<string, SpeakingEvaluationResult>>({});
 
-  // Recording hardware state
-  const [recordState, setRecordState] = useState<RecordState>("IDLE");
+  // Mic Test state (Intro Màn 2 & 3)
+  const [micTestAudioUrl, setMicTestAudioUrl] = useState<string | null>(null);
+  const [micTestSeconds, setMicTestSeconds] = useState(0);
+  const [micTestDuration, setMicTestDuration] = useState(0);
+  const [micTestCurrentTime, setMicTestCurrentTime] = useState(0);
+  const [isPlayingMicTest, setIsPlayingMicTest] = useState(false);
+  const [micTestSpeed, setMicTestSpeed] = useState<number>(1);
+  const micAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Question reading audio & countdown
+  const [readingProgress, setReadingProgress] = useState(0);
+  const readingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const questionAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Question recording state & minimum time requirement
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(45);
+  const [showLockTooltip, setShowLockTooltip] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechRecognitionRef = useRef<any>(null);
 
-  // Web Audio Waveform visualizer
+  // Part 2 Thinking timer
+  const [thinkingSecondsRemaining, setThinkingSecondsRemaining] = useState(60);
+  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Waveform visualization
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const [waveformBars, setWaveformBars] = useState<number[]>(new Array(24).fill(8));
+  const [waveformBars, setWaveformBars] = useState<number[]>(new Array(24).fill(6));
 
-  // Audio Playback state for student recording
-  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlayingRecording, setIsPlayingRecording] = useState(false);
-  const [playbackProgress, setPlaybackProgress] = useState(0);
-  const [playbackDuration, setPlaybackDuration] = useState(0);
+  // Audio playback for recorded answers (Summary & Retake)
+  const [playingKey, setPlayingKey] = useState<string | null>(null);
+  const currentPlaybackAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Question Audio voice state
-  const [isPlayingQuestionAudio, setIsPlayingQuestionAudio] = useState(false);
-  const questionAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Retake / Re-record Modal states (Màn 15, 16, 17)
+  const [retakeTargetKey, setRetakeTargetKey] = useState<string | null>(null);
+  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
+  const [showRetakeWorkspace, setShowRetakeWorkspace] = useState(false);
+  const [retakeRecordState, setRetakeRecordState] = useState<"IDLE" | "RECORDING" | "RECORDED">("IDLE");
+  const [retakeAudioData, setRetakeAudioData] = useState<{ url: string; durationSeconds: number; blob?: Blob } | null>(null);
+  const [retakeTranscript, setRetakeTranscript] = useState("");
+  const [retakeTimeRemaining, setRetakeTimeRemaining] = useState(45);
+  const [retakeSecondsPassed, setRetakeSecondsPassed] = useState(0);
+  const [showRetakeLockTooltip, setShowRetakeLockTooltip] = useState(false);
 
-  // Overall Attempt Countdown timer
-  const [remainingTime, setRemainingTime] = useState<number>(0);
-
-  // Load Attempt
+  // Load Attempt from backend
   useEffect(() => {
     let active = true;
     void getSpeakingAttempt(attemptId)
       .then((data) => {
         if (!active) return;
         setAttempt(data);
-        setRemainingTime(data.remainingSeconds);
 
-        // Prepopulate saved responses
-        const audios: Record<string, { url: string }> = {};
+        // Prepopulate responses
+        const audios: Record<string, { url: string; durationSeconds: number }> = {};
         const texts: Record<string, string> = {};
-        const choices: Record<string, Record<string, string>> = {};
 
         data.responses.forEach((res) => {
-          if (res.audioUrl) audios[res.questionKey] = { url: res.audioUrl };
-          if (res.transcript) texts[res.questionKey] = res.transcript;
-          if (res.hintChoices) choices[res.questionKey] = res.hintChoices;
+          if (res.audioUrl) {
+            audios[res.questionKey] = { url: res.audioUrl, durationSeconds: 10 };
+          }
+          if (res.transcript) {
+            texts[res.questionKey] = res.transcript;
+          }
         });
 
         setRecordedAudios(audios);
         setTranscripts(texts);
-        setHintChoicesMap(choices);
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : "Không thể tải đề Speaking");
@@ -136,72 +165,31 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     };
   }, [attemptId]);
 
-  // Overall timer tick
-  useEffect(() => {
-    if (loading || !attempt || attempt.status !== "IN_PROGRESS" || remainingTime <= 0) return;
-    const interval = setInterval(() => {
-      setRemainingTime((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [attempt, loading, remainingTime]);
-
   // Active Part & Question
-  const activePart: SpeakingPart | undefined = attempt?.parts[activePartIndex];
+  const parts: SpeakingPart[] = useMemo(() => attempt?.parts ?? [], [attempt]);
+  const activePart: SpeakingPart | undefined = parts[activePartIndex];
   const questions: SpeakingQuestion[] = useMemo(() => activePart?.questions ?? [], [activePart]);
   const activeQuestion: SpeakingQuestion | undefined = questions[activeQuestionIndex];
-  const currentKey = activeQuestion?.questionKey ?? "";
+  const currentKey = activeQuestion?.questionKey ?? `${activePart?.id}-q${activeQuestionIndex + 1}`;
 
-  // Update record state based on current question having recorded audio
-  useEffect(() => {
-    if (recordedAudios[currentKey]?.url) {
-      setRecordState("RECORDED");
-    } else {
-      setRecordState("IDLE");
-    }
-    // Stop any ongoing playback
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      setIsPlayingRecording(false);
-    }
-  }, [currentKey, recordedAudios]);
+  // Calculate total questions across all parts
+  const allQuestionItems = useMemo(() => {
+    const list: Array<{ partIndex: number; questionIndex: number; part: SpeakingPart; question: SpeakingQuestion }> = [];
+    parts.forEach((p, pIdx) => {
+      p.questions.forEach((q, qIdx) => {
+        list.push({ partIndex: pIdx, questionIndex: qIdx, part: p, question: q });
+      });
+    });
+    return list;
+  }, [parts]);
 
-  // Handle Play Question Audio
-  const playQuestionAudio = useCallback(() => {
-    if (isPlayingQuestionAudio) {
-      if (questionAudioRef.current) {
-        questionAudioRef.current.pause();
-        questionAudioRef.current.currentTime = 0;
-      }
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      setIsPlayingQuestionAudio(false);
-      return;
-    }
+  const totalQuestionsCount = allQuestionItems.length;
+  const completedCount = useMemo(() => {
+    return allQuestionItems.filter((item) => !!recordedAudios[item.question.questionKey]?.url).length;
+  }, [allQuestionItems, recordedAudios]);
 
-    const audioUrl = activeQuestion?.audioUrl || activePart?.audioUrl;
-    if (audioUrl && audioUrl.trim()) {
-      const audio = new Audio(audioUrl);
-      questionAudioRef.current = audio;
-      setIsPlayingQuestionAudio(true);
-      audio.onended = () => setIsPlayingQuestionAudio(false);
-      audio.onerror = () => setIsPlayingQuestionAudio(false);
-      audio.play().catch(() => setIsPlayingQuestionAudio(false));
-    } else if (activeQuestion?.promptText && typeof window !== "undefined" && "speechSynthesis" in window) {
-      // Natural TTS fallback for English prompt
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(activeQuestion.promptText);
-      utterance.lang = "en-US";
-      utterance.rate = 0.95;
-      utterance.onend = () => setIsPlayingQuestionAudio(false);
-      utterance.onerror = () => setIsPlayingQuestionAudio(false);
-      setIsPlayingQuestionAudio(true);
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [activePart?.audioUrl, activeQuestion?.audioUrl, activeQuestion?.promptText, isPlayingQuestionAudio]);
-
-  // Stop recording hardware & timers
-  const cleanupRecordingHardware = useCallback(() => {
+  // CLEANUP RECORDING HARDWARE
+  const cleanupRecording = useCallback(() => {
     if (recordTimerRef.current) {
       clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
@@ -210,6 +198,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       try {
         speechRecognitionRef.current.stop();
       } catch {}
+      speechRecognitionRef.current = null;
     }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -219,223 +208,409 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       void audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
+    if (readingTimerRef.current) {
+      clearInterval(readingTimerRef.current);
+      readingTimerRef.current = null;
+    }
+    if (questionAudioRef.current) {
+      questionAudioRef.current.pause();
+      questionAudioRef.current = null;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
   }, []);
 
-  // START RECORDING
-  async function handleStartRecording() {
+  // Convert Blob to Base64 Data URL for persistent saving
+  const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  // Save response to backend
+  const persistResponse = useCallback(
+    async (qKey: string, audioUrl: string, transcriptText: string) => {
+      if (!attempt) return;
+      try {
+        const item: SaveSpeakingResponseItem = {
+          questionKey: qKey,
+          audioUrl,
+          transcript: transcriptText,
+          clientRevision: 1,
+        };
+        await saveSpeakingResponses(attemptId, [item]);
+      } catch (err) {
+        console.error("Failed to save response:", err);
+      }
+    },
+    [attempt, attemptId]
+  );
+
+  // Forward refs for circular callback flows
+  const advanceAfterRecordingRef = useRef<() => void>(() => {});
+  const startReadingQuestionRef = useRef<(pIdx: number, qIdx: number) => void>(() => {});
+  const startQuestionRecordingRef = useRef<(isRetake?: boolean, customKey?: string, isPart2?: boolean) => Promise<void>>(() => Promise.resolve());
+
+  // STOP RECORDING
+  const stopQuestionRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  // START RECORDING QUESTION
+  const startQuestionRecording = useCallback(
+    async (isRetake = false, customKey?: string, isPart2 = false) => {
+      cleanupRecording();
+      const targetKey = customKey || currentKey;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+
+        // Audio Visualizer
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        const source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+        audioContextRef.current = audioCtx;
+        analyserRef.current = analyser;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateVisualizer = () => {
+          if (!analyserRef.current) return;
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const bars = Array.from(dataArray.slice(0, 24)).map((val) =>
+            Math.max(6, Math.min(48, Math.round((val / 255) * 48)))
+          );
+          setWaveformBars(bars);
+          animationFrameRef.current = requestAnimationFrame(updateVisualizer);
+        };
+        updateVisualizer();
+
+        // Speech Recognition
+        const SpeechRecognition =
+          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        let recognizedText = "";
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = "en-US";
+
+          recognition.onresult = (event: any) => {
+            let full = "";
+            for (let i = 0; i < event.results.length; ++i) {
+              full += " " + event.results[i][0].transcript;
+            }
+            recognizedText = full.trim();
+            if (isRetake) {
+              setRetakeTranscript(recognizedText);
+            } else {
+              setTranscripts((prev) => ({ ...prev, [targetKey]: recognizedText }));
+            }
+          };
+
+          try {
+            recognition.start();
+            speechRecognitionRef.current = recognition;
+          } catch {}
+        }
+
+        // MediaRecorder
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        const totalTime = isPart2 ? 120 : 45;
+
+        recorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const url = URL.createObjectURL(blob);
+          const duration = totalTime - (isRetake ? retakeTimeRemaining : timeRemaining);
+
+          if (isRetake) {
+            setRetakeAudioData({ url, durationSeconds: Math.max(1, duration), blob });
+            setRetakeRecordState("RECORDED");
+          } else {
+            setRecordedAudios((prev) => ({
+              ...prev,
+              [targetKey]: { url, durationSeconds: Math.max(1, duration), blob },
+            }));
+
+            // Convert to base64 & persist
+            void blobToBase64(blob).then((base64) => {
+              void persistResponse(targetKey, base64, recognizedText);
+            });
+
+            // Advance to next question or next part
+            advanceAfterRecordingRef.current();
+          }
+
+          cleanupRecording();
+        };
+
+        recorder.start(250);
+        mediaRecorderRef.current = recorder;
+
+        if (isRetake) {
+          setRetakeRecordState("RECORDING");
+          setRetakeTimeRemaining(totalTime);
+          setRetakeSecondsPassed(0);
+        } else {
+          setStage("QUESTION_RECORDING");
+          setTimeRemaining(totalTime);
+          setRecordingSeconds(0);
+        }
+
+        // Timer Tick
+        recordTimerRef.current = setInterval(() => {
+          if (isRetake) {
+            setRetakeSecondsPassed((prev) => prev + 1);
+            setRetakeTimeRemaining((prev) => {
+              if (prev <= 1) {
+                stopQuestionRecording();
+                return 0;
+              }
+              return prev - 1;
+            });
+          } else {
+            setRecordingSeconds((prev) => prev + 1);
+            setTimeRemaining((prev) => {
+              if (prev <= 1) {
+                stopQuestionRecording();
+                return 0;
+              }
+              return prev - 1;
+            });
+          }
+        }, 1000);
+      } catch (err) {
+        alert("Không thể truy cập microphone. Vui lòng cho phép quyền truy cập mic trên trình duyệt để ghi âm!");
+      }
+    },
+    [
+      blobToBase64,
+      cleanupRecording,
+      currentKey,
+      persistResponse,
+      retakeTimeRemaining,
+      stopQuestionRecording,
+      timeRemaining,
+    ]
+  );
+
+  // ADVANCE AFTER RECORDING (Part 1 -> Part 2 -> Part 3 -> Summary)
+  const advanceAfterRecording = useCallback(() => {
+    if (activePartIndex === 0) {
+      // Part 1
+      if (activeQuestionIndex < questions.length - 1) {
+        setActiveQuestionIndex((prev) => prev + 1);
+        startReadingQuestionRef.current(0, activeQuestionIndex + 1);
+      } else {
+        // Finished Part 1 -> Move to Part 2 Cover
+        setActivePartIndex(1);
+        setActiveQuestionIndex(0);
+        setStage("PART_COVER");
+        setIsNoteDrawerOpen(true);
+      }
+    } else if (activePartIndex === 1) {
+      // Finished Part 2 -> Move to Part 3 Cover
+      setActivePartIndex(2);
+      setActiveQuestionIndex(0);
+      setStage("PART_COVER");
+    } else if (activePartIndex === 2) {
+      // Part 3
+      if (activeQuestionIndex < questions.length - 1) {
+        setActiveQuestionIndex((prev) => prev + 1);
+        startReadingQuestionRef.current(2, activeQuestionIndex + 1);
+      } else {
+        // Finished All Parts -> Move to Summary Screen!
+        setStage("SUMMARY");
+        setIsNoteDrawerOpen(false);
+      }
+    }
+  }, [activePartIndex, activeQuestionIndex, questions.length]);
+
+  // START READING QUESTION (Plays prompt audio or TTS, with countdown bar)
+  const startReadingQuestion = useCallback(
+    (pIdx: number, qIdx: number) => {
+      cleanupRecording();
+      setStage("QUESTION_READING");
+      setReadingProgress(0);
+
+      const targetPart = parts[pIdx];
+      const targetQ = targetPart?.questions[qIdx];
+      const prompt = targetQ?.promptText || "";
+      const audioUrl = targetQ?.audioUrl;
+
+      let durationEstimate = 4000; // default 4s reading time
+      if (prompt.length > 50) durationEstimate = 6000;
+      if (prompt.length > 90) durationEstimate = 8000;
+
+      const startTime = Date.now();
+      readingTimerRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, Math.round((elapsed / durationEstimate) * 100));
+        setReadingProgress(progress);
+        if (progress >= 100) {
+          if (readingTimerRef.current) clearInterval(readingTimerRef.current);
+          // Auto start recording after question!
+          void startQuestionRecordingRef.current(false);
+        }
+      }, 100);
+
+      // Play audio if available, else TTS
+      if (audioUrl && audioUrl.trim()) {
+        try {
+          const audio = new Audio(audioUrl);
+          questionAudioRef.current = audio;
+          audio.onended = () => {
+            if (readingTimerRef.current) clearInterval(readingTimerRef.current);
+            setReadingProgress(100);
+            void startQuestionRecordingRef.current(false);
+          };
+          audio.onerror = () => {};
+          void audio.play().catch(() => {});
+        } catch {}
+      } else if (prompt && typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(prompt);
+        utterance.lang = "en-US";
+        utterance.rate = 0.95;
+        utterance.onend = () => {
+          if (readingTimerRef.current) clearInterval(readingTimerRef.current);
+          setReadingProgress(100);
+          void startQuestionRecordingRef.current(false);
+        };
+        window.speechSynthesis.speak(utterance);
+      }
+    },
+    [cleanupRecording, parts]
+  );
+
+  useEffect(() => {
+    advanceAfterRecordingRef.current = advanceAfterRecording;
+    startReadingQuestionRef.current = startReadingQuestion;
+    startQuestionRecordingRef.current = startQuestionRecording;
+  }, [advanceAfterRecording, startReadingQuestion, startQuestionRecording]);
+
+  // START PART 2 THINKING TIME (1 MINUTE)
+  function startPartTwoThinking() {
+    cleanupRecording();
+    setStage("PART2_THINKING");
+    setThinkingSecondsRemaining(60);
+    setIsNoteDrawerOpen(true);
+
+    thinkingTimerRef.current = setInterval(() => {
+      setThinkingSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
+          // Automatically start 2-minute recording
+          void startQuestionRecording(false, undefined, true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  // START MIC TEST RECORDING (Intro Màn 2)
+  async function startMicTestRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-
-      // Web Audio API Visualizer Setup
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
-      audioContextRef.current = audioCtx;
-      analyserRef.current = analyser;
-
-      // Animation loop for audio visualizer
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVisualizer = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const bars = Array.from(dataArray.slice(0, 24)).map((val) =>
-          Math.max(8, Math.min(60, Math.round((val / 255) * 60)))
-        );
-        setWaveformBars(bars);
-        animationFrameRef.current = requestAnimationFrame(updateVisualizer);
-      };
-      updateVisualizer();
-
-      // Realtime Speech-to-Text Recognition setup
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
-
-        let currentTranscript = transcripts[currentKey] || "";
-        recognition.onresult = (event: any) => {
-          let interim = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              currentTranscript += " " + event.results[i][0].transcript;
-            } else {
-              interim += event.results[i][0].transcript;
-            }
-          }
-          setTranscripts((prev) => ({
-            ...prev,
-            [currentKey]: (currentTranscript + " " + interim).trim(),
-          }));
-        };
-        try {
-          recognition.start();
-          speechRecognitionRef.current = recognition;
-        } catch {}
-      }
-
-      // MediaRecorder setup
       const recorder = new MediaRecorder(stream);
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
-
       recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        setRecordedAudios((prev) => ({
-          ...prev,
-          [currentKey]: { url: audioUrl, blob: audioBlob },
-        }));
-        setRecordState("RECORDED");
-        cleanupRecordingHardware();
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setMicTestAudioUrl(url);
+        setMicTestDuration(micTestSeconds);
+        setStage("INTRO_PLAYBACK_MIC");
+        if (recordTimerRef.current) clearInterval(recordTimerRef.current);
       };
 
       recorder.start(250);
       mediaRecorderRef.current = recorder;
-      setRecordState("RECORDING");
-      setRecordingSeconds(0);
+      setStage("INTRO_RECORDING_MIC");
+      setMicTestSeconds(0);
 
       recordTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
+        setMicTestSeconds((prev) => {
+          if (prev >= 19) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+              mediaRecorderRef.current.stop();
+            }
+            return 20;
+          }
+          return prev + 1;
+        });
       }, 1000);
-    } catch (err) {
-      alert("Không thể truy cập microphone. Vui lòng cho phép trình duyệt truy cập mic để ghi âm!");
+    } catch {
+      alert("Không thể truy cập microphone. Vui lòng cho phép quyền truy cập mic trên trình duyệt!");
     }
   }
 
-  // STOP RECORDING
-  function handleStopRecording() {
+  // STOP MIC TEST RECORDING
+  function stopMicTestRecording() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
   }
 
-  // CANCEL RECORDING
-  function handleCancelRecording() {
-    cleanupRecordingHardware();
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    // Delete recorded audio for current question
-    setRecordedAudios((prev) => {
-      const next = { ...prev };
-      delete next[currentKey];
-      return next;
-    });
-    setRecordState("IDLE");
-    setRecordingSeconds(0);
-  }
-
-  // PLAY / PAUSE STUDENT AUDIO
-  function toggleStudentAudioPlayback() {
-    const audioData = recordedAudios[currentKey];
-    if (!audioData?.url) return;
-
-    if (isPlayingRecording && playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      setIsPlayingRecording(false);
+  // TOGGLE PLAY MIC TEST AUDIO
+  function togglePlayMicTest() {
+    if (!micTestAudioUrl) return;
+    if (isPlayingMicTest && micAudioRef.current) {
+      micAudioRef.current.pause();
+      setIsPlayingMicTest(false);
       return;
     }
 
-    const audio = playbackAudioRef.current ?? new Audio(audioData.url);
-    if (!playbackAudioRef.current) {
-      playbackAudioRef.current = audio;
-      audio.ontimeupdate = () => {
-        if (audio.duration) {
-          setPlaybackProgress(audio.currentTime);
-          setPlaybackDuration(audio.duration);
-        }
-      };
-      audio.onended = () => {
-        setIsPlayingRecording(false);
-        setPlaybackProgress(0);
-      };
-    } else {
-      audio.src = audioData.url;
-    }
-
-    setIsPlayingRecording(true);
-    void audio.play().catch(() => setIsPlayingRecording(false));
+    const audio = micAudioRef.current || new Audio(micTestAudioUrl);
+    micAudioRef.current = audio;
+    audio.playbackRate = micTestSpeed;
+    audio.ontimeupdate = () => setMicTestCurrentTime(audio.currentTime);
+    audio.onended = () => {
+      setIsPlayingMicTest(false);
+      setMicTestCurrentTime(0);
+    };
+    audio.play().catch(() => setIsPlayingMicTest(false));
+    setIsPlayingMicTest(true);
   }
 
-  // RE-RECORD
-  function handleReRecord() {
-    if (isPlayingRecording && playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      setIsPlayingRecording(false);
-    }
-    setRecordState("IDLE");
-    setRecordingSeconds(0);
-  }
-
-  // SAVE CURRENT SPEECH
-  async function handleSaveCurrentSpeech() {
-    if (!attempt || !currentKey || savingSpeech) return;
-    setSavingSpeech(true);
-    try {
-      const audio = recordedAudios[currentKey]?.url;
-      const text = transcripts[currentKey] || "";
-      const choices = hintChoicesMap[currentKey] || {};
-
-      await saveSpeakingResponses(attemptId, [
-        {
-          questionKey: currentKey,
-          audioUrl: audio,
-          transcript: text,
-          hintChoices: choices,
-          clientRevision: 1,
-        },
-      ]);
-      alert("Đã lưu bài nói thành công! Bạn có thể xem lại hoặc tiếp tục làm câu khác.");
-    } catch (err) {
-      alert("Lỗi khi lưu bài nói: " + (err instanceof Error ? err.message : "Vui lòng thử lại"));
-    } finally {
-      setSavingSpeech(false);
-    }
-  }
-
-  // AI EVALUATE CURRENT QUESTION
-  async function handleAiEvaluate() {
-    if (!attempt || !currentKey || evaluating) return;
-    const text = transcripts[currentKey]?.trim();
-    if (!text) {
-      alert("Vui lòng ghi âm hoặc nhập bài nói trước khi chấm bài!");
+  // TOGGLE PLAY RECORDED ANSWER IN SUMMARY / RETAKE
+  function togglePlayAudioKey(key: string, url: string) {
+    if (playingKey === key && currentPlaybackAudioRef.current) {
+      currentPlaybackAudioRef.current.pause();
+      setPlayingKey(null);
       return;
     }
-
-    setEvaluating(true);
-    try {
-      const result = await evaluateSpeakingQuestion(attemptId, {
-        questionKey: currentKey,
-        questionPrompt: activeQuestion?.promptText,
-        audioUrl: recordedAudios[currentKey]?.url,
-        transcript: text,
-      });
-
-      setEvaluations((prev) => ({
-        ...prev,
-        [currentKey]: result,
-      }));
-    } catch (err) {
-      alert("Lỗi khi chấm bài bằng AI: " + (err instanceof Error ? err.message : "Vui lòng thử lại"));
-    } finally {
-      setEvaluating(false);
+    if (currentPlaybackAudioRef.current) {
+      currentPlaybackAudioRef.current.pause();
     }
+    const audio = new Audio(url);
+    currentPlaybackAudioRef.current = audio;
+    setPlayingKey(key);
+    audio.onended = () => setPlayingKey(null);
+    audio.onerror = () => setPlayingKey(null);
+    audio.play().catch(() => setPlayingKey(null));
   }
 
-  // SUBMIT WHOLE ATTEMPT
-  async function handleSubmitAttempt() {
+  // SUBMIT FINAL ATTEMPT
+  async function handleSubmit() {
     if (submitting || !attempt) return;
-    if (!confirm("Bạn có chắc chắn muốn nộp bài thi Speaking này không?")) return;
-
     setSubmitting(true);
     try {
       await submitSpeakingAttempt(attemptId);
@@ -446,19 +621,34 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     }
   }
 
-  // FORMAT SECONDS TO MM:SS
-  function formatTime(totalSeconds: number) {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
+  // FORMAT TIME MM:SS
+  function formatTime(sec: number) {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }
 
+  // Minimum required time logic (Part 1/3: 10s, Part 2: 60s)
+  const isPart2Active = activePartIndex === 1;
+  const minRequiredSeconds = isPart2Active ? 60 : 10;
+  const isTimeLocked = recordingSeconds < minRequiredSeconds;
+  const lockSecondsRemaining = Math.max(0, minRequiredSeconds - recordingSeconds);
+
+  // Retake lock
+  const isRetakePart2 = useMemo(() => {
+    if (!retakeTargetKey) return false;
+    return parts[1]?.questions.some((q) => q.questionKey === retakeTargetKey) || false;
+  }, [parts, retakeTargetKey]);
+  const retakeMinSec = isRetakePart2 ? 60 : 10;
+  const isRetakeLocked = retakeSecondsPassed < retakeMinSec;
+  const retakeLockRemaining = Math.max(0, retakeMinSec - retakeSecondsPassed);
+
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#F7F5F4]">
+      <div className="grid min-h-screen place-items-center bg-[#F8F5F2]">
         <div className="flex flex-col items-center gap-3 text-sm font-semibold text-[#6F676C]">
-          <SpinnerGap size={32} className="animate-spin text-[#AD4C64]" />
-          <span>Đang tải phòng luyện nói Speaking...</span>
+          <SpinnerGap size={32} className="animate-spin text-[#FF6636]" />
+          <span>Đang tải đề thi IELTS Speaking...</span>
         </div>
       </div>
     );
@@ -466,14 +656,14 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
   if (error || !attempt) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#F7F5F4] p-6 text-center">
+      <div className="grid min-h-screen place-items-center bg-[#F8F5F2] p-6 text-center">
         <div className="max-w-md rounded-2xl border border-[#DED7DA] bg-white p-8 shadow-sm">
           <WarningCircle size={40} className="mx-auto text-[#B42335]" />
-          <h1 className="mt-3 text-xl font-bold">Không thể mở bài luyện nói</h1>
+          <h1 className="mt-3 text-xl font-bold">Không thể mở phòng thi</h1>
           <p className="mt-2 text-sm text-[#6F676C]">{error || "Dữ liệu đề thi không khả dụng."}</p>
           <Link
             href="/student/practice"
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#AD4C64] px-5 text-sm font-bold text-white hover:bg-[#894c5b] transition"
+            className="mt-6 inline-flex min-h-11 items-center rounded-full bg-[#FF6636] px-6 text-sm font-bold text-white hover:bg-[#F05524] transition"
           >
             Quay lại kho luyện đề
           </Link>
@@ -482,474 +672,1136 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     );
   }
 
-  const evaluationResult = evaluations[currentKey];
-
   return (
     <div className={styles.container}>
-      {/* HEADER */}
-      <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <Link href="/student/practice" aria-label="Quay lại" className={styles.backButton}>
-            <ArrowLeft size={18} />
-          </Link>
-          <div className={styles.testMeta}>
-            <h1 className={styles.testTitle}>{attempt.title}</h1>
-            <p className={styles.testSubtitle}>
-              Luyện đề IELTS Speaking • {activePart ? `Part ${activePart.partNo}` : ""} • Câu{" "}
-              {activeQuestionIndex + 1}/{questions.length}
-            </p>
+      {/* TOP HEADER */}
+      <header className={styles.topHeader}>
+        <div className={styles.brand}>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Bạn có chắc chắn muốn rời khỏi phòng luyện thi không? Tiến trình bài nói của bạn đã được lưu lại.")) {
+                router.push("/student/practice?skill=SPEAKING");
+              }
+            }}
+            className={styles.backBtn}
+            aria-label="Rời khỏi phòng thi"
+            title="Quay lại danh mục Speaking"
+          >
+            <ArrowLeft size={18} weight="bold" />
+          </button>
+
+          <div className={styles.brandInfo}>
+            <span className={styles.brandEyebrow}>IELTS Speaking</span>
+            <strong className={styles.brandTitle}>{attempt?.title || "Speaking Test 1 - Full test"}</strong>
           </div>
         </div>
 
-        {/* Center Part Switcher */}
-        <div className={styles.headerCenter}>
-          {attempt.parts.map((part, pIdx) => (
-            <button
-              key={part.id}
-              type="button"
-              onClick={() => {
-                setActivePartIndex(pIdx);
-                setActiveQuestionIndex(0);
-              }}
-              className={`${styles.partNavPill} ${
-                pIdx === activePartIndex ? styles.partNavPillActive : ""
-              }`}
-            >
-              Part {part.partNo}
-            </button>
-          ))}
+        {/* Center Stage Pill */}
+        <div className={styles.stageCenterBadge}>
+          <Sparkle size={14} weight="fill" />
+          <span>
+            {stage === "INTRO_GUIDE" && "Hướng dẫn làm bài"}
+            {stage === "INTRO_TEST_MIC" && "Kiểm tra Microphone"}
+            {stage === "INTRO_RECORDING_MIC" && "Đang thử âm thanh"}
+            {stage === "INTRO_PLAYBACK_MIC" && "Nghe lại đoạn thử mic"}
+            {stage === "PART_COVER" && `Part ${activePartIndex + 1} · Giới thiệu phần thi`}
+            {(stage === "QUESTION_READING" || stage === "QUESTION_RECORDING") && activePartIndex === 0 && `Part 1 · Câu ${activeQuestionIndex + 1}/${parts[0]?.questions.length || 12}`}
+            {stage === "PART2_THINKING" && "Part 2 · Thời gian chuẩn bị (Thinking)"}
+            {stage === "QUESTION_RECORDING" && activePartIndex === 1 && "Part 2 · Ghi âm câu trả lời"}
+            {(stage === "QUESTION_READING" || stage === "QUESTION_RECORDING") && activePartIndex === 2 && `Part 3 · Câu ${activeQuestionIndex + 1}/${parts[2]?.questions.length || 6}`}
+            {stage === "SUMMARY" && "Tổng kết bài thi"}
+          </span>
         </div>
 
-        {/* Right Timer & Actions */}
         <div className={styles.headerRight}>
-          <div className={styles.timerBadge}>
-            <Clock size={16} />
-            <span>{formatTime(remainingTime)}</span>
+          <div className={styles.completionBadge}>
+            <span>Đã ghi âm:</span>
+            <strong>{completedCount}/{totalQuestionsCount}</strong>
           </div>
 
           <button
             type="button"
-            onClick={handleSubmitAttempt}
-            disabled={submitting}
-            className={styles.submitAttemptButton}
+            onClick={() => setIsNoteDrawerOpen((prev) => !prev)}
+            className={`${styles.noteToggleButton} ${isNoteDrawerOpen ? styles.noteToggleActive : ""}`}
+            title="Mở sổ tay ghi chú nháp"
           >
-            {submitting ? (
-              <SpinnerGap size={16} className="animate-spin" />
-            ) : (
-              <CheckCircle size={16} weight="fill" />
-            )}
-            <span>Nộp bài</span>
+            <Note size={16} weight="bold" />
+            <span>Sổ tay ghi chú</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Bạn có chắc chắn muốn rời khỏi phòng luyện thi không? Tiến trình bài nói của bạn đã được lưu lại.")) {
+                router.push("/student/practice?skill=SPEAKING");
+              }
+            }}
+            className={styles.closeButton}
+            aria-label="Đóng bài thi"
+            title="Thoát bài thi"
+          >
+            <X size={18} weight="bold" />
           </button>
         </div>
       </header>
 
-      {/* WORKSPACE: LEFT SPEAKING ARENA + RIGHT SMART SIDEBAR */}
-      <main className={styles.workspace}>
-        {/* LEFT SPEAKING ARENA */}
-        <section className={styles.leftArena}>
-          {/* Question Banner Card */}
-          <div className={styles.questionCard}>
-            <div className={styles.questionCardHeader}>
-              <span className={styles.questionBadge}>
-                Part {activePart?.partNo ?? 1} • Câu {activeQuestionIndex + 1}/{questions.length}
-              </span>
+      {/* MAIN WORKSPACE LAYOUT */}
+      <div className={styles.mainLayout}>
+        <main className={styles.workspace}>
+          {/* ================= STAGE 1: INTRO GUIDE (Ảnh 1) ================= */}
+          {stage === "INTRO_GUIDE" && (
+            <div className={styles.centerCard}>
+              <span className={styles.cardEyebrow}>Chuẩn bị phòng thi</span>
+              <h1 className={styles.cardTitle}>Hướng dẫn làm bài thi Speaking</h1>
 
-              {/* Loa phát câu hỏi */}
+              {/* Checkbox option */}
+              <label className={styles.checkboxCard}>
+                <input
+                  type="checkbox"
+                  checked={alwaysShowQuestion}
+                  onChange={(e) => setAlwaysShowQuestion(e.target.checked)}
+                  className={styles.customCheckbox}
+                />
+                <div>
+                  <div className={styles.checkboxTitle}>Luôn hiển thị sẵn câu hỏi trên màn hình</div>
+                  <div className={styles.checkboxSubtitle}>
+                    Nếu tick vào lựa chọn này, câu hỏi sẽ được hiển thị song song với Audio giám khảo đọc
+                  </div>
+                </div>
+              </label>
+
+              {/* Guidance text */}
+              <div className={styles.instructionContent}>
+                <p>Để buổi luyện thi IELTS Speaking diễn ra hiệu quả và chuẩn xác nhất, bạn vui lòng lưu ý:</p>
+                <p>
+                  <span className={styles.instructionHighlight}>Kiểm tra Tai nghe và Microphone:</span>{" "}
+                  Hãy thực hiện kiểm tra thiết bị ở bước tiếp theo để đảm bảo microphone bắt giọng rõ nét và không bị đứt đoạn.
+                </p>
+                <p>
+                  <span className={styles.instructionHighlight}>Không gian luyện tập yên tĩnh:</span>{" "}
+                  Tránh môi trường có nhiều tạp âm, tiếng ồn để The IELTS Spells ghi nhận và phân tích phát âm (Pronunciation & Fluency) của bạn tốt nhất.
+                </p>
+                <p>
+                  <span className={styles.instructionHighlight}>Giới hạn thời gian trả lời:</span>{" "}
+                  Mỗi câu hỏi Part 1 và Part 3 có tối đa 45 giây trả lời (tối thiểu 10 giây mới được chuyển câu). Part 2 có 1 phút chuẩn bị và 2 phút nói (tối thiểu 1 phút mới được hoàn tất).
+                </p>
+                <p className="italic text-gray-500 mt-2">
+                  (*): Sau màn hướng dẫn này, toàn bộ nội dung đề và giám khảo ảo sẽ sử dụng Tiếng Anh chuẩn format thi IELTS thực tế.
+                </p>
+              </div>
+
+              {/* Next step button */}
               <button
                 type="button"
-                onClick={playQuestionAudio}
-                className={styles.speakerButton}
-                title="Nghe phát âm câu hỏi"
+                onClick={() => setStage("INTRO_TEST_MIC")}
+                className={styles.primaryOrangeBtn}
               >
-                <SpeakerHigh
-                  size={18}
-                  className={isPlayingQuestionAudio ? "animate-pulse text-[#AD4C64]" : ""}
-                />
-                <span>{isPlayingQuestionAudio ? "Đang phát..." : "Nghe câu hỏi"}</span>
+                <span>Bắt đầu kiểm tra Micro (Next step)</span>
+                <CaretRight size={16} weight="bold" />
+              </button>
+            </div>
+          )}
+
+          {/* ================= STAGE 2: TEST YOUR MICROPHONE (Ảnh 2) ================= */}
+          {stage === "INTRO_TEST_MIC" && (
+            <div className={styles.centerCard}>
+              <h1 className={styles.cardTitleUppercase}>TEST YOUR MICROPHONE</h1>
+
+              <div className="text-left text-sm text-[#374151] space-y-3 max-w-lg mb-8 leading-relaxed">
+                <p>• You have 20 seconds to speak.</p>
+                <p>• To complete this activity, you must allow access to your system's microphone.</p>
+                <p>• Click the button "Test microphone" below to Start.</p>
+              </div>
+
+              <div className="flex items-center justify-between w-full max-w-md mt-6">
+                <div />
+                <button
+                  type="button"
+                  onClick={() => void startMicTestRecording()}
+                  className={styles.primaryOrangeBtn}
+                >
+                  <Microphone size={18} weight="fill" />
+                  <span>Test microphone</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePartIndex(0);
+                    setActiveQuestionIndex(0);
+                    setStage("PART_COVER");
+                  }}
+                  className={styles.skipLinkBtn}
+                >
+                  <span>Skip</span>
+                  <CaretRight size={16} weight="bold" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ================= STAGE 2.5: RECORDING MIC TEST ================= */}
+          {stage === "INTRO_RECORDING_MIC" && (
+            <div className={styles.centerCard}>
+              <h1 className={styles.cardTitleUppercase}>TEST YOUR MICROPHONE</h1>
+              <p className="text-sm text-[#6B7280] mb-4">Đang ghi âm thử microphone ({20 - micTestSeconds}s còn lại)...</p>
+
+              <div className={styles.waveformContainer}>
+                {waveformBars.map((h, i) => (
+                  <div key={i} className={styles.waveformBar} style={{ height: `${h}px` }} />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={stopMicTestRecording}
+                className={styles.primaryOrangeBtn}
+              >
+                <Stop size={18} weight="fill" />
+                <span>Dừng ghi âm</span>
+              </button>
+            </div>
+          )}
+
+          {/* ================= STAGE 3: PLAYBACK MIC TEST (Ảnh 3) ================= */}
+          {stage === "INTRO_PLAYBACK_MIC" && (
+            <div className={styles.centerCard}>
+              <h1 className={styles.cardTitleUppercase}>TEST YOUR MICROPHONE</h1>
+
+              <div className="text-left text-sm text-[#374151] space-y-2 max-w-lg mb-4">
+                <p>• You have 20 seconds to speak.</p>
+                <p>• To complete this activity, you must allow access to your system's microphone.</p>
+                <p>• Click the button "Test microphone" below to Start.</p>
+              </div>
+
+              {/* Scrubber and controls */}
+              <div className={styles.playerContainer}>
+                <div
+                  className={styles.progressBarContainer}
+                  onClick={(e) => {
+                    if (!micAudioRef.current || !micTestDuration) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+                    micAudioRef.current.currentTime = pct * micTestDuration;
+                  }}
+                >
+                  <div
+                    className={styles.progressBarFill}
+                    style={{
+                      width: `${micTestDuration ? (micTestCurrentTime / micTestDuration) * 100 : 0}%`,
+                    }}
+                  >
+                    <div className={styles.progressScrubber} />
+                  </div>
+                </div>
+
+                <div className={styles.playerControlsRow}>
+                  <span>
+                    {formatTime(Math.round(micTestCurrentTime))} / {formatTime(Math.round(micTestDuration))}
+                  </span>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (micAudioRef.current) {
+                          micAudioRef.current.currentTime = Math.max(0, micAudioRef.current.currentTime - 5);
+                        }
+                      }}
+                      className={styles.seekBtn}
+                      title="Lùi 5s"
+                    >
+                      <ArrowCounterClockwise size={20} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={togglePlayMicTest}
+                      className={styles.playPauseCircleBtn}
+                    >
+                      {isPlayingMicTest ? <Pause size={20} weight="fill" /> : <Play size={20} weight="fill" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (micAudioRef.current) {
+                          micAudioRef.current.currentTime = Math.min(micTestDuration, micAudioRef.current.currentTime + 5);
+                        }
+                      }}
+                      className={styles.seekBtn}
+                      title="Tiến 5s"
+                    >
+                      <ArrowRight size={20} />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = micTestSpeed === 1 ? 1.25 : micTestSpeed === 1.25 ? 1.5 : 1;
+                      setMicTestSpeed(next);
+                      if (micAudioRef.current) micAudioRef.current.playbackRate = next;
+                    }}
+                    className={styles.playbackSpeedBadge}
+                  >
+                    Playback speed: {micTestSpeed}x
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between w-full max-w-md mt-6">
+                <button
+                  type="button"
+                  onClick={() => setStage("INTRO_TEST_MIC")}
+                  className={styles.secondaryWhiteBtn}
+                >
+                  <ArrowCounterClockwise size={16} />
+                  <span>Try again</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePartIndex(0);
+                    setActiveQuestionIndex(0);
+                    setStage("PART_COVER");
+                  }}
+                  className={styles.primaryOrangeBtn}
+                >
+                  <Play size={16} weight="fill" />
+                  <span>Start test</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ================= STAGE 4 / 8 / 11: PART COVER SCREENS (Ảnh 4, 8, 11) ================= */}
+          {stage === "PART_COVER" && (
+            <div className={styles.centerCard}>
+              <span className={styles.cardEyebrow}>Part {activePartIndex + 1} of 3</span>
+              <h1 className={styles.cardTitle}>
+                {activePartIndex === 0
+                  ? "Part 1: Personal & Familiar Topics"
+                  : activePartIndex === 1
+                  ? "Part 2: Long Turn (Cue Card)"
+                  : "Part 3: Two-way Discussion"}
+              </h1>
+
+              <div className="max-w-xl text-left text-sm text-[#5C5752] space-y-3 leading-relaxed mb-8">
+                {activePartIndex === 0 && (
+                  <>
+                    <p>Part 1 will take about 4 to 5 minutes.</p>
+                    <p>
+                      The examiner will ask you some general questions about yourself, your family, your work or
+                      studies, and familiar topics.
+                    </p>
+                  </>
+                )}
+
+                {activePartIndex === 1 && (
+                  <>
+                    <p>Part 2 will take about 3 to 4 minutes.</p>
+                    <p>In this part, you will be given a topic card and you will have 1-2 minutes to talk about it.</p>
+                    <p>
+                      Before you talk, you will have exactly 1 minute to prepare, and you can make some notes on the
+                      paper provided if you wish.
+                    </p>
+                  </>
+                )}
+
+                {activePartIndex === 2 && (
+                  <>
+                    <p>Part 3 will take about 4 to 5 minutes.</p>
+                    <p>
+                      In this part, we will discuss some more general questions related to the topic you just spoke
+                      about.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (activePartIndex === 1) {
+                    startPartTwoThinking();
+                  } else {
+                    startReadingQuestion(activePartIndex, 0);
+                  }
+                }}
+                className={styles.primaryOrangeBtn}
+              >
+                <Play size={16} weight="fill" />
+                <span>Bắt đầu phần này (Start now)</span>
+              </button>
+            </div>
+          )}
+
+          {/* ================= STAGE 5 / 6: QUESTION READING OR RECORDING (Part 1 & 3 - Ảnh 5, 6, 7, 12, 13) ================= */}
+          {(stage === "QUESTION_READING" || stage === "QUESTION_RECORDING") && activePartIndex !== 1 && (
+            <div className={styles.centerCard}>
+              <span className={styles.cardEyebrow}>
+                Part {activePartIndex + 1} · Câu {activeQuestionIndex + 1}/{questions.length}
+              </span>
+
+              <div className={styles.questionCenterArea}>
+                {alwaysShowQuestion || revealedQuestions[currentKey] ? (
+                  <p className={styles.questionPromptOrange}>{activeQuestion?.promptText}</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRevealedQuestions((prev) => ({ ...prev, [currentKey]: true }))}
+                    className={styles.showQuestionBtn}
+                  >
+                    <Eye size={18} weight="bold" />
+                    <span>Show question</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Reading Phase */}
+              {stage === "QUESTION_READING" && (
+                <div className={styles.questionReadingNotice}>
+                  <p className={styles.readingNoticeText}>Recording will start after the question</p>
+                  <div className={styles.readingProgressBar}>
+                    <div
+                      className={styles.readingProgressBarFill}
+                      style={{ width: `${readingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Recording Phase */}
+              {stage === "QUESTION_RECORDING" && (
+                <div className="flex flex-col items-center">
+                  <div className={styles.waveformContainer}>
+                    {waveformBars.map((h, i) => (
+                      <div key={i} className={styles.waveformBar} style={{ height: `${h}px` }} />
+                    ))}
+                  </div>
+
+                  <div className={styles.timeLimitButtonWrapper}>
+                    {/* Tooltip Popup (Ảnh 7) */}
+                    {showLockTooltip && isTimeLocked && (
+                      <div className={styles.lockTooltip}>
+                        Vui lòng đợi{" "}
+                        <span className={styles.lockTooltipGreenNum}>{lockSecondsRemaining}</span> giây để{" "}
+                        hoàn thành
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onMouseEnter={() => {
+                        if (isTimeLocked) setShowLockTooltip(true);
+                      }}
+                      onMouseLeave={() => setShowLockTooltip(false)}
+                      onClick={() => {
+                        if (isTimeLocked) {
+                          setShowLockTooltip(true);
+                        } else {
+                          stopQuestionRecording();
+                        }
+                      }}
+                      className={`${styles.timeLimitButton} ${
+                        isTimeLocked ? styles.timeLimitButtonLocked : styles.timeLimitButtonActive
+                      }`}
+                    >
+                      <div className={styles.stopSquareIcon} />
+                      <span>Time limit {formatTime(timeRemaining)}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= PART 2: THINKING TIME (Ảnh 9) ================= */}
+          {stage === "PART2_THINKING" && (
+            <div className={styles.centerCard}>
+              <span className={styles.cardEyebrow}>Part 2 · Thời gian chuẩn bị (Thinking)</span>
+
+              <div className={styles.cueCardContainer}>
+                <h3 className={styles.cueCardTopicTitle}>
+                  {activePart?.topicTitle || activePart?.cueCardPromptHtml || "Describe a topic"}
+                </h3>
+
+                {activePart?.cueCardBullets && activePart.cueCardBullets.length > 0 && (
+                  <>
+                    <p className={styles.cueCardIntro}>You should say:</p>
+                    <ul className={styles.cueCardBulletsList}>
+                      {activePart.cueCardBullets.map((bullet, idx) => (
+                        <li key={idx}>• {bullet}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.thinkingTimerBox}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 750, color: "var(--spk-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    Thinking time
+                  </span>
+                  <div className={styles.thinkingTimeNumber}>
+                    {formatTime(thinkingSecondsRemaining)}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
+                    void startQuestionRecording(false, undefined, true);
+                  }}
+                  className={styles.primaryOrangeBtn}
+                >
+                  <Microphone size={18} weight="fill" />
+                  <span>Bắt đầu làm bài ngay (Start now)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ================= PART 2: RECORDING (Ảnh 10) ================= */}
+          {stage === "QUESTION_RECORDING" && activePartIndex === 1 && (
+            <div className={styles.centerCard}>
+              <span className={styles.cardEyebrow}>Part 2 · Long Turn (Cue Card)</span>
+
+              <div className={styles.cueCardContainer}>
+                <h3 className={styles.cueCardTopicTitle}>
+                  {activePart?.topicTitle || activePart?.cueCardPromptHtml || "Describe a topic"}
+                </h3>
+
+                {activePart?.cueCardBullets && activePart.cueCardBullets.length > 0 && (
+                  <>
+                    <p className={styles.cueCardIntro}>You should say:</p>
+                    <ul className={styles.cueCardBulletsList}>
+                      {activePart.cueCardBullets.map((bullet, idx) => (
+                        <li key={idx}>• {bullet}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center mt-2">
+                <div className={styles.waveformContainer}>
+                  {waveformBars.map((h, i) => (
+                    <div key={i} className={styles.waveformBar} style={{ height: `${h}px` }} />
+                  ))}
+                </div>
+
+                <div className={styles.timeLimitButtonWrapper}>
+                  {/* Tooltip Popup */}
+                  {showLockTooltip && isTimeLocked && (
+                    <div className={styles.lockTooltip}>
+                      Vui lòng đợi{" "}
+                      <span className={styles.lockTooltipGreenNum}>{lockSecondsRemaining}</span> giây để{" "}
+                      hoàn thành
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onMouseEnter={() => {
+                      if (isTimeLocked) setShowLockTooltip(true);
+                    }}
+                    onMouseLeave={() => setShowLockTooltip(false)}
+                    onClick={() => {
+                      if (isTimeLocked) {
+                        setShowLockTooltip(true);
+                      } else {
+                        stopQuestionRecording();
+                      }
+                    }}
+                    className={`${styles.timeLimitButton} ${
+                      isTimeLocked ? styles.timeLimitButtonLocked : styles.timeLimitButtonActive
+                    }`}
+                  >
+                    <div className={styles.stopSquareIcon} />
+                    <span>Time limit {formatTime(timeRemaining)}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= STAGE 6: SUMMARY SCREEN (Ảnh 14) ================= */}
+          {stage === "SUMMARY" && (
+            <div className={styles.summaryContainer}>
+              <div className={styles.summaryHeader}>
+                <span className={styles.summaryEyebrow}>Hoàn thành 3 phần thi</span>
+                <h1 className={styles.summaryTitle}>Tổng kết bài thi IELTS Speaking</h1>
+                <p style={{ margin: "6px 0 0", fontSize: 14, color: "var(--spk-muted)" }}>
+                  Bạn có thể nghe lại các câu trả lời đã ghi âm hoặc chọn "Nói lại" để cải thiện bài nói trước khi nộp.
+                </p>
+              </div>
+
+              <div className={styles.summaryColumnsGrid}>
+                {/* PART 1 COLUMN */}
+                <div className={styles.summaryColumnCard}>
+                  <h2 className={styles.summaryColumnHeader}>Part 1</h2>
+                  {parts[0]?.questions.map((q) => {
+                    const audio = recordedAudios[q.questionKey];
+                    return (
+                      <div key={q.id} className={styles.summaryQuestionItem}>
+                        <p className={styles.summaryPromptText}>{q.promptText}</p>
+                        <div className={styles.summaryItemActions}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRetakeTargetKey(q.questionKey);
+                              setShowRetakeConfirm(true);
+                            }}
+                            className={styles.retakeLinkBtn}
+                          >
+                            <ArrowCounterClockwise size={14} />
+                            <span>Nói lại</span>
+                          </button>
+
+                          {audio?.url ? (
+                            <button
+                              type="button"
+                              onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
+                              className={styles.miniPlayBtn}
+                            >
+                              {playingKey === q.questionKey ? (
+                                <Pause size={12} weight="fill" />
+                              ) : (
+                                <Play size={12} weight="fill" />
+                              )}
+                              <span>{formatTime(audio.durationSeconds || 10)}</span>
+                            </button>
+                          ) : (
+                            <span className={styles.summaryMissingAudioWarning}>
+                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* PART 2 COLUMN */}
+                <div className={styles.summaryColumnCard}>
+                  <h2 className={styles.summaryColumnHeader}>Part 2</h2>
+                  {parts[1] && (
+                    <div className={styles.summaryQuestionItem}>
+                      <p className={styles.summaryPromptText}>
+                        {parts[1].topicTitle || parts[1].cueCardPromptHtml || "Describe a topic"}
+                      </p>
+                      <div className={styles.summaryItemActions}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-cue`;
+                            setRetakeTargetKey(p2Key);
+                            setShowRetakeConfirm(true);
+                          }}
+                          className={styles.retakeLinkBtn}
+                        >
+                          <ArrowCounterClockwise size={14} />
+                          <span>Nói lại</span>
+                        </button>
+
+                        {(() => {
+                          const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-cue`;
+                          const audio = recordedAudios[p2Key];
+                          return audio?.url ? (
+                            <button
+                              type="button"
+                              onClick={() => togglePlayAudioKey(p2Key, audio.url)}
+                              className={styles.miniPlayBtn}
+                            >
+                              {playingKey === p2Key ? (
+                                <Pause size={12} weight="fill" />
+                              ) : (
+                                <Play size={12} weight="fill" />
+                              )}
+                              <span>{formatTime(audio.durationSeconds || 100)}</span>
+                            </button>
+                          ) : (
+                            <span className={styles.summaryMissingAudioWarning}>
+                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* PART 3 COLUMN */}
+                <div className={styles.summaryColumnCard}>
+                  <h2 className={styles.summaryColumnHeader}>Part 3</h2>
+                  {parts[2]?.questions.map((q) => {
+                    const audio = recordedAudios[q.questionKey];
+                    return (
+                      <div key={q.id} className={styles.summaryQuestionItem}>
+                        <p className={styles.summaryPromptText}>{q.promptText}</p>
+                        <div className={styles.summaryItemActions}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRetakeTargetKey(q.questionKey);
+                              setShowRetakeConfirm(true);
+                            }}
+                            className={styles.retakeLinkBtn}
+                          >
+                            <ArrowCounterClockwise size={14} />
+                            <span>Nói lại</span>
+                          </button>
+
+                          {audio?.url ? (
+                            <button
+                              type="button"
+                              onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
+                              className={styles.miniPlayBtn}
+                            >
+                              {playingKey === q.questionKey ? (
+                                <Pause size={12} weight="fill" />
+                              ) : (
+                                <Play size={12} weight="fill" />
+                              )}
+                              <span>{formatTime(audio.durationSeconds || 20)}</span>
+                            </button>
+                          ) : (
+                            <span className={styles.summaryMissingAudioWarning}>
+                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bottom Notice */}
+              <div className={styles.summaryBottomNotice}>
+                <p className={styles.summaryNoticeRed}>
+                  Bạn cần hoàn thành đủ tất cả câu hỏi để hoàn tất bài mocktest
+                </p>
+                <p className={styles.summaryNoticeGray}>
+                  Đã hoàn thành {completedCount}/{totalQuestionsCount} câu. Với câu chưa có kết quả, hãy chọn Nói
+                  lại để ghi âm lại câu đó.
+                </p>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* RIGHT NOTE DRAWER (Part 2 & Part 3) */}
+        {isNoteDrawerOpen && (
+          <aside className={styles.noteDrawer}>
+            <div className={styles.noteDrawerHeader}>
+              <span>
+                <Note size={18} weight="fill" />
+                Sổ tay ghi chú
+              </span>
+              <span className={styles.noteDrawerBadge}>Part 2 & 3</span>
+            </div>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ghi chú nhanh dàn ý, từ vựng và ý tưởng cho bài nói tại đây..."
+              className={styles.noteTextarea}
+            />
+            <div className={styles.noteDrawerFooter}>
+              <span>Tự động lưu bài</span>
+              <span>Giữ nguyên sang Part 3</span>
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {/* ================= RETAKE CONFIRM MODAL (Ảnh 15) ================= */}
+      {showRetakeConfirm && (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.confirmDialog}>
+            <h2 className={styles.confirmTitle}>Bạn có chắc muốn nói lại bài này</h2>
+            <p className={styles.confirmSubtitle}>Bài làm hiện tại sẽ không được lưu lại</p>
+
+            <ArrowCounterClockwise size={64} className={styles.circularRefreshIcon} />
+
+            <div className={styles.confirmActionsRow}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRetakeConfirm(false);
+                  setRetakeTargetKey(null);
+                }}
+                className={styles.secondaryWhiteBtn}
+              >
+                Quay lại
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRetakeConfirm(false);
+                  setShowRetakeWorkspace(true);
+                  setRetakeRecordState("IDLE");
+                  setRetakeAudioData(null);
+                  setRetakeTranscript("");
+                }}
+                className={styles.primaryOrangeBtn}
+              >
+                Nói lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= RETAKE WORKSPACE MODAL (Ảnh 16 & 17) ================= */}
+      {showRetakeWorkspace && retakeTargetKey && (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.reRecordModal}>
+            <div className={styles.reRecordHeader}>
+              <span className={styles.reRecordTitle}>
+                {isRetakePart2 ? "Part 2" : "Part 1"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  cleanupRecording();
+                  setShowRetakeWorkspace(false);
+                  setRetakeTargetKey(null);
+                }}
+                className={styles.closeButton}
+              >
+                <X size={18} weight="bold" />
               </button>
             </div>
 
-            <h2 className={styles.questionPrompt}>
-              {activeQuestion?.promptText || activePart?.topicTitle || "Speaking Question"}
-            </h2>
+            <div className={styles.reRecordBody}>
+              <div className={styles.reRecordContent}>
+                {/* Question Prompt */}
+                {(() => {
+                  const targetItem = allQuestionItems.find((i) => i.question.questionKey === retakeTargetKey);
+                  return (
+                    <div className="w-full text-left mb-6">
+                      <h3 className="text-base font-bold text-[#1F2937]">
+                        {targetItem?.question.promptText || targetItem?.part.topicTitle || "Câu hỏi luyện nói"}
+                      </h3>
+                    </div>
+                  );
+                })()}
 
-            {/* Cue Card Bullets (For Part 2) */}
-            {activePart?.partNo === 2 && activePart.cueCardBullets && activePart.cueCardBullets.length > 0 && (
-              <div className={styles.cueCardBox}>
-                <div className={styles.cueCardPrompt}>You should say:</div>
-                <ul className={styles.cueCardBullets}>
-                  {activePart.cueCardBullets.map((bullet, bIdx) => (
-                    <li key={bIdx}>{bullet}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Central Speaking Interaction Card (3 States) */}
-          <div className={styles.interactionCard}>
-            {/* STATE 1: IDLE - Sẵn sàng ghi âm */}
-            {recordState === "IDLE" && (
-              <div className={styles.startRecordSection}>
-                <button
-                  type="button"
-                  onClick={handleStartRecording}
-                  className={styles.recordMicButton}
-                >
-                  <Microphone size={24} weight="fill" />
-                  <span>Bắt đầu ghi âm</span>
-                </button>
-                <p className={styles.recordMicHint}>
-                  Bấm nút trên để bắt đầu trả lời. Hệ thống sẽ ghi âm và tự động nhận diện bài nói của
-                  bạn.
-                </p>
-              </div>
-            )}
-
-            {/* STATE 2: RECORDING - Đang ghi âm */}
-            {recordState === "RECORDING" && (
-              <div className={styles.recordingActiveSection}>
-                <div className={styles.recordingTimerBox}>
-                  <div className={styles.blinkingDot} />
-                  <span>{formatTime(recordingSeconds)}</span>
-                </div>
-
-                {/* Waveform Animation */}
-                <div className={styles.waveformContainer}>
-                  {waveformBars.map((height, i) => (
-                    <div
-                      key={i}
-                      className={styles.waveBar}
-                      style={{ height: `${height}px` }}
-                    />
-                  ))}
-                </div>
-
-                {/* Cancel / Stop controls */}
-                <div className={styles.recordingControls}>
-                  <button
-                    type="button"
-                    onClick={handleCancelRecording}
-                    className={styles.cancelRecordButton}
-                    title="Hủy để ghi âm lại từ đầu"
-                  >
-                    <X size={18} />
-                    <span>Hủy</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleStopRecording}
-                    className={styles.stopRecordButton}
-                  >
-                    <Stop size={18} weight="fill" />
-                    <span>Đã nói xong</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STATE 3: RECORDED - Đã xong, nghe lại, lưu & chấm */}
-            {recordState === "RECORDED" && (
-              <div className={styles.recordedReviewSection}>
-                {/* Transcript Box */}
-                <div className={styles.transcriptContainer}>
-                  <div className={styles.transcriptHeader}>
-                    <span className={styles.transcriptTitle}>Bài nói của bạn (Transcript)</span>
-                    <span className={styles.transcriptEditBadge}>Có thể chỉnh sửa nếu cần</span>
-                  </div>
-                  <textarea
-                    value={transcripts[currentKey] || ""}
-                    onChange={(e) =>
-                      setTranscripts((prev) => ({ ...prev, [currentKey]: e.target.value }))
-                    }
-                    placeholder="Chưa có văn bản ghi âm. Bạn có thể tự gõ văn bản bài nói của mình tại đây..."
-                    className={styles.transcriptTextarea}
-                    rows={3}
-                  />
-                </div>
-
-                {/* Audio Player Bar */}
-                {recordedAudios[currentKey]?.url && (
-                  <div className={styles.audioPlayerBar}>
+                {/* State A: Idle - Start Recording Button (Ảnh 16) */}
+                {retakeRecordState === "IDLE" && (
+                  <div className="flex flex-col items-center my-8">
                     <button
                       type="button"
-                      onClick={toggleStudentAudioPlayback}
-                      className={styles.audioPlayButton}
-                      title={isPlayingRecording ? "Tạm dừng" : "Nghe lại"}
+                      onClick={() => void startQuestionRecording(true, retakeTargetKey, isRetakePart2)}
+                      className={styles.primaryOrangeBtn}
                     >
-                      {isPlayingRecording ? (
-                        <Pause size={18} weight="fill" />
-                      ) : (
-                        <Play size={18} weight="fill" className="ml-0.5" />
-                      )}
+                      <Microphone size={18} weight="fill" />
+                      <span>Bắt đầu ghi âm</span>
                     </button>
+                  </div>
+                )}
 
-                    <div className={styles.audioTimelineContainer}>
-                      <input
-                        type="range"
-                        min={0}
-                        max={playbackDuration || 1}
-                        step={0.1}
-                        value={playbackProgress}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setPlaybackProgress(val);
-                          if (playbackAudioRef.current) playbackAudioRef.current.currentTime = val;
+                {/* State B: Recording - Waveform & Time Limit Lock */}
+                {retakeRecordState === "RECORDING" && (
+                  <div className="flex flex-col items-center my-6">
+                    <div className={styles.waveformContainer}>
+                      {waveformBars.map((h, i) => (
+                        <div key={i} className={styles.waveformBar} style={{ height: `${h}px` }} />
+                      ))}
+                    </div>
+
+                    <div className={styles.timeLimitButtonWrapper}>
+                      {showRetakeLockTooltip && isRetakeLocked && (
+                        <div className={styles.lockTooltip}>
+                          Vui lòng đợi{" "}
+                          <span className={styles.lockTooltipGreenNum}>{retakeLockRemaining}</span> giây để{" "}
+                          hoàn thành
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onMouseEnter={() => {
+                          if (isRetakeLocked) setShowRetakeLockTooltip(true);
                         }}
-                        className={styles.audioTimelineSlider}
-                      />
-                      <div className={styles.audioTimeDisplay}>
-                        <span>{formatTime(Math.floor(playbackProgress))}</span>
-                        <span>{formatTime(Math.floor(playbackDuration))}</span>
-                      </div>
+                        onMouseLeave={() => setShowRetakeLockTooltip(false)}
+                        onClick={() => {
+                          if (isRetakeLocked) {
+                            setShowRetakeLockTooltip(true);
+                          } else {
+                            stopQuestionRecording();
+                          }
+                        }}
+                        className={`${styles.timeLimitButton} ${
+                          isRetakeLocked ? styles.timeLimitButtonLocked : styles.timeLimitButtonActive
+                        }`}
+                      >
+                        <div className={styles.stopSquareIcon} />
+                        <span>Time limit {formatTime(retakeTimeRemaining)}</span>
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* 3 Main Action Buttons: Nói lại, Lưu bài nói, Chấm bài */}
-                <div className={styles.actionButtonsRow}>
-                  <button
-                    type="button"
-                    onClick={handleReRecord}
-                    className={styles.reRecordButton}
-                  >
-                    <ArrowCounterClockwise size={18} />
-                    <span>Nói lại</span>
-                  </button>
+                {/* State C: Recorded - Preview Transcript & Confirm (Ảnh 17) */}
+                {retakeRecordState === "RECORDED" && retakeAudioData && (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="flex items-center justify-between w-full mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRetakeRecordState("IDLE");
+                          setRetakeAudioData(null);
+                        }}
+                        className={styles.retakeLinkBtn}
+                      >
+                        <ArrowCounterClockwise size={14} />
+                        <span>Nói lại</span>
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={handleSaveCurrentSpeech}
-                    disabled={savingSpeech}
-                    className={styles.saveSpeechButton}
-                  >
-                    {savingSpeech ? (
-                      <SpinnerGap size={18} className="animate-spin" />
-                    ) : (
-                      <FloppyDisk size={18} />
-                    )}
-                    <span>Lưu bài nói</span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePlayAudioKey("retake-preview", retakeAudioData.url)}
+                        className={styles.miniPlayBtn}
+                      >
+                        {playingKey === "retake-preview" ? (
+                          <Pause size={12} weight="fill" />
+                        ) : (
+                          <Play size={12} weight="fill" />
+                        )}
+                        <span>{formatTime(retakeAudioData.durationSeconds)}</span>
+                      </button>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAiEvaluate}
-                    disabled={evaluating}
-                    className={styles.aiEvaluateButton}
-                  >
-                    {evaluating ? (
-                      <SpinnerGap size={18} className="animate-spin" />
-                    ) : (
-                      <Sparkle size={18} weight="fill" />
-                    )}
-                    <span>{evaluating ? "AI đang chấm..." : "Chấm bài"}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+                    {/* Transcribed text */}
+                    <div className={styles.transcriptPreviewArea}>
+                      {retakeTranscript || "(Chưa phân tích được giọng nói rõ ràng)"}
+                    </div>
 
-          {/* AI EVALUATION RESULT CARD */}
-          {evaluationResult && (
-            <div className={styles.aiScoreCard}>
-              <div className={styles.aiScoreCardHeader}>
-                <div className={styles.aiScoreTitleGroup}>
-                  <Sparkle size={20} weight="fill" className="text-[#AD4C64]" />
-                  <div>
-                    <h3 className="text-base font-bold text-[#292528] m-0">Kết quả đánh giá AI</h3>
-                    <p className="text-xs text-[#6F676C] m-0">
-                      Chấm điểm theo 4 tiêu chí chuẩn IELTS Speaking
-                    </p>
-                  </div>
-                </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // Apply retake result
+                        setRecordedAudios((prev) => ({
+                          ...prev,
+                          [retakeTargetKey]: retakeAudioData,
+                        }));
+                        setTranscripts((prev) => ({
+                          ...prev,
+                          [retakeTargetKey]: retakeTranscript,
+                        }));
 
-                <div className={styles.aiScoreOverallBandBadge}>
-                  <span className={styles.overallBandNumber}>
-                    {evaluationResult.overallBand?.toFixed(1) ?? "6.5"}
-                  </span>
-                  <span className={styles.overallBandLabel}>Overall Band</span>
-                </div>
-              </div>
+                        if (retakeAudioData.blob) {
+                          const base64 = await blobToBase64(retakeAudioData.blob);
+                          void persistResponse(retakeTargetKey, base64, retakeTranscript);
+                        }
 
-              {/* 4 Criteria Grid */}
-              <div className={styles.criteriaGrid}>
-                <div className={styles.criterionBox}>
-                  <div className={styles.criterionHeader}>
-                    <span className={styles.criterionName}>Fluency &amp; Coherence</span>
-                    <span className={styles.criterionBand}>
-                      {evaluationResult.fluencyBand?.toFixed(1) ?? "6.5"}
-                    </span>
-                  </div>
-                  <p className={styles.criterionFeedback}>
-                    {evaluationResult.criteriaFeedback?.fluency_coherence ||
-                      "Độ trôi chảy và mạch lạc tương đối tốt, duy trì được nhịp độ nói."}
-                  </p>
-                </div>
-
-                <div className={styles.criterionBox}>
-                  <div className={styles.criterionHeader}>
-                    <span className={styles.criterionName}>Lexical Resource</span>
-                    <span className={styles.criterionBand}>
-                      {evaluationResult.lexicalBand?.toFixed(1) ?? "6.5"}
-                    </span>
-                  </div>
-                  <p className={styles.criterionFeedback}>
-                    {evaluationResult.criteriaFeedback?.lexical_resource ||
-                      "Vốn từ phong phú, có sử dụng collocations tự nhiên."}
-                  </p>
-                </div>
-
-                <div className={styles.criterionBox}>
-                  <div className={styles.criterionHeader}>
-                    <span className={styles.criterionName}>Grammar Accuracy</span>
-                    <span className={styles.criterionBand}>
-                      {evaluationResult.grammarBand?.toFixed(1) ?? "6.0"}
-                    </span>
-                  </div>
-                  <p className={styles.criterionFeedback}>
-                    {evaluationResult.criteriaFeedback?.grammatical_range_accuracy ||
-                      "Cấu trúc câu đa dạng, nên chú ý thêm các thì phức hợp."}
-                  </p>
-                </div>
-
-                <div className={styles.criterionBox}>
-                  <div className={styles.criterionHeader}>
-                    <span className={styles.criterionName}>Pronunciation</span>
-                    <span className={styles.criterionBand}>
-                      {evaluationResult.pronunciationBand?.toFixed(1) ?? "6.5"}
-                    </span>
-                  </div>
-                  <p className={styles.criterionFeedback}>
-                    {evaluationResult.criteriaFeedback?.pronunciation ||
-                      "Phát âm dễ hiểu, ngữ điệu và trọng âm câu tương đối tự nhiên."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Strengths & Improvements */}
-              <div className={styles.strengthsImprovementsRow}>
-                {evaluationResult.strengths?.length > 0 && (
-                  <div className={styles.strengthsBox}>
-                    <div className={styles.strengthsTitle}>✓ Điểm mạnh</div>
-                    <ul className={styles.strengthsList}>
-                      {evaluationResult.strengths.map((str, sIdx) => (
-                        <li key={sIdx}>{str}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {evaluationResult.improvements?.length > 0 && (
-                  <div className={styles.improvementsBox}>
-                    <div className={styles.improvementsTitle}>⚡ Cần cải thiện</div>
-                    <ul className={styles.improvementsList}>
-                      {evaluationResult.improvements.map((imp, iIdx) => (
-                        <li key={iIdx}>{imp}</li>
-                      ))}
-                    </ul>
+                        setShowRetakeWorkspace(false);
+                        setRetakeTargetKey(null);
+                      }}
+                      className={styles.primaryOrangeBtn}
+                    >
+                      <span>Chọn bài nói này và tiếp tục</span>
+                    </button>
                   </div>
                 )}
               </div>
+
+              {/* Note in Retake if Part 2 */}
+              {isRetakePart2 && (
+                <aside className={styles.noteDrawer} style={{ width: "260px" }}>
+                  <div className={styles.noteDrawerHeader}>Note</div>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className={styles.noteTextarea}
+                  />
+                </aside>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* Bottom Question Navigation Footer */}
-          <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              disabled={activeQuestionIndex === 0}
-              onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#DED7DA] bg-white text-xs font-bold text-[#6F676C] disabled:opacity-40 hover:bg-[#F2ECEE] transition"
-            >
-              <CaretLeft size={16} /> Câu trước
-            </button>
+      {/* ================= BOTTOM NAVIGATION BAR (Màn 1 -> 14) ================= */}
+      <footer className={styles.bottomNavBar}>
+        <div className={styles.bottomNavLeft}>
+          {/* Intro button */}
+          <button
+            type="button"
+            className={`${styles.introNavBtn} ${
+              stage.startsWith("INTRO")
+                ? styles.introNavBtnActive
+                : styles.introNavBtnCompleted
+            }`}
+          >
+            {stage.startsWith("INTRO") ? (
+              <>
+                <span>Intro</span>
+                <Microphone size={14} weight="fill" />
+              </>
+            ) : (
+              <>
+                <span>Intro</span>
+                <Check size={14} weight="bold" />
+              </>
+            )}
+          </button>
 
-            <div className="flex items-center gap-1.5">
-              {questions.map((_, qIdx) => (
+          {/* Part 1 Group */}
+          {activePartIndex === 0 && !stage.startsWith("INTRO") && stage !== "SUMMARY" ? (
+            <div className={`${styles.partNavGroup} ${styles.partNavGroupActive}`}>
+              <span className={`${styles.partLabelText} ${styles.partLabelTextActive}`}>Part 1</span>
+              {parts[0]?.questions.map((q, idx) => (
                 <button
-                  key={qIdx}
+                  key={q.id}
                   type="button"
-                  onClick={() => setActiveQuestionIndex(qIdx)}
-                  className={`grid size-8 place-items-center rounded-lg text-xs font-bold transition ${
-                    qIdx === activeQuestionIndex
-                      ? "bg-[#AD4C64] text-white"
-                      : recordedAudios[questions[qIdx]?.questionKey]?.url
-                      ? "bg-[#F7E5EA] text-[#AD4C64] border border-[#C85F78]"
-                      : "bg-white border border-[#DED7DA] text-[#6F676C] hover:border-[#AD4C64]"
+                  onClick={() => {
+                    setActiveQuestionIndex(idx);
+                    startReadingQuestion(0, idx);
+                  }}
+                  className={`${styles.questionCircle} ${
+                    idx === activeQuestionIndex
+                      ? styles.questionCircleActive
+                      : recordedAudios[q.questionKey]
+                      ? styles.questionCircleDone
+                      : ""
                   }`}
                 >
-                  {qIdx + 1}
+                  {idx + 1}
                 </button>
               ))}
             </div>
-
-            <button
-              type="button"
-              disabled={activeQuestionIndex === questions.length - 1}
-              onClick={() => setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#DED7DA] bg-white text-xs font-bold text-[#6F676C] disabled:opacity-40 hover:bg-[#F2ECEE] transition"
-            >
-              Câu tiếp <CaretRight size={16} />
-            </button>
-          </div>
-        </section>
-
-        {/* RIGHT SMART SIDEBAR (2 Tabs: Gợi ý từng bước & Tra từ vựng AI) */}
-        <aside className={styles.sidebar}>
-          {/* Sidebar Tabs Switcher */}
-          <div className={styles.sidebarTabsHeader}>
-            <button
-              type="button"
-              onClick={() => setSidebarTab("BUILDER")}
-              className={`${styles.sidebarTabButton} ${
-                sidebarTab === "BUILDER" ? styles.sidebarTabActive : ""
+          ) : (
+            <div
+              className={`${styles.partNavGroup} ${
+                activePartIndex > 0 || stage === "SUMMARY"
+                  ? styles.partNavGroupCompleted
+                  : ""
               }`}
             >
-              <Lightbulb size={18} />
-              <span>Gợi ý từng bước</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSidebarTab("VOCAB")}
-              className={`${styles.sidebarTabButton} ${
-                sidebarTab === "VOCAB" ? styles.sidebarTabActive : ""
-              }`}
-            >
-              <Translate size={18} />
-              <span>Tra từ vựng AI</span>
-            </button>
-          </div>
-
-          {/* TAB 1: Gợi ý từng bước (Speaking Builder) */}
-          {sidebarTab === "BUILDER" && (
-            <SpeakingBuilderPanel
-              steps={activeQuestion?.hintSteps || activePart?.hintSteps || []}
-              selectedOptions={hintChoicesMap[currentKey] || {}}
-              onSelectOption={(stepId, optionId, sentence) => {
-                setHintChoicesMap((prev) => ({
-                  ...prev,
-                  [currentKey]: {
-                    ...(prev[currentKey] || {}),
-                    [stepId]: optionId,
-                  },
-                }));
-              }}
-              onReset={() => {
-                setHintChoicesMap((prev) => {
-                  const next = { ...prev };
-                  delete next[currentKey];
-                  return next;
-                });
-              }}
-            />
+              <span
+                className={`${styles.partLabelText} ${
+                  activePartIndex > 0 || stage === "SUMMARY"
+                    ? styles.partLabelTextCompleted
+                    : ""
+                }`}
+              >
+                Part 1
+              </span>
+              {(activePartIndex > 0 || stage === "SUMMARY") && <Check size={14} weight="bold" />}
+            </div>
           )}
 
-          {/* TAB 2: Tra từ vựng 2 chiều bằng AI (AI Vocab Lookup) */}
-          {sidebarTab === "VOCAB" && <SpeakingVocabPanel />}
-        </aside>
-      </main>
+          {/* Part 2 Group */}
+          {activePartIndex === 1 && stage !== "SUMMARY" ? (
+            <div className={`${styles.partNavGroup} ${styles.partNavGroupActive}`}>
+              <span className={`${styles.partLabelText} ${styles.partLabelTextActive}`}>Part 2</span>
+              <div className={`${styles.questionCircle} ${styles.questionCircleActive}`}>1</div>
+            </div>
+          ) : (
+            <div
+              className={`${styles.partNavGroup} ${
+                activePartIndex > 1 || stage === "SUMMARY"
+                  ? styles.partNavGroupCompleted
+                  : ""
+              }`}
+            >
+              <span
+                className={`${styles.partLabelText} ${
+                  activePartIndex > 1 || stage === "SUMMARY"
+                    ? styles.partLabelTextCompleted
+                    : ""
+                }`}
+              >
+                Part 2
+              </span>
+              {(activePartIndex > 1 || stage === "SUMMARY") && <Check size={14} weight="bold" />}
+            </div>
+          )}
+
+          {/* Part 3 Group */}
+          {activePartIndex === 2 && stage !== "SUMMARY" ? (
+            <div className={`${styles.partNavGroup} ${styles.partNavGroupActive}`}>
+              <span className={`${styles.partLabelText} ${styles.partLabelTextActive}`}>Part 3</span>
+              {parts[2]?.questions.map((q, idx) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveQuestionIndex(idx);
+                    startReadingQuestion(2, idx);
+                  }}
+                  className={`${styles.questionCircle} ${
+                    idx === activeQuestionIndex
+                      ? styles.questionCircleActive
+                      : recordedAudios[q.questionKey]
+                      ? styles.questionCircleDone
+                      : ""
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={`${styles.partNavGroup} ${
+                stage === "SUMMARY" ? styles.partNavGroupCompleted : ""
+              }`}
+            >
+              <span
+                className={`${styles.partLabelText} ${
+                  stage === "SUMMARY" ? styles.partLabelTextCompleted : ""
+                }`}
+              >
+                Part 3
+              </span>
+              {stage === "SUMMARY" && <Check size={14} weight="bold" />}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Nav Right: Submit buttons */}
+        <div className={styles.bottomNavRight}>
+          {stage === "SUMMARY" && (
+            <>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSubmit}
+                className={styles.submitBtnFree}
+              >
+                {submitting ? (
+                  <SpinnerGap size={14} className="animate-spin" />
+                ) : (
+                  <Check size={14} weight="bold" />
+                )}
+                <span>
+                  Nộp bài ({completedCount}/{totalQuestionsCount})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSubmit}
+                className={styles.proGradeBtn}
+              >
+                <Sparkle size={14} weight="fill" />
+                <span>Đánh giá IELTS Spells AI</span>
+              </button>
+            </>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }
