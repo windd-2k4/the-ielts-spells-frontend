@@ -13,6 +13,7 @@ import {
   List,
   PencilSimpleLine,
   SignOut,
+  Sparkle,
   SquaresFour,
   Target,
   User,
@@ -25,6 +26,7 @@ interface StudentTopbarProps { onToggleMobileMenu?: () => void; }
 
 const NAV_ITEMS = [
   { href: "/student", label: "Tổng quan", icon: SquaresFour },
+  { href: "/student/placement-test", label: "Test đầu vào FREE", icon: Sparkle },
   { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
   { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
   { href: "/student/courses", label: "Khóa học", icon: GraduationCap },

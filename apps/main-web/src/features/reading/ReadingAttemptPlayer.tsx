@@ -174,7 +174,12 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       const value = await resumeReadingAttempt(attemptId);
       if (value.status !== "IN_PROGRESS") {
         clearLocalDraft(attemptId);
+        const fromPlacement = searchParams?.get("from") === "placement";
+      if (fromPlacement) {
+        router.replace("/student/placement-test/mocktest");
+      } else {
         router.replace(`/student/reading/attempts/${attemptId}/result`);
+      }
         return;
       }
       const firstQuestion = allReadingQuestions(value.sections)[0]?.question.key ?? "";
@@ -243,7 +248,12 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       }
       void resumeReadingAttempt(attemptId).then((value) => {
         if (value.status !== "IN_PROGRESS") {
-          router.replace(`/student/reading/attempts/${attemptId}/result`);
+          const fromPlacement = searchParams?.get("from") === "placement";
+      if (fromPlacement) {
+        router.replace("/student/placement-test/mocktest");
+      } else {
+        router.replace(`/student/reading/attempts/${attemptId}/result`);
+      }
           return;
         }
         setAttempt(value);
@@ -348,7 +358,12 @@ function ReadingAttemptContent({ attemptId }: { attemptId: string }) {
       clearLocalDraft(attemptId);
       pendingRef.current.clear();
       setPendingCount(0);
-      router.replace(`/student/reading/attempts/${attemptId}/result`);
+      const fromPlacement = searchParams?.get("from") === "placement";
+      if (fromPlacement) {
+        router.replace("/student/placement-test/mocktest");
+      } else {
+        router.replace(`/student/reading/attempts/${attemptId}/result`);
+      }
     } catch (failure) {
       setSaveError(requestMessage(failure));
       setIsSubmitting(false);

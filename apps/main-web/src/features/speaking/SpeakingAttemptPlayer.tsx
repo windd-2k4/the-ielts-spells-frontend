@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowCounterClockwise,
   ArrowLeft,
@@ -55,6 +55,7 @@ type Stage =
 
 export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Test Attempt data
   const [attempt, setAttempt] = useState<StudentSpeakingAttempt | null>(null);
@@ -143,7 +144,16 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
         data.responses.forEach((res) => {
           if (res.audioUrl) {
-            audios[res.questionKey] = { url: res.audioUrl, durationSeconds: 10 };
+            let playUrl = res.audioUrl;
+            if (playUrl.startsWith("data:")) {
+              try {
+                const blob = dataUrlToBlob(playUrl);
+                playUrl = URL.createObjectURL(blob);
+              } catch (e) {
+                console.warn("Failed to create object URL from data URL:", e);
+              }
+            }
+            audios[res.questionKey] = { url: playUrl, durationSeconds: 10 };
           }
           if (res.transcript) {
             texts[res.questionKey] = res.transcript;
@@ -188,8 +198,21 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     return allQuestionItems.filter((item) => !!recordedAudios[item.question.questionKey]?.url).length;
   }, [allQuestionItems, recordedAudios]);
 
-  // CLEANUP RECORDING HARDWARE
-  const cleanupRecording = useCallback(() => {
+  // Keep active index refs fresh to prevent stale closures during auto-advance
+  const activePartIndexRef = useRef(activePartIndex);
+  const activeQuestionIndexRef = useRef(activeQuestionIndex);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  useEffect(() => {
+    activePartIndexRef.current = activePartIndex;
+  }, [activePartIndex]);
+
+  useEffect(() => {
+    activeQuestionIndexRef.current = activeQuestionIndex;
+  }, [activeQuestionIndex]);
+
+  // STOP RECORDING HARDWARE & TIMERS ONLY (does not cancel question reading)
+  const stopRecordingHardwareAndTimers = useCallback(() => {
     if (recordTimerRef.current) {
       clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
@@ -208,6 +231,10 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       void audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
+  }, []);
+
+  // STOP QUESTION READING AUDIO & TIMERS
+  const stopReadingQuestionAudio = useCallback(() => {
     if (readingTimerRef.current) {
       clearInterval(readingTimerRef.current);
       readingTimerRef.current = null;
@@ -219,6 +246,25 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+  }, []);
+
+  // FULL CLEANUP
+  const cleanupAll = useCallback(() => {
+    stopRecordingHardwareAndTimers();
+    stopReadingQuestionAudio();
+  }, [stopRecordingHardwareAndTimers, stopReadingQuestionAudio]);
+
+  // Convert Data URL to Blob for reliable playback in Chrome/Blink
+  const dataUrlToBlob = useCallback((dataUrl: string): Blob => {
+    const parts = dataUrl.split(",");
+    const mime = parts[0]?.match(/:(.*?);/)?.[1] || "audio/webm";
+    const bstr = atob(parts[1] || "");
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
   }, []);
 
   // Convert Blob to Base64 Data URL for persistent saving
@@ -244,7 +290,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
         };
         await saveSpeakingResponses(attemptId, [item]);
       } catch (err) {
-        console.error("Failed to save response:", err);
+        console.warn("Autosave response non-fatal warning:", err);
       }
     },
     [attempt, attemptId]
@@ -265,12 +311,13 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   // START RECORDING QUESTION
   const startQuestionRecording = useCallback(
     async (isRetake = false, customKey?: string, isPart2 = false) => {
-      cleanupRecording();
+      cleanupAll();
       const targetKey = customKey || currentKey;
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunksRef.current = [];
+        const recordedChunks: Blob[] = [];
+        audioChunksRef.current = recordedChunks;
 
         // Audio Visualizer
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -322,17 +369,31 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
           } catch {}
         }
 
-        // MediaRecorder
-        const recorder = new MediaRecorder(stream);
+        // MediaRecorder with robust mime type negotiation
+        let recorder: MediaRecorder;
+        const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+        try {
+          recorder = new MediaRecorder(stream, { mimeType: preferredMime });
+        } catch {
+          recorder = new MediaRecorder(stream);
+        }
+
         recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+          if (e.data && e.data.size > 0) {
+            recordedChunks.push(e.data);
+          }
         };
 
         const totalTime = isPart2 ? 120 : 45;
 
         recorder.onstop = async () => {
           stream.getTracks().forEach((track) => track.stop());
-          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          stopRecordingHardwareAndTimers();
+
+          const actualMime = recorder.mimeType || preferredMime || "audio/webm";
+          const blob = new Blob(recordedChunks, { type: actualMime });
           const url = URL.createObjectURL(blob);
           const duration = totalTime - (isRetake ? retakeTimeRemaining : timeRemaining);
 
@@ -353,8 +414,6 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
             // Advance to next question or next part
             advanceAfterRecordingRef.current();
           }
-
-          cleanupRecording();
         };
 
         recorder.start(250);
@@ -398,7 +457,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     },
     [
       blobToBase64,
-      cleanupRecording,
+      cleanupAll,
       currentKey,
       persistResponse,
       retakeTimeRemaining,
@@ -409,45 +468,64 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
   // ADVANCE AFTER RECORDING (Part 1 -> Part 2 -> Part 3 -> Summary)
   const advanceAfterRecording = useCallback(() => {
-    if (activePartIndex === 0) {
+    const currentPartIdx = activePartIndexRef.current;
+    const currentQIdx = activeQuestionIndexRef.current;
+    const currentPart = parts[currentPartIdx];
+    const qCount = currentPart?.questions?.length || 0;
+
+    if (currentPartIdx === 0) {
       // Part 1
-      if (activeQuestionIndex < questions.length - 1) {
-        setActiveQuestionIndex((prev) => prev + 1);
-        startReadingQuestionRef.current(0, activeQuestionIndex + 1);
+      if (currentQIdx < qCount - 1) {
+        const nextQIdx = currentQIdx + 1;
+        setActiveQuestionIndex(nextQIdx);
+        activeQuestionIndexRef.current = nextQIdx;
+        startReadingQuestionRef.current(0, nextQIdx);
       } else {
         // Finished Part 1 -> Move to Part 2 Cover
         setActivePartIndex(1);
         setActiveQuestionIndex(0);
+        activePartIndexRef.current = 1;
+        activeQuestionIndexRef.current = 0;
         setStage("PART_COVER");
         setIsNoteDrawerOpen(true);
       }
-    } else if (activePartIndex === 1) {
+    } else if (currentPartIdx === 1) {
       // Finished Part 2 -> Move to Part 3 Cover
       setActivePartIndex(2);
       setActiveQuestionIndex(0);
+      activePartIndexRef.current = 2;
+      activeQuestionIndexRef.current = 0;
       setStage("PART_COVER");
-    } else if (activePartIndex === 2) {
+    } else if (currentPartIdx === 2) {
       // Part 3
-      if (activeQuestionIndex < questions.length - 1) {
-        setActiveQuestionIndex((prev) => prev + 1);
-        startReadingQuestionRef.current(2, activeQuestionIndex + 1);
+      if (currentQIdx < qCount - 1) {
+        const nextQIdx = currentQIdx + 1;
+        setActiveQuestionIndex(nextQIdx);
+        activeQuestionIndexRef.current = nextQIdx;
+        startReadingQuestionRef.current(2, nextQIdx);
       } else {
         // Finished All Parts -> Move to Summary Screen!
         setStage("SUMMARY");
         setIsNoteDrawerOpen(false);
       }
     }
-  }, [activePartIndex, activeQuestionIndex, questions.length]);
+  }, [parts]);
 
   // START READING QUESTION (Plays prompt audio or TTS, with countdown bar)
   const startReadingQuestion = useCallback(
     (pIdx: number, qIdx: number) => {
-      cleanupRecording();
+      stopReadingQuestionAudio();
+      stopRecordingHardwareAndTimers();
+
+      activePartIndexRef.current = pIdx;
+      activeQuestionIndexRef.current = qIdx;
+
       setStage("QUESTION_READING");
       setReadingProgress(0);
 
       const targetPart = parts[pIdx];
-      const targetQ = targetPart?.questions[qIdx];
+      const targetQ = targetPart?.questions?.[qIdx];
+      const questionKey = targetQ?.questionKey ?? `${targetPart?.id}-q${qIdx + 1}`;
       const prompt = targetQ?.promptText || "";
       const audioUrl = targetQ?.audioUrl;
 
@@ -455,15 +533,25 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       if (prompt.length > 50) durationEstimate = 6000;
       if (prompt.length > 90) durationEstimate = 8000;
 
+      let hasAdvanced = false;
+      const triggerNextRecording = () => {
+        if (hasAdvanced) return;
+        hasAdvanced = true;
+        if (readingTimerRef.current) {
+          clearInterval(readingTimerRef.current);
+          readingTimerRef.current = null;
+        }
+        setReadingProgress(100);
+        void startQuestionRecordingRef.current(false, questionKey, pIdx === 1);
+      };
+
       const startTime = Date.now();
       readingTimerRef.current = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(100, Math.round((elapsed / durationEstimate) * 100));
         setReadingProgress(progress);
         if (progress >= 100) {
-          if (readingTimerRef.current) clearInterval(readingTimerRef.current);
-          // Auto start recording after question!
-          void startQuestionRecordingRef.current(false);
+          triggerNextRecording();
         }
       }, 100);
 
@@ -473,27 +561,32 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
           const audio = new Audio(audioUrl);
           questionAudioRef.current = audio;
           audio.onended = () => {
-            if (readingTimerRef.current) clearInterval(readingTimerRef.current);
-            setReadingProgress(100);
-            void startQuestionRecordingRef.current(false);
+            triggerNextRecording();
           };
-          audio.onerror = () => {};
+          audio.onerror = () => {
+            // Audio error fallback handled by durationEstimate timer
+          };
           void audio.play().catch(() => {});
         } catch {}
       } else if (prompt && typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(prompt);
-        utterance.lang = "en-US";
-        utterance.rate = 0.95;
-        utterance.onend = () => {
-          if (readingTimerRef.current) clearInterval(readingTimerRef.current);
-          setReadingProgress(100);
-          void startQuestionRecordingRef.current(false);
-        };
-        window.speechSynthesis.speak(utterance);
+        try {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.resume();
+          const utterance = new SpeechSynthesisUtterance(prompt);
+          utterance.lang = "en-US";
+          utterance.rate = 0.95;
+          utteranceRef.current = utterance;
+          utterance.onend = () => {
+            triggerNextRecording();
+          };
+          utterance.onerror = () => {
+            // TTS error fallback handled by durationEstimate timer
+          };
+          window.speechSynthesis.speak(utterance);
+        } catch {}
       }
     },
-    [cleanupRecording, parts]
+    [parts, stopReadingQuestionAudio, stopRecordingHardwareAndTimers]
   );
 
   useEffect(() => {
@@ -504,7 +597,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
   // START PART 2 THINKING TIME (1 MINUTE)
   function startPartTwoThinking() {
-    cleanupRecording();
+    cleanupAll();
     setStage("PART2_THINKING");
     setThinkingSecondsRemaining(60);
     setIsNoteDrawerOpen(true);
@@ -514,7 +607,8 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
         if (prev <= 1) {
           if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
           // Automatically start 2-minute recording
-          void startQuestionRecording(false, undefined, true);
+          const p2TargetKey = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-q1`;
+          void startQuestionRecording(false, p2TargetKey, true);
           return 0;
         }
         return prev - 1;
@@ -591,21 +685,63 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   }
 
   // TOGGLE PLAY RECORDED ANSWER IN SUMMARY / RETAKE
-  function togglePlayAudioKey(key: string, url: string) {
+  function togglePlayAudioKey(key: string, rawUrl: string) {
     if (playingKey === key && currentPlaybackAudioRef.current) {
       currentPlaybackAudioRef.current.pause();
+      currentPlaybackAudioRef.current = null;
       setPlayingKey(null);
       return;
     }
     if (currentPlaybackAudioRef.current) {
       currentPlaybackAudioRef.current.pause();
+      currentPlaybackAudioRef.current = null;
     }
-    const audio = new Audio(url);
-    currentPlaybackAudioRef.current = audio;
-    setPlayingKey(key);
-    audio.onended = () => setPlayingKey(null);
-    audio.onerror = () => setPlayingKey(null);
-    audio.play().catch(() => setPlayingKey(null));
+
+    let playableUrl = rawUrl;
+    if (playableUrl.startsWith("data:")) {
+      try {
+        const blob = dataUrlToBlob(playableUrl);
+        playableUrl = URL.createObjectURL(blob);
+      } catch (err) {
+        console.warn("Could not convert dataUrl to blob for playback", err);
+      }
+    }
+
+    try {
+      const audio = new Audio(playableUrl);
+      audio.preload = "auto";
+      currentPlaybackAudioRef.current = audio;
+      setPlayingKey(key);
+
+      audio.onended = () => {
+        if (currentPlaybackAudioRef.current === audio) {
+          currentPlaybackAudioRef.current = null;
+        }
+        setPlayingKey(null);
+      };
+
+      audio.onerror = (e) => {
+        console.warn("Playback error for key", key, e, audio.error);
+        if (currentPlaybackAudioRef.current === audio) {
+          currentPlaybackAudioRef.current = null;
+        }
+        setPlayingKey(null);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("Audio play rejected for key", key, err);
+          if (currentPlaybackAudioRef.current === audio) {
+            currentPlaybackAudioRef.current = null;
+          }
+          setPlayingKey(null);
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to initialize audio playback for key", key, err);
+      setPlayingKey(null);
+    }
   }
 
   // SUBMIT FINAL ATTEMPT
@@ -614,7 +750,12 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     setSubmitting(true);
     try {
       await submitSpeakingAttempt(attemptId);
-      router.push(`/student/speaking/attempts/${attemptId}/result`);
+      const fromPlacement = searchParams?.get("from") === "placement";
+      if (fromPlacement) {
+        router.push("/student/placement-test/mocktest");
+      } else {
+        router.push(`/student/speaking/attempts/${attemptId}/result`);
+      }
     } catch (err) {
       alert("Lỗi khi nộp bài: " + (err instanceof Error ? err.message : "Vui lòng thử lại"));
       setSubmitting(false);
@@ -748,7 +889,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
       {/* MAIN WORKSPACE LAYOUT */}
       <div className={styles.mainLayout}>
-        <main className={styles.workspace}>
+        <main className={`${styles.workspace} ${stage === "SUMMARY" ? styles.workspaceSummary : ""}`}>
           {/* ================= STAGE 1: INTRO GUIDE (Ảnh 1) ================= */}
           {stage === "INTRO_GUIDE" && (
             <div className={styles.centerCard}>
@@ -1155,7 +1296,8 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                   type="button"
                   onClick={() => {
                     if (thinkingTimerRef.current) clearInterval(thinkingTimerRef.current);
-                    void startQuestionRecording(false, undefined, true);
+                    const p2TargetKey = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-q1`;
+                    void startQuestionRecording(false, p2TargetKey, true);
                   }}
                   className={styles.primaryOrangeBtn}
                 >
@@ -1244,111 +1386,74 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
               <div className={styles.summaryColumnsGrid}>
                 {/* PART 1 COLUMN */}
                 <div className={styles.summaryColumnCard}>
-                  <h2 className={styles.summaryColumnHeader}>Part 1</h2>
-                  {parts[0]?.questions.map((q) => {
-                    const audio = recordedAudios[q.questionKey];
-                    return (
-                      <div key={q.id} className={styles.summaryQuestionItem}>
-                        <p className={styles.summaryPromptText}>{q.promptText}</p>
-                        <div className={styles.summaryItemActions}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRetakeTargetKey(q.questionKey);
-                              setShowRetakeConfirm(true);
-                            }}
-                            className={styles.retakeLinkBtn}
-                          >
-                            <ArrowCounterClockwise size={14} />
-                            <span>Nói lại</span>
-                          </button>
-
-                          {audio?.url ? (
+                  <div className={styles.summaryColumnHeaderSticky}>
+                    <h2 className={styles.summaryColumnTitle}>Part 1</h2>
+                    <span className={styles.summaryColumnCountBadge}>
+                      {parts[0]?.questions.length || 0} câu
+                    </span>
+                  </div>
+                  <div className={styles.summaryQuestionListScroll}>
+                    {parts[0]?.questions.map((q) => {
+                      const audio = recordedAudios[q.questionKey];
+                      return (
+                        <div key={q.id} className={styles.summaryQuestionItem}>
+                          <p className={styles.summaryPromptText}>{q.promptText}</p>
+                          <div className={styles.summaryItemActions}>
                             <button
                               type="button"
-                              onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
-                              className={styles.miniPlayBtn}
+                              onClick={() => {
+                                setRetakeTargetKey(q.questionKey);
+                                setShowRetakeConfirm(true);
+                              }}
+                              className={styles.retakeLinkBtn}
                             >
-                              {playingKey === q.questionKey ? (
-                                <Pause size={12} weight="fill" />
-                              ) : (
-                                <Play size={12} weight="fill" />
-                              )}
-                              <span>{formatTime(audio.durationSeconds || 10)}</span>
+                              <ArrowCounterClockwise size={14} />
+                              <span>Nói lại</span>
                             </button>
-                          ) : (
-                            <span className={styles.summaryMissingAudioWarning}>
-                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
-                            </span>
-                          )}
+
+                            {audio?.url ? (
+                              <button
+                                type="button"
+                                onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
+                                className={styles.miniPlayBtn}
+                              >
+                                {playingKey === q.questionKey ? (
+                                  <Pause size={12} weight="fill" />
+                                ) : (
+                                  <Play size={12} weight="fill" />
+                                )}
+                                <span>{formatTime(audio.durationSeconds || 10)}</span>
+                              </button>
+                            ) : (
+                              <span className={styles.summaryMissingAudioWarning}>
+                                Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* PART 2 COLUMN */}
                 <div className={styles.summaryColumnCard}>
-                  <h2 className={styles.summaryColumnHeader}>Part 2</h2>
-                  {parts[1] && (
-                    <div className={styles.summaryQuestionItem}>
-                      <p className={styles.summaryPromptText}>
-                        {parts[1].topicTitle || parts[1].cueCardPromptHtml || "Describe a topic"}
-                      </p>
-                      <div className={styles.summaryItemActions}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-cue`;
-                            setRetakeTargetKey(p2Key);
-                            setShowRetakeConfirm(true);
-                          }}
-                          className={styles.retakeLinkBtn}
-                        >
-                          <ArrowCounterClockwise size={14} />
-                          <span>Nói lại</span>
-                        </button>
-
-                        {(() => {
-                          const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-cue`;
-                          const audio = recordedAudios[p2Key];
-                          return audio?.url ? (
-                            <button
-                              type="button"
-                              onClick={() => togglePlayAudioKey(p2Key, audio.url)}
-                              className={styles.miniPlayBtn}
-                            >
-                              {playingKey === p2Key ? (
-                                <Pause size={12} weight="fill" />
-                              ) : (
-                                <Play size={12} weight="fill" />
-                              )}
-                              <span>{formatTime(audio.durationSeconds || 100)}</span>
-                            </button>
-                          ) : (
-                            <span className={styles.summaryMissingAudioWarning}>
-                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* PART 3 COLUMN */}
-                <div className={styles.summaryColumnCard}>
-                  <h2 className={styles.summaryColumnHeader}>Part 3</h2>
-                  {parts[2]?.questions.map((q) => {
-                    const audio = recordedAudios[q.questionKey];
-                    return (
-                      <div key={q.id} className={styles.summaryQuestionItem}>
-                        <p className={styles.summaryPromptText}>{q.promptText}</p>
+                  <div className={styles.summaryColumnHeaderSticky}>
+                    <h2 className={styles.summaryColumnTitle}>Part 2</h2>
+                    <span className={styles.summaryColumnCountBadge}>1 câu</span>
+                  </div>
+                  <div className={styles.summaryQuestionListScroll}>
+                    {parts[1] && (
+                      <div className={styles.summaryQuestionItem}>
+                        <p className={styles.summaryPromptText}>
+                          {parts[1].topicTitle || parts[1].cueCardPromptHtml || "Describe a topic"}
+                        </p>
                         <div className={styles.summaryItemActions}>
                           <button
                             type="button"
                             onClick={() => {
-                              setRetakeTargetKey(q.questionKey);
+                              const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-q1`;
+                              setRetakeTargetKey(p2Key);
                               setShowRetakeConfirm(true);
                             }}
                             className={styles.retakeLinkBtn}
@@ -1357,28 +1462,84 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                             <span>Nói lại</span>
                           </button>
 
-                          {audio?.url ? (
-                            <button
-                              type="button"
-                              onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
-                              className={styles.miniPlayBtn}
-                            >
-                              {playingKey === q.questionKey ? (
-                                <Pause size={12} weight="fill" />
-                              ) : (
-                                <Play size={12} weight="fill" />
-                              )}
-                              <span>{formatTime(audio.durationSeconds || 20)}</span>
-                            </button>
-                          ) : (
-                            <span className={styles.summaryMissingAudioWarning}>
-                              Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
-                            </span>
-                          )}
+                          {(() => {
+                            const p2Key = parts[1]?.questions[0]?.questionKey || `${parts[1]?.id}-q1`;
+                            const audio = recordedAudios[p2Key] || recordedAudios[`${parts[1]?.id}-cue`];
+                            return audio?.url ? (
+                              <button
+                                type="button"
+                                onClick={() => togglePlayAudioKey(p2Key, audio.url)}
+                                className={styles.miniPlayBtn}
+                              >
+                                {playingKey === p2Key ? (
+                                  <Pause size={12} weight="fill" />
+                                ) : (
+                                  <Play size={12} weight="fill" />
+                                )}
+                                <span>{formatTime(audio.durationSeconds || 100)}</span>
+                              </button>
+                            ) : (
+                              <span className={styles.summaryMissingAudioWarning}>
+                                Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+                </div>
+
+                {/* PART 3 COLUMN */}
+                <div className={styles.summaryColumnCard}>
+                  <div className={styles.summaryColumnHeaderSticky}>
+                    <h2 className={styles.summaryColumnTitle}>Part 3</h2>
+                    <span className={styles.summaryColumnCountBadge}>
+                      {parts[2]?.questions.length || 0} câu
+                    </span>
+                  </div>
+                  <div className={styles.summaryQuestionListScroll}>
+                    {parts[2]?.questions.map((q) => {
+                      const audio = recordedAudios[q.questionKey];
+                      return (
+                        <div key={q.id} className={styles.summaryQuestionItem}>
+                          <p className={styles.summaryPromptText}>{q.promptText}</p>
+                          <div className={styles.summaryItemActions}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRetakeTargetKey(q.questionKey);
+                                setShowRetakeConfirm(true);
+                              }}
+                              className={styles.retakeLinkBtn}
+                            >
+                              <ArrowCounterClockwise size={14} />
+                              <span>Nói lại</span>
+                            </button>
+
+                            {audio?.url ? (
+                              <button
+                                type="button"
+                                onClick={() => togglePlayAudioKey(q.questionKey, audio.url)}
+                                className={styles.miniPlayBtn}
+                              >
+                                {playingKey === q.questionKey ? (
+                                  <Pause size={12} weight="fill" />
+                                ) : (
+                                  <Play size={12} weight="fill" />
+                                )}
+                                <span>{formatTime(audio.durationSeconds || 20)}</span>
+                              </button>
+                            ) : (
+                              <span className={styles.summaryMissingAudioWarning}>
+                                Không nhận được âm thanh từ bạn, vui lòng nói lại câu này
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -1470,7 +1631,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
               <button
                 type="button"
                 onClick={() => {
-                  cleanupRecording();
+                  cleanupAll();
                   setShowRetakeWorkspace(false);
                   setRetakeTargetKey(null);
                 }}

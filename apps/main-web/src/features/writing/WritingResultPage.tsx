@@ -3,6 +3,7 @@
 import type { WritingAttemptResult } from "@ielts/contracts";
 import { ArrowLeft, ArrowRight, CheckCircle, CircleNotch, Clock, House, PencilSimple, Star, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { AuthenticatedDiagramImage } from "@/features/reading/AuthenticatedDiagramImage";
@@ -32,14 +33,27 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
   if (error) return <main className={styles.state}><WarningCircle size={30} /><strong>Không thể tải bài đã nộp</strong><p>{error}</p><Link href="/student/practice?skill=WRITING">Quay lại danh mục</Link></main>;
   if (!result) return <main className={styles.state}><CircleNotch size={28} className={styles.spin} /> Đang tải bài Writing...</main>;
 
+  const searchParams = useSearchParams();
+  const fromPlacement = searchParams.get("from") === "placement";
   const totalWords = result.responses.reduce((total, response) => total + response.wordCount, 0);
   const submittedAt = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.submittedAt));
 
   return <main className={styles.page}>
     <nav className={styles.topbar} aria-label="Điều hướng kết quả Writing">
-      <Link href="/student/practice?skill=WRITING" className={styles.backLink}><ArrowLeft /> <span>Danh mục Writing</span></Link>
+      {fromPlacement ? (
+        <Link href="/student/placement-test/mocktest" className={styles.backLink} style={{ color: "#FF6B00", fontWeight: 700 }}>
+          <ArrowLeft /> <span>Quay lại bài Test đầu vào</span>
+        </Link>
+      ) : (
+        <Link href="/student/practice?skill=WRITING" className={styles.backLink}><ArrowLeft /> <span>Danh mục Writing</span></Link>
+      )}
       <div className={styles.topbarTitle}><span>Kết quả bài làm</span><strong>Writing submission</strong></div>
       <div className={styles.topbarActions}>
+        {fromPlacement && (
+          <Link href="/student/placement-test/mocktest" className={styles.primaryLink} style={{ background: "#FF6B00", borderColor: "#FF6B00", color: "#FFFFFF" }}>
+            <ArrowLeft /> <span>Tiếp tục Test đầu vào</span>
+          </Link>
+        )}
         <Link href="/student" className={styles.homeLink}><House /> <span>Trang học viên</span></Link>
         <Link href="/student/practice?skill=WRITING" className={styles.primaryLink}><PencilSimple /> <span>Luyện bài khác</span></Link>
       </div>

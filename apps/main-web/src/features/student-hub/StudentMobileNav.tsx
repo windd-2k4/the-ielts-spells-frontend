@@ -33,6 +33,7 @@ const bottomItems = [
 const groups = [
   { title: "Học tập", items: [
     { href: "/student", label: "Tổng quan", icon: SquaresFour },
+    { href: "/student/placement-test", label: "Test đầu vào FREE", icon: Sparkle },
     { href: "/student/assignments", label: "Bài tập được giao", icon: BookOpenText },
     { href: "/student/practice", label: "Phòng luyện 4 kỹ năng", icon: PencilSimpleLine },
     { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },

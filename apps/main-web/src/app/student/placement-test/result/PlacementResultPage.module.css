@@ -1,0 +1,218 @@
+.container {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px 20px 80px 20px;
+}
+
+.reportHeader {
+  position: relative;
+  margin-bottom: 28px;
+}
+
+.topBrand {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FF6B00;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.reportTitle {
+  font-size: 26px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 6px 0;
+}
+
+.studentName {
+  font-size: 22px;
+  font-weight: 800;
+  color: #FF5A1F;
+  margin: 0 0 10px 0;
+}
+
+.reportDesc {
+  font-size: 14px;
+  color: #6B7280;
+  line-height: 1.55;
+  max-width: 680px;
+  margin: 0 0 18px 0;
+}
+
+.shareBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FF6B00;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 9px 20px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.25);
+  transition: all 0.15s ease;
+}
+
+.shareBtn:hover {
+  background: #E65A00;
+  transform: translateY(-1px);
+}
+
+.stampPosition {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* Score Card */
+.scoreCard {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
+  padding: 24px 32px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.scoreSide {
+  flex: 1;
+}
+
+.scoreLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6B7280;
+  margin-bottom: 4px;
+}
+
+.estimatedOverallNumber {
+  font-size: 52px;
+  font-weight: 800;
+  color: #10B981;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.targetBandNumber {
+  font-size: 52px;
+  font-weight: 800;
+  color: #FF5A1F;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.skillsBreakdownGrid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.skillPill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #4B5563;
+}
+
+.skillPillVal {
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+  margin-top: 2px;
+}
+
+.targetMetaInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: #4B5563;
+}
+
+.arrowBetween {
+  font-size: 28px;
+  color: #D1D5DB;
+}
+
+/* Feasibility Callout */
+.feasibilitySection {
+  margin-bottom: 36px;
+}
+
+.feasibilityTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 14px 0;
+}
+
+.feasibilityCallout {
+  display: flex;
+  gap: 14px;
+  border-radius: 14px;
+  padding: 16px 20px;
+  border: 1px solid #FEE2E2;
+  background: #FEF2F2;
+}
+
+.calloutIcon {
+  color: #EF4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.calloutHeading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #991B1B;
+  margin: 0 0 4px 0;
+}
+
+.calloutText {
+  font-size: 13.5px;
+  color: #7F1D1D;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Detailed analysis */
+.detailedSectionTitle {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #FF8A3D;
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .stampPosition {
+    position: static;
+    margin-bottom: 16px;
+  }
+
+  .scoreCard {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+
+  .arrowBetween {
+    transform: rotate(90deg);
+    align-self: center;
+  }
+}

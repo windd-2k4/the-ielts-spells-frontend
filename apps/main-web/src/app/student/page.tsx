@@ -17,6 +17,7 @@ import { StudentTargetBandControl } from "@/features/student-hub/StudentTargetBa
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import { StudentStudyPulse } from "@/features/student-hub/StudentStudyPulse";
 import { formatBand, formatDateTime, skillPairLabel } from "@/features/student-hub/studentPortalViewModel";
+import { PlacementTestBanner } from "@/features/placement-test/PlacementTestBanner";
 import styles from "@/features/student-hub/StudentLearningOverview.module.css";
 
 const skillCards = [
@@ -45,6 +46,8 @@ export default function StudentDashboardPage() {
 
   return (
     <div className={styles.overview}>
+      <PlacementTestBanner />
+
       {error && (
         <div role="status" className={styles.notice}>
           <span>{error} Dữ liệu hiển thị có thể chưa được cập nhật.</span>
