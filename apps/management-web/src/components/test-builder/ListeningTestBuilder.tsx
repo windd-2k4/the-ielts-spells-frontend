@@ -142,6 +142,7 @@ function normalizeGroups(value: unknown): QuestionGroupItem[] {
       typeFormat: type, instructions: group.instructions ?? "", wordLimitRule: group.wordLimitRule ?? "",
       answerSource: group.answerSource ?? "PASSAGE", requiredAnswerCount: group.requiredAnswerCount,
       sharedOptions: group.sharedOptions ?? [], allowOptionReused: Boolean(group.allowOptionReused),
+      gapFillTitle: typeof group.gapFillTitle === "string" ? group.gapFillTitle : undefined,
       gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
       gapFillLayout: group.gapFillLayout === "TABLE" ? "TABLE" : group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
       illustration: readGroupIllustration(group.illustration),
@@ -1109,9 +1110,12 @@ export function ListeningTestBuilder() {
               <div className="mt-4 space-y-4">
                 <GapFillGroupEditor
                   title={group.title}
+                  heading={group.gapFillTitle ?? ""}
                   template={group.gapFillTemplate ?? gapFillTemplateFromQuestions(group.questions)}
                   layout={group.gapFillLayout ?? defaultGapFillLayout(group.typeFormat)}
                   questions={group.questions}
+                  sharedOptions={questionTypeUsesSharedOptions(group.typeFormat, group.answerSource) ? group.sharedOptions : undefined}
+                  onHeadingChange={(gapFillTitle) => updateGroup(group.id, (current) => ({ ...current, gapFillTitle }))}
                   onTemplateChange={(template) => updateGroup(group.id, (current) => ({
                     ...current,
                     gapFillTemplate: template,

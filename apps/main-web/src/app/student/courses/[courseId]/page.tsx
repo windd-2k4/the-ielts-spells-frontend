@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowClockwise, ArrowLeft, GraduationCap, WarningCircle } from "@phosphor-icons/react";
 import { StudentCourseWorkspace } from "@/features/student-hub/courses/StudentCourseWorkspace";
-import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import {
   fetchStudentCourseWorkspace,
   type CourseWorkspaceData,
@@ -16,7 +15,6 @@ import styles from "./StudentCourseDetailPage.module.css";
 export default function StudentCourseDetailPage() {
   const params = useParams<{ courseId: string }>();
   const courseKey = params?.courseId ?? "";
-  const { data: portalData } = useStudentPortal();
 
   const [workspaceData, setWorkspaceData] = useState<CourseWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,5 +75,5 @@ export default function StudentCourseDetailPage() {
     );
   }
 
-  return <StudentCourseWorkspace data={workspaceData} enrolledCourses={portalData?.enrollments ?? []} />;
+  return <StudentCourseWorkspace data={workspaceData} />;
 }

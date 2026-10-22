@@ -160,6 +160,7 @@ function readGroups(value: unknown): QuestionGroupItem[] {
     requiredAnswerCount: typeof group.requiredAnswerCount === "number" ? group.requiredAnswerCount : undefined,
     sharedOptions: Array.isArray(group.sharedOptions) ? group.sharedOptions as QuestionGroupItem["sharedOptions"] : [],
     allowOptionReused: Boolean(group.allowOptionReused),
+    gapFillTitle: typeof group.gapFillTitle === "string" ? group.gapFillTitle : undefined,
     gapFillTemplate: typeof group.gapFillTemplate === "string" ? group.gapFillTemplate : undefined,
     gapFillLayout: group.gapFillLayout === "LIST" ? "LIST" : "PARAGRAPH",
     illustration: readGroupIllustration(group.illustration),
@@ -260,18 +261,6 @@ function plainTextFromHtml(value: string) {
 function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const content = test.builderContent ?? {};
-
-  if (isRecord(content.coverImage)
-    && typeof content.coverImage.fileUrl === "string"
-    && (!content.coverImage.altText || typeof content.coverImage.altText !== "string" || !content.coverImage.altText.trim())) {
-    issues.push({
-      id: "test-cover-image-alt",
-      severity: "ERROR",
-      sectionTitle: "Ảnh minh họa đề",
-      message: "Ảnh minh họa toàn đề cần có mô tả để học viên và trình đọc màn hình hiểu nội dung.",
-      targetId: "test-builder-workspace",
-    });
-  }
 
   if (!test.title.trim()) {
     issues.push({

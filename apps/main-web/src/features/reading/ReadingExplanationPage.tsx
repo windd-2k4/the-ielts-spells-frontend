@@ -45,6 +45,12 @@ function hasEvidenceForQuestion(qResult: ReadingQuestionResult | undefined): boo
 
 type ColorTheme = "standard" | "sepia" | "dark";
 
+function gapFillContentTitle(group: ReadingQuestionGroup) {
+  return typeof group.answerConfig?.gapFillTitle === "string"
+    ? group.answerConfig.gapFillTitle.trim()
+    : "";
+}
+
 export function ReadingExplanationPage({
   attemptId,
   skill = "READING",
@@ -1859,6 +1865,7 @@ function ListeningPromptDisplay({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -1877,8 +1884,8 @@ function ListeningPromptDisplay({
 
   return (
     <div className={styles.listeningPromptCard}>
-      {group.title ? (
-        <h4 className={styles.listeningPromptCardTitle}>{group.title}</h4>
+      {contentTitle ? (
+        <h4 className={styles.listeningPromptCardTitle}>{contentTitle}</h4>
       ) : null}
 
       <div className={styles.listeningPromptBody}>
@@ -1966,6 +1973,7 @@ function GapFillReviewCard({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -1982,8 +1990,8 @@ function GapFillReviewCard({
 
   return (
     <div className={styles.gapFillReviewCard}>
-      {group.title && rawTemplate ? (
-        <h4 className={styles.gapFillReviewTitle}>{group.title}</h4>
+      {contentTitle ? (
+        <h4 className={styles.gapFillReviewTitle}>{contentTitle}</h4>
       ) : null}
 
       <div className={styles.gapFillReviewBody}>
@@ -2169,6 +2177,7 @@ function TableReviewCard({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -2202,6 +2211,7 @@ function TableReviewCard({
 
   return (
     <div className={styles.tableReviewWrapper}>
+      {contentTitle ? <h4 className={styles.gapFillReviewTitle}>{contentTitle}</h4> : null}
       {parsedTable ? (
         <table className={styles.cdIeltsTableReview}>
           {parsedTable.headers.length > 0 ? (
@@ -2331,6 +2341,7 @@ function FlowChartReviewCard({
     typeof group.answerConfig?.gapFillTemplate === "string"
       ? group.answerConfig.gapFillTemplate.trim()
       : "";
+  const contentTitle = gapFillContentTitle(group);
 
   const questionByNumber = useMemo(() => {
     const map = new Map<number, ReadingQuestion>();
@@ -2368,7 +2379,9 @@ function FlowChartReviewCard({
   }, [rawTemplate, group.questions]);
 
   return (
-    <div className={styles.flowChartReviewContainer}>
+    <div>
+      {contentTitle ? <h4 className={styles.gapFillReviewTitle}>{contentTitle}</h4> : null}
+      <div className={styles.flowChartReviewContainer}>
       {steps.map((step, idx) => (
         <Fragment key={idx}>
           <div className={styles.flowStepReviewCard}>
@@ -2442,6 +2455,7 @@ function FlowChartReviewCard({
           ) : null}
         </Fragment>
       ))}
+      </div>
     </div>
   );
 }

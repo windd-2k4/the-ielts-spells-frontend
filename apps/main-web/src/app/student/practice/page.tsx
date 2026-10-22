@@ -852,12 +852,13 @@ function PracticeCard({ item, starting, onStart }: { item: StudentPracticeCatalo
     <article className={`${styles.card} ${styles[item.skill.toLowerCase()]}`}>
       <div className={styles.cover}>
         <div className={styles.coverFallback} aria-hidden="true"><ChartBar size={76} weight="duotone" /><Icon size={34} weight="fill" /></div>
-        {coverUrl ? <PracticeCoverImage fileUrl={coverUrl} alt={item.coverImage.altText || `Ảnh minh họa ${item.title}`} className={styles.coverImage} /> : null}
+        {coverUrl ? <PracticeCoverImage fileUrl={coverUrl} alt={item.coverImage.altText || ""} className={styles.coverImage} /> : null}
         <span className={styles.format}>{formatLabel(item)}</span>
       </div>
       <div className={styles.cardContent}>
-        <div className={styles.cardMeta}><span>{item.code}</span><span className={resume ? styles.doing : item.attemptsCount > 0 ? styles.done : styles.ready}>{resume ? "Đang làm" : item.attemptsCount > 0 ? "Đã làm" : "Chưa làm"}</span></div>
-        <h2>{item.title}</h2><p>{item.description || "Đề luyện đã được kiểm duyệt và xuất bản trong ngân hàng đề."}</p>
+        <div className={styles.cardMeta}><span className={resume ? styles.doing : item.attemptsCount > 0 ? styles.done : styles.ready}>{resume ? "Đang làm" : item.attemptsCount > 0 ? "Đã làm" : "Chưa làm"}</span></div>
+        <h2>{item.title}</h2>
+        <p>{item.description}</p>
         {visibleQuestionTypes.length ? <div className={styles.cardQuestionTypes} aria-label="Dạng câu hỏi trong đề">
           {visibleQuestionTypes.map((type) => {
             const option = questionTypeOption(item.skill, type);
