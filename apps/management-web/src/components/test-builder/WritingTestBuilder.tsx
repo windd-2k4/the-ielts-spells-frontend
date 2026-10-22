@@ -108,8 +108,8 @@ function TaskImageField({ task, onChange }: { task: WritingTaskSection; onChange
   const [error, setError] = useState("");
 
   async function upload(file: File) {
-    if (!file.type.startsWith("image/")) {
-      setError("Vui lòng chọn đúng tệp ảnh.");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Ảnh Task 1 phải là PNG, JPG hoặc WebP.");
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -141,7 +141,7 @@ function TaskImageField({ task, onChange }: { task: WritingTaskSection; onChange
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept="image/png,image/jpeg,image/webp"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -152,7 +152,7 @@ function TaskImageField({ task, onChange }: { task: WritingTaskSection; onChange
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 id="writing-image-title" className="text-sm font-bold text-[#292528]">Hình minh họa Task 1</h3>
-          <p className="mt-1 text-xs leading-5 text-[#6F676C]">Biểu đồ, bản đồ hoặc quy trình. Hỗ trợ PNG, JPG, WebP và GIF, tối đa 10 MB.</p>
+          <p className="mt-1 text-xs leading-5 text-[#6F676C]">Biểu đồ, bản đồ hoặc quy trình. Hỗ trợ PNG, JPG và WebP, tối đa 10 MB để AI có thể đọc trực tiếp.</p>
         </div>
         <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#AD4C64] bg-white px-3 text-xs font-bold text-[#AD4C64] transition hover:-translate-y-0.5 hover:bg-[#F7E5EA] focus:outline-none focus:ring-2 focus:ring-[#C85F78] disabled:opacity-50">
           {uploading ? <SpinnerGap size={17} className="animate-spin" /> : <UploadSimple size={17} />}

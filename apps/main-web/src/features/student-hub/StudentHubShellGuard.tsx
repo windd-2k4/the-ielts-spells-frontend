@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { StudentHubLayout } from "@/features/student-hub/StudentHubLayout";
 import { StudentPortalProvider } from "@/features/student-hub/StudentPortalProvider";
+import { WritingEvaluationNotifier } from "./WritingEvaluationNotifier";
 
 export function StudentHubShellGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -18,13 +19,15 @@ export function StudentHubShellGuard({ children }: { children: React.ReactNode }
   const isExamWorkspacePage =
     /^\/student\/(?:reading|listening|writing)\/attempts\/[^/]+(?:\/(?:result|explanations))?$/.test(pathname);
 
-  if (isAuthPage || isExamWorkspacePage) {
+  if (isAuthPage) {
     return <>{children}</>;
   }
+  if (isExamWorkspacePage) return <>{children}<WritingEvaluationNotifier/></>;
 
   return (
     <StudentPortalProvider>
       <StudentHubLayout>{children}</StudentHubLayout>
+      <WritingEvaluationNotifier/>
     </StudentPortalProvider>
   );
 }

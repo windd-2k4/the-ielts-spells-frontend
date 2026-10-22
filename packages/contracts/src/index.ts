@@ -279,6 +279,7 @@ export interface WritingTask {
   minWords: number;
   suggestedTimeMinutes: number;
   responseMode: "FREEFORM" | "STRUCTURED";
+  sampleBand8Answer: string | null;
 }
 
 export interface SavedWritingResponse {
@@ -314,12 +315,32 @@ export interface StudentWritingAssignment extends StudentReadingAssignment {}
 
 export interface WritingEvaluationResult {
   taskKey: string;
-  status: "PUBLISHED";
-  overallBand: number | null;
-  criterionBands: Record<string, number>;
-  strengths: string[];
-  improvements: string[];
-  publishedAt: string;
+  aiStatus: "AI_COMPLETED" | "NOT_ELIGIBLE" | "QUEUED" | "PROCESSING" | "FAILED";
+  overallBandAi: number | null;
+  aiCriterionBands: Record<string, number>;
+  aiStrengths: string[];
+  aiImprovements: string[];
+  aiCompletedAt: string | null;
+  teacherStatus: "AVAILABLE" | "REVIEWED" | "PUBLISHED";
+  overallBandTeacher: number | null;
+  teacherCriterionBands: Record<string, number>;
+  teacherStrengths: string[];
+  teacherImprovements: string[];
+  teacherPublishedAt: string | null;
+  teacherEditedText: string | null;
+  teacherAnnotations: WritingTeacherAnnotation[];
+}
+
+export interface WritingTeacherAnnotation {
+  id: string | null;
+  start: number;
+  end: number;
+  selectedText: string | null;
+  replacement: string | null;
+  comment: string | null;
+  criterion: string | null;
+  kind: "COMMENT" | "REPLACE" | "HIGHLIGHT" | null;
+  severity: "SUGGESTION" | "ERROR" | "MAJOR" | null;
 }
 
 export interface WritingAttemptResult {
@@ -327,6 +348,12 @@ export interface WritingAttemptResult {
   status: WritingAttemptStatus;
   submittedAt: string;
   resultVisible: boolean;
+  attemptOrigin: "ASSIGNMENT" | "SELF_PRACTICE";
+  aiEligible: boolean;
+  /** Full Writing band: (Task 1 + 2 × Task 2) / 3, rounded to the nearest half band. */
+  overallBandAi: number | null;
+  /** Available only after the teacher scores for both tasks are published. */
+  overallBandTeacher: number | null;
   tasks: WritingTask[];
   responses: SavedWritingResponse[];
   evaluations: WritingEvaluationResult[];

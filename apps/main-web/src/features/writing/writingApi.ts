@@ -75,3 +75,7 @@ export function submitWritingAttempt(attemptId: string) {
 export function getWritingAttemptResult(attemptId: string) {
   return apiFetch<WritingAttemptResult>(`${writingPath}/attempts/${attemptId}/result`);
 }
+
+export function requestWritingAiEvaluation(attemptId: string) {
+  return apiFetch<{ queuedCount: number }>(`${writingPath}/attempts/${attemptId}/ai-evaluation`, { method: "POST" });
+}

@@ -70,7 +70,7 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
       { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin"] },
       { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin"] },
       { to: "/test-assignments", label: "Giao đề", icon: PaperPlaneTilt, roles: ["admin"] },
-      { to: "/writing-evaluations", label: "Chấm Writing", icon: NotePencil, roles: ["admin", "teacher"] },
+      { to: "/writing-evaluations", label: "Chấm Writing & Speaking", icon: NotePencil, roles: ["admin", "teacher"] },
     ],
   },
   {
