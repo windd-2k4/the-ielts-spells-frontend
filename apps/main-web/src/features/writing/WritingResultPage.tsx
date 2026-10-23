@@ -20,6 +20,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { AuthenticatedDiagramImage } from "@/features/reading/AuthenticatedDiagramImage";
@@ -51,6 +52,8 @@ export function WritingResultPage({ attemptId }: { attemptId: string }) {
 }
 
 function WritingResultContent({ attemptId }: { attemptId: string }) {
+  const searchParams = useSearchParams();
+  const fromPlacement = searchParams.get("from") === "placement";
   const [result, setResult] = useState<WritingAttemptResult | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("essay");
@@ -151,10 +154,21 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
     <div className={styles.page}>
       {/* ================= TOPBAR ================= */}
       <nav className={styles.topbar} aria-label="Điều hướng kết quả Writing">
-        <Link href="/student/practice?skill=WRITING" className={styles.backLink}>
-          <ArrowLeft size={16} weight="bold" />
-          <span>Danh mục Writing</span>
-        </Link>
+        {fromPlacement ? (
+          <Link
+            href="/student/placement-test/mocktest"
+            className={styles.backLink}
+            style={{ color: "#FF6B00", fontWeight: 700 }}
+          >
+            <ArrowLeft size={16} weight="bold" />
+            <span>Quay lại bài Test đầu vào</span>
+          </Link>
+        ) : (
+          <Link href="/student/practice?skill=WRITING" className={styles.backLink}>
+            <ArrowLeft size={16} weight="bold" />
+            <span>Danh mục Writing</span>
+          </Link>
+        )}
 
         <div className={styles.topbarTitle}>
           <span>IELTS Writing</span>
@@ -162,6 +176,16 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
         </div>
 
         <div className={styles.topbarActions}>
+          {fromPlacement ? (
+            <Link
+              href="/student/placement-test/mocktest"
+              className={styles.primaryLink}
+              style={{ background: "#FF6B00", borderColor: "#FF6B00", color: "#FFFFFF" }}
+            >
+              <ArrowLeft size={16} weight="bold" />
+              <span>Tiếp tục Test đầu vào</span>
+            </Link>
+          ) : null}
           <Link href="/student" className={styles.homeLink}>
             <House size={16} weight="bold" />
             <span>Trang học viên</span>

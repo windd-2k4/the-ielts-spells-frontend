@@ -7,6 +7,7 @@ import {
   MinusCircle, Lightbulb, MagnifyingGlass, MapPin
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingStatePanel } from "./ReadingStatePanel";
@@ -47,6 +48,8 @@ function ReadingResultContent({
   const skillPath = skill.toLowerCase();
   const skillLabel = skill === "LISTENING" ? "Listening" : "Reading";
   const catalogUrl = `/student/practice?skill=${skill}`;
+  const searchParams = useSearchParams();
+  const fromPlacement = searchParams.get("from") === "placement";
 
   const [result, setResult] = useState<ReadingAttemptResult | null>(null);
   const [attempt, setAttempt] = useState<StudentReadingAttempt | null>(null);
@@ -389,8 +392,17 @@ function ReadingResultContent({
         </>
       )}
 
-      {/* Return to Practice Button */}
-      <div className="pt-4 text-center">
+      {/* Return Buttons */}
+      <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
+        {fromPlacement && (
+          <Link
+            href="/student/placement-test/mocktest"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#FF6B00] px-6 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#E65A00]"
+          >
+            <ArrowLeft size={18} weight="bold" />
+            Tiếp tục bài Test đầu vào
+          </Link>
+        )}
         <Link
           href={catalogUrl}
           className="inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-[#8f4458] px-6 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#743447] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8f4458]"

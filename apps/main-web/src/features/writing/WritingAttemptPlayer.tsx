@@ -3,7 +3,7 @@
 import type { SaveWritingResponseItem, StudentWritingAttempt, WritingTask } from "@ielts/contracts";
 import { ArrowLeft, CaretDown, CaretUp, CheckCircle, CircleNotch, Clock, FloppyDisk, ListBullets, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { AuthenticatedDiagramImage } from "@/features/reading/AuthenticatedDiagramImage";
@@ -85,6 +85,7 @@ export function WritingAttemptPlayer({ attemptId }: { attemptId: string }) {
 
 function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [attempt, setAttempt] = useState<StudentWritingAttempt | null>(null);
   const [activeTaskKey, setActiveTaskKey] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -248,7 +249,12 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       if (!saved && dirtyKeys.size) throw new Error("Bài còn thay đổi chưa đồng bộ. Hãy kiểm tra kết nối mạng rồi thử lại.");
       await submitWritingAttempt(attemptId);
       clearDraft(attemptId);
-      router.replace(`/student/writing/attempts/${attemptId}/result`);
+      const fromPlacement = searchParams?.get("from") === "placement";
+      if (fromPlacement) {
+        router.replace("/student/placement-test/mocktest");
+      } else {
+        router.replace(`/student/writing/attempts/${attemptId}/result`);
+      }
     } catch (reason) {
       submitStartedRef.current = false;
       setSubmitting(false);

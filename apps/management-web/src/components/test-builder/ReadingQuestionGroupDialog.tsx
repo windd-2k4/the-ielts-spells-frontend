@@ -16,6 +16,7 @@ import {
   createDefaultSharedOptions,
   defaultWordLimit,
   getReadingQuestionTypeDefinition,
+  normalizeGroupedQuestionCount,
   questionTypeUsesSharedOptions,
   questionTypeUsesWordLimit,
   readingQuestionCategories,
@@ -83,7 +84,7 @@ export default function ReadingQuestionGroupDialog({
   const [allowOptionReused, setAllowOptionReused] = useState(false);
 
   const definition = getReadingQuestionTypeDefinition(typeFormat);
-  const safeQuestionCount = Math.min(20, Math.max(1, questionCount || 1));
+  const safeQuestionCount = normalizeGroupedQuestionCount(typeFormat, questionCount, requiredAnswerCount);
   const endQuestionNo = startQuestionNo + safeQuestionCount - 1;
   const visibleTypes = useMemo(
     () => readingQuestionTypeDefinitions.filter((item) => item.category === category),
@@ -153,6 +154,7 @@ export default function ReadingQuestionGroupDialog({
   function selectType(nextType: QuestionTypeFormat) {
     setTypeFormat(nextType);
     setTitle("");
+    if (nextType === "MULTIPLE_ANSWERS") setQuestionCount(requiredAnswerCount);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -276,10 +278,11 @@ export default function ReadingQuestionGroupDialog({
                   <span className="mb-1.5 block text-[11px] font-bold text-[#746A6E]">Số lượng câu hỏi</span>
                   <input
                     type="number"
-                    min={1}
+                    min={typeFormat === "MULTIPLE_ANSWERS" ? requiredAnswerCount : 1}
                     max={20}
+                    step={typeFormat === "MULTIPLE_ANSWERS" ? requiredAnswerCount : 1}
                     value={questionCount}
-                    onChange={(event) => setQuestionCount(Math.min(20, Math.max(1, Number(event.target.value) || 1)))}
+                    onChange={(event) => setQuestionCount(normalizeGroupedQuestionCount(typeFormat, Number(event.target.value), requiredAnswerCount))}
                     className="min-h-11 w-full rounded-xl border border-[#e3dce2] bg-white px-3.5 text-sm font-bold focus:border-[#8f4458] focus:outline-none focus:ring-2 focus:ring-[#8f4458]/10"
                   />
                   <span className="mt-1 block text-[10px] text-[#746A6E]">Câu {startQuestionNo} đến {endQuestionNo}</span>

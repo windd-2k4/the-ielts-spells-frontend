@@ -89,8 +89,8 @@ export default function AiImportCoverImageField({ value, onChange }: Props) {
           <div className="min-w-0 rounded-2xl bg-[#F7F5F4] p-4">
             <p className="truncate text-xs font-bold text-[#292528]" title={value.filename}>{value.filename}</p>
             <label className="mt-4 block" htmlFor="ai-import-cover-alt">
-              <span className="text-xs font-bold text-[#292528]">Mô tả ảnh cho học viên *</span>
-              <span className="mt-1 block text-[11px] leading-5 text-[#6F676C]">Mô tả ngắn nội dung nhìn thấy, không ghi đáp án hoặc gợi ý đáp án.</span>
+              <span className="text-xs font-bold text-[#292528]">Văn bản thay thế <span className="font-normal text-[#6F676C]">(không bắt buộc)</span></span>
+              <span className="mt-1 block text-[11px] leading-5 text-[#6F676C]">Chỉ điền khi ảnh truyền tải thông tin cần thiết. Để trống nếu đây là ảnh bìa trang trí.</span>
             </label>
             <textarea
               id="ai-import-cover-alt"
@@ -98,7 +98,7 @@ export default function AiImportCoverImageField({ value, onChange }: Props) {
               maxLength={300}
               value={value.altText}
               onChange={(event) => onChange({ ...value, altText: event.target.value })}
-              placeholder="Ví dụ: Ảnh vệ tinh một khu vực đồng cỏ với đàn bò ở phía xa"
+              placeholder="Ví dụ: Sơ đồ mô tả chu trình tái chế giấy"
               className="mt-2 w-full resize-y rounded-xl border border-[#DED7DA] bg-white p-3 text-sm leading-6 text-[#292528] focus:border-[#C85F78] focus:outline-none focus:ring-2 focus:ring-[#F7E5EA]"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
@@ -109,7 +109,7 @@ export default function AiImportCoverImageField({ value, onChange }: Props) {
             </div>
             <p className="mt-2 text-[11px] leading-5 text-[#6F676C]">Gỡ ảnh chỉ tách ảnh khỏi đề; tệp vẫn được giữ trong Thư viện Media.</p>
           </div>
-          <AuthenticatedMediaImage fileUrl={value.fileUrl} alt={value.altText || "Ảnh minh họa chưa có mô tả"} className="h-full max-h-64 w-full rounded-2xl border border-[#DED7DA] bg-white object-contain p-2" />
+          <AuthenticatedMediaImage fileUrl={value.fileUrl} alt={value.altText} className="h-full max-h-64 w-full rounded-2xl border border-[#DED7DA] bg-white object-contain p-2" />
         </div>
       )}
     </section>

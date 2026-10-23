@@ -1025,10 +1025,6 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
 
   async function handleCreateTest() {
     if (!createForm.title.trim()) return;
-    if (!createUsesWritingTaskImage && createCoverImage && !createCoverImage.altText.trim()) {
-      setError("Hãy thêm mô tả cho ảnh minh họa trước khi tạo đề.");
-      return;
-    }
     setCreating(true);
     setError("");
     try {
@@ -1111,10 +1107,6 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
 
   async function saveCoverImage() {
     if (!coverEditorTest) return;
-    if (coverDraft && !coverDraft.altText.trim()) {
-      setCoverError("Hãy thêm mô tả ngắn cho ảnh minh họa.");
-      return;
-    }
     const builderContent = { ...(coverEditorTest.builderContent ?? {}) };
     if (coverDraft) builderContent.coverImage = coverDraft;
     else delete builderContent.coverImage;
@@ -1514,7 +1506,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                       const thumbnail = thumbnailImage ? (
                         <AuthenticatedMediaImage
                           fileUrl={thumbnailImage.fileUrl}
-                          alt={thumbnailImage.altText || `Ảnh minh họa đề ${test.title}`}
+                          alt={thumbnailImage.altText || ""}
                           className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
                         />
                       ) : (
@@ -1619,7 +1611,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                       const coverContent = thumbnailImage ? (
                         <AuthenticatedMediaImage
                           fileUrl={thumbnailImage.fileUrl}
-                          alt={thumbnailImage.altText || `Ảnh minh họa đề ${test.title}`}
+                          alt={thumbnailImage.altText || ""}
                           className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                         />
                       ) : (
@@ -1954,11 +1946,6 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
                         setError("");
                       }}
                     />
-                    {createCoverImage && !createCoverImage.altText.trim() && (
-                      <p className="text-xs font-semibold text-red-600" role="alert">
-                        Hãy thêm mô tả ngắn cho ảnh minh họa.
-                      </p>
-                    )}
                   </>
                 )}
               </div>
@@ -2011,7 +1998,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               <button
                 type="button"
                 onClick={() => void handleCreateTest()}
-                disabled={!createForm.title.trim() || createForm.durationMinutes <= 0 || creating || Boolean(!createUsesWritingTaskImage && createCoverImage && !createCoverImage.altText.trim())}
+                disabled={!createForm.title.trim() || createForm.durationMinutes <= 0 || creating}
                 className="inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {creating ? <SpinnerGap size={16} className="animate-spin" /> : <Plus size={16} weight="bold" />}
@@ -2073,7 +2060,7 @@ export function TestBankWorkspace({ onOpenBulkImport }: Props) {
               <button
                 type="button"
                 onClick={() => void saveCoverImage()}
-                disabled={savingCover || Boolean(coverDraft && !coverDraft.altText.trim())}
+                disabled={savingCover}
                 className="inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-[#8f4458] px-5 text-xs font-bold text-white hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingCover ? <SpinnerGap size={16} className="animate-spin" /> : <ImageIcon size={16} weight="bold" />}

@@ -1,0 +1,276 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 60px 20px;
+}
+
+.subnav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 2px solid #F3F4F6;
+  margin-bottom: 32px;
+}
+
+.subnavItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #FF6B00;
+  border-bottom: 2px solid #FF6B00;
+  margin-bottom: -2px;
+  text-decoration: none;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+/* Left preview card */
+.previewWrapper {
+  position: relative;
+}
+
+.previewCard {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.candidateName {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111827;
+  margin: 4px 0 8px 0;
+}
+
+.cardDesc {
+  font-size: 12px;
+  color: #6B7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.stampPosition {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  background: #F9FAFB;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.scoreBox {
+  flex: 1;
+}
+
+.scoreLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.scoreBig {
+  font-size: 32px;
+  font-weight: 800;
+  color: #10B981;
+}
+
+.scoreTargetBig {
+  font-size: 32px;
+  font-weight: 800;
+  color: #FF6B00;
+}
+
+.miniGrid {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.miniItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #FFFFFF;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
+  font-size: 11px;
+  color: #374151;
+}
+
+.miniVal {
+  font-weight: 700;
+  color: #111827;
+}
+
+.arrowIcon {
+  color: #9CA3AF;
+  font-size: 20px;
+}
+
+/* Right introduction */
+.introCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFF5ED;
+  color: #FF6B00;
+  border: 1px solid #FFD0B0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  align-self: flex-start;
+}
+
+.mainTitle {
+  font-size: 30px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.introDesc {
+  font-size: 15px;
+  color: #4B5563;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.stepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stepCard {
+  display: flex;
+  gap: 16px;
+  background: #FFFFFF;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 16px 20px;
+  transition: all 0.2s ease;
+}
+
+.stepCard:hover {
+  border-color: #FF8A3D;
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.08);
+}
+
+.stepNumber {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #10B981;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.stepTitle {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px 0;
+}
+
+.stepText {
+  font-size: 13.5px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.benefitsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.benefitItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.checkDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #111827;
+}
+
+.ctaBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #FF6B00;
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 14px 32px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 107, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  width: fit-content;
+}
+
+.ctaBtn:hover {
+  background: #E65A00;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.4);
+}
+
+@media (max-width: 900px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}

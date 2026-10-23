@@ -222,8 +222,8 @@ const gapTemplateTypes = new Set<QuestionTypeFormat>([
   "FLOW_CHART_COMPLETION",
 ]);
 
-export function questionTypeUsesGapTemplate(type: QuestionTypeFormat, answerSource?: QuestionGroupAnswerSource) {
-  return gapTemplateTypes.has(type) && answerSource !== "OPTION_BANK";
+export function questionTypeUsesGapTemplate(type: QuestionTypeFormat, _answerSource?: QuestionGroupAnswerSource) {
+  return gapTemplateTypes.has(type);
 }
 
 export function defaultGapFillLayout(type: QuestionTypeFormat): "PARAGRAPH" | "LIST" | "TABLE" {
@@ -248,4 +248,17 @@ export function createDefaultSharedOptions(type: QuestionTypeFormat, createId: (
 
 export function defaultWordLimit(type: QuestionTypeFormat) {
   return questionTypeUsesWordLimit(type) ? "NO MORE THAN TWO WORDS AND/OR A NUMBER" : "";
+}
+
+export function normalizeGroupedQuestionCount(
+  type: QuestionTypeFormat,
+  requestedCount: number,
+  requiredAnswerCount = 2,
+  max = 20,
+) {
+  const clamped = Math.min(max, Math.max(1, Math.trunc(requestedCount) || 1));
+  if (type !== "MULTIPLE_ANSWERS") return clamped;
+  const groupSize = Math.min(6, Math.max(2, Math.trunc(requiredAnswerCount) || 2));
+  const maxAligned = Math.max(groupSize, Math.floor(max / groupSize) * groupSize);
+  return Math.min(maxAligned, Math.max(groupSize, Math.ceil(clamped / groupSize) * groupSize));
 }

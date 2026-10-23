@@ -1,0 +1,196 @@
+.accordion {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.accordionOpen {
+  border-color: #D1D5DB;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.header:hover {
+  background: #F9FAFB;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4F46E5;
+}
+
+.skillTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.bandBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 20px;
+}
+
+.contentBody {
+  padding: 0 20px 20px 20px;
+  border-top: 1px solid #F3F4F6;
+}
+
+.generalCommentBox {
+  background: #F9FAFB;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.generalCommentTitle {
+  margin: 0 0 8px 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1F2937;
+}
+
+.generalCommentText {
+  margin: 0;
+  font-size: 14px;
+  color: #4B5563;
+  line-height: 1.6;
+}
+
+.analysisTableWrapper {
+  overflow-x: auto;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+}
+
+.analysisTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.analysisTable th {
+  background: #F9FAFB;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #374151;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.analysisTable td {
+  padding: 16px;
+  vertical-align: top;
+  border-bottom: 1px solid #F3F4F6;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.analysisTable tr:last-child td {
+  border-bottom: none;
+}
+
+.colCriterion {
+  width: 22%;
+  min-width: 170px;
+}
+
+.colFeedback {
+  width: 48%;
+  min-width: 280px;
+}
+
+.colKnowledge {
+  width: 30%;
+  min-width: 240px;
+  background: #FCFDFE;
+}
+
+.criterionName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.criterionScore {
+  color: #10B981;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.badgeRed {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #FEE2E2;
+  color: #EF4444;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.badgeYellow {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #FEF3C7;
+  color: #D97706;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.knowledgeList {
+  margin: 0;
+  padding-left: 18px;
+  list-style-type: disc;
+}
+
+.knowledgeList li {
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.knowledgeList li strong {
+  color: #111827;
+}
+
+.highlightUnderline {
+  text-decoration: underline;
+  text-decoration-color: #6B7280;
+  text-underline-offset: 3px;
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CaretDown,
@@ -31,6 +32,8 @@ export function SpeakingResultPage({ attemptId }: { attemptId: string }) {
 }
 
 function SpeakingResultContent({ attemptId }: { attemptId: string }) {
+  const searchParams = useSearchParams();
+  const fromPlacement = searchParams.get("from") === "placement";
   const [result, setResult] = useState<SpeakingAttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,10 +188,17 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
     <div className={styles.page}>
       {/* ================= TOPBAR ================= */}
       <nav className={styles.topbar} aria-label="Điều hướng kết quả Speaking">
-        <Link href="/student/practice?skill=SPEAKING" className={styles.backLink}>
-          <ArrowLeft size={16} weight="bold" />
-          <span>Danh mục Speaking</span>
-        </Link>
+        {fromPlacement ? (
+          <Link href="/student/placement-test/mocktest" className={styles.backLink} style={{ color: "#FF6B00", fontWeight: 700 }}>
+            <ArrowLeft size={16} weight="bold" />
+            <span>Quay lại bài Test đầu vào</span>
+          </Link>
+        ) : (
+          <Link href="/student/practice?skill=SPEAKING" className={styles.backLink}>
+            <ArrowLeft size={16} weight="bold" />
+            <span>Danh mục Speaking</span>
+          </Link>
+        )}
 
         <div className={styles.topbarTitle}>
           <span>IELTS Speaking</span>
@@ -196,6 +206,16 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
         </div>
 
         <div className={styles.topbarActions}>
+          {fromPlacement && (
+            <Link
+              href="/student/placement-test/mocktest"
+              className={styles.primaryLink}
+              style={{ background: "#FF6B00", borderColor: "#FF6B00", color: "#FFFFFF" }}
+            >
+              <ArrowLeft size={16} weight="bold" />
+              <span>Tiếp tục Test đầu vào</span>
+            </Link>
+          )}
           <Link href="/student" className={styles.homeLink}>
             <House size={16} weight="bold" />
             <span>Trang học viên</span>
