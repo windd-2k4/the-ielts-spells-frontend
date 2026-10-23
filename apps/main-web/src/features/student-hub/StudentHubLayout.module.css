@@ -1,37 +1,30 @@
 .shell {
   min-height: 100dvh;
-  padding: 18px;
-  color: #292528;
-  background:
-    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
-    radial-gradient(circle at 78% 5%, rgba(200, 95, 120, .18), transparent 27rem),
-    #211b1d;
-  background-size: 44px 44px, 44px 44px, auto, auto;
+  padding: 16px 20px 32px;
+  color: #1E1B18;
+  background: #F8F6F7;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
-.shell :where(a, button, select, input):focus-visible { outline: 3px solid #e49aab; outline-offset: 3px; }
+.shell :where(a, button, select, input):focus-visible { outline: 3px solid #BA4B69; outline-offset: 3px; }
 .shell :where(button, a, select) { -webkit-tap-highlight-color: transparent; }
 .shell :where(svg) { flex-shrink: 0; }
 
 .workspace {
-  width: min(100%, 1580px);
+  width: min(100%, 1280px);
   min-height: calc(100dvh - 36px);
   margin: 0 auto;
   overflow: clip;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 26px;
-  background: #f7f5f1;
-  box-shadow: 0 34px 90px rgba(5, 3, 4, .38);
+  border-radius: 20px;
+  background: #F8F6F7;
 }
 
 .main {
   width: 100%;
-  min-height: calc(100dvh - 126px);
+  min-height: calc(100dvh - 110px);
   margin: 0 auto;
-  padding: 30px 34px 64px;
+  padding: 22px 0 64px;
 }
 
 .main :where([id]) { scroll-margin-top: 112px; }
@@ -44,22 +37,23 @@
   padding: 12px 18px;
   border-radius: 999px;
   background: #fff;
-  color: #211b1d;
+  color: #1E1B18;
   font-weight: 800;
   transform: translate(-50%, -180%);
   transition: transform 160ms ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
 }
 
 .skip:focus { transform: translate(-50%, 0); }
 
 @media (max-width: 1199px) {
-  .shell { padding: 12px; }
-  .workspace { min-height: calc(100dvh - 24px); border-radius: 22px; }
-  .main { padding: 26px 24px 56px; }
+  .shell { padding: 12px 14px 28px; }
+  .workspace { min-height: calc(100dvh - 24px); border-radius: 16px; }
+  .main { padding: 18px 0 48px; }
 }
 
 @media (max-width: 767px) {
-  .shell { padding: 0; background: #211b1d; }
-  .workspace { min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
-  .main { padding: 18px 16px 112px; }
+  .shell { padding: 8px 10px 24px; background: #F8F6F7; }
+  .workspace { min-height: 100dvh; border: 0; border-radius: 0; }
+  .main { padding: 14px 0 96px; }
 }

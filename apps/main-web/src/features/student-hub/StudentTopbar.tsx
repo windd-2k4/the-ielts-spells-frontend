@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   BookOpenText,
   CaretDown,
   ChartLineUp,
+  ClipboardText,
+  FileText,
   Gear,
   GraduationCap,
   House,
   List,
+  MagnifyingGlass,
   PencilSimpleLine,
   SignOut,
   Sparkle,
@@ -26,7 +30,7 @@ interface StudentTopbarProps { onToggleMobileMenu?: () => void; }
 
 const NAV_ITEMS = [
   { href: "/student", label: "Tổng quan", icon: SquaresFour },
-  { href: "/student/placement-test", label: "Test đầu vào FREE", icon: Sparkle },
+  { href: "/student/placement-test", label: "Test đầu vào", icon: ClipboardText },
   { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
   { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
   { href: "/student/courses", label: "Khóa học", icon: GraduationCap },
@@ -43,7 +47,13 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const studentName = data?.profile.fullName || session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "Học viên";
-  const avatarInitial = studentName.charAt(0).toUpperCase();
+  const avatarInitials = studentName
+    .trim()
+    .split(/\s+/)
+    .map((w: string) => w[0]?.toUpperCase())
+    .filter(Boolean)
+    .slice(-2)
+    .join("") || "DV";
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
@@ -90,7 +100,21 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
           </nav>
 
           <div className={styles.actions}>
-            <Link href="/" className={styles.homeLink} aria-label="Về trang chủ công khai"><House size={17} weight="bold" /></Link>
+            <button type="button" className={styles.iconActionBtn} aria-label="Tìm kiếm">
+              <MagnifyingGlass size={17} weight="bold" />
+            </button>
+            <button type="button" className={styles.iconActionBtn} aria-label="Thông báo (3 mới)">
+              <Bell size={17} weight="bold" />
+              <span className={styles.bellBadge}>3</span>
+            </button>
+            <Link
+              href="/"
+              className={styles.iconActionBtn}
+              title="Về trang chủ Landing Page"
+              aria-label="Về trang chủ Landing Page"
+            >
+              <House size={18} weight="bold" />
+            </Link>
             {onToggleMobileMenu && (
               <button type="button" className={styles.menuButton} onClick={onToggleMobileMenu} aria-label="Mở menu học tập" aria-haspopup="dialog">
                 <List size={19} weight="bold" />
@@ -108,8 +132,8 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                 aria-label={`Tài khoản của ${studentName}`}
                 onClick={() => setDropdownOpen((value) => !value)}
               >
+                <span className={styles.avatar}>{avatarInitials}</span>
                 <span className={styles.name}>{studentName}</span>
-                <span className={styles.avatar}>{avatarInitial}</span>
                 <CaretDown className={styles.caret} size={12} weight="bold" />
               </button>
 
