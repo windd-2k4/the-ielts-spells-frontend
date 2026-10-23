@@ -1125,6 +1125,12 @@ function GapInlineSlot({
   onFocus,
   onToggleFlag,
   isExamMode,
+  optionBank,
+  selectedOptionKey,
+  dragOver,
+  onOptionDrop,
+  onOptionSlotClick,
+  onDragStateChange,
 }: {
   question: ReadingQuestion;
   answer: ReadingAnswer | undefined;
@@ -1134,10 +1140,64 @@ function GapInlineSlot({
   onFocus: (questionKey: string) => void;
   onToggleFlag: (questionKey: string) => void;
   isExamMode?: boolean;
+  optionBank?: ReadingQuestionGroupModel["sharedOptions"];
+  selectedOptionKey?: string;
+  dragOver?: boolean;
+  onOptionDrop?: (questionKey: string, optionKey: string) => void;
+  onOptionSlotClick?: (questionKey: string) => void;
+  onDragStateChange?: (questionKey: string) => void;
 }) {
   const values = answerValues(answer);
   const textValue = values[0] ?? "";
   const isFilled = textValue.trim().length > 0;
+
+  if (optionBank?.length) {
+    const selectedOption = optionBank.find((option) => option.key === textValue || option.code === textValue);
+
+    return (
+      <span
+        id={`reading-question-${question.key}`}
+        className={styles.gapOptionSlotWrap}
+      >
+        <button
+          type="button"
+          className={`${styles.gapOptionSlot} ${active ? styles.gapOptionSlotActive : ""} ${
+            isFilled ? styles.gapOptionSlotFilled : ""
+          } ${dragOver || (selectedOptionKey && !isFilled) ? styles.gapOptionSlotReady : ""}`}
+          onClick={() => {
+            onFocus(question.key);
+            onOptionSlotClick?.(question.key);
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            onDragStateChange?.(question.key);
+          }}
+          onDragLeave={() => onDragStateChange?.("")}
+          onDrop={(event) => {
+            event.preventDefault();
+            onDragStateChange?.("");
+            const optionKey = event.dataTransfer.getData("text/plain");
+            if (optionKey) onOptionDrop?.(question.key, optionKey);
+          }}
+          aria-label={selectedOption ? `Câu ${question.number}: ${selectedOption.text}` : `Điền đáp án câu ${question.number}`}
+          title={selectedOption ? "Bấm dấu x để bỏ đáp án" : "Kéo đáp án vào đây hoặc chọn đáp án rồi bấm vào ô"}
+        >
+          {selectedOption?.text || question.number}
+        </button>
+        {selectedOption ? (
+          <button
+            type="button"
+            className={styles.gapOptionSlotClear}
+            onClick={() => onAnswer(question.key, { value: "" })}
+            aria-label={`Xóa đáp án câu ${question.number}`}
+            title="Xóa đáp án"
+          >
+            <X size={12} weight="bold" aria-hidden="true" />
+          </button>
+        ) : null}
+      </span>
+    );
+  }
 
   if (isExamMode) {
     return (
@@ -1226,6 +1286,10 @@ function GapFillQuestionGroup({
   onToggleFlag,
   isExamMode,
 }: ReadingQuestionGroupProps) {
+  const [selectedOptionKey, setSelectedOptionKey] = useState("");
+  const [dragOverKey, setDragOverKey] = useState("");
+  const isOptionBank = group.typeFormat === "SUMMARY_COMPLETION" && group.sharedOptions.length > 0;
+  const canReuseOptions = group.answerConfig?.allowOptionReused === true;
   const wordLimit =
     typeof group.answerConfig?.wordLimitRule === "string" && group.answerConfig.wordLimitRule.trim()
       ? group.answerConfig.wordLimitRule
@@ -1249,13 +1313,52 @@ function GapFillQuestionGroup({
     return rawTemplate.split(/\r?\n/);
   }, [rawTemplate]);
 
+  const usedOptionKeys = new Set(
+    group.questions
+      .map((question) => answerValues(answers[question.key])[0])
+      .filter(Boolean),
+  );
+
+  const placeOption = (questionKey: string, optionKey: string) => {
+    const option = group.sharedOptions.find((item) => item.key === optionKey || item.code === optionKey);
+    if (!option) return;
+    onAnswer(questionKey, { value: option.key });
+    setSelectedOptionKey("");
+  };
+
+  const renderGapSlot = (question: ReadingQuestion) => (
+    <GapInlineSlot
+      key={question.key}
+      question={question}
+      answer={answers[question.key]}
+      onAnswer={onAnswer}
+      active={activeQuestionKey === question.key}
+      flagged={flaggedKeys.has(question.key)}
+      onFocus={onQuestionFocus}
+      onToggleFlag={onToggleFlag}
+      isExamMode={isExamMode}
+      optionBank={isOptionBank ? group.sharedOptions : undefined}
+      selectedOptionKey={selectedOptionKey}
+      dragOver={dragOverKey === question.key}
+      onOptionDrop={placeOption}
+      onOptionSlotClick={(questionKey) => {
+        if (selectedOptionKey) placeOption(questionKey, selectedOptionKey);
+      }}
+      onDragStateChange={setDragOverKey}
+    />
+  );
+
   return (
-    <section className={styles.questionGroup} aria-labelledby={`group-${group.key}`}>
+    <section className={`${styles.questionGroup} ${isOptionBank ? styles.gapOptionGroup : ""}`} aria-labelledby={`group-${group.key}`}>
       <div className={styles.groupHeading}>
         <div>
-          <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
+          {!isOptionBank ? <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p> : null}
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {isOptionBank ? (
+            <p className={styles.instructions}>Complete the summary using the list of phrases below.</p>
+          ) : group.instructions ? (
+            <p className={styles.instructions}>{group.instructions}</p>
+          ) : null}
           {wordLimit ? (
             <div className={styles.gapFillWordLimit}>
               <CheckSquare size={16} aria-hidden="true" />
@@ -1263,10 +1366,10 @@ function GapFillQuestionGroup({
             </div>
           ) : null}
         </div>
-        <span className={styles.questionCount}>{group.questions.length} câu</span>
+        {!isOptionBank ? <span className={styles.questionCount}>{group.questions.length} câu</span> : null}
       </div>
 
-      {group.sharedOptions.length > 0 ? (
+      {group.sharedOptions.length > 0 && !isOptionBank ? (
         <div className={styles.sharedOptions}>
           <p><ListBullets size={18} aria-hidden="true" />Danh sách lựa chọn</p>
           <ul>
@@ -1277,12 +1380,12 @@ function GapFillQuestionGroup({
         </div>
       ) : null}
 
-      <div className={styles.gapFillCard}>
-        {group.title && rawTemplate ? (
+      <div className={`${styles.gapFillCard} ${isOptionBank ? styles.gapOptionSummaryCard : ""}`}>
+        {group.title && rawTemplate && !isOptionBank ? (
           <h4 className={styles.gapFillTitle}>{group.title}</h4>
         ) : null}
 
-        <div className={styles.gapFillBody}>
+        <div className={`${styles.gapFillBody} ${isOptionBank ? styles.gapOptionSummaryBody : ""}`}>
           {rawTemplate ? (
             templateLines.map((line, lineIdx) => {
               const trimmed = line.trim();
@@ -1318,19 +1421,7 @@ function GapFillQuestionGroup({
                     if (!q) {
                       return <span key={tokenIdx}>[[{token.questionNo}]]</span>;
                     }
-                    return (
-                      <GapInlineSlot
-                        key={q.key}
-                        question={q}
-                        answer={answers[q.key]}
-                        onAnswer={onAnswer}
-                        active={activeQuestionKey === q.key}
-                        flagged={flaggedKeys.has(q.key)}
-                        onFocus={onQuestionFocus}
-                        onToggleFlag={onToggleFlag}
-                        isExamMode={isExamMode}
-                      />
-                    );
+                    return renderGapSlot(q);
                   })}
                 </div>
               );
@@ -1351,19 +1442,7 @@ function GapFillQuestionGroup({
                         return <span key={tokenIdx}>{token.text}</span>;
                       }
                       const q = questionByNumber.get(token.questionNo) ?? question;
-                      return (
-                        <GapInlineSlot
-                          key={q.key}
-                          question={q}
-                          answer={answers[q.key]}
-                          onAnswer={onAnswer}
-                          active={activeQuestionKey === q.key}
-                          flagged={flaggedKeys.has(q.key)}
-                          onFocus={onQuestionFocus}
-                          onToggleFlag={onToggleFlag}
-                          isExamMode={isExamMode}
-                        />
-                      );
+                      return renderGapSlot(q);
                     })}
                   </div>
                 );
@@ -1377,16 +1456,7 @@ function GapFillQuestionGroup({
                       <Fragment key={pIdx}>
                         <span>{part}</span>
                         {pIdx < parts.length - 1 ? (
-                          <GapInlineSlot
-                            question={question}
-                            answer={answers[question.key]}
-                            onAnswer={onAnswer}
-                            active={activeQuestionKey === question.key}
-                            flagged={flaggedKeys.has(question.key)}
-                            onFocus={onQuestionFocus}
-                            onToggleFlag={onToggleFlag}
-                            isExamMode={isExamMode}
-                          />
+                          renderGapSlot(question)
                         ) : null}
                       </Fragment>
                     ))}
@@ -1398,22 +1468,53 @@ function GapFillQuestionGroup({
                 <div key={question.key} className={styles.gapFillLine}>
                   <strong style={{ marginRight: 6 }}>{question.number}.</strong>
                   <span>{prompt} </span>
-                  <GapInlineSlot
-                    question={question}
-                    answer={answers[question.key]}
-                    onAnswer={onAnswer}
-                    active={activeQuestionKey === question.key}
-                    flagged={flaggedKeys.has(question.key)}
-                    onFocus={onQuestionFocus}
-                    onToggleFlag={onToggleFlag}
-                    isExamMode={isExamMode}
-                  />
+                  {renderGapSlot(question)}
                 </div>
               );
             })
           )}
         </div>
       </div>
+
+      {isOptionBank ? (
+        <div className={styles.gapOptionBank}>
+          <p className={styles.gapOptionHint}>
+            <Lightbulb size={16} weight="fill" aria-hidden="true" />
+            Kéo đáp án thả vào ô trống, hoặc bấm chọn đáp án rồi bấm vào ô trống để điền.
+          </p>
+          <div className={styles.gapOptionList}>
+            {group.sharedOptions.map((option) => {
+              const isSelected = selectedOptionKey === option.key;
+              const isUsed = !canReuseOptions && (usedOptionKeys.has(option.key) || usedOptionKeys.has(option.code ?? ""));
+
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  draggable={!isUsed}
+                  disabled={isUsed}
+                  className={`${styles.gapOptionPill} ${isSelected ? styles.gapOptionPillSelected : ""} ${
+                    isUsed ? styles.gapOptionPillUsed : ""
+                  }`}
+                  onDragStart={(event) => {
+                    if (isUsed) return;
+                    event.dataTransfer.setData("text/plain", option.key);
+                    setSelectedOptionKey(option.key);
+                  }}
+                  onDragEnd={() => setDragOverKey("")}
+                  onClick={() => {
+                    if (!isUsed) setSelectedOptionKey(isSelected ? "" : option.key);
+                  }}
+                  aria-pressed={isSelected}
+                  title={isUsed ? "Lựa chọn này đã được sử dụng" : "Bấm hoặc kéo để điền vào ô trống"}
+                >
+                  {option.text || option.code}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

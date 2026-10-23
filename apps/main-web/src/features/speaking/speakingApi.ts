@@ -1,7 +1,6 @@
 import type {
   SaveSpeakingResponseItem,
   SpeakingAttemptResult,
-  SpeakingEvaluationResult,
   SpeakingVocabLookupRequest,
   SpeakingVocabLookupResponse,
   StudentSpeakingAttempt,
@@ -71,18 +70,9 @@ export function saveSpeakingResponses(attemptId: string, responses: SaveSpeaking
   });
 }
 
-export function evaluateSpeakingQuestion(
-  attemptId: string,
-  payload: {
-    questionKey: string;
-    questionPrompt?: string;
-    audioUrl?: string;
-    transcript: string;
-  }
-) {
-  return apiFetch<SpeakingEvaluationResult>(`${speakingPath}/attempts/${attemptId}/evaluate`, {
+export function requestSpeakingAiEvaluation(attemptId: string) {
+  return apiFetch<{ queuedCount: number }>(`${speakingPath}/attempts/${attemptId}/ai-evaluation`, {
     method: "POST",
-    body: JSON.stringify(payload),
   });
 }
 

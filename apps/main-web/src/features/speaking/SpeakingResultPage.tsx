@@ -19,7 +19,7 @@ import {
 } from "@phosphor-icons/react";
 import type { SpeakingAttemptResult } from "@ielts/contracts";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
-import { getSpeakingAttemptResult } from "./speakingApi";
+import { getSpeakingAttemptResult, requestSpeakingAiEvaluation } from "./speakingApi";
 import styles from "./SpeakingResultPage.module.css";
 
 export function SpeakingResultPage({ attemptId }: { attemptId: string }) {
@@ -34,6 +34,8 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
   const [result, setResult] = useState<SpeakingAttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [requesting, setRequesting] = useState(false);
 
   // Audio Playback
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -67,6 +69,33 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
       if (audioRef.current) audioRef.current.pause();
     };
   }, [attemptId]);
+
+  const evaluation = result?.evaluations[0] ?? null;
+  const pending = evaluation != null && ["QUEUED", "PROCESSING"].includes(evaluation.status);
+
+  useEffect(() => {
+    if (!pending) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void getSpeakingAttemptResult(attemptId).then((value) => {
+        if (!cancelled) { setResult(value); setActionError(""); }
+      }).catch(() => {
+        if (!cancelled) setActionError("Chưa thể cập nhật trạng thái. Hệ thống sẽ tự thử lại.");
+      });
+    }, 5000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [attemptId, pending]);
+
+  async function requestAi() {
+    if (requesting) return;
+    setRequesting(true); setActionError("");
+    try {
+      await requestSpeakingAiEvaluation(attemptId);
+      setResult(await getSpeakingAttemptResult(attemptId));
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "Không thể gửi yêu cầu chấm Speaking.");
+    } finally { setRequesting(false); }
+  }
 
   function toggleAudio(key: string, url: string) {
     if (playingKey === key && audioRef.current) {
@@ -143,6 +172,14 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
       if (res?.audioUrl || res?.transcript) answeredQuestions++;
     });
   });
+
+  const criterion = activeTab === "PRONUNCIATION"
+    ? { key: "pronunciation", label: "Pronunciation", band: evaluation?.pronunciationBand }
+    : activeTab === "GRAMMAR"
+      ? { key: "grammatical_range_accuracy", label: "Grammatical Range & Accuracy", band: evaluation?.grammarBand }
+      : activeTab === "VOCAB"
+        ? { key: "lexical_resource", label: "Lexical Resource", band: evaluation?.lexicalBand }
+        : { key: "fluency_coherence", label: "Fluency & Coherence", band: evaluation?.fluencyBand };
 
   return (
     <div className={styles.page}>
@@ -359,32 +396,27 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
               </button>
             </div>
 
-            {/* AI Evaluation Box */}
+            {actionError ? <div className={styles.inlineError}><WarningCircle weight="fill" />{actionError}</div> : null}
+
             <div className={styles.aiEvaluationBox}>
-              <div className={styles.aiLockCircle}>
-                <Lock size={22} weight="bold" />
-              </div>
-
-              <h3>Chấm điểm chi tiết 4 tiêu chí IELTS</h3>
-              <p>
-                Hệ thống AI của The IELTS Spells đang hoàn thiện module phân tích chuyên sâu cho từng tiêu chí:
-                Phát âm chuẩn IPA, Độ trôi chảy (Fluency), Vốn từ vựng (Lexical Resource) và Độ chính xác ngữ
-                pháp (Grammar Range & Accuracy).
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  alert(
-                    "Tính năng chấm điểm tự động bằng The IELTS Spells AI Examiner sẽ được kích hoạt ở bản cập nhật tiếp theo!"
-                  )
-                }
-                className={styles.aiUpgradeBtn}
-              >
-                <Sparkle size={15} weight="fill" />
-                <span>Kích hoạt đánh giá AI</span>
-              </button>
+              {!result.resultVisible ? <><div className={styles.aiLockCircle}><Lock size={22} weight="bold"/></div><h3>Kết quả chưa được mở</h3><p>Giáo viên hoặc khóa học sẽ mở kết quả khi đến thời điểm phù hợp.</p></> : null}
+              {result.resultVisible && pending ? <><SpinnerGap size={30} className={styles.spinIcon}/><h3>TIS đang nghe và chấm toàn bộ bài nói</h3><p>Bạn có thể rời trang; kết quả sẽ tự cập nhật khi bốn tiêu chí IELTS được xử lý xong.</p></> : null}
+              {result.resultVisible && evaluation?.status === "AI_COMPLETED" ? <>
+                <div className={styles.overallBand}><span>TIS Overall band</span><strong>{evaluation.overallBand?.toFixed(1)}</strong></div>
+                <div className={styles.criterionResult}><div><span>{criterion.label}</span><strong>{criterion.band?.toFixed(1) ?? "-"}</strong></div><p>{evaluation.criteriaFeedback[criterion.key] || "Chưa có nhận xét."}</p></div>
+              </> : null}
+              {result.resultVisible && !pending && evaluation?.status !== "AI_COMPLETED" ? <>
+                <div className={styles.aiLockCircle}>{result.aiEligible ? <Sparkle size={22} weight="fill"/> : <Lock size={22} weight="bold"/>}</div>
+                <h3>{evaluation?.status === "FAILED" ? "TIS chưa thể hoàn tất lần chấm" : result.aiEligible ? "Nhận đánh giá Speaking từ TIS" : "Bạn chưa có lượt chấm Speaking AI"}</h3>
+                <p>{evaluation?.status === "FAILED" ? "File ghi âm hoặc dịch vụ AI gặp lỗi. Bạn có thể gửi lại mà không tạo điểm giả." : result.aiEligible ? "TIS nghe toàn bộ audio và chấm bốn tiêu chí có trọng số bằng nhau." : "Liên hệ giáo viên để được cấp ngân sách AI. Bản ghi của bạn vẫn được lưu bình thường."}</p>
+                {result.aiEligible ? <button type="button" onClick={() => void requestAi()} disabled={requesting} className={styles.aiUpgradeBtn}>{requesting ? <SpinnerGap className={styles.spinIcon}/> : <Sparkle size={15} weight="fill"/>}<span>{requesting ? "Đang gửi bài..." : "Nhờ TIS chấm bài"}</span></button> : null}
+              </> : null}
             </div>
+
+            <section className={styles.teacherBox}>
+              <span>Giáo viên chấm bài</span>
+              {!result.resultVisible ? <p>Kết quả giáo viên sẽ hiển thị khi khóa học mở quyền xem.</p> : evaluation?.teacherStatus === "PUBLISHED" ? <><strong>Overall {evaluation.overallBandTeacher?.toFixed(1)}</strong><div className={styles.teacherCriteria}><span>Fluency <b>{evaluation.fluencyBandTeacher?.toFixed(1)}</b></span><span>Lexical <b>{evaluation.lexicalBandTeacher?.toFixed(1)}</b></span><span>Grammar <b>{evaluation.grammarBandTeacher?.toFixed(1)}</b></span><span>Pronunciation <b>{evaluation.pronunciationBandTeacher?.toFixed(1)}</b></span></div><p>{evaluation.teacherFeedback || "Giáo viên đã công bố điểm."}</p></> : <p>{evaluation?.teacherStatus === "REVIEWED" ? "Giáo viên đã lưu bản chấm. Điểm sẽ hiện sau khi công bố." : "Bài của bạn đang chờ giáo viên lựa chọn và chấm."}</p>}
+            </section>
           </aside>
         </div>
       </main>

@@ -1,12 +1,18 @@
 import {
-  ArrowClockwise, Brain, CaretDown, ChartBar, CheckCircle, CircleNotch, ClipboardText, FloppyDisk,
+  ArrowClockwise, Brain, CaretDown, CaretLeft, CaretRight, ChartBar, CheckCircle, CircleNotch, ClipboardText, FileText, FloppyDisk,
   Infinity as InfinityIcon, MagnifyingGlass, Microphone, NotePencil, PaperPlaneTilt,
   ShieldCheck, Sparkle, UsersThree, WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import AuthenticatedMediaImage from "../components/test-builder/AuthenticatedMediaImage";
 import { apiFetch } from "../lib/api";
+
+const WritingWordReviewModal = lazy(() =>
+  import("../components/writing/WritingWordReviewModal").then((module) => ({
+    default: module.WritingWordReviewModal,
+  })),
+);
 
 type Criterion = { aiBand: number | null; teacherBand: number | null; aiFeedback: string | null; teacherFeedback?: string | null };
 type TeacherAnnotation = { id: string | null; start: number; end: number; selectedText: string | null; replacement: string | null; comment: string | null; criterion: string | null; kind: "COMMENT" | "REPLACE" | "HIGHLIGHT" | null; severity: "SUGGESTION" | "ERROR" | "MAJOR" | null };
@@ -16,7 +22,7 @@ type WritingEvaluation = {
   status: string; teacherStatus: string; overallBandAi: number | null; overallBandTeacher: number | null;
   criteria: Record<string, Criterion>; aiStrengths: string[]; aiImprovements: string[];
   strengths: string[]; improvements: string[]; errorMessage: string | null; createdAt: string;
-  teacherEditedText: string | null; teacherAnnotations: TeacherAnnotation[]; teacherRevision: number;
+  teacherEditedText: string | null; teacherEditedHtml: string | null; teacherAnnotations: TeacherAnnotation[]; teacherRevision: number;
   taskContext: { promptHtml?: string; imageUrl?: string; imageAssetId?: string; imageAltText?: string };
 };
 type PageResult<T> = { content: T[]; page: number; size: number; totalElements: number; totalPages: number; first: boolean; last: boolean };
@@ -28,6 +34,7 @@ type CalibrationMetric = { sampleSize: number; meanAbsoluteError: number | null;
 type WritingCalibration = CalibrationMetric & { rubricVersion: string; criteria: Record<string, CalibrationMetric> };
 type SpeakingEvaluation = {
   id: string; studentName: string; testTitle: string; questionKey: string; transcript: string; audioUrl: string | null;
+  segments: Array<{ questionKey: string; audioUrl: string | null; transcript: string | null }>;
   aiStatus: string; overallBandAi: number | null; criteria: Record<string, Criterion>;
   aiStrengths: string[]; aiImprovements: string[]; teacherStatus: string; overallBandTeacher: number | null;
   teacherFeedback: string | null; teacherStrengths: string[]; teacherImprovements: string[]; createdAt: string;
@@ -68,7 +75,7 @@ export function WritingEvaluationsPage() {
         <Tab active={tab === "overview"} onClick={() => setTab("overview")} icon={<ChartBar/>}>Tổng quan</Tab>
         <Tab active={tab === "writing"} onClick={() => setTab("writing")} icon={<NotePencil/>}>Writing</Tab>
         <Tab active={tab === "speaking"} onClick={() => setTab("speaking")} icon={<Microphone/>}>Speaking</Tab>
-        {canManageAi ? <Tab active={tab === "access"} onClick={() => setTab("access")} icon={<UsersThree/>}>Quyền AI Writing</Tab> : null}
+        {canManageAi ? <Tab active={tab === "access"} onClick={() => setTab("access")} icon={<UsersThree/>}>Quyền AI</Tab> : null}
       </nav>
       <div className="ml-auto hidden items-center gap-2 rounded-xl bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant xl:flex"><ShieldCheck size={18} className="text-primary"/> Điểm giáo viên hiện sau khi công bố</div>
     </header>
@@ -77,7 +84,21 @@ export function WritingEvaluationsPage() {
 }
 
 function Tab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`my-1.5 inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm font-bold transition ${active ? "bg-primary-fixed/45 text-primary" : "text-on-surface-variant hover:bg-surface-container-low"}`}>{icon}{children}</button>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`my-1.5 inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-black transition-all duration-150 ${
+        active
+          ? "bg-gradient-to-r from-[#894c5b] to-[#6d3544] text-white shadow-md shadow-[#894c5b]/25 ring-1 ring-white/20 scale-[1.02]"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      }`}
+    >
+      <span className={active ? "text-rose-200" : "text-slate-400"}>{icon}</span>
+      <span>{children}</span>
+    </button>
+  );
 }
 
 function OverviewPanel() {
@@ -132,7 +153,7 @@ function WritingPanel() {
   const [page, setPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [reviewMode, setReviewMode] = useState<"ai" | "teacher">("ai");
+  const [reviewMode, setReviewMode] = useState<"ai" | "teacher">("teacher");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -141,12 +162,20 @@ function WritingPanel() {
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
   const [editedText, setEditedText] = useState("");
+  const [editedHtml, setEditedHtml] = useState("");
   const [annotations, setAnnotations] = useState<TeacherAnnotation[]>([]);
   const [draftDirty, setDraftDirty] = useState(false);
-  const [draftStatus, setDraftStatus] = useState<"saved" | "saving" | "error">("saved");
+  const [draftStatus, setDraftStatus] = useState<"saved" | "dirty" | "saving" | "error">("saved");
+  const [gradingDirty, setGradingDirty] = useState(false);
+  const [isWordEditorOpen, setIsWordEditorOpen] = useState(false);
+  const draftVersionRef = useRef(0);
+  const gradingVersionRef = useRef(0);
+  const draftSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const criterionKeys = useMemo(() => selected ? [selected.taskType === "task_2" ? "task_response" : "task_achievement", "coherence_cohesion", "lexical_resource", "grammatical_range_accuracy"] : [], [selected?.taskType]);
   const overallBand = calculatedBand(criterionKeys, bands);
+  const missingCriteriaCount = criterionKeys.filter((key) => !validBand(bands[key] ?? "")).length;
+  const gradingComplete = criterionKeys.length === 4 && missingCriteriaCount === 0 && validBand(overallBand);
 
   async function load(signal?: AbortSignal) {
     setLoading(true); setError("");
@@ -174,32 +203,70 @@ function WritingPanel() {
     setFeedback(Object.fromEntries(criterionKeys.map((key) => [key, selected.criteria[key]?.teacherFeedback ?? selected.criteria[key]?.aiFeedback ?? ""])));
     setStrengths(selected.strengths.join("\n")); setImprovements(selected.improvements.join("\n"));
     setEditedText(selected.teacherEditedText ?? selected.essayText);
+    setEditedHtml(selected.teacherEditedHtml ?? "");
     setAnnotations(selected.teacherAnnotations ?? []);
     setDraftDirty(false); setDraftStatus("saved");
-  }, [criterionKeys, selectedId, selected?.teacherStatus]);
+    setGradingDirty(false);
+    draftVersionRef.current += 1;
+    gradingVersionRef.current += 1;
+  }, [criterionKeys, selectedId]);
   useEffect(() => {
     if (!selected || !draftDirty) return;
+    const version = draftVersionRef.current;
+    const evaluationId = selected.id;
     const timer = window.setTimeout(() => {
       setDraftStatus("saving");
-      void apiFetch<WritingEvaluation>(`/admin/writing-evaluations/${selected.id}/draft`, {
-        method: "PUT", body: JSON.stringify({ editedText, annotations }),
-      }).then((updated) => { replace(setItems, updated); setDraftDirty(false); setDraftStatus("saved"); })
-        .catch((reason) => { setDraftStatus("error"); setError(message(reason, "Không thể tự lưu bản sửa.")); });
+      draftSaveQueueRef.current = draftSaveQueueRef.current.then(async () => {
+        try {
+          const updated = await apiFetch<WritingEvaluation>(`/admin/writing-evaluations/${evaluationId}/draft`, {
+            method: "PUT", body: JSON.stringify({ editedText, editedHtml, annotations }),
+          });
+          replace(setItems, updated);
+          if (evaluationId === selectedId && version === draftVersionRef.current) {
+            setDraftDirty(false); setDraftStatus("saved");
+          }
+        } catch (reason) {
+          if (evaluationId === selectedId && version === draftVersionRef.current) {
+            setDraftStatus("error"); setError(message(reason, "Không thể tự lưu bản sửa."));
+          }
+        }
+      });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [selectedId, draftDirty, editedText, annotations]);
-  function changeEditedText(value: string) { setEditedText(value); setDraftDirty(true); setDraftStatus("saving"); }
-  function changeAnnotations(value: React.SetStateAction<TeacherAnnotation[]>) { setAnnotations(value); setDraftDirty(true); setDraftStatus("saving"); }
+  }, [selectedId, draftDirty, editedText, editedHtml, annotations]);
+  useEffect(() => {
+    if (!draftDirty && !gradingDirty) return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [draftDirty, gradingDirty]);
+  function markDraftDirty() { draftVersionRef.current += 1; setDraftDirty(true); setDraftStatus("dirty"); }
+  function changeEditedText(value: string) { setEditedText(value); markDraftDirty(); }
+  function changeEditedHtml(value: string) { setEditedHtml(value); markDraftDirty(); }
+  function changeAnnotations(value: React.SetStateAction<TeacherAnnotation[]>) { setAnnotations(value); markDraftDirty(); }
+  function markGradingDirty() { gradingVersionRef.current += 1; setGradingDirty(true); }
+  function changeBands(value: React.SetStateAction<Record<string, string>>) { setBands(value); markGradingDirty(); }
+  function changeFeedback(value: React.SetStateAction<Record<string, string>>) { setFeedback(value); markGradingDirty(); }
+  function changeStrengths(value: string) { setStrengths(value); markGradingDirty(); }
+  function changeImprovements(value: string) { setImprovements(value); markGradingDirty(); }
   async function save(publish: boolean) {
-    if (!selected || !validBand(overallBand) || criterionKeys.some((key) => !validBand(bands[key] ?? ""))) {
-      setError("Nhập đủ bốn điểm tiêu chí và điểm tổng từ 0 đến 9, theo bước 0.5."); return;
+    if (!selected || !gradingComplete) {
+      setError(`Còn thiếu ${missingCriteriaCount} tiêu chí. Nhập đủ bốn điểm từ 0 đến 9 theo bước 0.5 trước khi lưu hoặc công bố.`); return;
     }
     const criteria = Object.fromEntries(criterionKeys.map((key) => [key, { band: Number(bands[key]), feedback: feedback[key] ?? "" }]));
+    const draftVersion = draftVersionRef.current;
+    const gradingVersion = gradingVersionRef.current;
     setSaving(true); setError("");
     try {
-      const updated = await apiFetch<WritingEvaluation>(`/admin/writing-evaluations/${selected.id}/review`, { method: "PUT", body: JSON.stringify({ overallBand: Number(overallBand), criteria, strengths: lines(strengths), improvements: lines(improvements), publish, editedText, annotations }) });
+      const request = draftSaveQueueRef.current.then(() => apiFetch<WritingEvaluation>(`/admin/writing-evaluations/${selected.id}/review`, { method: "PUT", body: JSON.stringify({ overallBand: Number(overallBand), criteria, strengths: lines(strengths), improvements: lines(improvements), publish, editedText, editedHtml, annotations }) }));
+      draftSaveQueueRef.current = request.then(() => undefined, () => undefined);
+      const updated = await request;
       replace(setItems, updated);
-      setDraftDirty(false); setDraftStatus("saved");
+      if (draftVersion === draftVersionRef.current) { setDraftDirty(false); setDraftStatus("saved"); }
+      if (gradingVersion === gradingVersionRef.current) setGradingDirty(false);
     } catch (reason) { setError(message(reason, "Không thể lưu đánh giá Writing.")); }
     finally { setSaving(false); }
   }
@@ -222,19 +289,53 @@ function WritingPanel() {
     list={items.map((item) => <QueueItem key={item.id} active={item.id === selectedId} onClick={() => setSelectedId(item.id)}
       ai={aiStatuses[item.status] ?? item.status} teacher={teacherStatuses[item.teacherStatus] ?? item.teacherStatus}
       title={item.studentName} subtitle={`${item.studentCode} · ${item.testTitle}`} source={writingSource(item)}
-      meta={`${taskLabel(item.taskType)} · ${wordCount(item.essayText)} từ · ${shortDate(item.createdAt)}`}/>) }
+      meta={`${taskLabel(item.taskType)} · ${wordCount(item.essayText)} từ, ${shortDate(item.createdAt)}`}/>) }
     empty={!selected ? "Không có bài Writing phù hợp với bộ lọc." : undefined}>
-    {selected ? <div className="space-y-4">
+    {selected ? <div className="flex h-full min-h-0 flex-col gap-3">
       <WritingEvaluationBar evaluation={selected} criteria={criterionKeys}/>
-      <section className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1.08fr)_minmax(440px,.92fr)]">
-        <WritingReviewEditor evaluation={selected} prompt={prompt} editedText={editedText} setEditedText={changeEditedText} annotations={annotations} setAnnotations={changeAnnotations} draftStatus={draftStatus}/>
-        <div className="space-y-3 2xl:sticky 2xl:top-0">
+      <section className="grid min-h-0 flex-1 items-start gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,.85fr)]">
+        <div className="custom-scrollbar min-h-0 2xl:h-full 2xl:overflow-y-auto 2xl:pr-1">
+          <WritingReviewEditor evaluation={selected} prompt={prompt} editedText={editedText} annotations={annotations} draftStatus={draftStatus} onOpenWordEditor={() => setIsWordEditorOpen(true)}/>
+        </div>
+        <div className="min-h-0 space-y-3 2xl:flex 2xl:h-full 2xl:flex-col 2xl:overflow-hidden">
           <ReviewSwitcher value={reviewMode} onChange={setReviewMode}/>
           {reviewMode === "ai"
-            ? <AiSummary status={selected.status} overall={selected.overallBandAi} criteria={selected.criteria} labels={writingLabels} strengths={selected.aiStrengths} improvements={selected.aiImprovements} error={selected.errorMessage} onRetry={selected.status === "FAILED" ? retry : undefined}/>
-            : <TeacherForm overall={overallBand} setOverall={() => undefined} overallReadOnly criteria={criterionKeys} labels={writingLabels} bands={bands} setBands={setBands} feedback={feedback} setFeedback={setFeedback} strengths={strengths} setStrengths={setStrengths} improvements={improvements} setImprovements={setImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>}
+            ? <div className="custom-scrollbar min-h-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pr-1"><AiSummary status={selected.status} overall={selected.overallBandAi} criteria={selected.criteria} labels={writingLabels} strengths={selected.aiStrengths} improvements={selected.aiImprovements} error={selected.errorMessage} onRetry={selected.status === "FAILED" ? retry : undefined}/></div>
+            : <TeacherForm workspace overall={overallBand} setOverall={() => undefined} overallReadOnly criteria={criterionKeys} labels={writingLabels} bands={bands} setBands={changeBands} feedback={feedback} setFeedback={changeFeedback} strengths={strengths} setStrengths={changeStrengths} improvements={improvements} setImprovements={changeImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>}
         </div>
       </section>
+      {isWordEditorOpen ? (
+        <Suspense fallback={<div className="fixed inset-0 z-50 grid place-content-center bg-surface/90 text-sm font-bold text-primary">Đang mở trình sửa Word…</div>}>
+          <WritingWordReviewModal
+            isOpen={isWordEditorOpen}
+            onClose={() => setIsWordEditorOpen(false)}
+            evaluation={selected}
+            prompt={prompt}
+            editedText={editedText}
+            setEditedText={changeEditedText}
+            editedHtml={editedHtml}
+            setEditedHtml={changeEditedHtml}
+            annotations={annotations}
+            setAnnotations={changeAnnotations}
+            draftStatus={draftStatus}
+            overallBand={overallBand}
+            bands={bands}
+            setBands={changeBands}
+            feedback={feedback}
+            setFeedback={changeFeedback}
+            strengths={strengths}
+            setStrengths={changeStrengths}
+            improvements={improvements}
+            setImprovements={changeImprovements}
+            gradingDirty={gradingDirty}
+            gradingComplete={gradingComplete}
+            missingCriteriaCount={missingCriteriaCount}
+            saving={saving}
+            published={selected.teacherStatus === "PUBLISHED"}
+            onSave={save}
+          />
+        </Suspense>
+      ) : null}
     </div> : null}
   </EvaluationLayout>;
 }
@@ -247,12 +348,14 @@ function SpeakingPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [bands, setBands] = useState<Record<string, string>>({});
-  const [overall, setOverall] = useState("");
+  const [, setOverall] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [criterionFeedback, setCriterionFeedback] = useState<Record<string, string>>({});
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const keys = Object.keys(speakingLabels);
+  const calculatedOverall = calculatedBand(keys, bands);
 
   async function load() {
     setLoading(true); setError("");
@@ -267,17 +370,19 @@ function SpeakingPanel() {
     if (!selected) return;
     setOverall(String(selected.overallBandTeacher ?? selected.overallBandAi ?? ""));
     setBands(Object.fromEntries(keys.map((key) => [key, String(selected.criteria[key]?.teacherBand ?? selected.criteria[key]?.aiBand ?? "")])));
+    setCriterionFeedback(Object.fromEntries(keys.map((key) => [key, selected.criteria[key]?.teacherFeedback ?? ""])));
     setFeedback(selected.teacherFeedback ?? ""); setStrengths(selected.teacherStrengths.join("\n")); setImprovements(selected.teacherImprovements.join("\n"));
   }, [selectedId, selected?.teacherStatus]);
   const filtered = useMemo(() => filterItems(items, query, (item) => `${item.studentName} ${item.testTitle} ${item.questionKey}`), [items, query]);
 
   async function save(publish: boolean) {
-    if (!selected || !validBand(overall) || keys.some((key) => !validBand(bands[key] ?? ""))) { setError("Nhập đủ bốn điểm Speaking và điểm tổng theo bước 0.5."); return; }
+    if (!selected || !validBand(calculatedOverall) || keys.some((key) => !validBand(bands[key] ?? ""))) { setError("Nhập đủ bốn điểm Speaking theo bước 0.5."); return; }
     setSaving(true); setError("");
     try {
       const updated = await apiFetch<SpeakingEvaluation>(`/admin/speaking-evaluations/${selected.id}/review`, { method: "PUT", body: JSON.stringify({
-        overallBand: Number(overall), fluencyBand: Number(bands.fluency_coherence), lexicalBand: Number(bands.lexical_resource),
-        grammarBand: Number(bands.grammatical_range_accuracy), pronunciationBand: Number(bands.pronunciation), feedback,
+        overallBand: Number(calculatedOverall), fluencyBand: Number(bands.fluency_coherence), lexicalBand: Number(bands.lexical_resource),
+        grammarBand: Number(bands.grammatical_range_accuracy), pronunciationBand: Number(bands.pronunciation),
+        criterionFeedback, feedback,
         strengths: lines(strengths), improvements: lines(improvements), publish,
       }) });
       replace(setItems, updated);
@@ -287,15 +392,15 @@ function SpeakingPanel() {
 
   return <EvaluationLayout loading={loading} error={error} query={query} setQuery={setQuery} onRefresh={load}
     queueTitle="Bài Speaking" count={filtered.length}
-    list={filtered.map((item) => <QueueItem key={item.id} active={item.id === selectedId} onClick={() => setSelectedId(item.id)} ai="AI đã chấm" teacher={teacherStatuses[item.teacherStatus] ?? item.teacherStatus} title={item.studentName} subtitle={item.testTitle} source="Speaking" meta={`${item.questionKey} · ${shortDate(item.createdAt)}`}/>) }
+    list={filtered.map((item) => <QueueItem key={item.id} active={item.id === selectedId} onClick={() => setSelectedId(item.id)} ai={aiStatuses[item.aiStatus] ?? item.aiStatus} teacher={teacherStatuses[item.teacherStatus] ?? item.teacherStatus} title={item.studentName} subtitle={item.testTitle} source="Speaking" meta={`Toàn bài · ${shortDate(item.createdAt)}`}/>) }
     empty={!selected ? "Chưa có bài Speaking được ghi nhận." : undefined}>
     {selected ? <div className="space-y-6">
       <EvaluationHeading student={selected.studentName} title={selected.testTitle} meta={selected.questionKey} teacherStatus={selected.teacherStatus}/>
       <section className="grid gap-5 xl:grid-cols-[minmax(0,.72fr)_minmax(0,1.28fr)]">
-        <InfoBlock title="Transcript" text={selected.transcript || "Chưa có transcript."} serif/>
+        <section className="rounded-2xl border border-outline-variant/65 bg-surface p-4"><h3 className="text-sm font-extrabold">Bản ghi toàn bài</h3><div className="custom-scrollbar mt-3 max-h-[650px] space-y-3 overflow-y-auto pr-1">{selected.segments?.map((segment, index) => <article key={`${segment.questionKey}-${index}`} className="rounded-xl border border-outline-variant/55 bg-surface-container-low/35 p-3"><strong className="block text-xs text-primary">Câu {index + 1}</strong><p className="mt-2 whitespace-pre-wrap font-serif text-sm leading-6">{segment.transcript || "Chưa có transcript."}</p>{segment.audioUrl ? <audio controls preload="none" className="mt-3 h-9 w-full" src={segment.audioUrl}>Trình duyệt không hỗ trợ audio.</audio> : <span className="mt-2 block text-[11px] text-on-surface-variant">Không có file ghi âm.</span>}</article>)}</div></section>
         <div className="space-y-4">
           <AiSummary status={selected.aiStatus} overall={selected.overallBandAi} criteria={selected.criteria} labels={speakingLabels} strengths={selected.aiStrengths} improvements={selected.aiImprovements}/>
-          <TeacherForm overall={overall} setOverall={setOverall} criteria={keys} labels={speakingLabels} bands={bands} setBands={setBands} feedbackText={feedback} setFeedbackText={setFeedback} strengths={strengths} setStrengths={setStrengths} improvements={improvements} setImprovements={setImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>
+          <TeacherForm overall={calculatedOverall} setOverall={setOverall} overallReadOnly criteria={keys} labels={speakingLabels} bands={bands} setBands={setBands} feedback={criterionFeedback} setFeedback={setCriterionFeedback} feedbackText={feedback} setFeedbackText={setFeedback} strengths={strengths} setStrengths={setStrengths} improvements={improvements} setImprovements={setImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>
         </div>
       </section>
     </div> : null}
@@ -303,6 +408,7 @@ function SpeakingPanel() {
 }
 
 function EntitlementsPanel() {
+  const [skill, setSkill] = useState<"writing" | "speaking">("writing");
   const [items, setItems] = useState<Entitlement[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -310,24 +416,24 @@ function EntitlementsPanel() {
   const [error, setError] = useState("");
   async function load() {
     setLoading(true); setError("");
-    try { setItems(await apiFetch<Entitlement[]>("/admin/writing-evaluations/entitlements")); }
-    catch (reason) { setError(message(reason, "Không tải được quyền AI Writing.")); }
+    try { setItems(await apiFetch<Entitlement[]>(`/admin/${skill}-evaluations/entitlements`)); }
+    catch (reason) { setError(message(reason, `Không tải được quyền AI ${skill === "writing" ? "Writing" : "Speaking"}.`)); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [skill]);
   const filtered = useMemo(() => filterItems(items, query, (item) => `${item.studentCode} ${item.studentName} ${item.email ?? ""}`), [items, query]);
   function update(id: string, patch: Partial<Entitlement>) { setItems((current) => current.map((item) => item.studentId === id ? { ...item, ...patch } : item)); }
   async function save(item: Entitlement) {
     setSavingId(item.studentId); setError("");
     try {
-      const updated = await apiFetch<Entitlement>(`/admin/writing-evaluations/entitlements/${item.studentId}`, { method: "PUT", body: JSON.stringify({ mode: item.mode, monthlyLimit: item.mode === "LIMITED" ? item.monthlyLimit : null, expiresAt: item.expiresAt, note: item.note }) });
+      const updated = await apiFetch<Entitlement>(`/admin/${skill}-evaluations/entitlements/${item.studentId}`, { method: "PUT", body: JSON.stringify({ mode: item.mode, monthlyLimit: item.mode === "LIMITED" ? item.monthlyLimit : null, expiresAt: item.expiresAt, note: item.note }) });
       update(item.studentId, updated);
     } catch (reason) { setError(message(reason, "Không thể cập nhật quyền AI.")); }
     finally { setSavingId(""); }
   }
   return <section className="rounded-[22px] border border-outline-variant/55 bg-surface-container-lowest p-5">
     <div className="flex flex-col gap-4 border-b border-outline-variant/55 pb-5 lg:flex-row lg:items-end lg:justify-between">
-      <div><h2 className="font-display text-xl font-extrabold">Quyền chấm AI Writing</h2><p className="mt-1 text-sm text-on-surface-variant">Giới hạn theo tháng hoặc bật không giới hạn cho từng học viên. Giới hạn toàn hệ thống vẫn được áp dụng.</p></div>
+      <div><h2 className="font-display text-xl font-extrabold">Quyền chấm AI</h2><p className="mt-1 text-sm text-on-surface-variant">Cấp riêng ngân sách Writing và Speaking cho từng học viên.</p><div className="mt-3 inline-flex rounded-xl bg-surface-container p-1"><button type="button" onClick={() => setSkill("writing")} className={`rounded-lg px-3 py-2 text-xs font-extrabold ${skill === "writing" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Writing</button><button type="button" onClick={() => setSkill("speaking")} className={`rounded-lg px-3 py-2 text-xs font-extrabold ${skill === "speaking" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Speaking</button></div></div>
       <Search value={query} onChange={setQuery} placeholder="Tìm tên, email hoặc mã học viên"/>
     </div>
     {error ? <ErrorNotice value={error}/> : null}
@@ -346,17 +452,24 @@ function EntitlementsPanel() {
 }
 
 function EvaluationLayout({ loading, error, query, setQuery, onRefresh, queueTitle = "Hàng chờ", count = 0, filters, pagination, list, empty, children }: { loading: boolean; error: string; query: string; setQuery: (value: string) => void; onRefresh: () => Promise<void>; queueTitle?: string; count?: number; filters?: React.ReactNode; pagination?: React.ReactNode; list: React.ReactNode; empty?: string; children: React.ReactNode }) {
-  return <>{error ? <ErrorNotice value={error}/> : null}<section className="grid min-h-[720px] overflow-hidden rounded-2xl border border-outline-variant/55 bg-surface-container-lowest xl:grid-cols-[340px_minmax(0,1fr)]">
-    <aside className="flex min-h-0 flex-col border-b border-outline-variant/55 bg-surface-container-low/35 xl:border-b-0 xl:border-r">
-      <div className="border-b border-outline-variant/55 p-3">
-        <div className="flex items-center justify-between gap-3 px-1"><div><h2 className="text-sm font-extrabold">{queueTitle}</h2><p className="mt-0.5 text-xs text-on-surface-variant">{count} bài phù hợp</p></div><button type="button" aria-label="Làm mới danh sách" title="Làm mới danh sách" disabled={loading} onClick={() => void onRefresh()} className="grid size-10 shrink-0 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:text-primary disabled:opacity-50"><ArrowClockwise className={loading ? "animate-spin" : ""}/></button></div>
+  const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("management-writing-queue-collapsed") === "1");
+  useEffect(() => {
+    window.localStorage.setItem("management-writing-queue-collapsed", collapsed ? "1" : "0");
+  }, [collapsed]);
+  return <>{error ? <ErrorNotice value={error}/> : null}<section className={`grid min-h-[720px] overflow-hidden rounded-2xl border border-outline-variant/55 bg-surface-container-lowest xl:h-[calc(100dvh-224px)] xl:min-h-[620px] ${collapsed ? "xl:grid-cols-[68px_minmax(0,1fr)]" : "xl:grid-cols-[340px_minmax(0,1fr)]"}`}>
+    <aside className={`flex min-h-0 flex-col border-b border-outline-variant/55 bg-surface-container-low/35 xl:border-b-0 xl:border-r ${collapsed ? "xl:w-[68px]" : ""}`}>
+      {collapsed ? <div className="flex flex-col items-center gap-2 border-b border-outline-variant/55 p-2">
+        <button type="button" aria-label="Mở rộng bộ lọc và danh sách" aria-expanded={false} title="Mở rộng bộ lọc và danh sách" onClick={() => setCollapsed(false)} className="grid size-10 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:border-primary hover:text-primary"><CaretRight size={17}/></button>
+        <span className="writing-queue-count rounded-full bg-primary-fixed/45 px-1.5 py-0.5 text-[10px] font-extrabold tabular-nums text-primary" title={`${count} bài phù hợp`}>{count}</span>
+      </div> : <div className="border-b border-outline-variant/55 p-3">
+        <div className="flex items-center justify-between gap-3 px-1"><div><h2 className="text-sm font-extrabold">{queueTitle}</h2><p className="mt-0.5 text-xs text-on-surface-variant">{count} bài phù hợp</p></div><div className="flex shrink-0 items-center gap-1"><button type="button" aria-label="Thu gọn bộ lọc và danh sách" aria-expanded={true} title="Thu gọn bộ lọc và danh sách" onClick={() => setCollapsed(true)} className="grid size-10 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:border-primary hover:text-primary"><CaretLeft size={17}/></button><button type="button" aria-label="Làm mới danh sách" title="Làm mới danh sách" disabled={loading} onClick={() => void onRefresh()} className="grid size-10 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:text-primary disabled:opacity-50"><ArrowClockwise className={loading ? "animate-spin" : ""}/></button></div></div>
         <div className="mt-3"><Search value={query} onChange={setQuery} placeholder="Tìm học viên hoặc đề"/></div>
         {filters ? <div className="mt-3">{filters}</div> : null}
-      </div>
-      <div className="custom-scrollbar min-h-[480px] flex-1 overflow-y-auto p-3 xl:max-h-[calc(100dvh-245px)]">{loading ? <Loading/> : list}</div>
-      {pagination ? <div className="border-t border-outline-variant/55 p-3">{pagination}</div> : null}
+      </div>}
+      {!collapsed ? <><div className="custom-scrollbar min-h-[320px] flex-1 overflow-y-auto p-3 xl:min-h-0">{loading ? <Loading/> : list}</div>
+      {pagination ? <div className="border-t border-outline-variant/55 p-3">{pagination}</div> : null}</> : null}
     </aside>
-    <div className="custom-scrollbar min-w-0 overflow-y-auto p-4 lg:p-5">{empty ? <Empty text={empty}/> : children}</div>
+    <div className="custom-scrollbar min-h-0 min-w-0 overflow-y-auto p-3 lg:p-4">{empty ? <Empty text={empty}/> : children}</div>
   </section></>;
 }
 
@@ -385,7 +498,33 @@ function WritingFilters({ source, onSourceChange, courseId, onCourseChange, teac
     { value: "ASSIGNMENT" as const, label: "Theo lớp", count: options.courseCount },
   ];
   return <div className="space-y-2">
-    <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-container p-1" aria-label="Lọc nguồn bài Writing">{sourceOptions.map((option) => <button key={option.value} type="button" aria-pressed={source === option.value} onClick={() => onSourceChange(option.value)} className={`min-h-9 rounded-lg px-2 text-[11px] font-bold transition ${source === option.value ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}><span>{option.label}</span><span className="ml-1 tabular-nums opacity-70">{option.count}</span></button>)}</div>
+    <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/80 p-1" aria-label="Lọc nguồn bài Writing">
+      {sourceOptions.map((option) => {
+        const isSelected = source === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={isSelected}
+            onClick={() => onSourceChange(option.value)}
+            className={`min-h-9 rounded-lg px-2 text-[11px] font-black transition-all ${
+              isSelected
+                ? "bg-gradient-to-r from-[#894c5b] to-[#713c4a] text-white shadow-sm scale-[1.02]"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <span>{option.label}</span>
+            <span
+              className={`ml-1.5 tabular-nums text-[10px] rounded-md px-1.5 py-0.5 ${
+                isSelected ? "bg-white/20 text-white font-bold" : "bg-white text-slate-500 shadow-xs"
+              }`}
+            >
+              {option.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
     <div className={`grid gap-2 ${source === "ASSIGNMENT" ? "grid-cols-[minmax(0,1.25fr)_minmax(0,.75fr)]" : "grid-cols-1"}`}>
       {source === "ASSIGNMENT" ? <CoursePicker value={courseId} onChange={onCourseChange} options={options}/> : null}
       <label className="block"><span className="sr-only">Tiến độ giáo viên</span><select aria-label="Tiến độ giáo viên" value={teacherStatus} onChange={(event) => onTeacherStatusChange(event.target.value as "ALL" | "AVAILABLE" | "REVIEWED" | "PUBLISHED")} className="min-h-9 w-full rounded-xl border-outline-variant bg-surface px-2 text-[11px] font-semibold"><option value="ALL">Tất cả trạng thái</option><option value="AVAILABLE">Chưa chấm</option><option value="REVIEWED">Đã lưu</option><option value="PUBLISHED">Đã công bố</option></select></label>
@@ -431,12 +570,14 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
 }
 
 function WritingEvaluationBar({ evaluation, criteria }: { evaluation: WritingEvaluation; criteria: string[] }) {
-  return <section className="overflow-x-auto rounded-2xl border border-outline-variant/55" aria-label="Thông tin và bảng điểm Writing">
-    <div className="grid min-w-[880px] grid-cols-[minmax(220px,1.45fr)_repeat(6,minmax(96px,.75fr))] gap-px bg-outline-variant/55">
-      <div className="min-w-0 bg-surface px-3 py-2.5">
-        <div className="flex items-center gap-2"><strong className="min-w-0 flex-1 truncate text-xs text-primary">{evaluation.studentName} · {evaluation.studentCode}</strong>{evaluation.teacherStatus === "PUBLISHED" ? <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Đã công bố</span> : null}</div>
-        <h2 className="mt-1 truncate font-display text-base font-extrabold leading-5">{evaluation.testTitle}</h2>
-        <p className="mt-0.5 truncate text-[10px] text-on-surface-variant">{writingSource(evaluation)} · {taskLabel(evaluation.taskType)} · {wordCount(evaluation.essayText)} từ</p>
+  return <section className="shrink-0 overflow-x-auto rounded-xl border border-outline-variant/55" aria-label="Thông tin và bảng điểm Writing">
+    <div className="grid min-w-[780px] grid-cols-[minmax(210px,1.35fr)_repeat(6,minmax(84px,.7fr))] gap-px bg-outline-variant/55">
+      <div className="flex min-w-0 items-center bg-surface px-3 py-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2"><strong className="min-w-0 flex-1 truncate text-xs text-primary">{evaluation.studentName} · {evaluation.studentCode}</strong>{evaluation.teacherStatus === "PUBLISHED" ? <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Đã công bố</span> : null}</div>
+          <h2 className="mt-0.5 truncate font-display text-sm font-extrabold leading-5">{evaluation.testTitle}</h2>
+          <p className="mt-0.5 truncate text-[10px] text-on-surface-variant">{writingSource(evaluation)} · {taskLabel(evaluation.taskType)}, {wordCount(evaluation.essayText)} từ</p>
+        </div>
       </div>
       <ScoreCell label="AI Overall" value={formatBand(evaluation.overallBandAi)} note={aiStatuses[evaluation.status] ?? evaluation.status} emphasis/>
       <ScoreCell label="Giáo viên" value={formatBand(evaluation.overallBandTeacher)} note={teacherStatuses[evaluation.teacherStatus] ?? evaluation.teacherStatus}/>
@@ -446,79 +587,392 @@ function WritingEvaluationBar({ evaluation, criteria }: { evaluation: WritingEva
 }
 
 function ScoreCell({ label, value, note, emphasis = false }: { label: string; value: string; note: string; emphasis?: boolean }) {
-  return <div className={`min-h-[76px] min-w-0 px-2.5 py-2 ${emphasis ? "bg-primary text-on-primary" : "bg-surface"}`}><span className={`block truncate text-[9px] font-extrabold uppercase tracking-[.05em] ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{label}</span><strong className="mt-0.5 block truncate font-display text-xl leading-6 tabular-nums">{value}</strong><span className={`mt-0.5 block truncate text-[9px] font-semibold ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{note}</span></div>;
+  return <div className={`min-h-[60px] min-w-0 px-2.5 py-1.5 ${emphasis ? "bg-primary text-on-primary" : "bg-surface"}`}><span className={`block truncate text-[8px] font-extrabold uppercase tracking-[.05em] ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{label}</span><strong className="block truncate font-display text-lg leading-5 tabular-nums">{value}</strong><span className={`block truncate text-[8px] font-semibold ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{note}</span></div>;
 }
 
-function WritingReviewEditor({ evaluation, prompt, editedText, setEditedText, annotations, setAnnotations, draftStatus }: {
+function WritingReviewEditor({ evaluation, prompt, editedText, annotations, draftStatus, onOpenWordEditor }: {
   evaluation: WritingEvaluation;
   prompt: string;
   editedText: string;
-  setEditedText: (value: string) => void;
   annotations: TeacherAnnotation[];
-  setAnnotations: React.Dispatch<React.SetStateAction<TeacherAnnotation[]>>;
-  draftStatus: "saved" | "saving" | "error";
+  draftStatus: "saved" | "dirty" | "saving" | "error";
+  onOpenWordEditor: () => void;
 }) {
-  const [view, setView] = useState<"edit" | "compare">("edit");
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
-  const [showAnnotation, setShowAnnotation] = useState(false);
-  const [comment, setComment] = useState("");
-  const [replacement, setReplacement] = useState("");
-  const [criterion, setCriterion] = useState("");
-  const [kind, setKind] = useState<TeacherAnnotation["kind"]>("COMMENT");
-  const [severity, setSeverity] = useState<TeacherAnnotation["severity"]>("SUGGESTION");
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const selectedText = editedText.slice(selection.start, selection.end);
-  const paragraphs = (view === "edit" ? editedText : evaluation.essayText).split(/\n+/).map((item) => item.trim()).filter(Boolean);
-
-  function readSelection() {
-    const element = textareaRef.current;
-    if (!element) return;
-    setSelection({ start: element.selectionStart, end: element.selectionEnd });
-  }
-
-  function openAnnotation() {
-    readSelection();
-    setShowAnnotation(true);
-  }
-
-  function saveAnnotation() {
-    if (selection.end <= selection.start || !selectedText.trim()) return;
-    const nextReplacement = kind === "REPLACE" ? replacement : "";
-    const annotation: TeacherAnnotation = {
-      id: crypto.randomUUID(), start: selection.start, end: selection.end, selectedText,
-      replacement: nextReplacement || null, comment: comment.trim() || null,
-      criterion: criterion || null, kind, severity,
-    };
-    if (nextReplacement) setEditedText(editedText.slice(0, selection.start) + nextReplacement + editedText.slice(selection.end));
-    setAnnotations((current) => [...current, annotation]);
-    setComment(""); setReplacement(""); setCriterion(""); setShowAnnotation(false);
-  }
+  const [view, setView] = useState<"submission" | "revision">("submission");
+  const hasRevision = editedText.trim() !== "" && editedText !== evaluation.essayText;
+  const visibleText = view === "revision" && hasRevision ? editedText : evaluation.essayText;
+  const paragraphs = visibleText.split(/\n+/).map((item) => item.trim()).filter(Boolean);
 
   return <article className="overflow-hidden rounded-2xl border border-outline-variant/55 bg-surface">
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/55 px-4 py-3">
-      <div className="flex items-center gap-2"><ClipboardText size={19} className="text-primary"/><div><h3 className="text-sm font-extrabold">Bài viết của học viên</h3><p className="text-[11px] text-on-surface-variant">Bản gốc được giữ nguyên · Revision {evaluation.teacherRevision ?? 0}</p></div></div>
-      <div className="flex rounded-lg bg-surface-container p-1 text-xs font-bold"><button type="button" onClick={() => setView("edit")} className={`rounded-md px-3 py-1.5 ${view === "edit" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Sửa bài</button><button type="button" onClick={() => setView("compare")} className={`rounded-md px-3 py-1.5 ${view === "compare" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>So sánh</button></div>
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/55 px-4 py-2.5">
+      <div className="flex min-w-0 items-center gap-2"><ClipboardText size={18} className="shrink-0 text-primary"/><div className="min-w-0"><h3 className="text-sm font-extrabold">Bài viết học viên</h3><p className="truncate text-[11px] text-on-surface-variant">{wordCount(evaluation.essayText)} từ, bản sửa {evaluation.teacherRevision ?? 0}</p></div></div>
+      <div className="flex items-center gap-2">
+        {hasRevision ? <div className="flex rounded-lg bg-surface-container p-0.5 text-[11px] font-bold"><button type="button" onClick={() => setView("submission")} className={`rounded-md px-2.5 py-1.5 ${view === "submission" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Bài nộp</button><button type="button" onClick={() => setView("revision")} className={`rounded-md px-2.5 py-1.5 ${view === "revision" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Bản sửa</button></div> : null}
+        <button
+          type="button"
+          onClick={onOpenWordEditor}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[#185abd] px-3 text-xs font-extrabold text-white transition hover:bg-[#124996] active:scale-[.98]"
+          title="Mở trình sửa bài bằng Word"
+        >
+          <NotePencil size={15} weight="fill" />
+          <span>Sửa bằng Word</span>
+        </button>
+      </div>
     </header>
-    <div className="border-b border-outline-variant/55 bg-surface-container-low/60 p-4"><span className="text-[10px] font-extrabold uppercase tracking-[.1em] text-primary">Đề bài</span><p className="mt-2 whitespace-pre-wrap text-sm font-semibold italic leading-6">{prompt}</p>{evaluation.taskContext.imageUrl ? <div className="mt-3 overflow-hidden rounded-xl border border-outline-variant/55 bg-white p-2"><AuthenticatedMediaImage fileUrl={evaluation.taskContext.imageUrl} alt={evaluation.taskContext.imageAltText || "Hình đề IELTS Writing Task 1"} className="mx-auto max-h-[320px] w-auto object-contain"/></div> : null}</div>
-    {view === "edit" ? <>
-      <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant/55 px-4 py-2.5 text-xs font-bold"><button type="button" onClick={openAnnotation} disabled={selection.end <= selection.start} className="min-h-9 rounded-lg bg-primary px-3 text-on-primary disabled:cursor-not-allowed disabled:opacity-45">Thêm nhận xét</button><span className="text-on-surface-variant">Bôi chọn một đoạn trong bài để gắn lỗi hoặc đề xuất sửa.</span><span className="ml-auto text-[11px] font-semibold text-on-surface-variant">{draftStatus === "saving" ? "Đang tự lưu…" : draftStatus === "error" ? "Tự lưu lỗi" : "Đã tự lưu"}</span></div>
-      <textarea ref={textareaRef} value={editedText} onChange={(event) => setEditedText(event.target.value)} onSelect={readSelection} className="min-h-[430px] w-full resize-y border-0 bg-surface p-5 text-[15px] leading-7 outline-none focus:ring-2 focus:ring-inset focus:ring-primary" aria-label="Bản giáo viên sửa trực tiếp" />
-      {showAnnotation ? <div className="m-4 rounded-xl border border-primary/30 bg-primary-fixed/15 p-4"><div className="flex items-center justify-between gap-3"><strong className="text-sm">Gắn nhận xét cho đoạn đã chọn</strong><button type="button" onClick={() => setShowAnnotation(false)} className="text-xs font-bold text-on-surface-variant">Hủy</button></div><p className="mt-2 rounded-lg bg-surface px-3 py-2 text-xs italic text-on-surface-variant">“{selectedText.slice(0, 180)}{selectedText.length > 180 ? "…" : ""}”</p><div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="text-xs font-bold">Loại<select value={kind ?? "COMMENT"} onChange={(event) => setKind(event.target.value as TeacherAnnotation["kind"])} className="mt-1 min-h-10 w-full rounded-lg border-outline-variant text-sm"><option value="COMMENT">Nhận xét</option><option value="REPLACE">Đề xuất sửa</option><option value="HIGHLIGHT">Đánh dấu</option></select></label><label className="text-xs font-bold">Tiêu chí<select value={criterion} onChange={(event) => setCriterion(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border-outline-variant text-sm"><option value="">Chưa gắn tiêu chí</option>{Object.entries(writingLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="text-xs font-bold">Mức độ<select value={severity ?? "SUGGESTION"} onChange={(event) => setSeverity(event.target.value as TeacherAnnotation["severity"])} className="mt-1 min-h-10 w-full rounded-lg border-outline-variant text-sm"><option value="SUGGESTION">Gợi ý</option><option value="ERROR">Lỗi</option><option value="MAJOR">Lỗi nghiêm trọng</option></select></label></div>{kind === "REPLACE" ? <label className="mt-3 block text-xs font-bold">Nội dung đề xuất<input value={replacement} onChange={(event) => setReplacement(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border-outline-variant text-sm" placeholder="Nhập câu hoặc từ thay thế"/></label> : null}<label className="mt-3 block text-xs font-bold">Nhận xét<textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border-outline-variant text-sm" placeholder="Giải thích lỗi và hướng cải thiện"/></label><button type="button" disabled={!comment.trim() && kind !== "HIGHLIGHT" && !replacement.trim()} onClick={saveAnnotation} className="mt-3 min-h-10 rounded-lg bg-primary px-4 text-xs font-bold text-on-primary disabled:opacity-45">Lưu nhận xét</button></div> : null}
-    </> : <div className="grid gap-px bg-outline-variant/55 md:grid-cols-2"><div className="bg-rose-50/40 p-5"><span className="text-[10px] font-extrabold uppercase tracking-[.1em] text-rose-700">Bản gốc học viên</span><div className="mt-3 space-y-5 text-[15px] leading-7">{evaluation.essayText.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}</div></div><div className="bg-emerald-50/35 p-5"><span className="text-[10px] font-extrabold uppercase tracking-[.1em] text-emerald-700">Bản giáo viên sửa</span><div className="mt-3 space-y-5 text-[15px] leading-7">{paragraphs.length ? paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>) : <p className="text-on-surface-variant">Chưa có bản sửa.</p>}</div></div></div>}
-    {annotations.length ? <footer className="border-t border-outline-variant/55 bg-surface-container-low/50 px-4 py-3"><div className="flex items-center justify-between gap-3"><strong className="text-xs">Nhận xét trong bài ({annotations.length})</strong><span className="text-[11px] text-on-surface-variant">Sẽ hiển thị cho học viên sau khi công bố</span></div><div className="mt-2 grid gap-2">{annotations.map((item) => <div key={item.id ?? `${item.start}-${item.end}`} className="flex items-start justify-between gap-3 rounded-lg bg-surface p-2.5 text-xs"><div><span className="font-bold text-primary">{item.criterion ? writingLabels[item.criterion] : "Nhận xét chung"}</span><p className="mt-1 italic text-on-surface-variant">“{item.selectedText}”</p>{item.comment ? <p className="mt-1">{item.comment}</p> : null}{item.replacement ? <p className="mt-1 text-emerald-700">Đề xuất: {item.replacement}</p> : null}</div><button type="button" aria-label="Xóa nhận xét" onClick={() => setAnnotations((current) => current.filter((value) => value.id !== item.id))} className="shrink-0 font-bold text-on-surface-variant">Xóa</button></div>)}</div></footer> : null}
+    <details className="group border-b border-outline-variant/55 bg-surface-container-low/60">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-left [&::-webkit-details-marker]:hidden">
+        <CaretRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90"/>
+        <strong className="shrink-0 text-xs">Đề bài</strong>
+        <span className="min-w-0 flex-1 truncate text-xs text-on-surface-variant">{prompt}</span>
+        {evaluation.taskContext.imageUrl ? <span className="shrink-0 text-[10px] font-semibold text-primary">Có hình Task 1</span> : null}
+      </summary>
+      <div className="border-t border-outline-variant/55 px-4 py-3"><p className="whitespace-pre-wrap text-sm font-semibold italic leading-6">{prompt}</p>{evaluation.taskContext.imageUrl ? <div className="mt-3 overflow-hidden rounded-xl border border-outline-variant/55 bg-white p-2"><AuthenticatedMediaImage fileUrl={evaluation.taskContext.imageUrl} alt={evaluation.taskContext.imageAltText || "Hình đề IELTS Writing Task 1"} className="mx-auto max-h-[240px] w-auto object-contain"/></div> : null}</div>
+    </details>
+    <div className="min-h-[520px] space-y-3 p-5 text-[15px] leading-7">{paragraphs.length ? paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>) : <p className="text-on-surface-variant">Bài viết chưa có nội dung.</p>}</div>
+    <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/55 bg-surface-container-low/50 px-4 py-2 text-[11px] text-on-surface-variant"><span>{annotations.length ? `${annotations.length} nhận xét trong Word` : "Chưa có nhận xét trong Word"}</span><span>{draftStatus === "saving" ? "Đang lưu…" : draftStatus === "dirty" ? "Nội dung chưa lưu" : draftStatus === "error" ? "Lưu lỗi" : "Nội dung đã lưu"}</span></footer>
   </article>;
   }
 
 function ReviewSwitcher({ value, onChange }: { value: "ai" | "teacher"; onChange: (value: "ai" | "teacher") => void }) {
-  return <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-container p-1" aria-label="Chọn loại đánh giá"><button type="button" aria-pressed={value === "ai"} onClick={() => onChange("ai")} className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition ${value === "ai" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}><Sparkle/>Đánh giá AI</button><button type="button" aria-pressed={value === "teacher"} onClick={() => onChange("teacher")} className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition ${value === "teacher" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}><Brain/>Chấm giáo viên</button></div>;
+  return (
+    <div className="sticky top-0 z-10 grid shrink-0 grid-cols-2 gap-1 rounded-xl border border-outline-variant/55 bg-surface-container p-1" aria-label="Chọn loại đánh giá">
+      <button
+        type="button"
+        aria-pressed={value === "ai"}
+        onClick={() => onChange("ai")}
+        className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-extrabold transition ${
+          value === "ai"
+            ? "bg-surface text-primary shadow-sm"
+            : "text-on-surface-variant hover:bg-surface/70 hover:text-on-surface"
+        }`}
+      >
+        <Sparkle weight={value === "ai" ? "fill" : "bold"} />
+        <span>Đánh giá AI</span>
+      </button>
+      <button
+        type="button"
+        aria-pressed={value === "teacher"}
+        onClick={() => onChange("teacher")}
+        className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-extrabold transition ${
+          value === "teacher"
+            ? "bg-surface text-primary shadow-sm"
+            : "text-on-surface-variant hover:bg-surface/70 hover:text-on-surface"
+        }`}
+      >
+        <Brain weight={value === "teacher" ? "fill" : "bold"} />
+        <span>Chấm giáo viên</span>
+      </button>
+    </div>
+  );
 }
 
 function AiSummary({ status, overall, criteria, labels, strengths, improvements, error, onRetry }: { status: string; overall: number | null; criteria: Record<string, Criterion>; labels: Record<string, string>; strengths: string[]; improvements: string[]; error?: string | null; onRetry?: () => Promise<void> }) {
   return <section className="rounded-2xl border border-primary/25 bg-primary-fixed/20 p-5"><div className="flex items-center justify-between gap-3"><h3 className="flex items-center gap-2 text-sm font-extrabold"><Sparkle className="text-primary"/>Đánh giá của AI</h3><span className="text-xs font-bold text-primary">{aiStatuses[status] ?? status}</span></div>{overall == null ? <p className="mt-4 text-sm text-on-surface-variant">{status === "NOT_ELIGIBLE" ? "Học viên không có quyền AI cho lần nộp này. Giáo viên vẫn có thể chấm bình thường." : error || "Chưa có kết quả AI."}{onRetry ? <button type="button" onClick={() => void onRetry()} className="ml-2 min-h-11 font-bold text-primary">Thử lại</button> : null}</p> : <><div className="mt-4 flex items-end gap-2"><strong className="font-display text-4xl text-primary">{overall.toFixed(1)}</strong><span className="pb-1 text-xs font-bold text-on-surface-variant">Overall band</span></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{Object.entries(criteria).filter(([, value]) => value.aiBand != null).map(([key, value]) => <div key={key} className="rounded-xl bg-surface p-3"><div className="flex justify-between gap-3 text-xs font-bold"><span>{labels[key] ?? key}</span><strong>{value.aiBand?.toFixed(1)}</strong></div>{value.aiFeedback ? <p className="mt-2 text-xs leading-5 text-on-surface-variant">{value.aiFeedback}</p> : null}</div>)}</div><FeedbackLists strengths={strengths} improvements={improvements}/></>}</section>;
 }
 
-function TeacherForm({ overall, setOverall, overallReadOnly = false, criteria, labels, bands, setBands, feedback, setFeedback, feedbackText, setFeedbackText, strengths, setStrengths, improvements, setImprovements, saving, published, onSave }: { overall: string; setOverall: (value: string) => void; overallReadOnly?: boolean; criteria: string[]; labels: Record<string, string>; bands: Record<string, string>; setBands: React.Dispatch<React.SetStateAction<Record<string, string>>>; feedback?: Record<string, string>; setFeedback?: React.Dispatch<React.SetStateAction<Record<string, string>>>; feedbackText?: string; setFeedbackText?: (value: string) => void; strengths: string; setStrengths: (value: string) => void; improvements: string; setImprovements: (value: string) => void; saving: boolean; published: boolean; onSave: (publish: boolean) => Promise<void> }) {
-  return <section className="rounded-2xl border border-outline-variant/65 bg-surface p-5"><div className="flex items-center justify-between gap-3"><h3 className="flex items-center gap-2 text-sm font-extrabold"><Brain className="text-primary"/>Chấm của giáo viên</h3>{published ? <span className="text-xs font-bold text-emerald-700">Đã công bố</span> : null}</div><label className="mt-4 block text-xs font-bold">Overall band<input type="number" min="0" max="9" step="0.5" value={overall} readOnly={overallReadOnly} aria-describedby={overallReadOnly ? "writing-overall-help" : undefined} onChange={(event) => setOverall(event.target.value)} className="mt-2 min-h-11 w-28 rounded-xl border-outline-variant text-lg font-extrabold read-only:bg-surface-container-low"/></label>{overallReadOnly ? <p id="writing-overall-help" className="mt-2 text-xs text-on-surface-variant">Tự tính trung bình bốn tiêu chí và làm tròn đến 0.5.</p> : null}<div className="mt-4 grid gap-3 sm:grid-cols-2">{criteria.map((key) => <div key={key} className="rounded-xl border border-outline-variant/65 p-3"><label className="flex items-center justify-between gap-3 text-xs font-extrabold">{labels[key] ?? key}<input aria-label={`Band ${labels[key] ?? key}`} type="number" min="0" max="9" step="0.5" value={bands[key] ?? ""} onChange={(event) => setBands((current) => ({ ...current, [key]: event.target.value }))} className="w-20 rounded-lg border-outline-variant"/></label>{feedback && setFeedback ? <textarea aria-label={`Nhận xét ${labels[key] ?? key}`} rows={3} value={feedback[key] ?? ""} onChange={(event) => setFeedback((current) => ({ ...current, [key]: event.target.value }))} className="mt-3 w-full rounded-xl border-outline-variant text-sm" placeholder="Nhận xét tiêu chí"/> : null}</div>)}</div>{setFeedbackText ? <label className="mt-4 block text-xs font-bold">Nhận xét tổng<textarea rows={3} value={feedbackText ?? ""} onChange={(event) => setFeedbackText(event.target.value)} className="mt-2 w-full rounded-xl border-outline-variant text-sm"/></label> : null}<div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">Điểm mạnh<textarea rows={4} value={strengths} onChange={(event) => setStrengths(event.target.value)} className="mt-2 w-full rounded-xl border-outline-variant text-sm" placeholder="Mỗi ý một dòng"/></label><label className="text-xs font-bold">Cần cải thiện<textarea rows={4} value={improvements} onChange={(event) => setImprovements(event.target.value)} className="mt-2 w-full rounded-xl border-outline-variant text-sm" placeholder="Mỗi ý một dòng"/></label></div><div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" disabled={saving || published} onClick={() => void onSave(false)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary px-4 text-sm font-bold text-primary disabled:opacity-50"><FloppyDisk/>Lưu bản chấm</button><button type="button" disabled={saving} onClick={() => void onSave(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-50">{saving ? <CircleNotch className="animate-spin"/> : <PaperPlaneTilt/>}Công bố</button></div></section>;
+const bandPresetOptions = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "9.0"];
+
+const criterionMetaMap: Record<string, { name: string; shortName: string }> = {
+  task_achievement: { name: "Task Achievement", shortName: "Task" },
+  task_response: { name: "Task Response", shortName: "Task" },
+  coherence_cohesion: { name: "Coherence & Cohesion", shortName: "C&C" },
+  fluency_coherence: { name: "Fluency & Coherence", shortName: "Fluency" },
+  lexical_resource: { name: "Lexical Resource", shortName: "Lexical" },
+  grammatical_range_accuracy: { name: "Grammar Range & Accuracy", shortName: "Grammar" },
+  pronunciation: { name: "Pronunciation", shortName: "Pronun" },
+};
+
+function TeacherForm({
+  workspace = false,
+  overall,
+  setOverall,
+  overallReadOnly = false,
+  criteria,
+  labels,
+  bands,
+  setBands,
+  feedback,
+  setFeedback,
+  feedbackText,
+  setFeedbackText,
+  strengths,
+  setStrengths,
+  improvements,
+  setImprovements,
+  saving,
+  published,
+  onSave,
+}: {
+  workspace?: boolean;
+  overall: string;
+  setOverall: (value: string) => void;
+  overallReadOnly?: boolean;
+  criteria: string[];
+  labels: Record<string, string>;
+  bands: Record<string, string>;
+  setBands: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  feedback?: Record<string, string>;
+  setFeedback?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  feedbackText?: string;
+  setFeedbackText?: (value: string) => void;
+  strengths: string;
+  setStrengths: (value: string) => void;
+  improvements: string;
+  setImprovements: (value: string) => void;
+  saving: boolean;
+  published: boolean;
+  onSave: (publish: boolean) => Promise<void>;
+}) {
+  const [activeTab, setActiveTab] = useState<string>(() => criteria[0] ?? "");
+  const [activeFeedbackTab, setActiveFeedbackTab] = useState<"strengths" | "improvements" | "overall">("strengths");
+
+  useEffect(() => {
+    if (!criteria.includes(activeTab) && criteria.length > 0) {
+      setActiveTab(criteria[0]);
+    }
+  }, [criteria, activeTab]);
+
+  const activeKey = activeTab || criteria[0];
+  const activeMeta = (activeKey ? criterionMetaMap[activeKey] : null) ?? {
+    name: (activeKey ? labels[activeKey] : "") ?? activeKey ?? "",
+    shortName: activeKey ?? "",
+  };
+
+  const currentBand = activeKey ? bands[activeKey] ?? "" : "";
+  const missingCriteriaCount = criteria.filter((key) => !validBand(bands[key] ?? "")).length;
+  const gradingComplete = criteria.length === 4 && missingCriteriaCount === 0 && validBand(overall);
+
+  return (
+    <section className={`rounded-2xl border border-outline-variant/65 bg-surface p-4 shadow-xs ${workspace ? "2xl:flex 2xl:min-h-0 2xl:flex-1 2xl:flex-col 2xl:overflow-hidden" : ""}`}>
+      <div className={workspace ? "custom-scrollbar 2xl:min-h-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pr-1" : ""}>
+      {!workspace ? <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Brain size={18} weight="fill" />
+          </span>
+          <h3 className="text-sm font-extrabold text-slate-900">Chấm của giáo viên</h3>
+        </div>
+        {published ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
+            <CheckCircle size={15} weight="fill" />
+            Đã công bố
+          </span>
+        ) : null}
+      </div> : null}
+
+      <div className={`${workspace ? "" : "mt-3"} flex min-h-12 flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant/55 bg-surface-container-low/60 px-3 py-2`}>
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-black text-on-primary">
+            {overall || "-"}
+          </div>
+          <div><span className="block text-xs font-extrabold text-on-surface">Overall band</span><span className="text-[10px] text-on-surface-variant">{overallReadOnly ? "Tính từ 4 tiêu chí" : "Giáo viên xác nhận"}</span></div>
+        </div>
+
+        {!overallReadOnly && (
+          <label className="flex items-center gap-2 text-xs font-bold" aria-label="Điểm overall">
+            <input
+              type="number"
+              min="0"
+              max="9"
+              step="0.5"
+              value={overall}
+              onChange={(e) => setOverall(e.target.value)}
+              className="h-9 w-20 rounded-lg border-outline-variant text-center text-sm font-extrabold"
+            />
+          </label>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-3">
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-container p-1 sm:grid-cols-4" role="tablist" aria-label="Tiêu chí chấm">
+          {criteria.map((key) => {
+            const meta = criterionMetaMap[key] ?? {
+              name: labels[key] ?? key,
+              shortName: key,
+            };
+            const isSelected = activeKey === key;
+            const b = bands[key] ?? "";
+            const isGraded = b.trim() !== "";
+
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setActiveTab(key)}
+                className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-center text-xs font-extrabold transition ${
+                  isSelected
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:bg-surface hover:text-on-surface"
+                }`}
+              >
+                <span className="truncate">{meta.shortName || meta.name}</span>
+                <span className={isSelected ? "text-on-primary/75" : "text-on-surface-variant/70"}>{isGraded ? b : "–"}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeKey && (
+          <div className="rounded-xl border border-outline-variant/55 bg-surface-container-low/35 p-3">
+            <div className="flex items-center justify-between gap-2"><h4 className="text-sm font-extrabold text-slate-900">{activeMeta.name}</h4>{currentBand ? <span className="text-xs font-extrabold text-primary">Band {currentBand}</span> : null}</div>
+            <div className="mt-3">
+              <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                {bandPresetOptions.map((opt) => {
+                  const isOptSelected = currentBand === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setBands((curr) => ({ ...curr, [activeKey]: opt }))}
+                      className={`h-8 w-full rounded-lg border px-2 text-xs font-extrabold transition ${
+                        isOptSelected
+                          ? "border-primary bg-primary text-on-primary"
+                          : "border-outline-variant bg-surface text-on-surface hover:border-primary"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+
+                <div>
+                  <input
+                    aria-label={`Band ${activeMeta.name}`}
+                    type="number"
+                    min="0"
+                    max="9"
+                    step="0.5"
+                    value={currentBand}
+                    onChange={(e) => setBands((curr) => ({ ...curr, [activeKey]: e.target.value }))}
+                    className="h-8 w-full rounded-lg border-outline-variant bg-surface text-center text-xs font-extrabold focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="0-9"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {feedback && setFeedback ? (
+              <div className="mt-3">
+                <label className="mb-1 block text-[11px] font-bold text-slate-700">Nhận xét</label>
+                <textarea
+                  aria-label={`Nhận xét ${activeMeta.name}`}
+                  rows={3}
+                  value={feedback[activeKey] ?? ""}
+                  onChange={(e) => setFeedback((curr) => ({ ...curr, [activeKey]: e.target.value }))}
+                  className="w-full rounded-xl border-outline-variant bg-surface p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                  placeholder={`Nhận xét về ${activeMeta.name}`}
+                />
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <div className="flex gap-1 rounded-xl bg-surface-container p-1" role="tablist" aria-label="Nhận xét tổng hợp">
+          <button
+            type="button"
+            onClick={() => setActiveFeedbackTab("strengths")}
+            className={`flex-1 rounded-lg px-2 py-2 text-xs font-extrabold transition ${
+              activeFeedbackTab === "strengths"
+                ? "bg-surface text-primary shadow-sm"
+                : "text-on-surface-variant hover:bg-surface/70"
+            }`}
+          >
+            <span>Điểm mạnh {strengths.split("\n").filter(Boolean).length || ""}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFeedbackTab("improvements")}
+            className={`flex-1 rounded-lg px-2 py-2 text-xs font-extrabold transition ${
+              activeFeedbackTab === "improvements"
+                ? "bg-surface text-primary shadow-sm"
+                : "text-on-surface-variant hover:bg-surface/70"
+            }`}
+          >
+            <span>Cần cải thiện {improvements.split("\n").filter(Boolean).length || ""}</span>
+          </button>
+          {setFeedbackText ? (
+            <button
+              type="button"
+              onClick={() => setActiveFeedbackTab("overall")}
+              className={`flex-1 rounded-lg px-2 py-2 text-xs font-extrabold transition ${
+                activeFeedbackTab === "overall"
+                  ? "bg-surface text-primary shadow-sm"
+                  : "text-on-surface-variant hover:bg-surface/70"
+              }`}
+            >
+              <span>Nhận xét tổng</span>
+            </button>
+          ) : null}
+        </div>
+
+        {activeFeedbackTab === "strengths" ? (
+          <div>
+            <textarea
+              rows={3}
+              value={strengths}
+              onChange={(e) => setStrengths(e.target.value)}
+              className="w-full rounded-xl border-outline-variant bg-surface p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Mỗi ý một dòng"
+            />
+          </div>
+        ) : activeFeedbackTab === "improvements" ? (
+          <div>
+            <textarea
+              rows={3}
+              value={improvements}
+              onChange={(e) => setImprovements(e.target.value)}
+              className="w-full rounded-xl border-outline-variant bg-surface p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Mỗi ý một dòng"
+            />
+          </div>
+        ) : setFeedbackText ? (
+          <div>
+            <textarea
+              rows={3}
+              value={feedbackText ?? ""}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              className="w-full rounded-xl border-outline-variant bg-surface p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Nhận xét tổng thể"
+            />
+          </div>
+        ) : null}
+      </div>
+
+      </div>
+      <div className="-mx-4 -mb-4 mt-3 flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant/55 bg-surface px-4 py-3">
+        {!gradingComplete ? (
+          <span role="status" className="mr-auto inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
+            <WarningCircle size={15} weight="fill" />
+            Còn thiếu {missingCriteriaCount}/4 tiêu chí
+          </span>
+        ) : null}
+        <button
+          type="button"
+          disabled={saving || published || !gradingComplete}
+          onClick={() => void onSave(false)}
+          title={gradingComplete ? "Lưu điểm và nhận xét" : `Còn thiếu ${missingCriteriaCount} tiêu chí`}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-primary px-4 text-xs font-bold text-primary transition hover:bg-primary/10 disabled:opacity-50"
+        >
+          <FloppyDisk size={16} />
+          Lưu bản chấm
+        </button>
+        <button
+          type="button"
+          disabled={saving || !gradingComplete}
+          onClick={() => void onSave(true)}
+          title={gradingComplete ? "Công bố kết quả chấm" : `Còn thiếu ${missingCriteriaCount} tiêu chí`}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+        >
+          {saving ? <CircleNotch size={16} className="animate-spin" /> : <PaperPlaneTilt size={16} />}
+          Công bố
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function FeedbackLists({ strengths, improvements }: { strengths: string[]; improvements: string[] }) {
@@ -532,7 +986,7 @@ function Loading() { return <p className="flex items-center justify-center gap-2
 function Empty({ text }: { text: string }) { return <div className="grid min-h-52 place-content-center text-center text-sm text-on-surface-variant">{text}</div>; }
 function validBand(value: string) { return value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 9 && Number.isInteger(Number(value) * 2); }
 function calculatedBand(criteria: string[], bands: Record<string, string>) { if (criteria.length !== 4 || criteria.some((key) => !validBand(bands[key] ?? ""))) return ""; return (Math.round(criteria.reduce((sum, key) => sum + Number(bands[key]), 0) / criteria.length * 2) / 2).toFixed(1); }
-function formatBand(value: number | null) { return value == null ? "Chưa có" : value.toFixed(1); }
+function formatBand(value: number | null) { return value == null ? "-" : value.toFixed(1); }
 function compactWritingLabel(value: string) { return value === "coherence_cohesion" ? "Coherence" : value === "lexical_resource" ? "Lexical" : value === "grammatical_range_accuracy" ? "Grammar" : writingLabels[value] ?? value; }
 function writingSource(item: WritingEvaluation) { return item.attemptOrigin === "SELF_PRACTICE" ? "Bài viết tự do" : item.courseSkillPair === "SPEAKING_WRITING" ? item.courseCode ? `Khóa ${item.courseCode}` : "Khóa Writing & Speaking" : "Bài theo lớp"; }
 function taskLabel(value: string) { return value === "task_2" ? "Academic Task 2" : "Academic Task 1"; }

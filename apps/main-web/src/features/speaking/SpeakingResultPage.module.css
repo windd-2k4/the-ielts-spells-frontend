@@ -504,6 +504,54 @@
   max-width: 300px;
 }
 
+.inlineError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #FEF2F2;
+  color: #991B1B;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.overallBand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: white;
+  text-align: left;
+}
+
+.overallBand span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.overallBand strong { font-size: 30px; line-height: 1; }
+
+.criterionResult { width: 100%; text-align: left; }
+.criterionResult > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.criterionResult span { font-size: 12px; font-weight: 800; }
+.criterionResult strong { color: var(--accent); font-size: 20px; }
+.criterionResult p { max-width: none; margin-top: 8px; text-align: left; }
+
+.teacherBox {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.teacherBox > span { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.teacherBox strong { font-family: var(--font-display), inherit; font-size: 19px; }
+.teacherBox p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.teacherCriteria { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.teacherCriteria span { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 9px; background: var(--gold-wash); color: var(--muted); font-size: 10px; }
+.teacherCriteria b { color: var(--ink); font-size: 11px; }
+
 .aiUpgradeBtn {
   display: inline-flex;
   align-items: center;

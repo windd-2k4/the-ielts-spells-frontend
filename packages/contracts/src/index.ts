@@ -328,6 +328,7 @@ export interface WritingEvaluationResult {
   teacherImprovements: string[];
   teacherPublishedAt: string | null;
   teacherEditedText: string | null;
+  teacherEditedHtml: string | null;
   teacherAnnotations: WritingTeacherAnnotation[];
 }
 
@@ -617,6 +618,17 @@ export interface SpeakingEvaluationResult {
   strengths: string[];
   improvements: string[];
   evaluatedAt: string;
+  teacherStatus: "AVAILABLE" | "REVIEWED" | "PUBLISHED";
+  overallBandTeacher: number | null;
+  fluencyBandTeacher: number | null;
+  lexicalBandTeacher: number | null;
+  grammarBandTeacher: number | null;
+  pronunciationBandTeacher: number | null;
+  teacherCriteriaFeedback: Record<string, string>;
+  teacherFeedback: string | null;
+  teacherStrengths: string[];
+  teacherImprovements: string[];
+  teacherPublishedAt: string | null;
 }
 
 export interface SpeakingAttemptResult {
@@ -624,6 +636,7 @@ export interface SpeakingAttemptResult {
   status: string;
   submittedAt: string | null;
   resultVisible: boolean;
+  aiEligible: boolean;
   parts: SpeakingPart[];
   responses: SpeakingSavedResponse[];
   evaluations: SpeakingEvaluationResult[];

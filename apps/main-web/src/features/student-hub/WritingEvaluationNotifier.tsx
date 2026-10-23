@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
 import styles from "./StudentHubLayout.module.css";
 
-type Notice = { id: string; attemptId: string; title: string; body: string };
+type Notice = { id: string; attemptId: string; title: string; body: string; skill: "WRITING" | "SPEAKING" };
 
 export function WritingEvaluationNotifier() {
   const { session } = useStudentSession();
@@ -43,7 +43,7 @@ export function WritingEvaluationNotifier() {
   return <aside className={styles.evaluationToast} role="status" aria-live="polite">
     <CheckCircle size={22} weight="fill" />
     <div><strong>{notice.title}</strong><span>{error || notice.body}</span></div>
-    <Link href={`/student/writing/attempts/${notice.attemptId}/result`} onClick={() => void dismiss(notice.id)}>Xem kết quả</Link>
+    <Link href={`/student/${notice.skill === "SPEAKING" ? "speaking" : "writing"}/attempts/${notice.attemptId}/result`} onClick={() => void dismiss(notice.id)}>Xem kết quả</Link>
     <button type="button" aria-label="Đóng thông báo" onClick={() => void dismiss(notice.id)}><X size={16} /></button>
   </aside>;
 }

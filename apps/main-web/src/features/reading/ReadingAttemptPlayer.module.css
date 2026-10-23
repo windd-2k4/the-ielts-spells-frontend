@@ -1666,6 +1666,137 @@
   color: var(--exam-ink);
 }
 
+/* Summary completion with an IELTS-style option bank */
+.gapOptionGroup .groupHeading > div {
+  width: 100%;
+}
+.gapOptionSummaryCard {
+  padding: 10px 12px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+.gapOptionSummaryBody {
+  line-height: 2.35;
+  white-space: normal;
+}
+.gapOptionSummaryBody .gapFillLine {
+  display: inline;
+  margin: 0;
+}
+.gapOptionSummaryBody .gapFillLine::after {
+  content: " ";
+}
+.gapOptionSummaryBody .gapFillHeadingLine {
+  margin: 0 0 2px;
+  text-align: center;
+  line-height: 1.5;
+}
+.gapOptionSlotWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.gapOptionSlot {
+  min-width: 126px;
+  max-width: 220px;
+  min-height: 34px;
+  padding: 4px 24px 4px 10px;
+  overflow: hidden;
+  border: 1.5px solid var(--exam-line);
+  border-radius: 7px;
+  color: #16a34a;
+  background: var(--exam-soft);
+  font: inherit;
+  font-size: calc(var(--exam-content-size) - 1px);
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 2px 0 rgba(15, 23, 42, 0.08);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.gapOptionSlot:hover,
+.gapOptionSlotReady {
+  border-color: var(--exam-accent);
+  background: var(--exam-accent-soft);
+}
+.gapOptionSlotActive {
+  border-color: var(--exam-accent);
+  box-shadow: 0 0 0 2px var(--exam-accent-soft), inset 0 2px 0 rgba(15, 23, 42, 0.08);
+}
+.gapOptionSlotFilled {
+  color: var(--exam-navy);
+  background: var(--exam-card-bg);
+}
+.gapOptionSlotClear {
+  position: absolute;
+  right: 5px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--exam-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.gapOptionSlotClear:hover {
+  color: #b42335;
+  background: var(--exam-soft);
+}
+.gapOptionBank {
+  margin-top: 16px;
+}
+.gapOptionHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 8px;
+  color: var(--exam-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.gapOptionHint svg {
+  flex: 0 0 auto;
+  color: var(--exam-gold);
+}
+.gapOptionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gapOptionPill {
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+  color: var(--exam-ink);
+  background: var(--exam-card-bg);
+  font: inherit;
+  font-size: calc(var(--exam-content-size) - 1px);
+  line-height: 1.25;
+  cursor: grab;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+.gapOptionPill:hover:not(:disabled),
+.gapOptionPillSelected {
+  border-color: var(--exam-accent);
+  color: var(--exam-accent-dark);
+  background: var(--exam-accent-soft);
+}
+.gapOptionPill:active:not(:disabled) {
+  cursor: grabbing;
+}
+.gapOptionPillUsed {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
 /* 7: Multiple Answers & Checkbox (CD-IELTS Standard) */
 .mcCounterWrapper {
   margin-top: 6px;
