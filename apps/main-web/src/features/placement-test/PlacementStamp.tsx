@@ -9,9 +9,10 @@ interface PlacementStampProps {
 
 export function PlacementStamp({ type = "FEASIBLE", className = "" }: PlacementStampProps) {
   const isFeasible = type === "FEASIBLE";
-  const strokeColor = isFeasible ? "#10B981" : "#EF4444";
-  const topText = isFeasible ? "Khả thi nên có chiến lược" : "Mục tiêu thách thức";
-  const bottomText = "THE IELTS SPELLS";
+  // The IELTS Spells system colors: Deep Academic Green (#2E7D32) or Brand Rose (#934C5E)
+  const strokeColor = isFeasible ? "#2E7D32" : "#934C5E";
+  const topText = isFeasible ? "MỤC TIÊU KHẢ THI" : "MỤC TIÊU THÁCH THỨC";
+  const bottomText = "★ THE IELTS SPELLS ACADEMIC ★";
 
   return (
     <div className={`${styles.stampWrapper} ${className}`} aria-label={topText}>
@@ -21,25 +22,36 @@ export function PlacementStamp({ type = "FEASIBLE", className = "" }: PlacementS
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Outer dashed circle */}
+        {/* Outer dashed seal circle */}
         <circle
           cx="100"
           cy="100"
           r="92"
           stroke={strokeColor}
-          strokeWidth="3.5"
-          strokeDasharray="6 4"
-          opacity="0.85"
+          strokeWidth="3.2"
+          strokeDasharray="5 3.5"
+          opacity="0.88"
         />
 
-        {/* Inner solid circle */}
+        {/* Inner solid border */}
         <circle
           cx="100"
           cy="100"
-          r="78"
+          r="76"
           stroke={strokeColor}
-          strokeWidth="2"
-          opacity="0.9"
+          strokeWidth="1.8"
+          opacity="0.95"
+        />
+
+        {/* Center decorative ring */}
+        <circle
+          cx="100"
+          cy="100"
+          r="46"
+          stroke={strokeColor}
+          strokeWidth="1.2"
+          strokeDasharray="3 2.5"
+          opacity="0.75"
         />
 
         {/* Text curve paths */}
@@ -59,8 +71,8 @@ export function PlacementStamp({ type = "FEASIBLE", className = "" }: PlacementS
         {/* Top curved text */}
         <text
           fill={strokeColor}
-          fontSize="13.5"
-          fontWeight="bold"
+          fontSize="12.5"
+          fontWeight="700"
           letterSpacing="1.2"
         >
           <textPath href="#topCurve" startOffset="50%" textAnchor="middle">
@@ -71,57 +83,62 @@ export function PlacementStamp({ type = "FEASIBLE", className = "" }: PlacementS
         {/* Bottom curved text */}
         <text
           fill={strokeColor}
-          fontSize="11"
-          fontWeight="bold"
-          letterSpacing="2"
+          fontSize="10"
+          fontWeight="700"
+          letterSpacing="1.6"
         >
           <textPath href="#bottomCurve" startOffset="50%" textAnchor="middle">
             {bottomText}
           </textPath>
         </text>
 
-        {/* Center Cute Mascot Illustration */}
-        <g transform="translate(68, 62) scale(0.65)">
-          {/* Headband with knot */}
+        {/* Center The IELTS Spells Academic Insignia */}
+        <g transform="translate(100, 100)" stroke={strokeColor} fill={strokeColor}>
+          {/* Central Academic Star */}
           <path
-            d="M 15 25 Q 50 15 85 25 L 85 35 Q 50 25 15 35 Z"
-            fill={strokeColor}
-            opacity="0.9"
+            d="M 0 -33 L 2 -27 L 7 -27 L 3 -24 L 5 -19 L 0 -22 L -5 -19 L -3 -24 L -7 -27 L -2 -27 Z"
+            strokeWidth="0.8"
           />
-          <circle cx="85" cy="30" r="6" fill={strokeColor} />
-          <path d="M 85 30 L 98 22 L 95 35 Z" fill={strokeColor} />
-
-          {/* Bean Body */}
+          {/* Side Stars */}
           <path
-            d="M 25 35 C 10 50, 15 90, 40 100 C 65 110, 85 85, 80 55 C 75 35, 60 25, 45 28 Z"
-            stroke={strokeColor}
-            strokeWidth="3.5"
+            d="M 0 -33 L 2 -27 L 7 -27 L 3 -24 L 5 -19 L 0 -22 L -5 -19 L -3 -24 L -7 -27 L -2 -27 Z"
+            transform="translate(-16, 5) scale(0.65)"
+            strokeWidth="0.8"
+          />
+          <path
+            d="M 0 -33 L 2 -27 L 7 -27 L 3 -24 L 5 -19 L 0 -22 L -5 -19 L -3 -24 L -7 -27 L -2 -27 Z"
+            transform="translate(16, 5) scale(0.65)"
+            strokeWidth="0.8"
+          />
+
+          {/* Graduation Mortarboard / Knowledge Cap */}
+          <path
+            d="M 0 -14 L 20 -7 L 0 0 L -20 -7 Z"
             fill="none"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M -12 -3 L -12 7 C -12 12, 12 12, 12 7 L 12 -3"
+            fill="none"
+            strokeWidth="1.8"
+          />
+          <path
+            d="M 15 -5 L 18 5 L 17 14"
+            fill="none"
+            strokeWidth="1.4"
             strokeLinecap="round"
           />
+          <circle cx="17" cy="15" r="1.5" />
 
-          {/* Eyes & determination expression */}
-          {isFeasible ? (
-            // Smiling confident eyes
-            <>
-              <path d="M 36 52 Q 42 46 48 52" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round" />
-              <path d="M 58 52 Q 64 46 70 52" stroke={strokeColor} strokeWidth="3" fill="none" strokeLinecap="round" />
-              <path d="M 46 66 Q 53 74 60 66" stroke={strokeColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            </>
-          ) : (
-            // Determined / sweating eyes
-            <>
-              <path d="M 36 48 L 48 54" stroke={strokeColor} strokeWidth="3" strokeLinecap="round" />
-              <path d="M 70 48 L 58 54" stroke={strokeColor} strokeWidth="3" strokeLinecap="round" />
-              <path d="M 48 68 Q 53 62 58 68" stroke={strokeColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              {/* Sweat drop */}
-              <path d="M 22 55 Q 16 62 22 66 Q 28 62 22 55 Z" fill={strokeColor} opacity="0.8" />
-            </>
-          )}
-
-          {/* Cheeks */}
-          <ellipse cx="33" cy="62" rx="4" ry="2" fill={strokeColor} opacity="0.4" />
-          <ellipse cx="73" cy="62" rx="4" ry="2" fill={strokeColor} opacity="0.4" />
+          {/* Open Academic Tome / Spellbook */}
+          <path
+            d="M -22 14 C -12 11, -3 13, 0 16 C 3 13, 12 11, 22 14 L 22 24 C 12 21, 3 23, 0 26 C -3 23, -12 21, -22 24 Z"
+            fill="none"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <line x1="0" y1="16" x2="0" y2="26" strokeWidth="1.8" />
         </g>
       </svg>
     </div>

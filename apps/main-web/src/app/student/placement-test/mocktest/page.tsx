@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Check,
   CircleNotch,
+  Sparkle,
 } from "@phosphor-icons/react";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
 import {
@@ -214,7 +215,7 @@ export default function PlacementMocktestPage() {
   if (loading || !placement) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <CircleNotch size={32} className="animate-spin text-[#FF6B00]" />
+        <CircleNotch size={32} className="animate-spin text-[#894C5B]" />
       </div>
     );
   }
@@ -507,8 +508,10 @@ export default function PlacementMocktestPage() {
             />
           </div>
           <p className={styles.gradingMessage}>
-            <span className={styles.beanAvatar}>🌱</span>
-            <span>Giáo sư Đậu đang miệt mài chấm bài... Bạn đừng tắt trình duyệt nhé!</span>
+            <span className={styles.gradingIcon}>
+              <Sparkle size={18} weight="fill" />
+            </span>
+            <span>Hệ thống AI & Hội Đồng Học Thuật The IELTS Spells đang tổng hợp và đánh giá kết quả... Bạn đừng tắt trình duyệt nhé!</span>
           </p>
         </div>
       )}
