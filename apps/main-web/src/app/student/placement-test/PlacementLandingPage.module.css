@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  border-bottom: 2px solid #F3F4F6;
+  border-bottom: 2px solid #EAE3E6;
   margin-bottom: 32px;
 }
 
@@ -17,12 +17,13 @@
   align-items: center;
   gap: 8px;
   padding-bottom: 12px;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
-  color: #FF6B00;
-  border-bottom: 2px solid #FF6B00;
+  color: #894C5B;
+  border-bottom: 2px solid #894C5B;
   margin-bottom: -2px;
   text-decoration: none;
+  letter-spacing: -0.01em;
 }
 
 .mainGrid {
@@ -39,10 +40,10 @@
 
 .previewCard {
   background: #FFFFFF;
-  border: 1px solid #E5E7EB;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  border: 1px solid #EAE3E6;
+  border-radius: 22px;
+  padding: 26px;
+  box-shadow: 0 14px 36px rgba(137, 76, 91, 0.08);
   position: relative;
   overflow: hidden;
 }
@@ -54,34 +55,72 @@
   margin-bottom: 20px;
 }
 
-.candidateName {
-  font-size: 20px;
+.brandEyebrow {
+  display: inline-block;
+  font-size: 10px;
   font-weight: 800;
-  color: #111827;
-  margin: 4px 0 8px 0;
+  color: #894C5B;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}
+
+.reportHeading {
+  font-size: 21px;
+  font-weight: 700;
+  color: #1E1B18;
+  letter-spacing: -0.03em;
+  margin: 0 0 8px 0;
+}
+
+.authorBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.authorBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #F7E5EA;
+  color: #894C5B;
+  font-size: 11px;
+  font-weight: 750;
+  border-radius: 999px;
+  border: 1px solid #E8CFD5;
+}
+
+.verifiedDot {
+  font-size: 11px;
+  color: #746A6E;
+  font-weight: 600;
 }
 
 .cardDesc {
-  font-size: 12px;
-  color: #6B7280;
-  line-height: 1.5;
+  font-size: 12.5px;
+  color: #5C5752;
+  line-height: 1.55;
   margin: 0;
+  max-width: 380px;
 }
 
 .stampPosition {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
 }
 
 .scoreRow {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
-  background: #F9FAFB;
-  border-radius: 14px;
-  padding: 16px;
+  margin-bottom: 20px;
+  background: #FAF7F2;
+  border: 1px solid #EAE4D8;
+  border-radius: 16px;
+  padding: 18px;
 }
 
 .scoreBox {
@@ -89,29 +128,42 @@
 }
 
 .scoreLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6B7280;
+  font-size: 10.5px;
+  font-weight: 750;
+  color: #746A6E;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   margin-bottom: 4px;
 }
 
 .scoreBig {
-  font-size: 32px;
-  font-weight: 800;
-  color: #10B981;
+  font-size: 34px;
+  font-weight: 700;
+  color: #1E1B18;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .scoreTargetBig {
-  font-size: 32px;
-  font-weight: 800;
-  color: #FF6B00;
+  font-size: 34px;
+  font-weight: 700;
+  color: #894C5B;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.targetMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+  color: #5C5752;
+  margin-top: 8px;
 }
 
 .miniGrid {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
 }
 
@@ -120,21 +172,67 @@
   flex-direction: column;
   align-items: center;
   background: #FFFFFF;
-  padding: 4px 8px;
+  padding: 4px 7px;
   border-radius: 6px;
-  border: 1px solid #E5E7EB;
-  font-size: 11px;
-  color: #374151;
+  border: 1px solid #E8E2D9;
+  font-size: 10.5px;
+  color: #5C5752;
 }
 
 .miniVal {
-  font-weight: 700;
-  color: #111827;
+  font-weight: 750;
+  color: #1E1B18;
+  margin-top: 1px;
 }
 
 .arrowIcon {
-  color: #9CA3AF;
+  color: #894C5B;
+  opacity: 0.45;
   font-size: 20px;
+}
+
+.previewSnippet {
+  background: #FFFFFF;
+  border: 1px solid #EAE4D8;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.snippetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.snippetTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1E1B18;
+}
+
+.snippetBadge {
+  background: #F7E5EA;
+  color: #894C5B;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #E8CFD5;
+}
+
+.snippetText {
+  margin: 0;
+  font-size: 12px;
+  color: #746A6E;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Right introduction */
@@ -148,28 +246,30 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #FFF5ED;
-  color: #FF6B00;
-  border: 1px solid #FFD0B0;
+  background: #F7E5EA;
+  color: #894C5B;
+  border: 1px solid #E8CFD5;
   padding: 6px 14px;
   border-radius: 9999px;
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 750;
   align-self: flex-start;
+  letter-spacing: -0.01em;
 }
 
 .mainTitle {
-  font-size: 30px;
-  font-weight: 800;
-  color: #111827;
-  line-height: 1.25;
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 650;
+  color: #1E1B18;
+  line-height: 1.18;
+  letter-spacing: -0.04em;
   margin: 0;
 }
 
 .introDesc {
-  font-size: 15px;
-  color: #4B5563;
-  line-height: 1.6;
+  font-size: 14.5px;
+  color: #5C5752;
+  line-height: 1.65;
   margin: 0;
 }
 
@@ -181,45 +281,54 @@
 
 .stepCard {
   display: flex;
+  align-items: flex-start;
   gap: 16px;
   background: #FFFFFF;
-  border: 1.5px solid #E5E7EB;
-  border-radius: 14px;
+  border: 1px solid #EAE5E7;
+  border-radius: 16px;
   padding: 16px 20px;
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(137, 76, 91, 0.04);
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .stepCard:hover {
-  border-color: #FF8A3D;
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(137, 76, 91, 0.08);
 }
 
 .stepNumber {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #10B981;
+  background: #894C5B;
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
   font-weight: 800;
+  font-size: 14px;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(137, 76, 91, 0.25);
+}
+
+.stepNumberAlt {
+  background: #262023;
+  color: #F1CBD4;
+  box-shadow: 0 2px 8px rgba(38, 32, 35, 0.25);
 }
 
 .stepTitle {
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 700;
-  color: #111827;
+  color: #1E1B18;
   margin: 0 0 4px 0;
 }
 
 .stepText {
-  font-size: 13.5px;
-  color: #6B7280;
+  font-size: 13px;
+  color: #5C5752;
+  line-height: 1.5;
   margin: 0;
-  line-height: 1.45;
 }
 
 .benefitsList {
@@ -228,45 +337,49 @@
   gap: 10px;
 }
 
+.benefitsTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1E1B18;
+  margin: 0;
+}
+
 .benefitItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14.5px;
-  color: #374151;
-  font-weight: 500;
+  font-size: 13.5px;
+  color: #373336;
 }
 
 .checkDot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #111827;
+  background: #894C5B;
+  flex-shrink: 0;
 }
 
 .ctaBtn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
-  background: #FF6B00;
+  background: #894C5B;
   color: #FFFFFF;
-  font-size: 16px;
-  font-weight: 800;
-  padding: 14px 32px;
+  font-size: 14.5px;
+  font-weight: 750;
+  padding: 13px 28px;
   border-radius: 9999px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(255, 107, 0, 0.3);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-  width: fit-content;
+  box-shadow: 0 8px 24px rgba(137, 76, 91, 0.28);
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ctaBtn:hover {
-  background: #E65A00;
+  background: #67303F;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.4);
+  box-shadow: 0 12px 28px rgba(137, 76, 91, 0.38);
 }
 
 @media (max-width: 900px) {

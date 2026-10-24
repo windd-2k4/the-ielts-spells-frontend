@@ -1,5 +1,5 @@
 .container {
-  max-width: 1040px;
+  max-width: 1060px;
   margin: 0 auto;
   padding: 28px 20px 80px 20px;
 }
@@ -10,33 +10,35 @@
 }
 
 .topBrand {
-  font-size: 13px;
-  font-weight: 700;
-  color: #FF6B00;
+  font-size: 11px;
+  font-weight: 800;
+  color: #894C5B;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.14em;
   display: block;
   margin-bottom: 6px;
 }
 
 .reportTitle {
-  font-size: 26px;
-  font-weight: 800;
-  color: #111827;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1E1B18;
+  letter-spacing: -0.03em;
   margin: 0 0 6px 0;
 }
 
 .studentName {
-  font-size: 22px;
-  font-weight: 800;
-  color: #FF5A1F;
+  font-size: 24px;
+  font-weight: 700;
+  color: #894C5B;
+  letter-spacing: -0.02em;
   margin: 0 0 10px 0;
 }
 
 .reportDesc {
   font-size: 14px;
-  color: #6B7280;
-  line-height: 1.55;
+  color: #5C5752;
+  line-height: 1.6;
   max-width: 680px;
   margin: 0 0 18px 0;
 }
@@ -45,41 +47,43 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #FF6B00;
+  background: #894C5B;
   color: #FFFFFF;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 750;
+  padding: 10px 22px;
   border-radius: 9999px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.25);
-  transition: all 0.15s ease;
+  box-shadow: 0 6px 18px rgba(137, 76, 91, 0.25);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shareBtn:hover {
-  background: #E65A00;
+  background: #67303F;
   transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(137, 76, 91, 0.35);
 }
 
 .stampPosition {
   position: absolute;
   top: 0;
   right: 0;
+  z-index: 2;
 }
 
 /* Score Card */
 .scoreCard {
   background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #EAE3E6;
   border-radius: 20px;
-  padding: 24px 32px;
+  padding: 26px 36px;
   margin-bottom: 32px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 30px rgba(137, 76, 91, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 28px;
 }
 
 .scoreSide {
@@ -87,31 +91,35 @@
 }
 
 .scoreLabel {
-  font-size: 13px;
-  font-weight: 700;
-  color: #6B7280;
-  margin-bottom: 4px;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #746A6E;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
 }
 
 .estimatedOverallNumber {
-  font-size: 52px;
-  font-weight: 800;
-  color: #10B981;
+  font-size: 54px;
+  font-weight: 700;
+  color: #1E1B18;
+  letter-spacing: -0.05em;
   line-height: 1;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .targetBandNumber {
-  font-size: 52px;
-  font-weight: 800;
-  color: #FF5A1F;
+  font-size: 54px;
+  font-weight: 700;
+  color: #894C5B;
+  letter-spacing: -0.05em;
   line-height: 1;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .skillsBreakdownGrid {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -119,32 +127,37 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  background: #FAF7F2;
+  border: 1px solid #EAE4D8;
   border-radius: 10px;
   padding: 6px 14px;
-  font-size: 12px;
-  color: #4B5563;
+  font-size: 11.5px;
+  color: #5C5752;
 }
 
 .skillPillVal {
   font-size: 15px;
-  font-weight: 800;
-  color: #111827;
+  font-weight: 750;
+  color: #1E1B18;
   margin-top: 2px;
 }
 
 .targetMetaInfo {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 13.5px;
-  color: #4B5563;
+  gap: 4px;
+  font-size: 13px;
+  color: #5C5752;
+}
+
+.targetMetaInfo strong {
+  color: #1E1B18;
 }
 
 .arrowBetween {
-  font-size: 28px;
-  color: #D1D5DB;
+  font-size: 26px;
+  color: #894C5B;
+  opacity: 0.4;
 }
 
 /* Feasibility Callout */
@@ -154,8 +167,9 @@
 
 .feasibilityTitle {
   font-size: 18px;
-  font-weight: 800;
-  color: #111827;
+  font-weight: 750;
+  color: #1E1B18;
+  letter-spacing: -0.02em;
   margin: 0 0 14px 0;
 }
 
@@ -164,38 +178,39 @@
   gap: 14px;
   border-radius: 14px;
   padding: 16px 20px;
-  border: 1px solid #FEE2E2;
-  background: #FEF2F2;
+  border: 1px solid #F7D3DA;
+  background: #FDF2F4;
 }
 
 .calloutIcon {
-  color: #EF4444;
+  color: #894C5B;
   flex-shrink: 0;
   margin-top: 2px;
 }
 
 .calloutHeading {
-  font-size: 15px;
-  font-weight: 700;
-  color: #991B1B;
+  font-size: 14.5px;
+  font-weight: 750;
+  color: #894C5B;
   margin: 0 0 4px 0;
 }
 
 .calloutText {
   font-size: 13.5px;
-  color: #7F1D1D;
-  line-height: 1.5;
+  color: #4A3E42;
+  line-height: 1.55;
   margin: 0;
 }
 
 /* Detailed analysis */
 .detailedSectionTitle {
   font-size: 20px;
-  font-weight: 800;
-  color: #111827;
+  font-weight: 750;
+  color: #1E1B18;
+  letter-spacing: -0.02em;
   margin: 0 0 20px 0;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #FF8A3D;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #894C5B;
   display: inline-block;
 }
 

@@ -6,43 +6,157 @@ import {
   ArrowRight,
   BookOpenText,
   CalendarBlank,
+  CaretLeft,
+  CaretRight,
+  CaretRight as ArrowCaret,
   CheckCircle,
-  Clock,
+  FileText,
   Headphones,
   Microphone,
-  PenNib,
+  PencilLine,
+  Sparkle,
+  Target,
+  Video,
   WarningCircle,
 } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { StudentTargetBandControl } from "@/features/student-hub/StudentTargetBandControl";
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
-import { StudentStudyPulse } from "@/features/student-hub/StudentStudyPulse";
-import { formatBand, formatDateTime, skillPairLabel } from "@/features/student-hub/studentPortalViewModel";
+import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
+import {
+  getStudentPortalActivity,
+  type StudentPortalDailyActivity,
+} from "@/features/student-hub/studentPortalApi";
+import { formatBand, formatDateTime } from "@/features/student-hub/studentPortalViewModel";
 import { PlacementTestBanner } from "@/features/placement-test/PlacementTestBanner";
 import styles from "@/features/student-hub/StudentLearningOverview.module.css";
 
-const skillCards = [
-  { name: "Reading", description: "Bài đọc và đề được giao", href: "/student/reading", icon: BookOpenText, available: true },
-  { name: "Listening", description: "Nghe theo band mục tiêu", href: "/student/practice", icon: Headphones, available: false },
-  { name: "Writing", description: "Task 1, Task 2 và rubric", href: "/student/practice", icon: PenNib, available: false },
-  { name: "Speaking", description: "Chủ đề và tiêu chí chấm", href: "/student/practice", icon: Microphone, available: false },
-];
+const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function startOfWeek(date: Date) {
+  const day = (date.getDay() + 6) % 7;
+  return addDays(new Date(date.getFullYear(), date.getMonth(), date.getDate()), -day);
+}
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day || 1);
+}
 
 export default function StudentDashboardPage() {
+  const { session } = useStudentSession();
   const { data, loading, error, refresh } = useStudentPortal();
+
+  const today = new Date();
+  const [selectedMonthDate, setSelectedMonthDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [viewMode, setViewMode] = useState<"month" | "week" | "today">("month");
+  const [activity, setActivity] = useState<StudentPortalDailyActivity[]>([]);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+
+  // Sync initial activity data from portal overview
+  useEffect(() => {
+    if (data?.activityCalendar) {
+      setActivity(data.activityCalendar);
+    }
+  }, [data?.activityCalendar]);
+
+  // Fetch month activity when month changes
+  useEffect(() => {
+    const selectedKey = monthKey(selectedMonthDate);
+    const controller = new AbortController();
+
+    void getStudentPortalActivity(selectedKey, controller.signal)
+      .then((res) => {
+        if (res && res.length > 0) setActivity(res);
+      })
+      .catch(() => {
+        // keep existing activity on error
+      });
+
+    return () => controller.abort();
+  }, [selectedMonthDate]);
 
   if (loading && !data) return <DashboardSkeleton />;
   if (error && !data) return <DashboardError message={error} onRetry={() => void refresh()} />;
   if (!data) return null;
 
+  const studentName = data.profile.fullName || session?.user?.user_metadata?.full_name || "Học viên";
   const pendingAssignments = data.readingAssignments.filter((item) => item.attemptsUsed < item.maxAttempts);
   const nextSession = data.upcomingSessions[0];
   const activeEnrollment = data.enrollments.find((item) => item.status === "ACTIVE") ?? data.enrollments[0];
-  const recommendation = data.recommendedCourses[0];
-  const sessionEnrollment = nextSession ? data.enrollments.find((item) => item.courseId === nextSession.courseId) : null;
-  const scheduleSkillPair = sessionEnrollment?.skillPair ?? activeEnrollment?.skillPair;
+  const scheduleSkillPair = nextSession
+    ? data.enrollments.find((item) => item.courseId === nextSession.courseId)?.skillPair
+    : activeEnrollment?.skillPair;
+
+  // Real Band Scores - NO FAKE DATA
+  const targetBand = data.profile.targetBand;
+  const currentBand = data.profile.currentBand;
+  const readingTarget = data.profile.readingTarget;
+  const listeningTarget = data.profile.listeningTarget;
+  const writingTarget = data.profile.writingTarget;
+  const speakingTarget = data.profile.speakingTarget;
+
+  // Calendar dates
+  const activityByDate = new Map(activity.map((item) => [item.activityDate, item]));
+  const monthStart = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1);
+  const calendarStart = startOfWeek(monthStart);
+  const calendarDays = Array.from({ length: 35 }, (_, index) => addDays(calendarStart, index));
+
+  // Monthly activity summary - REAL DATA ONLY
+  const monthDaysCount = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0).getDate();
+  const monthDays = Array.from(
+    { length: monthDaysCount },
+    (_, index) => new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), index + 1),
+  );
+  const monthItems = monthDays.map((d) => ({ date: d, activity: activityByDate.get(dateKey(d)) }));
+  
+  // Real totals
+  const monthlyTotals = monthItems.reduce((total, item) => ({
+    reading: total.reading + (item.activity?.reading ?? 0),
+    listening: total.listening + (item.activity?.listening ?? 0),
+    writing: total.writing + (item.activity?.writing ?? 0),
+    speaking: total.speaking + (item.activity?.speaking ?? 0),
+    totalAttempts: total.totalAttempts + (item.activity?.totalAttempts ?? 0),
+  }), { reading: 0, listening: 0, writing: 0, speaking: 0, totalAttempts: 0 });
+
+  // Real rows: only active days, or first 6 days of the month with real empty dashes
+  const activeRows = monthItems.filter((item) => (item.activity?.totalAttempts ?? 0) > 0);
+  const tableRows = activeRows.length > 0 ? activeRows.slice(-6) : monthItems.slice(0, 6);
+
+  // Real course progress percentage
   const courseProgress = activeEnrollment && activeEnrollment.totalSessions > 0
     ? Math.min(100, Math.round((activeEnrollment.completedSessions / activeEnrollment.totalSessions) * 100))
     : 0;
+
+  // Real Exam info - NO FAKE DATES
+  const examEnrollment = data.enrollments.find((item) => item.actualExamDate)
+    ?? data.enrollments.find((item) => item.plannedExamMonth);
+  const rawExamDate = examEnrollment?.actualExamDate ?? (data.profile.examPlanStatus === "PLANNED" ? data.profile.plannedExamDate : null);
+  const examDateObject = rawExamDate ? parseLocalDate(rawExamDate) : null;
+  const daysRemaining = examDateObject
+    ? Math.max(0, Math.ceil((examDateObject.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000))
+    : null;
+
+  function handlePrevMonth() {
+    setSelectedMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }
+  function handleNextMonth() {
+    setSelectedMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }
 
   return (
     <div className={styles.overview}>
@@ -52,150 +166,656 @@ export default function StudentDashboardPage() {
         <div role="status" className={styles.notice}>
           <span>{error} Dữ liệu hiển thị có thể chưa được cập nhật.</span>
           <button type="button" disabled={loading} onClick={() => void refresh()} className={styles.textLink}>
-            <ArrowClockwise size={16} />{loading ? "Đang cập nhật…" : "Tải lại"}
+            <ArrowClockwise size={15} />{loading ? "Đang cập nhật…" : "Tải lại"}
           </button>
         </div>
       )}
 
-      <StudentStudyPulse data={data} />
+      {/* Main 2-Column Dashboard Grid */}
+      <div className={styles.dashboardGrid}>
+        {/* LEFT / MAIN COLUMN */}
+        <div className={styles.mainColumn}>
+          {/* Top Hero Banner: "Xin chào, Đức Võ!" - Matching Image 5 */}
+          <section className={styles.heroBanner} aria-label="Lời chào học viên">
+            <div className={styles.heroLeft}>
+              <div className={styles.heroGreetingRow}>
+                <div className={styles.heroGreetingIcon}>
+                  <Target size={20} weight="bold" />
+                </div>
+                <h1 className={styles.heroTitle}>Xin chào, {studentName}!</h1>
+              </div>
+              <p className={styles.heroSubtitle}>
+                Hãy tiếp tục hành trình chinh phục IELTS của bạn nhé!
+              </p>
+              <Link href={pendingAssignments.length > 0 ? "/student/reading" : "/student/practice"} className={styles.heroActionBtn}>
+                Tiếp tục học tập →
+              </Link>
+            </div>
 
-      <section aria-labelledby="today-title">
-        <div className={styles.sectionHead}>
-          <div><h2 id="today-title">Today&apos;s focus</h2><p>Chỉ những việc thực sự cần sự chú ý của bạn.</p></div>
-          <Link href="/student/assignments" className={styles.textLink}>Tất cả bài tập<ArrowRight size={14} /></Link>
-        </div>
-        <div className={styles.todayGrid}>
-          <div className={styles.panel}>
-            <div className={styles.panelHeader}><h3><BookOpenText size={19} weight="duotone" /> Priority tasks</h3><span>{pendingAssignments.length} bài</span></div>
-            {pendingAssignments.length ? (
-              <div className={styles.taskList}>
-                {pendingAssignments.slice(0, 3).map((item) => (
-                  <div key={item.assignmentId} className={styles.taskRow}>
-                    <span className={styles.taskIcon}><BookOpenText size={19} weight="duotone" /></span>
-                    <span className={styles.taskCopy}>
-                      <strong>{item.title}</strong>
-                      <span>{item.courseName} · {item.closesAt ? `Hạn ${new Date(item.closesAt).toLocaleDateString("vi-VN")}` : "Không giới hạn thời gian"}</span>
-                    </span>
-                    <Link href="/student/reading" className={styles.rowAction}>{item.activeAttemptExpiresAt ? "Tiếp tục" : "Mở bài"}<ArrowRight size={13} /></Link>
+            {/* Design Book Artwork - Matching Image 3 Directly */}
+            <div className={styles.heroIllustration} aria-hidden="true">
+              <img
+                src="/images/hero-book-design.png"
+                alt=""
+                className={styles.heroBookImg}
+              />
+            </div>
+          </section>
+
+          {/* 5 Score Cards Row - NO FAKE DATA */}
+          <div className={styles.scoreCardsRow}>
+            {/* Card 1: Tổng quan */}
+            <div className={styles.scoreCardOverview}>
+              <div className={styles.scoreCardHeader}>
+                <div className={styles.scoreCardHeaderLeft}>
+                  <span className={`${styles.scoreCardIcon} ${styles.scoreCardIconOverview}`}>
+                    <Target size={14} weight="bold" />
+                  </span>
+                  <span className={styles.scoreCardTitleOverview}>Tổng quan</span>
+                </div>
+                <div className={styles.scoreCardStars}>
+                  <Sparkle size={12} weight="fill" />
+                  <Sparkle size={10} weight="fill" />
+                </div>
+              </div>
+              <div className={styles.scoreCardBottom}>
+                <span className={styles.scoreCardValueOverview}>
+                  {currentBand != null ? formatBand(currentBand) : (targetBand != null ? formatBand(targetBand) : "—")}
+                </span>
+                {/* No fake difference comparison */}
+                {targetBand != null && currentBand != null && (
+                  <span className={styles.scoreCardGoalMeta}>Mục tiêu: {formatBand(targetBand)}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Reading */}
+            <div className={styles.scoreCardSkill}>
+              <div className={styles.scoreCardHeader}>
+                <div className={styles.scoreCardHeaderLeft}>
+                  <span className={`${styles.scoreCardIcon} ${styles.scoreCardIconSkill}`}>
+                    <BookOpenText size={14} weight="bold" />
+                  </span>
+                  <span className={styles.scoreCardTitleSkill}>Reading</span>
+                </div>
+              </div>
+              <div className={styles.scoreCardBottom}>
+                <span className={styles.scoreCardValueSkill}>
+                  {readingTarget != null ? formatBand(readingTarget) : "—"}
+                </span>
+                {/* Clean, no fake delta */}
+              </div>
+            </div>
+
+            {/* Card 3: Listening */}
+            <div className={styles.scoreCardSkill}>
+              <div className={styles.scoreCardHeader}>
+                <div className={styles.scoreCardHeaderLeft}>
+                  <span className={`${styles.scoreCardIcon} ${styles.scoreCardIconSkill}`}>
+                    <Headphones size={14} weight="bold" />
+                  </span>
+                  <span className={styles.scoreCardTitleSkill}>Listening</span>
+                </div>
+              </div>
+              <div className={styles.scoreCardBottom}>
+                <span className={styles.scoreCardValueSkill}>
+                  {listeningTarget != null ? formatBand(listeningTarget) : "—"}
+                </span>
+                {/* Clean, no fake delta */}
+              </div>
+            </div>
+
+            {/* Card 4: Writing */}
+            <div className={styles.scoreCardSkill}>
+              <div className={styles.scoreCardHeader}>
+                <div className={styles.scoreCardHeaderLeft}>
+                  <span className={`${styles.scoreCardIcon} ${styles.scoreCardIconSkill}`}>
+                    <PencilLine size={14} weight="bold" />
+                  </span>
+                  <span className={styles.scoreCardTitleSkill}>Writing</span>
+                </div>
+              </div>
+              <div className={styles.scoreCardBottom}>
+                <span className={styles.scoreCardValueSkill}>
+                  {writingTarget != null ? formatBand(writingTarget) : "—"}
+                </span>
+                {/* Clean, no fake delta */}
+              </div>
+            </div>
+
+            {/* Card 5: Speaking */}
+            <div className={styles.scoreCardSkill}>
+              <div className={styles.scoreCardHeader}>
+                <div className={styles.scoreCardHeaderLeft}>
+                  <span className={`${styles.scoreCardIcon} ${styles.scoreCardIconSkill}`}>
+                    <Microphone size={14} weight="bold" />
+                  </span>
+                  <span className={styles.scoreCardTitleSkill}>Speaking</span>
+                </div>
+              </div>
+              <div className={styles.scoreCardBottom}>
+                <span className={styles.scoreCardValueSkill}>
+                  {speakingTarget != null ? formatBand(speakingTarget) : "—"}
+                </span>
+                {/* Clean, no fake delta */}
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Row: Calendar & Monthly Activity Grid */}
+          <div className={styles.middleActivityGrid}>
+            {/* Lịch học của bạn */}
+            <div className={styles.calendarCard}>
+              <div className={styles.calendarHeader}>
+                <div className={styles.calendarHeaderTitle}>
+                  <div className={styles.calendarIconBox}>
+                    <CalendarBlank size={16} weight="bold" />
                   </div>
+                  <span>Lịch học của bạn</span>
+                </div>
+                <div className={styles.calendarControls}>
+                  <div className={styles.viewModeTabs}>
+                    <button
+                      type="button"
+                      className={`${styles.tabBtn} ${viewMode === "month" ? styles.tabBtnActive : ""}`}
+                      onClick={() => setViewMode("month")}
+                    >
+                      Tháng
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.tabBtn} ${viewMode === "week" ? styles.tabBtnActive : ""}`}
+                      onClick={() => setViewMode("week")}
+                    >
+                      Tuần
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.tabBtn} ${viewMode === "today" ? styles.tabBtnActive : ""}`}
+                      onClick={() => setViewMode("today")}
+                    >
+                      Hôm nay
+                    </button>
+                  </div>
+                  <div className={styles.monthNavigator}>
+                    <button
+                      type="button"
+                      className={styles.monthNavBtn}
+                      onClick={handlePrevMonth}
+                      aria-label="Tháng trước"
+                    >
+                      <CaretLeft size={12} weight="bold" />
+                    </button>
+                    <span className={styles.monthNavText}>
+                      Tháng {selectedMonthDate.getMonth() + 1}, {selectedMonthDate.getFullYear()}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.monthNavBtn}
+                      onClick={handleNextMonth}
+                      aria-label="Tháng sau"
+                    >
+                      <CaretRight size={12} weight="bold" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.calendarWeekdays}>
+                {weekdays.map((day) => (
+                  <span key={day}>{day}</span>
                 ))}
               </div>
-            ) : (
-              <div className={styles.empty}>
-                <span className={styles.emptyIcon}><CheckCircle size={23} weight="duotone" /></span>
-                <strong>Bạn đã xử lý hết bài được giao.</strong>
-                <p>Khi giáo viên giao bài mới, nhiệm vụ sẽ xuất hiện tại đây.</p>
+
+              <div className={styles.calendarDaysGrid}>
+                {calendarDays.map((date) => {
+                  const key = dateKey(date);
+                  const dayNum = date.getDate();
+                  const isCurrentMonth = date.getMonth() === selectedMonthDate.getMonth();
+                  const isToday = key === dateKey(today);
+                  const act = activityByDate.get(key);
+                  const hasAttempts = (act?.totalAttempts ?? 0) > 0;
+                  const hasSession = nextSession && dateKey(new Date(nextSession.startsAt)) === key;
+
+                  let cellClass = styles.calDayCell;
+                  if (!isCurrentMonth) cellClass += ` ${styles.calDayCellOutside}`;
+                  if (isToday) cellClass += ` ${styles.calDayCellActive}`;
+                  else if (hasSession) cellClass += ` ${styles.calDayCellSoft}`;
+
+                  return (
+                    <div key={key} className={cellClass} title={`${key}: ${act?.totalAttempts ?? 0} bài`}>
+                      <span>{dayNum}</span>
+                      <div className={styles.calDayDots}>
+                        {isToday && <span className={styles.calDotWhite} />}
+                        {!isToday && hasAttempts && <span className={styles.calDotPink} />}
+                        {!isToday && hasSession && <span className={styles.calDotOrange} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Monthly Activity Table - REAL DATA ONLY */}
+            <div className={styles.activityCard}>
+              <div className={styles.activityCardHeader}>
+                <span className={styles.activityCardTitle}>Monthly activity</span>
+                <Link href="/student/history" className={styles.activityCardLink}>
+                  Xem tất cả →
+                </Link>
+              </div>
+              <p className={styles.activityCardSubtitle}>Dữ liệu từ những bài đã nộp thành công.</p>
+
+              <div className={styles.activityTableWrapper}>
+                <table className={styles.activityTable}>
+                  <thead>
+                    <tr>
+                      <th>NGÀY</th>
+                      <th>R</th>
+                      <th>L</th>
+                      <th>W</th>
+                      <th>S</th>
+                      <th>TỔNG</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableRows.map(({ date, activity: item }) => (
+                      <tr key={dateKey(date)}>
+                        <td>{date.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</td>
+                        <td>{item?.reading ? item.reading : <span className={styles.activityEmptyDash}>—</span>}</td>
+                        <td>{item?.listening ? item.listening : <span className={styles.activityEmptyDash}>—</span>}</td>
+                        <td>{item?.writing ? item.writing : <span className={styles.activityEmptyDash}>—</span>}</td>
+                        <td>{item?.speaking ? item.speaking : <span className={styles.activityEmptyDash}>—</span>}</td>
+                        <td>{item?.totalAttempts ? <strong>{item.totalAttempts}</strong> : <span className={styles.activityEmptyDash}>—</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className={styles.activityTotalRow}>
+                      <td>Tổng</td>
+                      <td>{monthlyTotals.reading || "—"}</td>
+                      <td>{monthlyTotals.listening || "—"}</td>
+                      <td>{monthlyTotals.writing || "—"}</td>
+                      <td>{monthlyTotals.speaking || "—"}</td>
+                      <td>{monthlyTotals.totalAttempts || "—"}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Focus Priority Tasks */}
+          <section aria-labelledby="today-title">
+            <div className={styles.sectionHead}>
+              <div className={styles.sectionHeadLeft}>
+                <div className={styles.sectionHeadIcon}>
+                  <Target size={16} weight="bold" />
+                </div>
+                <div className={styles.sectionHeadTitles}>
+                  <h2 id="today-title">Today&apos;s focus</h2>
+                  <p>Chỉ những việc thực sự cần sự chú ý của bạn.</p>
+                </div>
+              </div>
+              <Link href="/student/assignments" className={styles.textLink}>
+                Tất cả bài tập →
+              </Link>
+            </div>
+
+            <div className={styles.todayGrid} style={{ marginTop: "12px" }}>
+              <div className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <h3>
+                    <BookOpenText size={16} weight="bold" /> Priority tasks
+                  </h3>
+                  <span>{pendingAssignments.length} bài</span>
+                </div>
+                {pendingAssignments.length ? (
+                  <div className={styles.taskList}>
+                    {pendingAssignments.slice(0, 3).map((item) => (
+                      <div key={item.assignmentId} className={styles.taskRow}>
+                        <span className={styles.taskIcon}>
+                          <BookOpenText size={17} weight="bold" />
+                        </span>
+                        <span className={styles.taskCopy}>
+                          <strong>{item.title}</strong>
+                          <span>
+                            {item.courseName} · {item.closesAt ? `Hạn ${new Date(item.closesAt).toLocaleDateString("vi-VN")}` : "Không giới hạn thời gian"}
+                          </span>
+                        </span>
+                        <Link href="/student/reading" className={styles.rowAction}>
+                          {item.activeAttemptExpiresAt ? "Tiếp tục" : "Mở bài"}
+                          <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.empty}>
+                    <span className={styles.emptyIcon}>
+                      <CheckCircle size={20} weight="bold" />
+                    </span>
+                    <strong>Bạn đã xử lý hết bài được giao.</strong>
+                    <p>Khi giáo viên giao bài mới, nhiệm vụ sẽ xuất hiện tại đây.</p>
+                  </div>
+                )}
+              </div>
+
+              <aside className={styles.focusColumn} aria-label="Lịch học và gợi ý">
+                {nextSession ? (
+                  <article className={styles.sessionCard}>
+                    <div className={styles.focusTop}>
+                      <p className={styles.sessionTop}>
+                        <span><CalendarBlank size={14} weight="bold" /></span> Upcoming class
+                      </p>
+                      <CourseTrackBadge skillPair={scheduleSkillPair} />
+                    </div>
+                    <strong>{nextSession.title || nextSession.courseName}</strong>
+                    <p>
+                      {formatDateTime(nextSession.startsAt)}
+                      {nextSession.teacherName ? ` · ${nextSession.teacherName}` : ""}
+                    </p>
+                    <Link href="/student/schedule">
+                      Mở thời khóa biểu →
+                    </Link>
+                  </article>
+                ) : (
+                  <article className={styles.sessionCard}>
+                    <div className={styles.focusTop}>
+                      <p className={styles.sessionTop}>
+                        <span><CalendarBlank size={14} weight="bold" /></span> Class schedule
+                      </p>
+                      <CourseTrackBadge skillPair={scheduleSkillPair} />
+                    </div>
+                    <strong>Chưa có buổi học sắp tới</strong>
+                    <p>Lịch mới sẽ tự động xuất hiện sau khi bạn được xếp lớp.</p>
+                    <Link href="/student/schedule">
+                      Xem thời khóa biểu →
+                    </Link>
+                  </article>
+                )}
+              </aside>
+            </div>
+          </section>
+        </div>
+
+        {/* RIGHT / SIDEBAR COLUMN */}
+        <aside className={styles.sidebarColumn} aria-label="Thông tin mục tiêu và học liệu">
+          {/* Widget 1: Mục tiêu của bạn - REAL PROGRESS */}
+          <div className={styles.goalWidget}>
+            <div className={styles.goalHeader}>
+              <div className={styles.goalHeaderTitle}>
+                <Target size={16} weight="bold" />
+                <span>Mục tiêu của bạn</span>
+              </div>
+              <button
+                type="button"
+                className={styles.goalPillBtn}
+                onClick={() => setShowGoalModal((prev) => !prev)}
+              >
+                {showGoalModal ? "Đóng" : "Xem chi tiết"}
+              </button>
+            </div>
+
+            {showGoalModal && (
+              <div style={{ marginBottom: "14px", padding: "10px", background: "#FAF7F9", borderRadius: "10px" }}>
+                <StudentTargetBandControl compact id="sidebar-target-control" />
               </div>
             )}
+
+            <div className={styles.goalContent}>
+              <div className={styles.gaugeWrapper}>
+                <svg className={styles.gaugeSvg} viewBox="0 0 70 70">
+                  <circle
+                    cx="35"
+                    cy="35"
+                    r="28"
+                    stroke="#F8EFF2"
+                    strokeWidth="6"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="35"
+                    cy="35"
+                    r="28"
+                    stroke="#BD4F70"
+                    strokeWidth="6"
+                    strokeDasharray={2 * Math.PI * 28}
+                    strokeDashoffset={(2 * Math.PI * 28) * (1 - courseProgress / 100)}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <div className={styles.gaugeCenter}>
+                  <span className={styles.gaugePercent}>{courseProgress}%</span>
+                  <span className={styles.gaugeLabel}>Hoàn thành</span>
+                </div>
+              </div>
+
+              <div className={styles.goalTextGroup}>
+                <p className={styles.goalTextTitle}>
+                  {targetBand != null ? `Đạt band ${formatBand(targetBand)} IELTS` : "Chưa đặt band mục tiêu"}
+                </p>
+                <p className={styles.goalTextDesc}>
+                  {courseProgress > 0 ? `Còn ${100 - courseProgress}% để chạm đích` : "Bắt đầu học để ghi nhận tiến độ"}
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.goalProgressBar}>
+              <div className={styles.goalProgressFill} style={{ width: `${courseProgress}%` }} />
+            </div>
           </div>
 
-          <aside className={styles.focusColumn} aria-label="Lịch học và gợi ý">
-            {nextSession ? (
-              <article className={styles.sessionCard}>
-                <div className={styles.focusTop}><p className={styles.sessionTop}><span><CalendarBlank size={17} weight="duotone" /></span> Upcoming class</p><CourseTrackBadge skillPair={scheduleSkillPair} /></div>
-                <strong>{nextSession.title || nextSession.courseName}</strong>
-                <p>{formatDateTime(nextSession.startsAt)}{nextSession.teacherName ? ` · ${nextSession.teacherName}` : ""}</p>
-                <Link href="/student/schedule" className={styles.textLink}>Mở thời khóa biểu<ArrowRight size={13} /></Link>
-              </article>
-            ) : (
-              <article className={styles.sessionCard}>
-                <div className={styles.focusTop}><p className={styles.sessionTop}><span><CalendarBlank size={17} weight="duotone" /></span> Class schedule</p><CourseTrackBadge skillPair={scheduleSkillPair} /></div>
-                <strong>Chưa có buổi học sắp tới</strong>
-                <p>Lịch mới sẽ tự động xuất hiện sau khi bạn được xếp lớp.</p>
-                <Link href="/student/schedule" className={styles.textLink}>Xem thời khóa biểu<ArrowRight size={13} /></Link>
-              </article>
-            )}
-            <article className={styles.focusCard}>
-              <div className={styles.focusTop}><small>{recommendation ? "Recommended path" : "Self practice"}</small><CourseTrackBadge skillPair={recommendation?.skillPair} inverted /></div>
-              <strong>{recommendation?.name ?? "Giữ nhịp bằng một bài Reading ngắn"}</strong>
-              <p>{recommendation?.reason ?? "Chọn bài phù hợp thời gian bạn có và tiếp tục tích lũy dữ liệu học tập."}</p>
-              <Link href={recommendation ? "/student/courses" : "/student/practice"} className={styles.textLink}>{recommendation ? "Xem khóa học" : "Chọn bài luyện"}<ArrowRight size={13} /></Link>
-            </article>
-          </aside>
-        </div>
-      </section>
-
-      <section aria-labelledby="skills-title">
-        <div className={styles.sectionHead}>
-          <div><h2 id="skills-title">Skill practice hub</h2><p>Đi thẳng vào kỹ năng bạn muốn cải thiện.</p></div>
-          <Link href="/student/practice" className={styles.textLink}>Mở phòng luyện<ArrowRight size={14} /></Link>
-        </div>
-        <div className={styles.skills}>
-          {skillCards.map((skill) => {
-            const Icon = skill.icon;
-            return (
-              <Link key={skill.name} href={skill.href} className={styles.skill} aria-label={`${skill.name}: ${skill.available ? "sẵn sàng" : "đang phát triển"}`}>
-                <span className={styles.skillIcon}><Icon size={20} weight="duotone" /></span>
-                <span className={styles.skillLabel}><strong>{skill.name}</strong><span>{skill.available ? "Sẵn sàng" : "Sắp có"}</span></span>
-                <p>{skill.description}</p>
+          {/* Widget 2: Kỳ thi IELTS gần nhất - REAL EXAM DATE */}
+          <div className={styles.examWidget}>
+            <div className={styles.examHeader}>
+              <div className={styles.examHeaderLeft}>
+                <div className={styles.examIconBox}>
+                  <CalendarBlank size={17} weight="bold" />
+                </div>
+                <div className={styles.examInfoTexts}>
+                  <span className={styles.examHeaderTitle}>Kỳ thi IELTS gần nhất</span>
+                  <span className={styles.examDateText}>
+                    {examDateObject
+                      ? `Tháng ${examDateObject.getMonth() + 1}, ${examDateObject.getFullYear()}`
+                      : "Chưa có dự định"}
+                  </span>
+                  <span className={styles.examDaysText}>
+                    {daysRemaining != null ? `Còn ${daysRemaining} ngày` : "Cập nhật ngày thi"}
+                  </span>
+                </div>
+              </div>
+              <Link href="/student/roadmap" className={styles.examPlanBtn}>
+                Xem kế hoạch →
               </Link>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className={styles.learningGrid} aria-label="Khóa học và mục tiêu">
-        <article className={styles.courseCard}>
-          <p className={styles.cardKicker}>My learning journey</p>
-          {activeEnrollment ? (
-            <>
-              <h3>{activeEnrollment.courseName}</h3>
-              <p className={styles.courseMeta}><span>{activeEnrollment.courseCode}</span><span>{skillPairLabel(activeEnrollment.skillPair)}</span><span>{activeEnrollment.primaryTeacherName || "Chưa phân công giáo viên"}</span></p>
-              <div className={styles.progressLabel}><span>Tiến độ buổi học</span><strong>{activeEnrollment.completedSessions}/{activeEnrollment.totalSessions || 0}</strong></div>
-              <div className={styles.progressTrack} role="progressbar" aria-label="Tiến độ khóa học" aria-valuemin={0} aria-valuemax={100} aria-valuenow={courseProgress}><span style={{ width: `${courseProgress}%` }} /></div>
-              <div className={styles.courseFooter}><span className={styles.courseMeta}>{activeEnrollment.nextSessionAt ? `Tiếp theo: ${formatDateTime(activeEnrollment.nextSessionAt)}` : "Chưa có lịch tiếp theo"}</span><Link href="/student/courses" className={styles.textLink}>Chi tiết khóa học<ArrowRight size={13} /></Link></div>
-            </>
-          ) : (
-            <>
-              <h3>Bạn chưa ghi danh khóa học</h3>
-              <p className={styles.courseMeta}>Khóa phù hợp sẽ được lấy trực tiếp từ dữ liệu tuyển sinh và mục tiêu band của bạn.</p>
-              <div className={styles.courseFooter}><Link href="/student/courses" className={styles.textLink}>Khám phá khóa học<ArrowRight size={13} /></Link></div>
-            </>
-          )}
-        </article>
-
-        <article id="learning-goal" className={styles.targetCard} tabIndex={-1}>
-          <div className={styles.targetHeadline}>
-            <div><p className={styles.cardKicker}>Your IELTS target</p><h3>Band IELTS mong muốn</h3></div>
-            <strong className={styles.band}>{data.profile.targetBand == null ? "—" : formatBand(data.profile.targetBand)}</strong>
+            </div>
+            <div className={styles.examSparkles}>
+              <Sparkle size={16} weight="fill" />
+            </div>
           </div>
-          <StudentTargetBandControl compact />
-          <Link href="/student/roadmap" className={styles.textLink}>Xem lộ trình chi tiết<ArrowRight size={13} /></Link>
-        </article>
-      </section>
 
-      {data.recentAttempts.length > 0 && (
-        <section className={styles.activityPanel} aria-labelledby="activity-title">
-          <div className={styles.panelHeader}><h3 id="activity-title"><Clock size={18} /> Recent activity</h3><Link href="/student/history" className={styles.textLink}>Xem lịch sử<ArrowRight size={13} /></Link></div>
-          <div className={styles.activityList}>
-            {data.recentAttempts.slice(0, 3).map((attempt) => (
-              <Link key={attempt.attemptId} href={attempt.submittedAt ? `/student/reading/attempts/${attempt.attemptId}/result` : `/student/reading/attempts/${attempt.attemptId}`} className={styles.activity}>
-                <small>{attempt.submittedAt ? "Đã hoàn thành" : "Đang làm dở"}</small>
-                <strong>{attempt.title}</strong>
-                <span>{formatDateTime(attempt.submittedAt ?? attempt.startedAt)}{attempt.submittedAt && attempt.score != null ? ` · ${Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%` : ""}</span>
+          {/* Widget 3: Roadmap Banner Promo - Vector Crisp & 100% Matching Design */}
+          <Link
+            href="/student/roadmap"
+            className={styles.roadmapPromoWidget}
+            aria-label="Cùng nhau chinh phục Band 7.0! - Xem lộ trình học tập"
+          >
+            {/* Left Content */}
+            <div className={styles.roadmapPromoContent}>
+              <div className={styles.promoStarsRow}>
+                {/* 3D Puffy Star SVG */}
+                <svg className={styles.promoStarPuffy} viewBox="0 0 24 24" fill="none">
+                  <defs>
+                    <linearGradient id="puffyStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#E594AB" />
+                      <stop offset="50%" stopColor="#C95B7E" />
+                      <stop offset="100%" stopColor="#9C304F" />
+                    </linearGradient>
+                    <filter id="puffyStarShadow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" floodColor="#BD4F70" floodOpacity="0.32" />
+                    </filter>
+                  </defs>
+                  {/* Rounded puffy 5-point star */}
+                  <path
+                    d="M 12 2 C 12.8 2, 13.5 6, 14.8 7.8 C 16.5 7.8, 20.5 8.2, 21.2 9 C 21.8 9.8, 18.5 12.8, 17.5 14.2 C 18 16, 19.5 20, 18.8 20.8 C 18 21.5, 14.5 19, 12 18 C 9.5 19, 6 21.5, 5.2 20.8 C 4.5 20, 6 16, 6.5 14.2 C 5.5 12.8, 2.2 9.8, 2.8 9 C 3.5 8.2, 7.5 7.8, 9.2 7.8 C 10.5 6, 11.2 2, 12 2 Z"
+                    fill="url(#puffyStarGrad)"
+                    filter="url(#puffyStarShadow)"
+                  />
+                  <ellipse cx="12" cy="7" rx="3.5" ry="2" fill="#FFFFFF" opacity="0.35" />
+                </svg>
+
+                {/* Outlined Star */}
+                <svg className={styles.promoStarOutline} viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M 12 2.5 L 14.7 8.5 L 21.5 9.1 L 16.4 13.7 L 17.9 20.4 L 12 16.8 L 6.1 20.4 L 7.6 13.7 L 2.5 9.1 L 9.3 8.5 Z"
+                    stroke="#BD4F70"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+
+              <div className={styles.promoTextGroup}>
+                <span className={styles.promoTitleLine1}>Cùng nhau chinh phục</span>
+                <span className={styles.promoTitleLine2}>Band 7.0!</span>
+                <p className={styles.promoSubtitle}>
+                  Mỗi ngày học một chút,<br />bạn sẽ thấy sự thay đổi lớn!
+                </p>
+              </div>
+
+              <div className={styles.promoActionBtn}>
+                <span>Xem lộ trình học tập</span>
+                <ArrowRight size={12} weight="bold" />
+              </div>
+            </div>
+
+            {/* Design Mountain Artwork - Matching Image 4 Directly */}
+            <div className={styles.promoMountainWrap} aria-hidden="true">
+              <img
+                src="/images/achievement-mountain-design.png"
+                alt=""
+                className={styles.promoMountainImg}
+              />
+            </div>
+          </Link>
+
+          {/* Widget 4: Featured Materials */}
+          <div className={styles.materialsWidget}>
+            <div className={styles.materialsHeader}>
+              <div className={styles.materialsHeaderTitle}>
+                <div className={styles.materialHeaderIcon}>
+                  <BookOpenText size={15} weight="bold" />
+                </div>
+                <span>Học liệu nổi bật</span>
+              </div>
+              <Link href="/student/practice" className={styles.materialsHeaderLink}>
+                Xem tất cả →
               </Link>
-            ))}
+            </div>
+
+            <div className={styles.materialsList}>
+              <Link href="/student/practice" className={styles.materialItem}>
+                <div className={styles.materialItemLeft}>
+                  <div className={styles.materialIconBox}>
+                    <FileText size={16} weight="bold" />
+                  </div>
+                  <div className={styles.materialInfo}>
+                    <span className={styles.materialTitle}>Bộ từ vựng chủ đề Education</span>
+                    <span className={styles.materialMeta}>PDF · 25 trang</span>
+                  </div>
+                </div>
+                <ArrowCaret size={13} className={styles.materialArrow} />
+              </Link>
+
+              <Link href="/student/reading" className={styles.materialItem}>
+                <div className={styles.materialItemLeft}>
+                  <div className={styles.materialIconBox}>
+                    <Video size={16} weight="bold" />
+                  </div>
+                  <div className={styles.materialInfo}>
+                    <span className={styles.materialTitle}>Chiến lược làm bài Reading</span>
+                    <span className={styles.materialMeta}>Video · 12 phút</span>
+                  </div>
+                </div>
+                <ArrowCaret size={13} className={styles.materialArrow} />
+              </Link>
+
+              <Link href="/student/practice" className={styles.materialItem}>
+                <div className={styles.materialItemLeft}>
+                  <div className={styles.materialIconBox}>
+                    <FileText size={16} weight="bold" />
+                  </div>
+                  <div className={styles.materialInfo}>
+                    <span className={styles.materialTitle}>Mẫu bài Writing Task 2</span>
+                    <span className={styles.materialMeta}>PDF · 18 trang</span>
+                  </div>
+                </div>
+                <ArrowCaret size={13} className={styles.materialArrow} />
+              </Link>
+            </div>
           </div>
-        </section>
-      )}
+
+          {/* Widget 5: Continue Lesson - REAL ASSIGNMENT TITLE */}
+          <Link href={pendingAssignments.length > 0 ? "/student/reading" : "/student/practice"} className={styles.continueLessonWidget}>
+            <div className={styles.continueLessonLeft}>
+              <div className={styles.continueBadge}>
+                {pendingAssignments.length > 0 ? "Bài 1" : "IELTS"}
+              </div>
+              <span className={styles.continueTitle}>
+                {pendingAssignments.length > 0 ? `Tiếp tục: ${pendingAssignments[0].title}` : "Luyện tập kỹ năng mới"}
+              </span>
+            </div>
+            <ArrowCaret size={14} className={styles.materialArrow} />
+          </Link>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function CourseTrackBadge({ skillPair, inverted = false }: { skillPair?: "LISTENING_READING" | "SPEAKING_WRITING"; inverted?: boolean }) {
+function CourseTrackBadge({
+  skillPair,
+  inverted = false,
+}: {
+  skillPair?: "LISTENING_READING" | "SPEAKING_WRITING";
+  inverted?: boolean;
+}) {
   if (!skillPair) return null;
   const listeningReading = skillPair === "LISTENING_READING";
-  return <span className={styles.trackBadge} data-inverted={inverted || undefined} title={listeningReading ? "Khóa Listening & Reading" : "Khóa Speaking & Writing"}><b>{listeningReading ? "LR" : "SW"}</b><span>{listeningReading ? "Listening & Reading" : "Speaking & Writing"}</span></span>;
+  return (
+    <span
+      className={styles.trackBadge}
+      data-inverted={inverted || undefined}
+      title={listeningReading ? "Khóa Listening & Reading" : "Khóa Speaking & Writing"}
+    >
+      <b>{listeningReading ? "LR" : "SW"}</b>
+      <span>{listeningReading ? "Listening & Reading" : "Speaking & Writing"}</span>
+    </span>
+  );
 }
 
 function DashboardSkeleton() {
-  return <div className={styles.overview} aria-busy="true" aria-label="Đang tải dữ liệu học tập"><div className={styles.skeleton} /><div className={styles.skeleton} /></div>;
+  return (
+    <div className={styles.overview} aria-busy="true" aria-label="Đang tải dữ liệu học tập">
+      <div className={styles.skeleton} />
+      <div className={styles.skeleton} />
+    </div>
+  );
 }
 
 function DashboardError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className={styles.errorState}>
-      <div><WarningCircle size={40} className="mx-auto text-[#934c5e]" weight="duotone" /><h2>Không tải được góc học tập</h2><p>{message}</p><button type="button" onClick={onRetry} className={styles.retry}><ArrowClockwise size={17} />Thử lại</button></div>
+      <div>
+        <WarningCircle size={36} className="mx-auto text-[#BD4F70]" weight="duotone" />
+        <h2>Không tải được góc học tập</h2>
+        <p>{message}</p>
+        <button type="button" onClick={onRetry} className={styles.retry}>
+          <ArrowClockwise size={15} /> Thử lại
+        </button>
+      </div>
     </div>
   );
 }

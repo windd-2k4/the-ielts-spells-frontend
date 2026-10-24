@@ -68,7 +68,7 @@ export default function PlacementTestLandingPage() {
       {/* Sub Navigation */}
       <nav className={styles.subnav} aria-label="Menu kiểm tra đầu vào">
         <span className={styles.subnavItem}>
-          <Sparkle size={18} weight="fill" />
+          <Sparkle size={17} weight="fill" />
           Test đầu vào 4 kỹ năng FREE
         </span>
       </nav>
@@ -83,13 +83,16 @@ export default function PlacementTestLandingPage() {
 
             <div className={styles.cardHeader}>
               <div>
-                <span className="text-xs font-bold text-[#FF6B00] uppercase tracking-wider">
+                <span className={styles.brandEyebrow}>
                   The IELTS Spells Academic
                 </span>
-                <h2 className={styles.candidateName}>Báo cáo kết quả bài test</h2>
-                <h3 className="text-base font-bold text-gray-700 m-0">Đậu Lớp Trưởng</h3>
+                <h2 className={styles.reportHeading}>Báo cáo kết quả bài test</h2>
+                <div className={styles.authorBadgeRow}>
+                  <span className={styles.authorBadge}>Ban Học Thuật The IELTS Spells</span>
+                  <span className={styles.verifiedDot}>&bull; Đã chứng thực</span>
+                </div>
                 <p className={styles.cardDesc}>
-                  Dưới đây là bản phân tích trình độ dựa trên bài test đầu vào - bao gồm điểm ước lượng, đánh giá khả năng đạt target, phân tích lỗi chi tiết, và chiến lược ôn thi được thiết kế riêng cho bạn.
+                  Bản phân tích năng lực chuẩn hóa 4 kỹ năng IELTS Academic dựa trên kết quả thi thực tế - bao gồm điểm ước lượng, đánh giá khả năng đạt target, phân tích lỗi chi tiết, và chiến lược ôn thi được thiết kế riêng cho bạn.
                 </p>
               </div>
             </div>
@@ -124,7 +127,7 @@ export default function PlacementTestLandingPage() {
               <div className={styles.scoreBox}>
                 <div className={styles.scoreLabel}>Target band</div>
                 <div className={styles.scoreTargetBig}>7.5</div>
-                <div className="text-xs text-gray-500 mt-2 flex flex-col gap-1">
+                <div className={styles.targetMeta}>
                   <span>Số ngày còn lại: <strong>180 ngày</strong></span>
                   <span>Thời gian học: <strong>10 giờ/tuần</strong></span>
                 </div>
@@ -132,13 +135,15 @@ export default function PlacementTestLandingPage() {
             </div>
 
             {/* Reading preview snippet */}
-            <div className="border border-gray-200 rounded-xl p-3 bg-white text-xs text-gray-600">
-              <div className="flex items-center gap-2 font-bold text-gray-800 mb-2">
-                <BookOpenText size={16} weight="fill" className="text-indigo-600" />
-                <span>Reading</span>
-                <span className="bg-emerald-500 text-white px-2 py-0.5 rounded-full text-[10px]">7.5</span>
+            <div className={styles.previewSnippet}>
+              <div className={styles.snippetHeader}>
+                <div className={styles.snippetTitle}>
+                  <BookOpenText size={16} weight="duotone" className="text-[#894C5B]" />
+                  <span>Reading</span>
+                </div>
+                <span className={styles.snippetBadge}>Band 7.5</span>
               </div>
-              <p className="m-0 text-gray-500 line-clamp-2">
+              <p className={styles.snippetText}>
                 Bạn đã làm rất tốt phần Scanning và Skimming, tuy nhiên vẫn cần lưu ý nhận diện paraphrase ở các dạng bài khó như Matching Headings và Distractor Identification...
               </p>
             </div>
@@ -172,18 +177,18 @@ export default function PlacementTestLandingPage() {
             </div>
 
             <div className={styles.stepCard}>
-              <div className={styles.stepNumber}>2</div>
+              <div className={`${styles.stepNumber} ${styles.stepNumberAlt}`}>2</div>
               <div>
                 <h4 className={styles.stepTitle}>Làm bài mocktest (3h)</h4>
                 <p className={styles.stepText}>
-                  Thi thử 4 kỹ năng y như thi thật. Nhận báo cáo chấm chữa chi tiết từng dạng bài với AI.
+                  Thi thử 4 kỹ năng y như thi thật. Nhận báo cáo chấm chữa chi tiết từng dạng bài với Hệ thống The IELTS Spells.
                 </p>
               </div>
             </div>
           </div>
 
           <div className={styles.benefitsList}>
-            <p className="text-sm font-bold text-gray-800 m-0">Qua đó bạn:</p>
+            <p className={styles.benefitsTitle}>Qua đó bạn:</p>
             <div className={styles.benefitItem}>
               <span className={styles.checkDot} />
               <span>Biết chính xác năng lực hiện tại chi tiết ở từng kĩ năng</span>
@@ -202,7 +207,7 @@ export default function PlacementTestLandingPage() {
             <button type="button" className={styles.ctaBtn} onClick={handleStartClick}>
               <span>
                 {placement?.status === "IN_PROGRESS"
-                  ? "Tiếp tục làm bài Mocktest"
+                  ? "Tiếp tục bài Mocktest"
                   : placement?.status === "COMPLETED"
                   ? "Xem kết quả bài test"
                   : "Bắt đầu ngay"}

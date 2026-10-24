@@ -35,7 +35,7 @@ export function PlacementTestBanner() {
 
   if (loading) return null;
 
-  // If student has already completed the placement test, hide the banner as requested in Ảnh 1
+  // If student has already completed the placement test, hide the banner
   if (placement && placement.status === "COMPLETED") {
     return null;
   }
@@ -46,15 +46,15 @@ export function PlacementTestBanner() {
     <aside className={styles.bannerCard} aria-label="Gợi ý làm bài test đầu vào">
       <div className={styles.leftGroup}>
         <div className={styles.mascotCircle} aria-hidden="true">
-          🌱
+          <Sparkle size={24} weight="fill" />
         </div>
         <div className={styles.textContent}>
           <div className={styles.badgeTitleRow}>
-            <span className={styles.highlightPill}>Phá đảo tất cả</span>
-            <h3 className={styles.title}>dạng đề IELTS cùng The IELTS Spells!</h3>
+            <span className={styles.highlightPill}>Kiểm tra 4 kỹ năng FREE</span>
+            <h3 className={styles.title}>Đo lường năng lực chuẩn IELTS cùng The IELTS Spells!</h3>
           </div>
           <p className={styles.subtitle}>
-            Chốt đầu vào, mục tiêu, thời gian và nhận Practice Plan được &ldquo;may đo&rdquo; miễn phí cho bạn!
+            Chốt band hiện tại, mục tiêu và nhận kế hoạch luyện tập được thiết kế riêng cho bạn hoàn toàn miễn phí.
           </p>
         </div>
       </div>
@@ -63,7 +63,7 @@ export function PlacementTestBanner() {
         href={isContinue ? "/student/placement-test/mocktest" : "/student/placement-test"}
         className={styles.ctaButton}
       >
-        <span>{isContinue ? "Tiếp tục bài test" : "Tạo Practice Plan"}</span>
+        <span>{isContinue ? "Tiếp tục bài test" : "Làm test đầu vào ngay"}</span>
         <ArrowRight size={16} weight="bold" />
       </Link>
     </aside>

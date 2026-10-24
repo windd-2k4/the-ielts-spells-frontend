@@ -51,7 +51,7 @@ export default function PlacementResultPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <CircleNotch size={32} className="animate-spin text-[#FF6B00]" />
+        <CircleNotch size={32} className="animate-spin text-[#894C5B]" />
       </div>
     );
   }
