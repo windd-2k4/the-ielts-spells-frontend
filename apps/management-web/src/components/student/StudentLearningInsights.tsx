@@ -6,21 +6,29 @@ import {
   ArrowUpRight,
   BookOpenText,
   CalendarBlank,
+  CaretDown,
   CaretLeft,
   CaretRight,
+  CaretUp,
+  ChartBar,
   CheckCircle,
   CircleNotch,
   Clock,
   ClockCounterClockwise,
+  Columns,
+  Copy,
   DownloadSimple,
   Exam,
   Eye,
   Headphones,
   Info,
-  ListChecks,
+  Lightbulb,
+  ListBullets,
   MagnifyingGlass,
   MicrophoneStage,
+  MinusCircle,
   PenNib,
+  Table,
   Timer,
   WarningCircle,
   X,
@@ -376,6 +384,18 @@ function MistakesSection({ mistakes, attempts, onFilterSkill, onShowInProgress }
 }
 
 type QuestionFilter = "ALL" | "CORRECT" | "INCORRECT" | "UNANSWERED";
+type ViewMode = "WORKSPACE" | "BREAKDOWN" | "FULL_LIST";
+
+type SectionInfo = {
+  sectionNo: number;
+  title: string;
+  contentHtml: string;
+  questions: StudentAttemptDetail["questions"];
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  total: number;
+};
 
 function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; item: LearningAttempt; onClose: () => void }) {
   const [detail, setDetail] = useState<StudentAttemptDetail | null>(null);
@@ -383,6 +403,10 @@ function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; 
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<QuestionFilter>("ALL");
   const [selectedQuestionKey, setSelectedQuestionKey] = useState("");
+  const [activeSectionTitle, setActiveSectionTitle] = useState<string>("ALL");
+  const [viewMode, setViewMode] = useState<ViewMode>("WORKSPACE");
+  const [showOverview, setShowOverview] = useState(true);
+  const [passageFontSize, setPassageFontSize] = useState<number>(15);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -404,207 +428,1191 @@ function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; 
     return () => { active = false; };
   }, [item.id, reloadKey, studentId]);
 
+  const questions = detail?.questions ?? [];
+  const skill = detail?.skill ?? item.skill;
+  const isListening = skill === "LISTENING";
+  const isWriting = skill === "WRITING";
+  const sectionPrefix = isListening ? "Part" : "Passage";
+
+  const typeBreakdown = useMemo(() => {
+    const map = new Map<string, { type: string; total: number; correct: number; incorrect: number; unanswered: number }>();
+    for (const q of questions) {
+      const type = q.questionType || "GENERAL";
+      const cur = map.get(type) || { type, total: 0, correct: 0, incorrect: 0, unanswered: 0 };
+      cur.total += 1;
+      if (q.correct === true) cur.correct += 1;
+      else if (q.correct === false) cur.incorrect += 1;
+      else cur.unanswered += 1;
+      map.set(type, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [questions]);
+
+  // Build sectionsList mapping each section to its questions & contentHtml
+  const sectionsList = useMemo<SectionInfo[]>(() => {
+    if (!questions.length) return [];
+
+    if (detail?.sections && detail.sections.length > 0) {
+      return detail.sections.map((sec, idx) => {
+        const secNo = sec.sectionNo ?? idx + 1;
+        const secQuestions = questions.filter(q => {
+          if (q.sectionTitle && sec.title && (q.sectionTitle.toLowerCase().trim() === sec.title.toLowerCase().trim() || sec.title.toLowerCase().includes(q.sectionTitle.toLowerCase()))) {
+            return true;
+          }
+          if (isListening) {
+            if (secNo === 1) return q.questionNo <= 10;
+            if (secNo === 2) return q.questionNo > 10 && q.questionNo <= 20;
+            if (secNo === 3) return q.questionNo > 20 && q.questionNo <= 30;
+            return q.questionNo > 30;
+          }
+          // Reading
+          if (secNo === 1) return q.questionNo <= 13;
+          if (secNo === 2) return q.questionNo > 13 && q.questionNo <= 26;
+          return q.questionNo > 26;
+        });
+
+        const correctCount = secQuestions.filter(q => q.correct === true).length;
+        const incorrectCount = secQuestions.filter(q => q.correct === false).length;
+        const unansweredCount = secQuestions.filter(q => !q.studentAnswers || q.studentAnswers.length === 0).length;
+
+        return {
+          sectionNo: secNo,
+          title: sec.title || `${sectionPrefix} ${secNo}`,
+          contentHtml: sec.contentHtml || "",
+          questions: secQuestions,
+          correctCount,
+          incorrectCount,
+          unansweredCount,
+          total: secQuestions.length,
+        };
+      });
+    }
+
+    // Fallback if detail.sections is not available
+    const fallback = extractSections(questions, skill);
+    return fallback.map((fb, idx) => {
+      const secQuestions = questions.filter(q => fb.questionKeys.includes(q.questionKey));
+      return {
+        sectionNo: idx + 1,
+        title: fb.title,
+        contentHtml: "",
+        questions: secQuestions,
+        correctCount: fb.correctCount,
+        incorrectCount: fb.incorrectCount,
+        unansweredCount: fb.unansweredCount,
+        total: fb.total,
+      };
+    });
+  }, [detail?.sections, questions, skill, isListening, sectionPrefix]);
+
+  const selectedQuestion = useMemo(() => {
+    return questions.find(q => q.questionKey === selectedQuestionKey)
+      ?? questions[0]
+      ?? null;
+  }, [questions, selectedQuestionKey]);
+
+  // Handle escape to close & arrow keys navigation
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+
+      if (viewMode === "WORKSPACE" && questions.length > 0) {
+        const curIndex = questions.findIndex(q => q.questionKey === selectedQuestionKey);
+        if (event.key === "ArrowLeft" && curIndex > 0) {
+          event.preventDefault();
+          const prevKey = questions[curIndex - 1].questionKey;
+          setSelectedQuestionKey(prevKey);
+          const matched = sectionsList.find(s => s.questions.some(q => q.questionKey === prevKey));
+          if (matched && activeSectionTitle !== "ALL") {
+            setActiveSectionTitle(matched.title);
+          }
+        } else if (event.key === "ArrowRight" && curIndex >= 0 && curIndex < questions.length - 1) {
+          event.preventDefault();
+          const nextKey = questions[curIndex + 1].questionKey;
+          setSelectedQuestionKey(nextKey);
+          const matched = sectionsList.find(s => s.questions.some(q => q.questionKey === nextKey));
+          if (matched && activeSectionTitle !== "ALL") {
+            setActiveSectionTitle(matched.title);
+          }
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [activeSectionTitle, onClose, questions, sectionsList, selectedQuestionKey, viewMode]);
 
-  const questions = detail?.questions ?? [];
-  const filteredQuestions = questions.filter(question => matchesQuestionFilter(question, filter));
-  const selectedQuestion = filteredQuestions.find(question => question.questionKey === selectedQuestionKey) ?? filteredQuestions[0] ?? null;
-  const selectedIndex = selectedQuestion ? filteredQuestions.findIndex(question => question.questionKey === selectedQuestion.questionKey) : -1;
-  const answeredCount = detail ? detail.correctCount + detail.incorrectCount : 0;
-  const accuracy = answeredCount ? Math.round(detail!.correctCount / answeredCount * 100) : null;
+  const currentSection = useMemo(() => {
+    if (activeSectionTitle !== "ALL") {
+      const found = sectionsList.find(s => s.title === activeSectionTitle);
+      if (found) return found;
+    }
+    if (selectedQuestion) {
+      const found = sectionsList.find(s => s.questions.some(q => q.questionKey === selectedQuestion.questionKey));
+      if (found) return found;
+    }
+    return sectionsList[0];
+  }, [activeSectionTitle, sectionsList, selectedQuestion]);
+
+  const totalQuestions = questions.length || Math.max(detail?.maxScore ?? 0, 1);
+  const correctPct = detail ? Math.round((detail.correctCount / totalQuestions) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#2B2228]/45 p-0 backdrop-blur-[2px] sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="attempt-review-title" className="mx-auto flex h-[100dvh] w-full max-w-[1480px] flex-col overflow-hidden bg-[#FDFBFC] shadow-2xl sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border sm:border-[#E6DDE1]">
-        <header className="shrink-0 border-b border-[#E6DDE1] bg-white px-4 py-3 sm:px-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8B3F56]">Chi tiết lượt làm</span>
-                <AttemptStatus value={detail?.status ?? item.status} />
-                <span className="rounded-full bg-[#F3E6EB] px-2.5 py-1 text-xs font-semibold text-[#8B3F56]">{skillLabel[detail?.skill ?? item.skill] ?? detail?.skill ?? item.skill}</span>
-                <span className="text-xs text-[#6B5E65]">Lần {detail?.attemptNo ?? item.attemptNo}</span>
+    <div className="fixed inset-0 z-50 bg-[#2B2228]/55 p-0 backdrop-blur-[3px] sm:p-2 md:p-3" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="attempt-review-title" className="mx-auto flex h-[100dvh] w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-2xl sm:h-[calc(100dvh-1rem)] sm:rounded-2xl sm:border sm:border-[#E6DDE1]">
+
+        {/* Top Header Toolbar */}
+        <header className="shrink-0 border-b border-[#E6DDE1] bg-white px-3 sm:px-5 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+
+            {/* Left: Icon, Eyebrow, Status, Skill, Attempt, Title */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className={`grid size-9 shrink-0 place-items-center rounded-xl text-white shadow-2xs ${
+                item.skill === "LISTENING" ? "bg-[#8F4458]" : item.skill === "READING" ? "bg-[#2563EB]" : item.skill === "WRITING" ? "bg-[#D97706]" : "bg-[#059669]"
+              }`}>
+                {skillMeta(item.skill).icon}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[#8B3F56]">Chi tiết bài thi IELTS</span>
+                  <AttemptStatus value={detail?.status ?? item.status} />
+                  <span className="rounded-full bg-[#F3E6EB] px-2 py-0.5 text-[11px] font-bold text-[#8B3F56]">
+                    {skillLabel[detail?.skill ?? item.skill] ?? detail?.skill ?? item.skill}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                    Lần {detail?.attemptNo ?? item.attemptNo}
+                  </span>
+                </div>
+                <h1 id="attempt-review-title" className="truncate text-sm sm:text-base font-black tracking-tight text-[#2B2228] mt-0.5 max-w-[280px] sm:max-w-md lg:max-xl">
+                  {detail?.title ?? item.title}
+                </h1>
               </div>
-              <h2 id="attempt-review-title" className="mt-1 truncate text-lg font-semibold tracking-[-0.02em] sm:text-xl">{detail?.title ?? item.title}</h2>
-              <p className="mt-0.5 text-xs text-[#6B5E65]">Đáp án, kết quả và thời lượng lấy trực tiếp từ lượt làm đã lưu.</p>
             </div>
-            <button type="button" onClick={onClose} autoFocus aria-label="Đóng chi tiết lượt làm" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#E6DDE1] text-[#6B5E65] transition hover:border-[#8B3F56] hover:bg-[#F3E6EB] hover:text-[#8B3F56] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56]">
-              <X size={20} />
-            </button>
+
+            {/* Right: Score Pill, View Mode Toggle & Close Button */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              {detail && (
+                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-black text-emerald-700 tabular-nums shadow-2xs">
+                  {detail.correctCount}/{totalQuestions} câu đúng ({correctPct}%)
+                </span>
+              )}
+
+              <div className="hidden sm:inline-flex items-center rounded-xl border border-[#E6DDE1] bg-[#F7F2F4] p-1 text-xs font-bold" role="tablist">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("WORKSPACE")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition ${
+                    viewMode === "WORKSPACE" ? "bg-white text-[#8B3F56] shadow-2xs font-black" : "text-[#6B5E65] hover:text-[#2B2228]"
+                  }`}
+                  title="Phòng thi chia cột chuẩn IELTS"
+                >
+                  <Columns size={14} weight="bold" />
+                  <span>Phòng thi IELTS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("FULL_LIST")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition ${
+                    viewMode === "FULL_LIST" ? "bg-white text-[#8B3F56] shadow-2xs font-black" : "text-[#6B5E65] hover:text-[#2B2228]"
+                  }`}
+                  title="Xem toàn bộ câu hỏi liên tục"
+                >
+                  <ListBullets size={14} weight="bold" />
+                  <span>Toàn bộ câu hỏi</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Đóng chi tiết bài làm"
+                className="grid size-9 place-items-center rounded-xl border border-[#E6DDE1] text-[#6B5E65] transition hover:border-[#8B3F56] hover:bg-[#F3E6EB] hover:text-[#8B3F56] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56]"
+                title="Đóng (ESC)"
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+
           </div>
         </header>
 
-        {loading ? <AttemptReviewLoading /> : error ? (
+        {loading ? (
+          <AttemptReviewLoading />
+        ) : error ? (
           <div className="grid flex-1 place-items-center p-6">
             <div className="max-w-md text-center">
-              <WarningCircle className="mx-auto text-[#C0392B]" size={34} weight="duotone" />
-              <h3 className="mt-3 text-base font-semibold">Không tải được chi tiết lượt làm</h3>
+              <WarningCircle className="mx-auto text-[#C0392B]" size={36} weight="duotone" />
+              <h3 className="mt-3 text-base font-bold text-[#2B2228]">Không tải được chi tiết lượt làm</h3>
               <p className="mt-1 text-sm leading-6 text-[#6B5E65]">{error}</p>
-              <button type="button" onClick={() => setReloadKey(value => value + 1)} className="mt-4 rounded-xl bg-[#8B3F56] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6E2F43]">Thử lại</button>
+              <button
+                type="button"
+                onClick={() => setReloadKey(value => value + 1)}
+                className="mt-4 rounded-xl bg-[#8B3F56] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#6E2F43] shadow-xs"
+              >
+                Thử lại
+              </button>
             </div>
           </div>
         ) : detail ? (
-          <>
-            <AttemptReviewSummary detail={detail} accuracy={accuracy} />
-            <div className="grid min-h-0 min-w-0 flex-1 lg:grid-cols-[300px_minmax(0,1fr)]">
-              <aside className="flex min-h-0 min-w-0 flex-col border-b border-[#E6DDE1] bg-white lg:border-b-0 lg:border-r">
-                <div className="border-b border-[#E6DDE1] p-3">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold"><ListChecks size={17} className="text-[#8B3F56]" />Danh sách câu hỏi</h3>
-                  <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[#F7F2F4] p-1" aria-label="Lọc câu hỏi">
-                    {questionFilterOptions(detail).map(option => (
-                      <button key={option.value} type="button" onClick={() => setFilter(option.value)} className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${filter === option.value ? "bg-white text-[#8B3F56] shadow-sm" : "text-[#6B5E65] hover:text-[#2B2228]"}`}>{option.label} ({option.count})</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex max-h-52 gap-2 overflow-x-auto p-3 lg:max-h-none lg:flex-1 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto">
-                  {filteredQuestions.map(question => (
-                    <QuestionNavigationItem key={question.questionKey} question={question} active={question.questionKey === selectedQuestion?.questionKey} onSelect={() => setSelectedQuestionKey(question.questionKey)} />
-                  ))}
-                  {!filteredQuestions.length && <p className="m-auto min-w-56 p-4 text-center text-xs leading-5 text-[#6B5E65]">Không có câu hỏi nào thuộc trạng thái này.</p>}
-                </div>
-              </aside>
+          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
 
-              <main className="min-h-0 min-w-0 overflow-y-auto p-4 sm:p-5 lg:p-6">
-                {selectedQuestion ? (
-                  <QuestionReview detail={detail} question={selectedQuestion} index={selectedIndex} total={filteredQuestions.length} onPrevious={() => setSelectedQuestionKey(filteredQuestions[selectedIndex - 1]?.questionKey ?? selectedQuestion.questionKey)} onNext={() => setSelectedQuestionKey(filteredQuestions[selectedIndex + 1]?.questionKey ?? selectedQuestion.questionKey)} />
-                ) : (
-                  <div className="grid h-full min-h-64 place-items-center rounded-xl border border-dashed border-[#E6DDE1] bg-white p-6 text-center text-sm text-[#6B5E65]">Lượt làm này chưa có dữ liệu câu trả lời để hiển thị.</div>
-                )}
-              </main>
+            {/* =========================================================================
+               PHẦN Ở TRÊN: TỔNG QUAN, SỐ CÂU ĐÚNG SAI, PHÂN TÍCH DẠNG BÀI
+               ========================================================================= */}
+            <div className="shrink-0 border-b border-[#E6DDE1] bg-[#FAF7F8]/50 p-3 sm:p-5 transition-all">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-6 place-items-center rounded-md bg-[#8B3F56]/10 text-[#8B3F56]">
+                    <ChartBar size={15} weight="bold" />
+                  </span>
+                  <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#2B2228]">
+                    Tổng quan kết quả & Phân tích dạng bài
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowOverview(v => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#E6DDE1] bg-white px-2.5 py-1 text-xs font-bold text-[#6B5E65] hover:border-[#8B3F56] hover:text-[#8B3F56] transition shadow-2xs"
+                >
+                  <span>{showOverview ? "Thu gọn tổng quan" : "Mở rộng tổng quan"}</span>
+                  {showOverview ? <CaretUp size={13} weight="bold" /> : <CaretDown size={13} weight="bold" />}
+                </button>
+              </div>
+
+              {showOverview ? (
+                <div className="space-y-4">
+                  {/* 6 Metric Cards: KẾT QUẢ, ĐỘ CHÍNH XÁC, CÂU ĐÚNG, CÂU SAI, BỎ QUA, THỜI LƯỢNG */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+                    {/* KẾT QUẢ */}
+                    <div className="rounded-xl border border-[#E6DDE1] bg-white p-3 shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#6B5E65]">Kết quả</div>
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-[#2B2228] tabular-nums">
+                          {detail.correctCount}/{totalQuestions}
+                        </span>
+                        <span className="text-xs font-semibold text-[#6B5E65]">câu</span>
+                      </div>
+                    </div>
+
+                    {/* ĐỘ CHÍNH XÁC */}
+                    <div className="rounded-xl border border-[#E6DDE1] bg-white p-3 shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#6B5E65]">Độ chính xác</div>
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className={`text-xl sm:text-2xl font-black tabular-nums ${
+                          correctPct >= 70 ? "text-emerald-600" : correctPct >= 50 ? "text-amber-600" : "text-rose-600"
+                        }`}>
+                          {correctPct}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* CÂU ĐÚNG */}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 shadow-2xs">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        <span>Câu đúng</span>
+                        <CheckCircle size={15} weight="fill" className="text-emerald-600" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-emerald-700 tabular-nums">
+                          {detail.correctCount}
+                        </span>
+                        <span className="text-xs font-medium text-emerald-800">câu</span>
+                      </div>
+                    </div>
+
+                    {/* CÂU SAI */}
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 shadow-2xs">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-rose-800">
+                        <span>Câu sai</span>
+                        <XCircle size={15} weight="fill" className="text-rose-600" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-rose-700 tabular-nums">
+                          {detail.incorrectCount}
+                        </span>
+                        <span className="text-xs font-medium text-rose-800">câu</span>
+                      </div>
+                    </div>
+
+                    {/* BỎ QUA / CHƯA TRẢ LỜI */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3 shadow-2xs">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        <span>BỎ QUA</span>
+                        <MinusCircle size={15} weight="fill" className="text-slate-400" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-slate-700 tabular-nums">
+                          {detail.unansweredCount}
+                        </span>
+                        <span className="text-xs font-medium text-slate-600">câu</span>
+                      </div>
+                    </div>
+
+                    {/* THỜI LƯỢNG */}
+                    <div className="rounded-xl border border-[#E6DDE1] bg-white p-3 shadow-2xs">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#6B5E65]">
+                        <span>Thời lượng</span>
+                        <Clock size={15} weight="bold" className="text-[#8B3F56]" />
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-base sm:text-lg font-black text-[#2B2228] tabular-nums block">
+                          {formatDuration(detail.durationSeconds || 0)}
+                        </span>
+                        {detail.allowedDurationSeconds > 0 && (
+                          <span className="text-[10px] text-slate-500 font-medium block truncate">
+                            Giới hạn: {formatDuration(detail.allowedDurationSeconds)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bảng phân tích chi tiết theo từng dạng bài */}
+                  {typeBreakdown.length > 0 && (
+                    <div className="rounded-xl border border-[#E6DDE1] bg-white overflow-hidden shadow-2xs">
+                      <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#FAF7F8] border-b border-[#E6DDE1]">
+                        <div className="flex items-center gap-2">
+                          <Table size={15} weight="bold" className="text-[#8B3F56]" />
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#2B2228]">
+                            Bảng phân tích chi tiết theo dạng câu hỏi
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-bold text-[#6B5E65]">
+                          {typeBreakdown.length} dạng câu hỏi
+                        </span>
+                      </div>
+
+                      <div className="max-h-52 overflow-y-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="sticky top-0 bg-[#F7F2F4] text-[10px] font-bold uppercase tracking-wider text-[#6B5E65] border-b border-[#E6DDE1]">
+                            <tr>
+                              <th scope="col" className="px-4 py-2">Dạng câu hỏi</th>
+                              <th scope="col" className="px-3 py-2 text-center">Tổng câu</th>
+                              <th scope="col" className="px-3 py-2 text-center text-emerald-700 bg-emerald-50">Đúng</th>
+                              <th scope="col" className="px-3 py-2 text-center text-rose-700 bg-rose-50">Sai</th>
+                              <th scope="col" className="px-3 py-2 text-center text-slate-600">Bỏ qua</th>
+                              <th scope="col" className="px-4 py-2 text-right">Tỷ lệ chính xác</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E6DDE1] font-medium text-[#2B2228]">
+                            {typeBreakdown.map(row => {
+                              const acc = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
+                              return (
+                                <tr key={row.type} className="hover:bg-slate-50/80 transition">
+                                  <td className="px-4 py-2 font-bold">
+                                    <span className="block text-xs text-[#2B2228]">{readableQuestionType(row.type)}</span>
+                                    <span className="block text-[10px] font-mono text-slate-400">{row.type}</span>
+                                  </td>
+                                  <td className="px-3 py-2 text-center font-extrabold tabular-nums">{row.total}</td>
+                                  <td className="px-3 py-2 text-center font-black text-emerald-600 bg-emerald-50/30 tabular-nums">{row.correct}</td>
+                                  <td className="px-3 py-2 text-center font-black text-rose-600 bg-rose-50/30 tabular-nums">{row.incorrect}</td>
+                                  <td className="px-3 py-2 text-center font-bold text-slate-400 tabular-nums">{row.unanswered}</td>
+                                  <td className="px-4 py-2 text-right font-black tabular-nums">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden hidden sm:block">
+                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${acc}%` }} />
+                                      </div>
+                                      <span className={acc >= 70 ? "text-emerald-600" : acc >= 50 ? "text-amber-600" : "text-rose-600"}>
+                                        {acc}%
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Dòng tóm tắt khi thu gọn */
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-semibold text-[#6B5E65]">
+                  <span className="text-[#2B2228] font-black">
+                    Kết quả: <strong className="text-[#8B3F56]">{detail.correctCount}/{totalQuestions} ({correctPct}%)</strong>
+                  </span>
+                  <span>•</span>
+                  <span className="text-emerald-700 font-bold">{detail.correctCount} Đúng</span>
+                  <span>•</span>
+                  <span className="text-rose-700 font-bold">{detail.incorrectCount} Sai</span>
+                  <span>•</span>
+                  <span className="text-slate-600">{detail.unansweredCount} Bỏ qua</span>
+                  <span>•</span>
+                  <span>Thời lượng: <strong className="text-[#2B2228]">{formatDuration(detail.durationSeconds || 0)}</strong></span>
+                </div>
+              )}
             </div>
-          </>
+
+            {/* =========================================================================
+               PHẦN Ở DƯỚI: BÀI LÀM CỦA HỌC VIÊN
+               ========================================================================= */}
+            <div className="flex-1 min-h-[550px] flex flex-col bg-white">
+              {isWriting ? (
+                <WritingAttemptView detail={detail} fontSize={passageFontSize} onFontSizeChange={setPassageFontSize} />
+              ) : viewMode === "FULL_LIST" ? (
+                <FullQuestionListView
+                  detail={detail}
+                  questions={questions.filter(q => matchesQuestionFilter(q, filter))}
+                  filter={filter}
+                  onFilterChange={setFilter}
+                />
+              ) : (
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  <TeacherWorkspaceSplit
+                    currentSection={currentSection}
+                    selectedQuestion={selectedQuestion}
+                    questions={questions}
+                    sectionsList={sectionsList}
+                    activeSectionTitle={activeSectionTitle}
+                    onSelectQuestionKey={setSelectedQuestionKey}
+                    onSelectSectionTitle={setActiveSectionTitle}
+                    passageFontSize={passageFontSize}
+                    onFontSizeChange={setPassageFontSize}
+                  />
+                </div>
+              )}
+            </div>
+
+          </div>
         ) : null}
+
       </section>
     </div>
   );
 }
 
-function AttemptReviewSummary({ detail, accuracy }: { detail: StudentAttemptDetail; accuracy: number | null }) {
-  const metrics = [
-    { label: "Kết quả", value: detail.score == null ? "Chưa chấm" : score(detail.score, detail.maxScore), className: "text-[#2B2228]", tone: "bg-[#F3E6EB]/55 before:bg-[#8B3F56]" },
-    { label: "Độ chính xác", value: percent(accuracy), className: "text-[#8B3F56]", tone: "bg-[#F3E6EB]/35 before:bg-[#8B3F56]" },
-    { label: "Câu đúng", value: String(detail.correctCount), className: "text-[#3E8E6B]", tone: "bg-[#3E8E6B]/[0.045] before:bg-[#3E8E6B]" },
-    { label: "Câu sai", value: String(detail.incorrectCount), className: "text-[#C0392B]", tone: "bg-[#C0392B]/[0.04] before:bg-[#C0392B]" },
-    { label: "Chưa trả lời", value: String(detail.unansweredCount), className: "text-[#6B5E65]", tone: "bg-[#F7F2F4] before:bg-[#6B5E65]" },
-  ];
+function TeacherWorkspaceSplit({
+  currentSection,
+  selectedQuestion,
+  questions,
+  sectionsList,
+  activeSectionTitle,
+  onSelectQuestionKey,
+  onSelectSectionTitle,
+  passageFontSize,
+  onFontSizeChange,
+}: {
+  currentSection: SectionInfo | undefined;
+  selectedQuestion: StudentAttemptDetail["questions"][number] | null;
+  questions: StudentAttemptDetail["questions"];
+  sectionsList: SectionInfo[];
+  activeSectionTitle: string;
+  onSelectQuestionKey: (key: string) => void;
+  onSelectSectionTitle: (title: string) => void;
+  passageFontSize: number;
+  onFontSizeChange: (updater: (prev: number) => number) => void;
+}) {
+  const visibleQuestions = currentSection?.questions.length ? currentSection.questions : questions;
+  const rangeStart = visibleQuestions.length ? Math.min(...visibleQuestions.map(question => question.questionNo)) : 0;
+  const rangeEnd = visibleQuestions.length ? Math.max(...visibleQuestions.map(question => question.questionNo)) : 0;
+  const rangeLabel = rangeStart && rangeEnd ? `${rangeStart}-${rangeEnd}` : "—";
+  const sectionLabel = currentSection?.title || selectedQuestion?.sectionTitle || "Phần bài thi";
+
+  const questionGroups = useMemo(() => {
+    const groups: Array<{
+      key: string;
+      title: string | null;
+      instructions: string | null;
+      questions: StudentAttemptDetail["questions"];
+    }> = [];
+    for (const question of visibleQuestions) {
+      const key = `${question.groupTitle ?? ""}::${question.groupInstructions ?? ""}::${question.questionType}`;
+      const last = groups.at(-1);
+      if (last?.key === key) last.questions.push(question);
+      else groups.push({
+        key,
+        title: question.groupTitle,
+        instructions: question.groupInstructions ?? null,
+        questions: [question],
+      });
+    }
+    return groups;
+  }, [visibleQuestions]);
+
+  const selectQuestion = (question: StudentAttemptDetail["questions"][number]) => {
+    onSelectQuestionKey(question.questionKey);
+    document.getElementById(`teacher-review-${question.questionKey}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <section className="shrink-0 border-b border-[#E6DDE1] bg-[#F7F2F4] px-4 py-3 sm:px-5">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#E6DDE1] bg-white sm:grid-cols-5">
-          {metrics.map((metric, index) => <div key={metric.label} className={`relative px-3 py-2.5 before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${metric.tone} ${index ? "border-l border-[#E6DDE1]" : ""} ${index >= 2 ? "border-t border-[#E6DDE1] sm:border-t-0" : ""}`}><span className="block text-[10px] font-semibold uppercase tracking-[0.05em] text-[#6B5E65]">{metric.label}</span><strong className={`mt-0.5 block text-lg font-semibold tabular-nums ${metric.className}`}>{metric.value}</strong></div>)}
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F5F5F2]" aria-label="Bài làm theo bố cục IELTS">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#E4D8C2] bg-[#FFF8E8] px-4 py-2 sm:px-6">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-[#7A351C]">Reading · {sectionLabel}</p>
+          <p className="mt-0.5 text-xs text-[#865231]">Read the passage and answer questions {rangeLabel}.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#6B5E65]">
-          <span className="inline-flex items-center gap-1.5"><Clock size={15} className="text-[#8B3F56]" />Thời lượng: <strong className="text-[#2B2228]">{formatDuration(detail.durationSeconds)}</strong></span>
-          {detail.allowedDurationSeconds > 0 && <span>Giới hạn: <strong className="text-[#2B2228]">{formatDuration(detail.allowedDurationSeconds)}</strong></span>}
-          <span>Hoạt động cuối: <strong className="text-[#2B2228]">{formatDateTime(detail.lastActivityAt)}</strong></span>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-[#7A351C]">{visibleQuestions.length} câu hỏi</span>
+      </header>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto bg-white lg:grid-cols-[minmax(360px,42%)_minmax(420px,1fr)_190px] lg:overflow-hidden">
+        <article className="flex min-h-[420px] flex-col overflow-hidden border-b border-[#D7D7D2] bg-white lg:min-h-0 lg:border-b-0 lg:border-r" aria-label="Nội dung bài đọc">
+          <div className="flex shrink-0 items-center justify-between border-b border-[#E3E3DF] bg-white px-4 py-2.5 sm:px-6">
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A7276]">Reading passage {currentSection?.sectionNo ?? 1}</span>
+              <strong className="mt-0.5 block truncate text-sm font-semibold text-[#222222]">{sectionLabel}</strong>
+            </div>
+            <div className="flex items-center rounded-md border border-[#D8D8D3] bg-white" role="group" aria-label="Cỡ chữ bài đọc">
+              <button
+                type="button"
+                onClick={() => onFontSizeChange(previous => Math.max(13, previous - 1))}
+                className="grid size-8 place-items-center text-xs font-semibold text-[#444444] transition hover:bg-[#F1F1ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8B3F56]"
+                aria-label="Giảm cỡ chữ"
+              >
+                A-
+              </button>
+              <span className="border-x border-[#D8D8D3] px-2 text-[11px] font-semibold tabular-nums text-[#666666]">{passageFontSize}px</span>
+              <button
+                type="button"
+                onClick={() => onFontSizeChange(previous => Math.min(22, previous + 1))}
+                className="grid size-8 place-items-center text-xs font-semibold text-[#444444] transition hover:bg-[#F1F1ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8B3F56]"
+                aria-label="Tăng cỡ chữ"
+              >
+                A+
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
+            {currentSection?.contentHtml ? (
+              <div
+                className="prose prose-slate mx-auto max-w-[76ch] text-[#202020] leading-[1.75] [&_h1]:font-sans [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:font-sans [&_h2]:text-xl [&_h2]:font-bold [&_h3]:font-sans [&_h3]:font-bold [&_p]:mb-5 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-[#CFCFC9] [&_th]:bg-[#F5F5F2] [&_th]:p-2 [&_td]:border [&_td]:border-[#CFCFC9] [&_td]:p-2"
+                style={{ fontSize: `${passageFontSize}px` }}
+                dangerouslySetInnerHTML={{ __html: currentSection.contentHtml }}
+              />
+            ) : (
+              <div className="mx-auto max-w-lg rounded-xl border border-dashed border-[#D7D7D2] bg-[#FAFAF8] px-6 py-8 text-center">
+                <BookOpenText className="mx-auto text-[#8B3F56]" size={28} weight="duotone" />
+                <p className="mt-3 text-sm font-bold text-[#2B2228]">Chưa nhận được nội dung passage</p>
+                <p className="mt-1 text-xs leading-5 text-[#6B6668]">Passage phải được lấy từ phiên bản đề đã chốt. Hệ thống không dùng nội dung câu hỏi để thay thế.</p>
+              </div>
+            )}
+          </div>
+        </article>
+
+        <div className="flex min-h-[420px] min-w-0 flex-col overflow-hidden bg-white lg:min-h-0" aria-label="Chi tiết câu hỏi và đáp án">
+          <div className="shrink-0 border-b border-[#E3E3DF] bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <strong className="block text-base font-bold text-[#171717]">Questions {rangeLabel}</strong>
+                <p className="mt-0.5 text-sm leading-5 text-[#555555]">
+                  Xem toàn bộ câu hỏi của passage và đối chiếu đáp án đã nộp.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-medium text-[#6B6668]" aria-label="Chú thích trạng thái">
+                <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#247052]" />Đúng</span>
+                <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#B42335]" />Sai</span>
+                <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#A9AFB5]" />Bỏ qua</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 scroll-smooth overflow-y-auto px-4 py-4 sm:px-6">
+            {questionGroups.length ? (
+              <div className="space-y-6">
+                {questionGroups.map(group => (
+                  <section key={group.key} className="border-b border-[#E3E3DF] pb-6 last:border-b-0">
+                    <header className="mb-3">
+                      {group.title && <h3 className="text-sm font-bold text-[#1F1F1F]">{group.title}</h3>}
+                      {group.instructions && <p className="mt-1 text-xs leading-5 text-[#666166]">{group.instructions}</p>}
+                    </header>
+                    <div className="space-y-3">
+                      {group.questions.map(question => (
+                        <TeacherQuestionRow
+                          key={question.questionKey}
+                          question={question}
+                          selected={question.questionKey === selectedQuestion?.questionKey}
+                          onSelect={() => onSelectQuestionKey(question.questionKey)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="grid h-48 place-items-center text-center text-sm text-[#6B5E65]">Passage này chưa có câu hỏi.</div>
+            )}
+          </div>
         </div>
+
+        <aside className="border-t border-[#D7D7D2] bg-[#FAFAF8] p-3 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0" aria-label="Điều hướng câu hỏi">
+          <div className="rounded-lg border border-[#DDD9D6] bg-white p-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B6668]">Kết quả passage</span>
+            <strong className="mt-1 block text-lg tabular-nums text-[#171717]">{currentSection?.correctCount ?? 0}/{visibleQuestions.length} câu đúng</strong>
+          </div>
+
+          <nav className="mt-3 space-y-3" aria-label="Chọn passage">
+            {sectionsList.map(section => {
+              const active = currentSection?.title === section.title;
+              return (
+                <div key={section.title}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectSectionTitle(section.title);
+                      if (section.questions.length) onSelectQuestionKey(section.questions[0].questionKey);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56] ${active ? "bg-[#F3E6EB] text-[#8B3F56]" : "text-[#2B2228] hover:bg-[#F1F1ED]"}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span>{section.title || `Phần ${section.sectionNo}`}</span>
+                    <span className="tabular-nums">{section.correctCount}/{section.total}</span>
+                  </button>
+                  {active && (
+                    <div className="mt-2 grid grid-cols-4 gap-1.5">
+                      {visibleQuestions.map(question => {
+                        const selected = question.questionKey === selectedQuestion?.questionKey;
+                        const state = questionState(question);
+                        const marker = state === "correct" ? "border-[#247052]" : state === "incorrect" ? "border-[#B42335]" : "border-[#A9AFB5]";
+                        return (
+                          <button
+                            key={question.questionKey}
+                            type="button"
+                            onClick={() => selectQuestion(question)}
+                            className={`relative grid h-9 place-items-center rounded-md border bg-white text-xs font-bold tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56] ${marker} ${selected ? "ring-2 ring-[#8B3F56] ring-offset-1" : "hover:bg-[#F7F7F4]"}`}
+                            aria-current={selected ? "step" : undefined}
+                          >
+                            {question.questionNo}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+          <p className="mt-4 text-[10px] leading-4 text-[#777174]">Chọn số câu để chuyển nhanh đến vị trí tương ứng.</p>
+        </aside>
       </div>
     </section>
   );
 }
 
-function QuestionNavigationItem({ question, active, onSelect }: { question: StudentAttemptDetail["questions"][number]; active: boolean; onSelect: () => void }) {
+function TeacherQuestionRow({
+  question,
+  selected,
+  onSelect,
+}: {
+  question: StudentAttemptDetail["questions"][number];
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const state = questionState(question);
-  return (
-    <button type="button" onClick={onSelect} className={`min-w-56 rounded-xl border p-3 text-left transition lg:min-w-0 ${active ? "border-[#8B3F56] bg-[#F3E6EB] shadow-[inset_3px_0_0_#8B3F56]" : "border-[#E6DDE1] bg-white hover:bg-[#F7F2F4]"}`}>
-      <div className="flex items-center justify-between gap-2"><strong className="text-sm">{question.questionNo > 0 ? `Câu ${question.questionNo}` : "Bài viết"}</strong><QuestionStateBadge state={state} compact /></div>
-      <p className="mt-1 truncate text-[11px] text-[#6B5E65]">{readableQuestionType(question.questionType)}</p>
-    </button>
-  );
-}
-
-function QuestionReview({ detail, question, index, total, onPrevious, onNext }: { detail: StudentAttemptDetail; question: StudentAttemptDetail["questions"][number]; index: number; total: number; onPrevious: () => void; onNext: () => void }) {
-  const state = questionState(question);
-  const isWriting = detail.skill === "WRITING" || question.questionType === "WRITING_TASK";
-  const [showPrompt, setShowPrompt] = useState(false);
-  const resultTone = state === "correct" ? "border-t-[#3E8E6B]" : state === "incorrect" ? "border-t-[#C0392B]" : state === "answered" ? "border-t-[#3A6EA5]" : "border-t-[#8B3F56]";
-
-  useEffect(() => setShowPrompt(false), [question.questionKey]);
 
   return (
-    <article className="mx-auto w-full min-w-0 max-w-5xl">
-      <header className="flex flex-col gap-3 border-b border-[#E6DDE1] pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#6B5E65]">
-            {question.sectionTitle && <span>{question.sectionTitle}</span>}
-            {question.sectionTitle && question.groupTitle && <span aria-hidden="true">•</span>}
-            {question.groupTitle && <span>{question.groupTitle}</span>}
-          </div>
-          <h3 className="mt-1 text-xl font-semibold tracking-[-0.02em]">{question.questionNo > 0 ? `Câu ${question.questionNo}` : isWriting ? "Nội dung bài viết" : "Câu trả lời"}</h3>
-          <p className="mt-1 text-xs font-medium text-[#8B3F56]">{readableQuestionType(question.questionType)}</p>
+    <article
+      id={`teacher-review-${question.questionKey}`}
+      className={`scroll-mt-3 rounded-lg border bg-white p-3 transition ${selected ? "border-[#8B3F56] shadow-[0_0_0_2px_rgba(139,63,86,0.10)]" : "border-[#E1DFDC]"}`}
+      onClick={onSelect}
+    >
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums ${state === "correct" ? "bg-[#E8F6EE] text-[#247052]" : state === "incorrect" ? "bg-[#FDECEF] text-[#B42335]" : "bg-[#EEF0F2] text-[#68717A]"}`}>{question.questionNo}</span>
+          <span className="truncate text-[11px] font-semibold text-[#777174]">{readableQuestionType(question.questionType)}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <QuestionStateBadge state={state} />
+          <span className="text-[11px] font-bold tabular-nums text-[#4E494C]">{formatQuestionScore(question.score, question.maxScore)}</span>
         </div>
       </header>
 
-      <section className={`mt-4 rounded-2xl border border-[#E6DDE1] border-t-[3px] bg-white p-4 shadow-[0_8px_24px_rgba(43,34,40,0.05)] ${resultTone}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6DDE1] pb-3">
-          <div>
-            <h4 className="flex items-center gap-2 text-sm font-semibold text-[#2B2228]"><ListChecks size={18} className="text-[#8B3F56]" />Kết quả câu hỏi</h4>
-            <p className="mt-0.5 text-xs text-[#6B5E65]">Đối chiếu câu trả lời đã lưu với đáp án của đề.</p>
-          </div>
-          <div className="flex items-center gap-3"><QuestionStateBadge state={state} /><span className="rounded-lg bg-[#F7F2F4] px-2.5 py-1 text-xs font-semibold tabular-nums text-[#2B2228]">{formatQuestionScore(question.score, question.maxScore)}</span></div>
-        </div>
-
-        {isWriting ? (
-          <AnswerPanel title="Bài viết đã nộp" values={question.studentAnswers} state="neutral" empty="Học viên chưa nhập nội dung bài viết." multiline />
-        ) : (
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <AnswerPanel title="Câu trả lời của học viên" values={question.studentAnswers} state={state === "correct" ? "success" : state === "incorrect" ? "error" : "neutral"} empty="Chưa trả lời" />
-            <AnswerPanel title="Đáp án đúng" values={question.correctAnswers} state="success" empty="Chưa có đáp án được lưu" />
-          </div>
-        )}
-      </section>
-
       {question.prompt && (
-        <section className="mt-4 overflow-hidden rounded-xl border border-[#E6DDE1] bg-white">
-          <button type="button" aria-expanded={showPrompt} onClick={() => setShowPrompt(value => !value)} className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-[#F7F2F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8B3F56]">
-            <span className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#F3E6EB] text-[#8B3F56]"><BookOpenText size={17} weight="duotone" /></span><span><strong className="block text-sm font-semibold text-[#2B2228]">Đề bài</strong><span className="block text-xs text-[#6B5E65]">{showPrompt ? "Thu gọn để tập trung vào kết quả" : "Đang ẩn để ưu tiên phần kết quả"}</span></span></span>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E6DDE1] bg-[#FDFBFC] px-2.5 py-1.5 text-xs font-semibold text-[#8B3F56]">{showPrompt ? "Ẩn đề bài" : "Hiện đề bài"}<CaretRight size={14} className={`transition-transform ${showPrompt ? "rotate-90" : ""}`} /></span>
-          </button>
-          {showPrompt && <div className="border-t border-[#E6DDE1] bg-[#FDFBFC] px-4 py-3"><p className="whitespace-pre-wrap text-sm leading-6 text-[#2B2228]">{plainText(question.prompt)}</p></div>}
+        <section className="mt-2 text-sm leading-6 text-[#202020]" aria-label="Nội dung câu hỏi">
+          <FormattedPrompt content={question.prompt} fontSize={14} activeQuestionNo={question.questionNo} />
         </section>
       )}
 
-      <section className="mt-4 rounded-xl border border-[#C9973F]/35 bg-[#C9973F]/[0.055] p-4 shadow-[inset_3px_0_0_#C9973F]">
-        <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-[#8B3F56]"><Info size={17} weight="fill" /></span><div><h4 className="text-sm font-semibold">Giải thích đáp án</h4><p className="text-xs text-[#6B5E65]">Nội dung lời giải đã được lưu cùng phiên bản đề.</p></div></div>
-        <p className={`mt-3 whitespace-pre-wrap text-sm leading-6 ${question.explanation ? "text-[#2B2228]" : "text-[#6B5E65]"}`}>{question.explanation ? plainText(question.explanation) : "Câu này chưa có lời giải chi tiết."}</p>
+      <section className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Đối chiếu đáp án">
+        <AnswerSummary label="Học viên" answers={question.studentAnswers} tone={state === "correct" ? "correct" : state === "incorrect" ? "incorrect" : "empty"} />
+        <AnswerSummary label="Đáp án đúng" answers={question.correctAnswers} tone="correct" />
       </section>
-
-      <footer className="mt-5 flex items-center justify-between border-t border-[#E6DDE1] pt-4">
-        <button type="button" onClick={onPrevious} disabled={index <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6DDE1] bg-white px-3 py-2 text-xs font-semibold transition hover:border-[#8B3F56] hover:text-[#8B3F56] disabled:cursor-not-allowed disabled:opacity-35"><CaretLeft size={15} />Câu trước</button>
-        <span className="text-xs tabular-nums text-[#6B5E65]">{index + 1} / {total}</span>
-        <button type="button" onClick={onNext} disabled={index < 0 || index >= total - 1} className="inline-flex items-center gap-1.5 rounded-xl bg-[#8B3F56] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#6E2F43] disabled:cursor-not-allowed disabled:opacity-35">Câu sau<CaretRight size={15} /></button>
-      </footer>
     </article>
   );
 }
 
-function AnswerPanel({ title, values, state, empty, multiline = false }: { title: string; values: string[]; state: "success" | "error" | "neutral"; empty: string; multiline?: boolean }) {
-  const tones = state === "success" ? "border-[#3E8E6B]/35 bg-[#3E8E6B]/[0.07] shadow-[inset_3px_0_0_#3E8E6B]" : state === "error" ? "border-[#C0392B]/35 bg-[#C0392B]/[0.065] shadow-[inset_3px_0_0_#C0392B]" : "border-[#E6DDE1] bg-[#FDFBFC] shadow-[inset_3px_0_0_#8B3F56]";
-  const icon = state === "success" ? <CheckCircle size={16} weight="fill" className="text-[#3E8E6B]" /> : state === "error" ? <XCircle size={16} weight="fill" className="text-[#C0392B]" /> : <ClockCounterClockwise size={16} className="text-[#8B3F56]" />;
-  return <section className={`${multiline ? "mt-3" : ""} rounded-xl border p-4 ${tones}`}><h4 className="flex items-center gap-1.5 text-xs font-semibold text-[#2B2228]">{icon}{title}</h4>{values.length ? <div className={`mt-2 ${multiline ? "whitespace-pre-wrap text-sm leading-7" : "flex flex-wrap gap-2"}`}>{multiline ? values.join("\n") : values.map((value, index) => <span key={`${value}-${index}`} className="rounded-lg border border-current/15 bg-white px-2.5 py-1.5 text-sm font-semibold shadow-sm">{value}</span>)}</div> : <p className="mt-2 text-sm italic text-[#6B5E65]">{empty}</p>}</section>;
+function AnswerSummary({ label, answers, tone }: { label: string; answers: string[]; tone: "correct" | "incorrect" | "empty" }) {
+  const toneClass = tone === "correct"
+    ? "border-[#B7DDC9] bg-[#F3FBF7] text-[#18513D]"
+    : tone === "incorrect"
+      ? "border-[#F0C1C8] bg-[#FFF6F7] text-[#9B1C2E]"
+      : "border-[#D8DADC] bg-[#F7F8F8] text-[#68717A]";
+  return (
+    <div className={`rounded-md border px-3 py-2 ${toneClass}`}>
+      <span className="block text-[10px] font-bold uppercase tracking-[0.08em]">{label}</span>
+      <strong className="mt-1 block text-xs leading-5">{answers.length ? answers.join(", ") : "Bỏ qua"}</strong>
+    </div>
+  );
+}
+
+/* =========================================================================
+   BREAKDOWN VIEW (Bảng phân tích dạng bài chi tiết)
+   ========================================================================= */
+function QuestionBreakdownView({ detail }: { detail: StudentAttemptDetail }) {
+  const typeBreakdown = useMemo(() => {
+    const map = new Map<string, { type: string; total: number; correct: number; incorrect: number; unanswered: number }>();
+    for (const q of detail.questions) {
+      const type = q.questionType || "GENERAL";
+      const cur = map.get(type) || { type, total: 0, correct: 0, incorrect: 0, unanswered: 0 };
+      cur.total += 1;
+      if (q.correct === true) cur.correct += 1;
+      else if (q.correct === false) cur.incorrect += 1;
+      else cur.unanswered += 1;
+      map.set(type, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [detail.questions]);
+
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
+      <div>
+        <h3 className="text-lg font-black text-[#2B2228]">
+          Bảng phân tích dạng bài chi tiết
+        </h3>
+        <p className="text-xs text-[#6B5E65] mt-0.5">
+          Thống kê kết quả phân loại theo từng dạng câu hỏi trong đề thi này
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-[#E6DDE1] shadow-2xs">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead className="bg-[#FAF7F8] text-xs font-extrabold uppercase tracking-wider text-[#6B5E65] border-b border-[#E6DDE1]">
+            <tr>
+              <th scope="col" className="px-5 py-3">Dạng câu hỏi</th>
+              <th scope="col" className="px-4 py-3 text-center">Tổng số câu</th>
+              <th scope="col" className="px-4 py-3 text-center text-emerald-700 bg-emerald-500/10">Đúng</th>
+              <th scope="col" className="px-4 py-3 text-center text-rose-700">Sai</th>
+              <th scope="col" className="px-4 py-3 text-center text-slate-600">Bỏ qua</th>
+              <th scope="col" className="px-5 py-3 text-right">Tỷ lệ chính xác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#E6DDE1] bg-white font-medium text-[#2B2228]">
+            {typeBreakdown.map(row => {
+              const acc = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
+              return (
+                <tr key={row.type} className="hover:bg-slate-50/80 transition">
+                  <td className="px-5 py-3.5 font-bold">
+                    <span className="block text-sm text-[#2B2228]">{readableQuestionType(row.type)}</span>
+                    <span className="block text-[11px] font-mono text-slate-400">{row.type}</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-center font-extrabold tabular-nums">{row.total}</td>
+                  <td className="px-4 py-3.5 text-center font-black text-emerald-600 bg-emerald-50/40 tabular-nums">
+                    {row.correct}
+                  </td>
+                  <td className="px-4 py-3.5 text-center font-black text-rose-600 tabular-nums">
+                    {row.incorrect}
+                  </td>
+                  <td className="px-4 py-3.5 text-center font-bold text-slate-400 tabular-nums">
+                    {row.unanswered}
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-black tabular-nums">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden hidden sm:block">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${acc}%` }} />
+                      </div>
+                      <span className={acc >= 70 ? "text-emerald-600" : acc >= 50 ? "text-amber-600" : "text-rose-600"}>
+                        {acc}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   FULL QUESTION LIST VIEW (Toàn bộ câu hỏi liên tục)
+   ========================================================================= */
+function FullQuestionListView({
+  detail,
+  questions,
+  filter,
+  onFilterChange,
+}: {
+  detail: StudentAttemptDetail;
+  questions: StudentAttemptDetail["questions"];
+  filter: QuestionFilter;
+  onFilterChange: (f: QuestionFilter) => void;
+}) {
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 bg-[#FAF7F8]/30">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6DDE1] pb-3 bg-white p-4 rounded-xl shadow-2xs">
+        <div>
+          <h3 className="text-base font-black text-[#2B2228]">Toàn bộ {questions.length} câu hỏi</h3>
+          <p className="text-xs text-[#6B5E65]">Xem danh sách đối chiếu toàn bộ câu hỏi trong bài làm</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => onFilterChange("ALL")}
+            className={`px-3 py-1.5 rounded-lg transition ${filter === "ALL" ? "bg-[#8B3F56] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+          >
+            Tất cả ({detail.questions.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => onFilterChange("CORRECT")}
+            className={`px-3 py-1.5 rounded-lg transition ${filter === "CORRECT" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"}`}
+          >
+            Đúng ({detail.correctCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => onFilterChange("INCORRECT")}
+            className={`px-3 py-1.5 rounded-lg transition ${filter === "INCORRECT" ? "bg-rose-600 text-white" : "bg-rose-50 text-rose-800 hover:bg-rose-100"}`}
+          >
+            Sai ({detail.incorrectCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => onFilterChange("UNANSWERED")}
+            className={`px-3 py-1.5 rounded-lg transition ${filter === "UNANSWERED" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+          >
+            Bỏ qua ({detail.unansweredCount})
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {questions.map((q) => {
+          const state = questionState(q);
+          return (
+            <article key={q.questionKey} className="rounded-xl border border-[#E6DDE1] bg-white p-4 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-black text-[#2B2228]">Câu {q.questionNo}</h4>
+                  <span className="rounded-md bg-[#8B3F56]/10 px-2 py-0.5 text-xs font-bold text-[#8B3F56]">
+                    {readableQuestionType(q.questionType)}
+                  </span>
+                  {q.sectionTitle && (
+                    <span className="hidden sm:inline text-xs text-slate-400 font-medium">
+                      ({q.sectionTitle})
+                    </span>
+                  )}
+                </div>
+                <QuestionStateBadge state={state} />
+              </div>
+
+              {/* Answers */}
+              <div className="grid gap-2 sm:grid-cols-2 text-xs">
+                <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-200">
+                  <span className="font-bold text-slate-500 block mb-1">Học viên chọn:</span>
+                  <span className={`font-mono font-bold text-sm ${
+                    state === "correct" ? "text-emerald-700" : state === "incorrect" ? "text-rose-700" : "text-slate-500 italic"
+                  }`}>
+                    {q.studentAnswers.length ? q.studentAnswers.join(", ") : "(Bỏ qua)"}
+                  </span>
+                </div>
+
+                <div className="rounded-lg bg-emerald-50/70 p-2.5 border border-emerald-200">
+                  <span className="font-bold text-emerald-800 block mb-1">Đáp án đúng chuẩn:</span>
+                  <span className="font-mono font-bold text-sm text-emerald-900">
+                    {q.correctAnswers.length ? q.correctAnswers.join(", ") : "—"}
+                  </span>
+                </div>
+              </div>
+
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   WRITING ATTEMPT VIEW (Chuyên biệt cho IELTS Writing)
+   ========================================================================= */
+function WritingAttemptView({
+  detail,
+  fontSize,
+  onFontSizeChange,
+}: {
+  detail: StudentAttemptDetail;
+  fontSize: number;
+  onFontSizeChange: (updater: (prev: number) => number) => void;
+}) {
+  const [selectedTaskIdx, setSelectedTaskIdx] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const activeQuestion = detail.questions[selectedTaskIdx] || detail.questions[0];
+
+  const essayText = activeQuestion?.studentAnswers?.join("\n\n") || "";
+  const wordCount = essayText.trim().split(/\s+/).filter(Boolean).length;
+  const isTask1 = (activeQuestion?.groupTitle || activeQuestion?.prompt || "").toLowerCase().includes("task 1") || activeQuestion?.questionNo === 1;
+  const targetWords = isTask1 ? 150 : 250;
+  const isWordCountMet = wordCount >= targetWords;
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(essayText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#E6DDE1] overflow-hidden bg-white">
+
+      {/* Left: Writing Prompt */}
+      <div className="flex min-h-0 flex-col overflow-hidden bg-[#FAF7F8]/40">
+        <div className="shrink-0 flex items-center justify-between border-b border-[#E6DDE1] bg-white px-4 py-2.5 sm:px-5">
+          <div className="flex items-center gap-2">
+            <span className="grid size-6 place-items-center rounded-md bg-amber-500/10 text-amber-700">
+              <PenNib size={15} weight="bold" />
+            </span>
+            <span className="text-xs font-black text-[#2B2228]">
+              {activeQuestion?.groupTitle || `IELTS Writing Task ${selectedTaskIdx + 1}`}
+            </span>
+          </div>
+
+          {detail.questions.length > 1 && (
+            <div className="flex items-center gap-1 bg-[#F7F2F4] rounded-lg p-0.5 border border-[#E6DDE1]">
+              {detail.questions.map((q, idx) => (
+                <button
+                  key={q.questionKey}
+                  type="button"
+                  onClick={() => setSelectedTaskIdx(idx)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded ${selectedTaskIdx === idx ? "bg-white text-[#8B3F56] shadow-2xs" : "text-slate-600"}`}
+                >
+                  Task {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-white space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 block mb-1">
+              Yêu cầu đề bài (Writing Prompt)
+            </span>
+            <FormattedPrompt content={activeQuestion?.prompt ?? null} fontSize={fontSize} />
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Student's Submitted Essay */}
+      <div className="flex min-h-0 flex-col overflow-hidden bg-white">
+        <div className="shrink-0 flex items-center justify-between border-b border-[#E6DDE1] bg-white px-4 py-2.5 sm:px-5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-[#2B2228]">Bài làm của học viên</span>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+              isWordCountMet ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+            }`}>
+              {wordCount} từ ({isWordCountMet ? `Đạt chuẩn ≥${targetWords}` : `Chưa đủ ${targetWords} từ`})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1 rounded-lg border border-[#E6DDE1] px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              title="Sao chép bài viết"
+            >
+              <Copy size={13} />
+              <span>{copied ? "Đã chép" : "Sao chép"}</span>
+            </button>
+
+            <div className="flex items-center gap-1 bg-[#F7F2F4] rounded-lg p-0.5 border border-[#E6DDE1]">
+              <button
+                type="button"
+                onClick={() => onFontSizeChange(p => Math.max(13, p - 1))}
+                className="grid size-5 place-items-center rounded text-xs font-bold"
+              >
+                A-
+              </button>
+              <span className="px-1 text-[11px] font-mono font-bold text-slate-600">{fontSize}px</span>
+              <button
+                type="button"
+                onClick={() => onFontSizeChange(p => Math.min(20, p + 1))}
+                className="grid size-5 place-items-center rounded text-xs font-bold"
+              >
+                A+
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-white space-y-4">
+          <article
+            className="rounded-xl border border-[#E6DDE1] bg-[#FAF7F8]/20 p-5 font-serif leading-relaxed text-[#2B2228] whitespace-pre-wrap shadow-2xs"
+            style={{ fontSize: `${fontSize}px`, lineHeight: 1.8 }}
+          >
+            {essayText || <span className="italic text-slate-400">Học viên chưa nhập nội dung bài viết.</span>}
+          </article>
+
+          {activeQuestion?.explanation && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/70 p-4">
+              <h4 className="text-xs font-extrabold text-[#2B2228] mb-1 flex items-center gap-1.5">
+                <Lightbulb size={16} className="text-amber-600" weight="fill" />
+                Nhận xét &amp; Góp ý từ giáo viên
+              </h4>
+              <p className="text-xs leading-relaxed text-[#2B2228] whitespace-pre-wrap">
+                {activeQuestion.explanation}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+/* =========================================================================
+   HELPER UTILITIES & SUBCOMPONENTS
+   ========================================================================= */
+function FormattedPrompt({ content, fontSize = 15, activeQuestionNo }: { content: string | null; fontSize?: number; activeQuestionNo?: number }) {
+  if (!content) {
+    return <p className="text-xs italic text-[#6B5E65]">Đề bài chưa có nội dung văn bản đi kèm.</p>;
+  }
+
+  const hasHtml = /<[a-z][\s\S]*>/i.test(content);
+  if (hasHtml) {
+    return (
+      <div
+        className="prose prose-sm max-w-none text-[#2B2228] leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-[#E6DDE1] [&_th]:p-2 [&_th]:bg-[#F7F2F4] [&_td]:border [&_td]:border-[#E6DDE1] [&_td]:p-2"
+        style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3 leading-relaxed text-[#2B2228]" style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}>
+      {content.split(/\n\s*\n/).map((para, idx) => (
+        <p key={idx} className="whitespace-pre-wrap">
+          {para}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+type SectionTabInfo = {
+  title: string;
+  rangeLabel: string;
+  questionKeys: string[];
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  total: number;
+};
+
+function extractSections(questions: StudentAttemptDetail["questions"], skill: string): SectionTabInfo[] {
+  if (!questions.length) return [];
+  const map = new Map<string, StudentAttemptDetail["questions"]>();
+
+  for (const q of questions) {
+    let secTitle = q.sectionTitle?.trim();
+    if (!secTitle) {
+      if (skill === "LISTENING") {
+        secTitle = q.questionNo <= 10 ? "Part 1" : q.questionNo <= 20 ? "Part 2" : q.questionNo <= 30 ? "Part 3" : "Part 4";
+      } else if (skill === "READING") {
+        secTitle = q.questionNo <= 13 ? "Passage 1" : q.questionNo <= 26 ? "Passage 2" : "Passage 3";
+      } else if (skill === "WRITING") {
+        secTitle = q.questionNo <= 1 ? "Task 1" : "Task 2";
+      } else if (skill === "SPEAKING") {
+        secTitle = q.questionNo <= 1 ? "Part 1" : q.questionNo <= 2 ? "Part 2" : "Part 3";
+      } else {
+        secTitle = "Phần 1";
+      }
+    }
+    const list = map.get(secTitle) || [];
+    list.push(q);
+    map.set(secTitle, list);
+  }
+
+  return Array.from(map.entries()).map(([title, items]) => {
+    const minNo = Math.min(...items.map(q => q.questionNo));
+    const maxNo = Math.max(...items.map(q => q.questionNo));
+    const correctCount = items.filter(q => q.correct === true).length;
+    const incorrectCount = items.filter(q => q.correct === false).length;
+    const unansweredCount = items.filter(q => !q.studentAnswers?.length).length;
+    return {
+      title,
+      rangeLabel: minNo === maxNo ? `Câu ${minNo}` : `Câu ${minNo} - ${maxNo}`,
+      questionKeys: items.map(q => q.questionKey),
+      correctCount,
+      incorrectCount,
+      unansweredCount,
+      total: items.length,
+    };
+  });
+}
+
+function estimateIeltsBand(correctCount: number, maxScore: number, skill: string): string {
+  if (maxScore !== 40) {
+    if (maxScore <= 0) return "—";
+    const ratio = correctCount / maxScore;
+    const band = Math.round((ratio * 8 + 1) * 2) / 2;
+    return `Band ${band.toFixed(1)}`;
+  }
+  const isReading = skill === "READING";
+  if (correctCount >= 39) return "Band 9.0";
+  if (correctCount >= 37) return "Band 8.5";
+  if (correctCount >= 35) return "Band 8.0";
+  if (correctCount >= (isReading ? 33 : 32)) return "Band 7.5";
+  if (correctCount >= 30) return "Band 7.0";
+  if (correctCount >= (isReading ? 27 : 26)) return "Band 6.5";
+  if (correctCount >= 23) return "Band 6.0";
+  if (correctCount >= (isReading ? 19 : 18)) return "Band 5.5";
+  if (correctCount >= 15) return "Band 5.0";
+  if (correctCount >= 13) return "Band 4.5";
+  if (correctCount >= 10) return "Band 4.0";
+  if (correctCount >= 8) return "Band 3.5";
+  if (correctCount >= 6) return "Band 3.0";
+  if (correctCount >= 4) return "Band 2.5";
+  if (correctCount >= 2) return "Band 2.0";
+  return "Band 1.0";
 }
 
 function QuestionStateBadge({ state, compact = false }: { state: ReturnType<typeof questionState>; compact?: boolean }) {
   const sizeClass = compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs";
-  if (state === "correct") return <span className={`inline-flex items-center gap-1 rounded-full bg-[#3E8E6B]/10 font-semibold text-[#3E8E6B] ${sizeClass}`}><CheckCircle size={compact ? 11 : 14} weight="fill" />Đúng</span>;
-  if (state === "incorrect") return <span className={`inline-flex items-center gap-1 rounded-full bg-[#C0392B]/10 font-semibold text-[#C0392B] ${sizeClass}`}><XCircle size={compact ? 11 : 14} weight="fill" />Sai</span>;
-  if (state === "answered") return <span className={`inline-flex items-center gap-1 rounded-full bg-[#3A6EA5]/10 font-semibold text-[#3A6EA5] ${sizeClass}`}><ClockCounterClockwise size={compact ? 11 : 14} />Chưa chấm</span>;
-  return <span className={`inline-flex items-center gap-1 rounded-full bg-[#F7F2F4] font-semibold text-[#6B5E65] ${sizeClass}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />Bỏ qua</span>;
+  if (state === "correct") return <span className={`inline-flex items-center gap-1 rounded-full bg-emerald-500/15 font-black text-emerald-700 ${sizeClass}`}><CheckCircle size={compact ? 11 : 14} weight="fill" />Đúng</span>;
+  if (state === "incorrect") return <span className={`inline-flex items-center gap-1 rounded-full bg-rose-500/15 font-black text-rose-700 ${sizeClass}`}><XCircle size={compact ? 11 : 14} weight="fill" />Sai</span>;
+  if (state === "answered") return <span className={`inline-flex items-center gap-1 rounded-full bg-blue-500/15 font-black text-blue-700 ${sizeClass}`}><ClockCounterClockwise size={compact ? 11 : 14} />Chưa chấm</span>;
+  return <span className={`inline-flex items-center gap-1 rounded-full bg-slate-100 font-bold text-slate-500 ${sizeClass}`}><MinusCircle size={compact ? 11 : 14} />Bỏ qua</span>;
 }
 
 function AttemptReviewLoading() {
-  return <div className="flex flex-1 flex-col"><div className="grid grid-cols-2 gap-px border-b border-[#E6DDE1] bg-[#E6DDE1] sm:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-16 animate-pulse bg-[#F7F2F4]" />)}</div><div className="grid min-h-0 flex-1 lg:grid-cols-[300px_1fr]"><div className="hidden space-y-2 border-r border-[#E6DDE1] bg-white p-3 lg:block">{Array.from({ length: 7 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-[#F7F2F4]" />)}</div><div className="grid place-items-center"><span className="inline-flex items-center gap-2 text-sm font-medium text-[#6B5E65]"><CircleNotch className="animate-spin text-[#8B3F56]" size={20} />Đang tải chi tiết lượt làm…</span></div></div></div>;
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="grid grid-cols-2 gap-px border-b border-[#E6DDE1] bg-[#E6DDE1] sm:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="h-16 animate-pulse bg-[#F7F2F4]" />
+        ))}
+      </div>
+      <div className="grid min-h-0 flex-1 lg:grid-cols-2 divide-x divide-[#E6DDE1]">
+        <div className="p-6 space-y-4">
+          <div className="h-6 w-1/3 animate-pulse rounded bg-[#F7F2F4]" />
+          <div className="h-32 animate-pulse rounded-xl bg-[#F7F2F4]" />
+          <div className="h-48 animate-pulse rounded-xl bg-[#F7F2F4]" />
+        </div>
+        <div className="grid place-items-center p-6">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#6B5E65]">
+            <CircleNotch className="animate-spin text-[#8B3F56]" size={22} />
+            Đang tải dữ liệu bài thi chuẩn IELTS…
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function questionState(question: StudentAttemptDetail["questions"][number]) {
@@ -621,21 +1629,25 @@ function matchesQuestionFilter(question: StudentAttemptDetail["questions"][numbe
   return state === "unanswered";
 }
 
-function questionFilterOptions(detail: StudentAttemptDetail): Array<{ value: QuestionFilter; label: string; count: number }> {
-  return [
-    { value: "ALL", label: "Tất cả", count: detail.questions.length },
-    { value: "CORRECT", label: "Đúng", count: detail.correctCount },
-    { value: "INCORRECT", label: "Sai", count: detail.incorrectCount },
-    { value: "UNANSWERED", label: "Bỏ qua", count: detail.unansweredCount },
-  ];
-}
-
-function readableQuestionType(value: string) {
-  return value.replaceAll("_", " ").toLocaleLowerCase("vi").replace(/(^|\s)\S/g, character => character.toLocaleUpperCase("vi"));
-}
-
-function plainText(value: string) {
-  return new DOMParser().parseFromString(value, "text/html").body.textContent ?? value;
+function readableQuestionType(type: string): string {
+  const upper = (type || "").toUpperCase();
+  if (upper.includes("FILL") || upper.includes("BLANK") || upper.includes("GAP")) return "Điền vào chỗ trống (Fill In Blank)";
+  if (upper.includes("MULTIPLE") || upper.includes("CHOICE")) return "Trắc nghiệm (Multiple Choice)";
+  if (upper.includes("TRUE_FALSE") || upper.includes("NOT_GIVEN")) return "True / False / Not Given";
+  if (upper.includes("YES_NO")) return "Yes / No / Not Given";
+  if (upper.includes("MATCHING") && upper.includes("HEADING")) return "Nối tiêu đề (Matching Headings)";
+  if (upper.includes("MATCHING")) return "Nối thông tin (Matching)";
+  if (upper.includes("SUMMARY")) return "Tóm tắt (Summary Completion)";
+  if (upper.includes("SENTENCE")) return "Hoàn thành câu (Sentence Completion)";
+  if (upper.includes("MAP") || upper.includes("DIAGRAM") || upper.includes("LABEL")) return "Gán nhãn sơ đồ (Diagram Labeling)";
+  if (upper.includes("FLOW_CHART")) return "Lưu đồ (Flow Chart Completion)";
+  if (upper.includes("SHORT_ANSWER")) return "Trả lời ngắn (Short Answer)";
+  if (upper.includes("WRITING_TASK_1") || upper.includes("TASK_1")) return "Writing Task 1";
+  if (upper.includes("WRITING_TASK_2") || upper.includes("TASK_2")) return "Writing Task 2";
+  if (upper.includes("SPEAKING_PART_1")) return "Speaking Part 1";
+  if (upper.includes("SPEAKING_PART_2")) return "Speaking Part 2";
+  if (upper.includes("SPEAKING_PART_3")) return "Speaking Part 3";
+  return type.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 }
 
 function formatQuestionScore(value: number, max: number) {

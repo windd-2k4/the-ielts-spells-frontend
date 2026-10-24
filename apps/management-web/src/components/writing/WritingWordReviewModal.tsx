@@ -269,7 +269,7 @@ export function WritingWordReviewModal({
 }: WritingWordReviewModalProps) {
   const [activeRibbonTab, setActiveRibbonTab] = useState<"home" | "review" | "grading" | "view">("home");
   const [showGradingPanel, setShowGradingPanel] = useState(false);
-  const [showCommentsPanel, setShowCommentsPanel] = useState(false);
+  const [showCommentsPanel, setShowCommentsPanel] = useState(annotations.length > 0);
   const [showPromptDrawer, setShowPromptDrawer] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -349,6 +349,17 @@ export function WritingWordReviewModal({
         "aria-label": "Soạn thảo bài viết của học viên tương tự Word",
         spellcheck: "true",
       },
+      handleClick: (_view, _position, event) => {
+        const mark = event.target instanceof Element
+          ? event.target.closest<HTMLElement>("[data-annotation-id]")
+          : null;
+        const annotationId = mark?.dataset.annotationId;
+        if (!annotationId) return false;
+        setActiveAnnotationId(annotationId);
+        setShowCommentsPanel(true);
+        setShowGradingPanel(false);
+        return false;
+      },
     },
     onUpdate: ({ editor: currentEditor }) => syncEditorContent(currentEditor),
     onSelectionUpdate: ({ editor: currentEditor }) => selectionUpdateRef.current(currentEditor),
@@ -383,8 +394,32 @@ export function WritingWordReviewModal({
     const incomingHtml = editedHtml.trim() || plainTextToEditorHtml(editedText);
     if (persistableEditorHtml(editor.getHTML()) !== incomingHtml) {
       editor.commands.setContent(renderEditorHtml(editedText, editedHtml, annotationsRef.current), { emitUpdate: false });
+      applyEditorAnnotations(editor, annotationsRef.current);
     }
   }, [editor, editedHtml, editedText]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    applyEditorAnnotations(editor, annotationsRef.current);
+  }, [editor, evaluation.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setShowCommentsPanel(annotationsRef.current.length > 0);
+    setShowGradingPanel(false);
+    setActiveRibbonTab("home");
+    setActiveAnnotationId(null);
+  }, [evaluation.id, isOpen]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dom.querySelectorAll<HTMLElement>("[data-annotation-id]").forEach((mark) => {
+      const active = mark.dataset.annotationId === activeAnnotationId;
+      mark.style.outline = active ? "2px solid #185abd" : "";
+      mark.style.outlineOffset = active ? "2px" : "";
+      mark.style.boxShadow = active ? "0 0 0 4px rgba(24, 90, 189, 0.14)" : "";
+    });
+  }, [activeAnnotationId, editor, annotations]);
 
   const executeHistoryCommand = (command: "undo" | "redo") => {
     if (!editor) return;
@@ -429,6 +464,7 @@ export function WritingWordReviewModal({
     const text = editorPlainText(editor);
     const html = persistableEditorHtml(editor.getHTML());
     editor.commands.setContent(renderEditorHtml(text, html, values), { emitUpdate: false });
+    applyEditorAnnotations(editor, values);
   };
 
   const toggleCommentsPanel = () => {
@@ -444,6 +480,26 @@ export function WritingWordReviewModal({
       const next = !current;
       if (next) setShowCommentsPanel(false);
       return next;
+    });
+  };
+
+  const focusAnnotation = (item: TeacherAnnotation) => {
+    if (!editor || !item.id) return;
+    let from: number | null = null;
+    let to: number | null = null;
+    editor.state.doc.descendants((node, position) => {
+      if (!node.isText || !node.marks.some((mark) => mark.type.name === "teacherAnnotation" && mark.attrs.annotationId === item.id)) return;
+      from = from == null ? position : Math.min(from, position);
+      to = Math.max(to ?? position, position + node.nodeSize);
+    });
+    setActiveAnnotationId(item.id);
+    if (from != null && to != null) {
+      editor.chain().focus().setTextSelection({ from, to }).scrollIntoView().run();
+    }
+    window.requestAnimationFrame(() => {
+      const mark = Array.from(editor.view.dom.querySelectorAll<HTMLElement>("[data-annotation-id]"))
+        .find((element) => element.dataset.annotationId === item.id);
+      mark?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     });
   };
 
@@ -1046,7 +1102,16 @@ export function WritingWordReviewModal({
                 return (
                   <article
                     key={item.id ?? `${idx}-${item.start}`}
-                    onClick={() => setActiveAnnotationId(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Đi đến nhận xét ${idx + 1}: ${item.selectedText ?? ""}`}
+                    onClick={() => focusAnnotation(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        focusAnnotation(item);
+                      }
+                    }}
                     className={`group relative rounded-xl border p-3 text-xs transition shadow-sm ${
                       isSelected
                         ? "border-[#185abd] ring-2 ring-[#185abd]/25 bg-sky-50/40"
@@ -1899,6 +1964,57 @@ function editorPlainText(editor: Editor) {
     blocks.push(block.textBetween(0, block.content.size, "\n", "\n"));
   });
   return normalizeEditorText(blocks.join("\n\n"));
+}
+
+function editorPositionAtTextOffset(editor: Editor, targetOffset: number) {
+  let textOffset = 0;
+  let result: number | null = null;
+  editor.state.doc.forEach((block, blockPosition) => {
+    if (result != null) return;
+    const blockText = block.textBetween(0, block.content.size, "\n", "\n");
+    const localTarget = targetOffset - textOffset;
+    if (localTarget >= 0 && localTarget <= blockText.length) {
+      let localTextOffset = 0;
+      block.descendants((node, nodePosition) => {
+        if (result != null || !node.isText) return;
+        const length = node.text?.length ?? 0;
+        if (localTarget <= localTextOffset + length) {
+          result = blockPosition + 1 + nodePosition + Math.max(0, localTarget - localTextOffset);
+        }
+        localTextOffset += length;
+      });
+      if (result == null) result = blockPosition + block.nodeSize - 1;
+      return;
+    }
+    textOffset += blockText.length + 2;
+  });
+  return result;
+}
+
+function applyEditorAnnotations(editor: Editor, values: TeacherAnnotation[]) {
+  const markType = editor.schema.marks.teacherAnnotation;
+  if (!markType) return;
+  const fullText = editorPlainText(editor);
+  let transaction = editor.state.tr.removeMark(0, editor.state.doc.content.size, markType);
+  values.forEach((item) => {
+    if (!item.id || !item.selectedText) return;
+    let start = item.start;
+    let end = item.end;
+    if (fullText.slice(start, end) !== item.selectedText) {
+      const recoveredStart = fullText.indexOf(item.selectedText);
+      if (recoveredStart < 0) return;
+      start = recoveredStart;
+      end = recoveredStart + item.selectedText.length;
+    }
+    const from = editorPositionAtTextOffset(editor, start);
+    const to = editorPositionAtTextOffset(editor, end);
+    if (from == null || to == null || to <= from) return;
+    const color = item.kind === "REPLACE"
+      ? "#fecdd3"
+      : criterionColorMap[item.criterion ?? ""]?.highlight ?? "#fef08a";
+    transaction = transaction.addMark(from, to, markType.create({ annotationId: item.id, color }));
+  });
+  if (transaction.docChanged) editor.view.dispatch(transaction.setMeta("preventUpdate", true));
 }
 
 function persistableEditorHtml(html: string) {

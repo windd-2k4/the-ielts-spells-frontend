@@ -98,8 +98,11 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
   const [fontScale, setFontScale] = useState<ReadingFontScale>("standard");
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const submitDialogRef = useRef<HTMLElement>(null);
+  const cancelSubmitRef = useRef<HTMLButtonElement>(null);
   const submitStartedRef = useRef(false);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
 
@@ -238,9 +241,8 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
     return () => window.removeEventListener("online", online);
   }, [dirtyKeys.size, flush]);
 
-  const submit = useCallback(async (automatic = false) => {
+  const submit = useCallback(async () => {
     if (submitStartedRef.current) return;
-    if (!automatic && !window.confirm("Bạn chắc chắn muốn nộp bài Writing? Sau khi nộp, bài viết không thể chỉnh sửa.")) return;
     submitStartedRef.current = true;
     setSubmitting(true);
     setError("");
@@ -260,7 +262,41 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       setSubmitting(false);
       setError(reason instanceof Error ? reason.message : "Không thể nộp bài Writing.");
     }
-  }, [attemptId, dirtyKeys.size, flush, router]);
+  }, [attemptId, dirtyKeys.size, flush, router, searchParams]);
+
+  useEffect(() => {
+    if (!showSubmitConfirmation) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    cancelSubmitRef.current?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !submitStartedRef.current) {
+        setShowSubmitConfirmation(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = submitDialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled)");
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [showSubmitConfirmation]);
 
   useEffect(() => {
     if (!attempt || !timerRunning) return;
@@ -268,7 +304,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
       setRemaining((current) => {
         if (current <= 1) {
           window.clearInterval(timer);
-          void submit(true);
+          void submit();
           return 0;
         }
         return current - 1;
@@ -284,6 +320,8 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
   if (!activeTask) return <div className={styles.state}>Đề Writing chưa có task hợp lệ.</div>;
   const currentText = answers[activeTask.taskKey] ?? "";
   const words = wordCount(currentText);
+  const totalWords = attempt.tasks.reduce((total, task) => total + wordCount(answers[task.taskKey] ?? ""), 0);
+  const tasksBelowMinimum = attempt.tasks.filter((task) => wordCount(answers[task.taskKey] ?? "") < task.minWords);
   const sectionSpecs = writingSections(activeTask);
   const activeSections = sectionAnswers[activeTask.taskKey] ?? splitResponse(currentText, sectionSpecs.length);
   const activeFontScale = READING_FONT_SCALE_OPTIONS.find((option) => option.value === fontScale) ?? READING_FONT_SCALE_OPTIONS[0];
@@ -355,7 +393,7 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
             ))}
           </div>
           <div className={`${styles.timer} ${remaining < 300 ? styles.urgent : ""}`}><Clock size={18} /><span>{formatTime(remaining)}</span></div>
-          <button type="button" onClick={() => void submit(false)} disabled={submitting} className={styles.submit}>
+          <button type="button" onClick={() => { setError(""); setShowSubmitConfirmation(true); }} disabled={submitting} className={styles.submit}>
             {submitting ? <CircleNotch className={styles.spin} /> : <PaperPlaneTilt />} Nộp bài
           </button>
         </div>
@@ -409,6 +447,61 @@ function WritingAttemptContent({ attemptId }: { attemptId: string }) {
           <div className={styles.outlineNote}><CheckCircle size={17} /><span>Nội dung ở mọi phần được ghép thành một bài hoàn chỉnh khi lưu và nộp.</span></div>
         </div> : null}
       </section>
+
+      {showSubmitConfirmation ? (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !submitStartedRef.current) setShowSubmitConfirmation(false);
+          }}
+        >
+          <section
+            ref={submitDialogRef}
+            className={styles.submitDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="writing-submit-title"
+            aria-describedby="writing-submit-description"
+          >
+            <span className={styles.dialogIcon}>
+              <PaperPlaneTilt size={24} weight="fill" aria-hidden="true" />
+            </span>
+            <p className={styles.dialogEyebrow}>Xác nhận nộp bài</p>
+            <h2 id="writing-submit-title">Bạn đã sẵn sàng nộp bài?</h2>
+            <p id="writing-submit-description">
+              Hệ thống sẽ lưu thay đổi lần cuối trước khi nộp. Sau đó, bài viết không thể chỉnh sửa.
+            </p>
+
+            <dl className={styles.submissionSummary}>
+              <div><dt>Số task</dt><dd>{attempt.tasks.length}</dd></div>
+              <div><dt>Tổng số từ</dt><dd>{totalWords}</dd></div>
+              <div><dt>Thời gian còn lại</dt><dd>{formatTime(remaining)}</dd></div>
+            </dl>
+
+            {tasksBelowMinimum.length ? (
+              <div className={styles.wordWarning}>
+                <WarningCircle size={18} weight="fill" aria-hidden="true" />
+                <span>
+                  {tasksBelowMinimum.map((task) => `Task ${task.taskNo}`).join(", ")} chưa đạt số từ tối thiểu.
+                </span>
+              </div>
+            ) : null}
+
+            {error ? <div className={styles.dialogError} role="alert"><WarningCircle size={18} weight="fill" />{error}</div> : null}
+
+            <div className={styles.dialogActions}>
+              <button ref={cancelSubmitRef} type="button" onClick={() => setShowSubmitConfirmation(false)} disabled={submitting}>
+                Tiếp tục chỉnh sửa
+              </button>
+              <button type="button" onClick={() => void submit()} disabled={submitting}>
+                {submitting ? <CircleNotch size={18} className={styles.spin} /> : <PaperPlaneTilt size={18} weight="fill" />}
+                {submitting ? "Đang nộp bài" : "Nộp bài"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

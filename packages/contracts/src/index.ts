@@ -316,6 +316,7 @@ export interface StudentWritingAssignment extends StudentReadingAssignment {}
 export interface WritingEvaluationResult {
   taskKey: string;
   aiStatus: "AI_COMPLETED" | "NOT_ELIGIBLE" | "QUEUED" | "PROCESSING" | "FAILED";
+  aiErrorMessage: string | null;
   overallBandAi: number | null;
   aiCriterionBands: Record<string, number>;
   aiStrengths: string[];

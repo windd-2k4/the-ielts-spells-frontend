@@ -61,6 +61,7 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
   const [actionError, setActionError] = useState("");
 
   const pending = result?.evaluations.some((item) => ["QUEUED", "PROCESSING"].includes(item.aiStatus)) ?? false;
+  const aiFailed = result?.evaluations.some((item) => item.aiStatus === "FAILED") ?? false;
 
   const resultTabs = [
     { id: "essay", label: "Bài viết của bạn", icon: FileText, tag: null },
@@ -376,13 +377,13 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
           {tab === "tis" &&
           result.resultVisible &&
           !pending &&
-          result.evaluations.some((item) => item.aiStatus === "NOT_ELIGIBLE") ? (
+          result.evaluations.some((item) => ["NOT_ELIGIBLE", "FAILED"].includes(item.aiStatus)) ? (
             <section className={styles.ctaBox}>
               <div className={styles.ctaIcon}>
                 <Sparkle size={26} weight="fill" />
               </div>
               <div className={styles.ctaContent}>
-                <h2>{result.aiEligible ? "Nhận phân tích & sửa bài chi tiết từ TIS" : "Bạn chưa có lượt sửa bài khả dụng"}</h2>
+                <h2>{aiFailed ? "TIS gặp lỗi, bạn có thể thử lại" : result.aiEligible ? "Nhận phân tích & sửa bài chi tiết từ TIS" : "Bạn chưa có lượt sửa bài khả dụng"}</h2>
                 <p>
                   {result.aiEligible
                     ? "TIS sử dụng AI đánh giá theo chuẩn 4 tiêu chí IELTS, phân tích điểm mạnh, lỗi ngữ pháp và đề xuất cách cải thiện diễn đạt."
@@ -397,7 +398,7 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
                   onClick={() => void requestAi()}
                 >
                   {requesting ? <CircleNotch size={16} className={styles.spin} /> : <Sparkle size={16} weight="fill" />}
-                  <span>{requesting ? "Đang gửi bài..." : "Nhờ TIS sửa bài ngay"}</span>
+                  <span>{requesting ? "Đang gửi bài..." : aiFailed ? "Thử chấm lại" : "Nhờ TIS sửa bài ngay"}</span>
                 </button>
               ) : null}
             </section>
@@ -479,7 +480,7 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
                       <WarningCircle size={22} weight="fill" />
                       <div>
                         <strong>TIS chưa thể hoàn tất bài chấm</strong>
-                        <p>Bài vẫn được lưu trữ. Vui lòng liên hệ giáo viên để được hỗ trợ chấm lại.</p>
+                        <p>{evaluation.aiErrorMessage || "Bài vẫn được lưu trữ. Bạn có thể thử chấm lại mà không mất lượt AI."}</p>
                       </div>
                     </section>
                   ) : null}

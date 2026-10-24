@@ -157,6 +157,7 @@ export type StudentAttemptDetail = {
     questionType: string;
     sectionTitle: string | null;
     groupTitle: string | null;
+    groupInstructions?: string | null;
     prompt: string | null;
     studentAnswers: string[];
     correctAnswers: string[];
@@ -164,6 +165,11 @@ export type StudentAttemptDetail = {
     score: number;
     maxScore: number;
     explanation: string | null;
+  }>;
+  sections?: Array<{
+    sectionNo: number;
+    title: string;
+    contentHtml: string;
   }>;
 };
 

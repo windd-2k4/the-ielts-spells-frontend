@@ -1,7 +1,7 @@
 import {
-  ArrowClockwise, Brain, CaretDown, CaretLeft, CaretRight, ChartBar, CheckCircle, CircleNotch, ClipboardText, FileText, FloppyDisk,
-  Infinity as InfinityIcon, MagnifyingGlass, Microphone, NotePencil, PaperPlaneTilt,
-  ShieldCheck, Sparkle, UsersThree, WarningCircle,
+  ArrowClockwise, Brain, CaretDown, CaretLeft, CaretRight, ChartBar, Check, CheckCircle, CircleNotch, ClipboardText, Copy,
+  DotsSixVertical, FileText, FloppyDisk, Infinity as InfinityIcon, MagnifyingGlass, Microphone, Minus, NotePencil,
+  PaperPlaneTilt, Plus, ShieldCheck, Sparkle, UsersThree, WarningCircle,
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
@@ -293,17 +293,59 @@ function WritingPanel() {
     empty={!selected ? "Không có bài Writing phù hợp với bộ lọc." : undefined}>
     {selected ? <div className="flex h-full min-h-0 flex-col gap-3">
       <WritingEvaluationBar evaluation={selected} criteria={criterionKeys}/>
-      <section className="grid min-h-0 flex-1 items-start gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,.85fr)]">
-        <div className="custom-scrollbar min-h-0 2xl:h-full 2xl:overflow-y-auto 2xl:pr-1">
-          <WritingReviewEditor evaluation={selected} prompt={prompt} editedText={editedText} annotations={annotations} draftStatus={draftStatus} onOpenWordEditor={() => setIsWordEditorOpen(true)}/>
-        </div>
-        <div className="min-h-0 space-y-3 2xl:flex 2xl:h-full 2xl:flex-col 2xl:overflow-hidden">
-          <ReviewSwitcher value={reviewMode} onChange={setReviewMode}/>
-          {reviewMode === "ai"
-            ? <div className="custom-scrollbar min-h-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pr-1"><AiSummary status={selected.status} overall={selected.overallBandAi} criteria={selected.criteria} labels={writingLabels} strengths={selected.aiStrengths} improvements={selected.aiImprovements} error={selected.errorMessage} onRetry={selected.status === "FAILED" ? retry : undefined}/></div>
-            : <TeacherForm workspace overall={overallBand} setOverall={() => undefined} overallReadOnly criteria={criterionKeys} labels={writingLabels} bands={bands} setBands={changeBands} feedback={feedback} setFeedback={changeFeedback} strengths={strengths} setStrengths={changeStrengths} improvements={improvements} setImprovements={changeImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>}
-        </div>
-      </section>
+      <WritingWorkspaceSplitPane
+        left={
+          <div className="h-full min-h-0">
+            <WritingReviewEditor
+              evaluation={selected}
+              prompt={prompt}
+              editedText={editedText}
+              annotations={annotations}
+              draftStatus={draftStatus}
+              onOpenWordEditor={() => setIsWordEditorOpen(true)}
+            />
+          </div>
+        }
+        right={
+          <div className="flex h-full min-h-0 flex-col space-y-3 overflow-hidden">
+            <ReviewSwitcher value={reviewMode} onChange={setReviewMode} />
+            {reviewMode === "ai" ? (
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
+                <AiSummary
+                  status={selected.status}
+                  overall={selected.overallBandAi}
+                  criteria={selected.criteria}
+                  labels={writingLabels}
+                  strengths={selected.aiStrengths}
+                  improvements={selected.aiImprovements}
+                  error={selected.errorMessage}
+                  onRetry={selected.status === "FAILED" ? retry : undefined}
+                />
+              </div>
+            ) : (
+              <TeacherForm
+                workspace
+                overall={overallBand}
+                setOverall={() => undefined}
+                overallReadOnly
+                criteria={criterionKeys}
+                labels={writingLabels}
+                bands={bands}
+                setBands={changeBands}
+                feedback={feedback}
+                setFeedback={changeFeedback}
+                strengths={strengths}
+                setStrengths={changeStrengths}
+                improvements={improvements}
+                setImprovements={changeImprovements}
+                saving={saving}
+                published={selected.teacherStatus === "PUBLISHED"}
+                onSave={save}
+              />
+            )}
+          </div>
+        }
+      />
       {isWordEditorOpen ? (
         <Suspense fallback={<div className="fixed inset-0 z-50 grid place-content-center bg-surface/90 text-sm font-bold text-primary">Đang mở trình sửa Word…</div>}>
           <WritingWordReviewModal
@@ -590,7 +632,192 @@ function ScoreCell({ label, value, note, emphasis = false }: { label: string; va
   return <div className={`min-h-[60px] min-w-0 px-2.5 py-1.5 ${emphasis ? "bg-primary text-on-primary" : "bg-surface"}`}><span className={`block truncate text-[8px] font-extrabold uppercase tracking-[.05em] ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{label}</span><strong className="block truncate font-display text-lg leading-5 tabular-nums">{value}</strong><span className={`block truncate text-[8px] font-semibold ${emphasis ? "text-on-primary/75" : "text-on-surface-variant"}`}>{note}</span></div>;
 }
 
-function WritingReviewEditor({ evaluation, prompt, editedText, annotations, draftStatus, onOpenWordEditor }: {
+function WritingWorkspaceSplitPane({
+  left,
+  right,
+  initialRatio = 55,
+}: {
+  left: React.ReactNode;
+  right: React.ReactNode;
+  initialRatio?: number;
+}) {
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    if (typeof window === "undefined") return initialRatio;
+    const saved = window.localStorage.getItem("management-writing-split-ratio");
+    const num = saved ? parseFloat(saved) : initialRatio;
+    return isNaN(num) || num < 26 || num > 74 ? initialRatio : num;
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const [isWide, setIsWide] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= 1200;
+  });
+
+  useEffect(() => {
+    const onResize = () => setIsWide(window.innerWidth >= 1200);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const offset = e.clientX - rect.left;
+      const percent = (offset / rect.width) * 100;
+      const clamped = Math.min(Math.max(percent, 26), 74);
+      setSplitRatio(clamped);
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("management-writing-split-ratio", String(Math.round(splitRatio * 10) / 10));
+    } catch {
+      // ignore
+    }
+  }, [splitRatio]);
+
+  const resetRatio = () => {
+    setSplitRatio(55);
+  };
+
+  if (!isWide) {
+    return (
+      <section className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="w-full">{left}</div>
+        <div className="w-full">{right}</div>
+      </section>
+    );
+  }
+
+  const leftWidth = `calc(${splitRatio}% - 7px)`;
+  const rightWidth = `calc(${100 - splitRatio}% - 7px)`;
+
+  return (
+    <section
+      ref={containerRef}
+      className={`relative flex min-h-0 flex-1 flex-row items-stretch overflow-hidden ${
+        isDragging ? "cursor-col-resize select-none" : ""
+      }`}
+    >
+      {isDragging ? (
+        <div className="fixed inset-0 z-50 cursor-col-resize select-none" />
+      ) : null}
+
+      <div
+        className="min-h-0 shrink-0 overflow-hidden"
+        style={{
+          width: leftWidth,
+          minWidth: "320px",
+          transition: isDragging ? "none" : "width 0.15s ease-out",
+        }}
+      >
+        {left}
+      </div>
+
+      <div
+        role="separator"
+        tabIndex={0}
+        aria-orientation="vertical"
+        aria-label="Thanh điều chỉnh tỉ lệ bài viết và đánh giá"
+        aria-valuenow={Math.round(splitRatio)}
+        aria-valuemin={26}
+        aria-valuemax={74}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={resetRatio}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") setSplitRatio((r) => Math.max(26, r - 2));
+          else if (e.key === "ArrowRight") setSplitRatio((r) => Math.min(74, r + 2));
+          else if (e.key === "Enter" || e.key === " ") resetRatio();
+        }}
+        className={`group relative z-20 flex w-[14px] shrink-0 cursor-col-resize items-center justify-center select-none focus:outline-none ${
+          isDragging ? "bg-primary/10" : "hover:bg-primary/5"
+        }`}
+        title="Kéo sang trái/phải để thay đổi tỉ lệ (Nhấp đúp: đặt lại 55/45)"
+      >
+        <div
+          className={`h-full w-[2px] rounded-full transition-colors ${
+            isDragging
+              ? "bg-primary"
+              : "bg-outline-variant/60 group-hover:bg-primary/70 group-focus:bg-primary"
+          }`}
+        />
+
+        <div
+          className={`absolute flex h-9 w-5 items-center justify-center rounded-md border border-outline-variant/70 bg-surface shadow-xs transition-all ${
+            isDragging
+              ? "scale-110 border-primary bg-primary text-on-primary shadow-md ring-2 ring-primary/20"
+              : "text-on-surface-variant group-hover:border-primary group-hover:text-primary group-hover:shadow-sm"
+          }`}
+        >
+          <DotsSixVertical size={13} weight="bold" />
+        </div>
+
+        <div
+          className={`pointer-events-none absolute -top-1 z-30 flex items-center gap-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-bold tracking-tight text-white shadow-md transition-opacity ${
+            isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <span>{Math.round(splitRatio)}%</span>
+          <span className="opacity-50">:</span>
+          <span>{100 - Math.round(splitRatio)}%</span>
+        </div>
+      </div>
+
+      <div
+        className="min-h-0 shrink-0 overflow-hidden"
+        style={{
+          width: rightWidth,
+          minWidth: "360px",
+          transition: isDragging ? "none" : "width 0.15s ease-out",
+        }}
+      >
+        {right}
+      </div>
+    </section>
+  );
+}
+
+function WritingReviewEditor({
+  evaluation,
+  prompt,
+  editedText,
+  annotations,
+  draftStatus,
+  onOpenWordEditor,
+}: {
   evaluation: WritingEvaluation;
   prompt: string;
   editedText: string;
@@ -603,35 +830,296 @@ function WritingReviewEditor({ evaluation, prompt, editedText, annotations, draf
   const visibleText = view === "revision" && hasRevision ? editedText : evaluation.essayText;
   const paragraphs = visibleText.split(/\n+/).map((item) => item.trim()).filter(Boolean);
 
-  return <article className="overflow-hidden rounded-2xl border border-outline-variant/55 bg-surface">
-    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/55 px-4 py-2.5">
-      <div className="flex min-w-0 items-center gap-2"><ClipboardText size={18} className="shrink-0 text-primary"/><div className="min-w-0"><h3 className="text-sm font-extrabold">Bài viết học viên</h3><p className="truncate text-[11px] text-on-surface-variant">{wordCount(evaluation.essayText)} từ, bản sửa {evaluation.teacherRevision ?? 0}</p></div></div>
-      <div className="flex items-center gap-2">
-        {hasRevision ? <div className="flex rounded-lg bg-surface-container p-0.5 text-[11px] font-bold"><button type="button" onClick={() => setView("submission")} className={`rounded-md px-2.5 py-1.5 ${view === "submission" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Bài nộp</button><button type="button" onClick={() => setView("revision")} className={`rounded-md px-2.5 py-1.5 ${view === "revision" ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant"}`}>Bản sửa</button></div> : null}
-        <button
-          type="button"
-          onClick={onOpenWordEditor}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[#185abd] px-3 text-xs font-extrabold text-white transition hover:bg-[#124996] active:scale-[.98]"
-          title="Mở trình sửa bài bằng Word"
+  const [fontSize, setFontSize] = useState<number>(() => {
+    if (typeof window === "undefined") return 15;
+    const saved = window.localStorage.getItem("management-writing-font-size");
+    const num = saved ? parseInt(saved, 10) : 15;
+    return isNaN(num) || num < 13 || num > 22 ? 15 : num;
+  });
+
+  const [fontFamily, setFontFamily] = useState<"sans" | "serif">(() => {
+    if (typeof window === "undefined") return "sans";
+    return window.localStorage.getItem("management-writing-font-family") === "serif" ? "serif" : "sans";
+  });
+
+  const [lineHeight, setLineHeight] = useState<"normal" | "relaxed" | "loose">(() => {
+    if (typeof window === "undefined") return "relaxed";
+    const saved = window.localStorage.getItem("management-writing-line-height");
+    return saved === "normal" || saved === "loose" ? saved : "relaxed";
+  });
+
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    window.localStorage.setItem("management-writing-font-size", String(fontSize));
+  }, [fontSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem("management-writing-font-family", fontFamily);
+  }, [fontFamily]);
+
+  useEffect(() => {
+    window.localStorage.setItem("management-writing-line-height", lineHeight);
+  }, [lineHeight]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(visibleText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const totalWords = wordCount(visibleText);
+  const targetWords = evaluation.taskType === "task_2" ? 250 : 150;
+  const meetsWordTarget = totalWords >= targetWords;
+  const wordDiff = targetWords - totalWords;
+
+  const changeFontSize = (delta: number) => {
+    setFontSize((prev) => Math.min(22, Math.max(13, prev + delta)));
+  };
+
+  return (
+    <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-outline-variant/55 bg-surface shadow-2xs">
+      {/* Ultra-compact Header (Single Row) */}
+      <header className="sticky top-0 z-10 border-b border-outline-variant/55 bg-surface/95 backdrop-blur-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2">
+          {/* Left: Title + word count badge + revision toggle */}
+          <div className="flex min-w-0 items-center gap-2">
+            <ClipboardText size={17} className="shrink-0 text-primary" />
+            <h3 className="truncate text-xs font-extrabold text-on-surface">Bài viết học viên</h3>
+
+            {/* Word count status pill */}
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                meetsWordTarget
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border border-amber-200"
+              }`}
+              title={
+                meetsWordTarget
+                  ? `Đạt yêu cầu tối thiểu ${targetWords} từ (${totalWords}/${targetWords})`
+                  : `Thiếu ${wordDiff} từ so với chuẩn tối thiểu ${targetWords} từ`
+              }
+            >
+              <span>{totalWords} từ</span>
+              <span>{meetsWordTarget ? "✓" : "⚠"}</span>
+            </span>
+
+            {/* Version switcher */}
+            {hasRevision ? (
+              <div className="flex rounded-md bg-surface-container p-0.5 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setView("submission")}
+                  className={`rounded px-1.5 py-0.5 transition ${
+                    view === "submission"
+                      ? "bg-surface text-primary shadow-2xs"
+                      : "text-on-surface-variant hover:text-on-surface"
+                  }`}
+                >
+                  Bài nộp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("revision")}
+                  className={`rounded px-1.5 py-0.5 transition ${
+                    view === "revision"
+                      ? "bg-surface text-primary shadow-2xs"
+                      : "text-on-surface-variant hover:text-on-surface"
+                  }`}
+                >
+                  Bản sửa
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Right: Typography controls + Copy + Sửa bằng Word */}
+          <div className="flex items-center gap-1.5">
+            {/* Font Size Stepper */}
+            <div className="flex items-center rounded-lg border border-outline-variant/60 bg-surface p-0.5">
+              <button
+                type="button"
+                disabled={fontSize <= 13}
+                onClick={() => changeFontSize(-1)}
+                className="flex size-6 items-center justify-center rounded text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface disabled:opacity-35"
+                title="Giảm cỡ chữ (A-)"
+                aria-label="Giảm cỡ chữ"
+              >
+                <Minus size={11} weight="bold" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize(15)}
+                className="px-1.5 text-[11px] font-bold tabular-nums text-on-surface hover:text-primary"
+                title="Nhấp để đặt lại cỡ chữ 15px"
+              >
+                {fontSize}px
+              </button>
+              <button
+                type="button"
+                disabled={fontSize >= 22}
+                onClick={() => changeFontSize(1)}
+                className="flex size-6 items-center justify-center rounded text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface disabled:opacity-35"
+                title="Tăng cỡ chữ (A+)"
+                aria-label="Tăng cỡ chữ"
+              >
+                <Plus size={11} weight="bold" />
+              </button>
+            </div>
+
+            {/* Font Family Switcher */}
+            <div className="flex rounded-lg border border-outline-variant/60 bg-surface p-0.5 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setFontFamily("sans")}
+                className={`rounded px-1.5 py-0.5 transition ${
+                  fontFamily === "sans"
+                    ? "bg-primary-fixed/50 text-primary shadow-2xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+                title="Phông Sans-serif"
+              >
+                Sans
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontFamily("serif")}
+                className={`rounded px-1.5 py-0.5 font-serif transition ${
+                  fontFamily === "serif"
+                    ? "bg-primary-fixed/50 text-primary shadow-2xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
+                title="Phông Serif học thuật"
+              >
+                Serif
+              </button>
+            </div>
+
+            {/* Line Height Toggle */}
+            <button
+              type="button"
+              onClick={() =>
+                setLineHeight((curr) =>
+                  curr === "normal" ? "relaxed" : curr === "relaxed" ? "loose" : "normal"
+                )
+              }
+              className="flex items-center gap-0.5 rounded-lg border border-outline-variant/60 bg-surface px-1.5 py-1 text-[10px] font-semibold text-on-surface-variant transition hover:border-primary/50 hover:text-primary"
+              title="Đổi khoảng cách dòng"
+            >
+              <span>Dòng:</span>
+              <strong className="text-on-surface">
+                {lineHeight === "normal" ? "1.6" : lineHeight === "relaxed" ? "1.8" : "2.1"}
+              </strong>
+            </button>
+
+            {/* Copy Button */}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition ${
+                copied
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border-outline-variant/60 bg-surface text-on-surface-variant hover:border-primary/50 hover:text-primary"
+              }`}
+              title="Sao chép bài viết"
+            >
+              {copied ? (
+                <>
+                  <Check size={11} weight="bold" />
+                  <span>Đã chép</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={11} />
+                  <span>Sao chép</span>
+                </>
+              )}
+            </button>
+
+            {/* Sửa bằng Word Button */}
+            <button
+              type="button"
+              onClick={onOpenWordEditor}
+              className="inline-flex min-h-7 items-center gap-1.5 rounded-lg bg-[#185abd] px-2.5 text-[11px] font-bold text-white transition hover:bg-[#124996] active:scale-[.98]"
+              title="Mở trình sửa bài bằng Word"
+            >
+              <NotePencil size={13} weight="fill" />
+              <span>Sửa bằng Word</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Ultra-compact Collapsible Prompt (Đề bài) */}
+      <details className="group border-b border-outline-variant/55 bg-surface-container-low/40">
+        <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 px-3.5 py-1 text-left [&::-webkit-details-marker]:hidden">
+          <CaretRight size={13} className="shrink-0 text-primary transition-transform group-open:rotate-90"/>
+          <strong className="shrink-0 text-[11px] font-bold">Đề bài</strong>
+          <span className="min-w-0 flex-1 truncate text-[11px] text-on-surface-variant">{prompt}</span>
+          {evaluation.taskContext.imageUrl ? <span className="shrink-0 text-[10px] font-semibold text-primary">Có hình Task 1</span> : null}
+        </summary>
+        <div className="border-t border-outline-variant/55 px-3.5 py-2.5">
+          <p className="whitespace-pre-wrap text-xs font-semibold italic leading-5 text-slate-800 dark:text-slate-100">{prompt}</p>
+          {evaluation.taskContext.imageUrl ? (
+            <div className="mt-2 overflow-hidden rounded-lg border border-outline-variant/55 bg-white p-2">
+              <AuthenticatedMediaImage fileUrl={evaluation.taskContext.imageUrl} alt={evaluation.taskContext.imageAltText || "Hình đề IELTS Writing Task 1"} className="mx-auto max-h-[220px] w-auto object-contain"/>
+            </div>
+          ) : null}
+        </div>
+      </details>
+
+      {/* Essay Content Area */}
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+        <div
+          className="space-y-4 text-justify text-[#1e293b] dark:text-slate-100"
+          style={{
+            fontFamily:
+              fontFamily === "serif"
+                ? 'Georgia, Cambria, "Times New Roman", Times, serif'
+                : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: `${fontSize}px`,
+            lineHeight:
+              lineHeight === "normal" ? 1.6 : lineHeight === "relaxed" ? 1.8 : 2.05,
+          }}
         >
-          <NotePencil size={15} weight="fill" />
-          <span>Sửa bằng Word</span>
-        </button>
+          {paragraphs.length > 0 ? (
+            paragraphs.map((paragraph, index) => (
+              <p
+                key={`${index}-${paragraph.slice(0, 24)}`}
+                className="whitespace-pre-wrap rounded-md p-1.5 transition-colors hover:bg-primary-fixed/10"
+              >
+                {paragraph}
+              </p>
+            ))
+          ) : (
+            <p className="py-8 text-center text-sm italic text-on-surface-variant">
+              Bài viết chưa có nội dung.
+            </p>
+          )}
+
+          {paragraphs.length > 0 ? (
+            <div className="mt-5 flex items-center justify-between border-t border-outline-variant/35 pt-3 text-[11px] text-on-surface-variant select-none">
+              <span className="font-medium italic opacity-70">--- Hết bài làm ---</span>
+              <span className="tabular-nums font-semibold">
+                {totalWords} từ · {paragraphs.length} đoạn
+              </span>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </header>
-    <details className="group border-b border-outline-variant/55 bg-surface-container-low/60">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-left [&::-webkit-details-marker]:hidden">
-        <CaretRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90"/>
-        <strong className="shrink-0 text-xs">Đề bài</strong>
-        <span className="min-w-0 flex-1 truncate text-xs text-on-surface-variant">{prompt}</span>
-        {evaluation.taskContext.imageUrl ? <span className="shrink-0 text-[10px] font-semibold text-primary">Có hình Task 1</span> : null}
-      </summary>
-      <div className="border-t border-outline-variant/55 px-4 py-3"><p className="whitespace-pre-wrap text-sm font-semibold italic leading-6">{prompt}</p>{evaluation.taskContext.imageUrl ? <div className="mt-3 overflow-hidden rounded-xl border border-outline-variant/55 bg-white p-2"><AuthenticatedMediaImage fileUrl={evaluation.taskContext.imageUrl} alt={evaluation.taskContext.imageAltText || "Hình đề IELTS Writing Task 1"} className="mx-auto max-h-[240px] w-auto object-contain"/></div> : null}</div>
-    </details>
-    <div className="min-h-[520px] space-y-3 p-5 text-[15px] leading-7">{paragraphs.length ? paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>) : <p className="text-on-surface-variant">Bài viết chưa có nội dung.</p>}</div>
-    <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/55 bg-surface-container-low/50 px-4 py-2 text-[11px] text-on-surface-variant"><span>{annotations.length ? `${annotations.length} nhận xét trong Word` : "Chưa có nhận xét trong Word"}</span><span>{draftStatus === "saving" ? "Đang lưu…" : draftStatus === "dirty" ? "Nội dung chưa lưu" : draftStatus === "error" ? "Lưu lỗi" : "Nội dung đã lưu"}</span></footer>
-  </article>;
-  }
+
+      {/* Footer */}
+      <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/55 bg-surface-container-low/50 px-3.5 py-1.5 text-[11px] text-on-surface-variant">
+        <span>{annotations.length ? `${annotations.length} nhận xét trong Word` : "Chưa có nhận xét trong Word"}</span>
+        <span>{draftStatus === "saving" ? "Đang lưu…" : draftStatus === "dirty" ? "Nội dung chưa lưu" : draftStatus === "error" ? "Lưu lỗi" : "Nội dung đã lưu"}</span>
+      </footer>
+    </article>
+  );
+}
 
 function ReviewSwitcher({ value, onChange }: { value: "ai" | "teacher"; onChange: (value: "ai" | "teacher") => void }) {
   return (
@@ -743,8 +1231,8 @@ function TeacherForm({
   const gradingComplete = criteria.length === 4 && missingCriteriaCount === 0 && validBand(overall);
 
   return (
-    <section className={`rounded-2xl border border-outline-variant/65 bg-surface p-4 shadow-xs ${workspace ? "2xl:flex 2xl:min-h-0 2xl:flex-1 2xl:flex-col 2xl:overflow-hidden" : ""}`}>
-      <div className={workspace ? "custom-scrollbar 2xl:min-h-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pr-1" : ""}>
+    <section className={`rounded-2xl border border-outline-variant/65 bg-surface p-4 shadow-xs ${workspace ? "flex min-h-0 flex-1 flex-col overflow-hidden" : ""}`}>
+      <div className={workspace ? "custom-scrollbar min-h-0 flex-1 overflow-y-auto pr-1" : ""}>
       {!workspace ? <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
