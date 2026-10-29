@@ -23,6 +23,7 @@ import {
   WarningOctagon,
 } from "@phosphor-icons/react";
 import { classStatusLabel } from "../academic-types";
+import SystemAnalyticsCharts from "../components/dashboard/SystemAnalyticsCharts";
 import {
   getAdminDashboard,
   type ActionItem,
@@ -30,9 +31,6 @@ import {
   type KpiMetric,
   type TrendPoint,
 } from "../lib/dashboard-api";
-
-type TrendMetricType = "score" | "attempts" | "attendance";
-type SkillFilterType = "ALL" | "READING" | "LISTENING" | "WRITING" | "SPEAKING";
 
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -43,11 +41,6 @@ export function DashboardPage() {
   // Filters
   const [timeRange, setTimeRange] = useState<string>("7d");
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
-
-  // Trend Chart State
-  const [trendMetric, setTrendMetric] = useState<TrendMetricType>("score");
-  const [selectedSkill, setSelectedSkill] = useState<SkillFilterType>("ALL");
-  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
   // Last update timestamp
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>("");
@@ -108,17 +101,6 @@ export function DashboardPage() {
   const trendPoints: TrendPoint[] = useMemo(() => {
     return dashboard?.trend.points ?? [];
   }, [dashboard?.trend.points]);
-  const chartPoints = useMemo(
-    () => trendPoints.filter((point) => {
-      const value = trendPointValue(point, trendMetric, selectedSkill);
-      return value !== null && (trendMetric !== "attempts" || value > 0);
-    }),
-    [selectedSkill, trendMetric, trendPoints]
-  );
-
-  useEffect(() => {
-    setHoveredPointIndex(null);
-  }, [selectedSkill, trendMetric]);
 
   // Priority badge styling
   const getPriorityStyle = (priority: ActionItem["priority"]) => {
@@ -420,134 +402,13 @@ export function DashboardPage() {
 
           {/* 3. Hero Bento Grid: VIỆC CẦN XỬ LÝ (Nổi bật nhất) + XU HƯỚNG HỌC TẬP */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left 7 Columns on Desktop: XU HƯỚNG HỌC TẬP (Interactive Line Chart) */}
+            {/* Left 7 Columns on Desktop: XU HƯỚNG HỌC TẬP (3 Biểu đồ theo đề xuất) */}
             <div className="lg:col-span-7 bg-surface rounded-2xl border border-outline-variant/30 shadow-sm p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                      Xu hướng học tập
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">
-                      Phân tích kết quả làm bài và độ chuyên cần theo thời gian
-                    </p>
-                  </div>
-
-                  {/* Metric Toggle Tabs */}
-                  <div className="flex items-center bg-surface-container rounded-xl p-1 border border-outline-variant/20 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setTrendMetric("score")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        trendMetric === "score"
-                          ? "bg-surface text-primary shadow-sm"
-                          : "text-on-surface-variant hover:text-on-surface"
-                      }`}
-                    >
-                      Điểm số
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTrendMetric("attempts")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        trendMetric === "attempts"
-                          ? "bg-surface text-primary shadow-sm"
-                          : "text-on-surface-variant hover:text-on-surface"
-                      }`}
-                    >
-                      Bài nộp
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTrendMetric("attendance")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        trendMetric === "attendance"
-                          ? "bg-surface text-primary shadow-sm"
-                          : "text-on-surface-variant hover:text-on-surface"
-                      }`}
-                    >
-                      Chuyên cần
-                    </button>
-                  </div>
-                </div>
-
-                {/* Skill Filter Pills (Active only for score mode) */}
-                {trendMetric === "score" && (
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="text-xs font-semibold text-on-surface-variant mr-1">
-                      Kỹ năng:
-                    </span>
-                    {(["ALL", "READING", "LISTENING", "WRITING", "SPEAKING"] as SkillFilterType[]).map(
-                      (skill) => (
-                        <button
-                          key={skill}
-                          type="button"
-                          onClick={() => setSelectedSkill(skill)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                            selectedSkill === skill
-                              ? "bg-primary text-white"
-                              : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-                          }`}
-                        >
-                          {skill === "ALL" ? "Tất cả" : skill}
-                        </button>
-                      )
-                    )}
-                    {dashboard.trend.benchmarkTargetScore !== null && (
-                      <span className="ml-auto text-xs text-on-surface-variant flex items-center gap-1.5">
-                        <span className="w-3 h-0.5 border-t-2 border-dashed border-rose-500 inline-block" />
-                        Mục tiêu hồ sơ TB ({dashboard.trend.benchmarkTargetScore.toFixed(1)})
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* High-Fidelity Interactive SVG Line Chart */}
-                <div className="h-64 w-full relative">
-                  {chartPoints.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center text-on-surface-variant">
-                      <Info size={32} weight="duotone" className="mb-2 text-outline" />
-                      <p className="text-sm font-semibold">
-                        {trendMetric === "attendance" ? "Chưa có dữ liệu điểm danh trong kỳ này" : "Chưa có dữ liệu bài làm trong kỳ này"}
-                      </p>
-                      <p className="text-xs mt-0.5">
-                        {trendMetric === "attendance" ? "Dữ liệu sẽ xuất hiện sau khi khóa học được điểm danh." : "Dữ liệu sẽ xuất hiện khi học viên hoàn thành bài làm."}
-                      </p>
-                    </div>
-                  ) : (
-                    <InteractiveLineChart
-                      points={chartPoints}
-                      metric={trendMetric}
-                      skill={selectedSkill}
-                      benchmarkScore={dashboard.trend.benchmarkTargetScore}
-                      hoveredIndex={hoveredPointIndex}
-                      onHover={setHoveredPointIndex}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Bottom Chart Footer Legend */}
-              <div className="pt-4 mt-2 border-t border-outline-variant/20 flex flex-wrap items-center justify-between text-xs text-on-surface-variant gap-2">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                    {trendMetric === "score"
-                      ? "Điểm trung bình quy đổi (thang 0–9)"
-                      : trendMetric === "attempts"
-                      ? "Tổng số lượt nộp bài"
-                      : "Tỷ lệ chuyên cần (%)"}
-                  </span>
-                </div>
-                <span>
-                  <strong className="text-on-surface">
-                    {trendMetric === "attendance"
-                      ? `${chartPoints.length} ngày có điểm danh`
-                      : `${trendPoints.reduce((acc, p) => acc + p.completedAttempts, 0)} lượt làm bài`}
-                  </strong>
-                </span>
-              </div>
+              <SystemAnalyticsCharts
+                trendPoints={trendPoints}
+                benchmarkScore={dashboard.trend.benchmarkTargetScore}
+                totalAttempts={trendPoints.reduce((acc, p) => acc + p.completedAttempts, 0)}
+              />
             </div>
 
             {/* Right 5 Columns on Desktop: VIỆC CẦN XỬ LÝ (Highlighted Area) */}
@@ -927,225 +788,6 @@ function MetricChange({
       <span>
         {stable ? "Không đổi so với kỳ trước" : `${Math.abs(metric.changePercent)}% so với kỳ trước`}
       </span>
-    </div>
-  );
-}
-
-function trendPointValue(
-  point: TrendPoint,
-  metric: TrendMetricType,
-  skill: SkillFilterType
-): number | null {
-  if (metric === "attempts") return point.completedAttempts;
-  if (metric === "attendance") return point.attendanceRate;
-  if (skill === "READING") return point.readingScore;
-  if (skill === "LISTENING") return point.listeningScore;
-  if (skill === "WRITING") return point.writingScore;
-  if (skill === "SPEAKING") return point.speakingScore;
-  return point.averageScore;
-}
-
-// Interactive SVG Line Chart Component
-interface LineChartProps {
-  points: TrendPoint[];
-  metric: TrendMetricType;
-  skill: SkillFilterType;
-  benchmarkScore: number | null;
-  hoveredIndex: number | null;
-  onHover: (index: number | null) => void;
-}
-
-function InteractiveLineChart({
-  points,
-  metric,
-  skill,
-  benchmarkScore,
-  hoveredIndex,
-  onHover,
-}: LineChartProps) {
-  const width = 640;
-  const height = 230;
-  const padding = { top: 20, right: 30, bottom: 35, left: 45 };
-
-  // Calculate value for a point based on metric and skill
-  const getValue = (point: TrendPoint) => trendPointValue(point, metric, skill) ?? 0;
-
-  const values = points.map(getValue);
-  const minVal = metric === "attendance" ? 0 : 0;
-  const maxVal =
-    metric === "attendance"
-      ? 100
-      : metric === "attempts"
-      ? Math.max(10, Math.ceil(Math.max(...values, 5) * 1.2))
-      : 9.0;
-
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  const getX = (index: number) => {
-    if (points.length <= 1) return padding.left + chartWidth / 2;
-    return padding.left + (index / (points.length - 1)) * chartWidth;
-  };
-
-  const getY = (val: number) => {
-    const clamped = Math.max(minVal, Math.min(maxVal, val));
-    return padding.top + chartHeight - ((clamped - minVal) / (maxVal - minVal)) * chartHeight;
-  };
-
-  // Generate path string
-  const pathD = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${getX(i)} ${getY(getValue(p))}`)
-    .join(" ");
-
-  // Generate area fill path
-  const areaD = `${pathD} L ${getX(points.length - 1)} ${padding.top + chartHeight} L ${getX(
-    0
-  )} ${padding.top + chartHeight} Z`;
-
-  const benchmarkY = metric === "score" && benchmarkScore !== null ? getY(benchmarkScore) : null;
-
-  return (
-    <div className="relative w-full h-full select-none">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-full overflow-visible"
-        onMouseLeave={() => onHover(null)}
-      >
-        <defs>
-          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#894c5b" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#894c5b" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
-        {/* Horizontal grid lines & Y-axis labels */}
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-          const yVal = minVal + ratio * (maxVal - minVal);
-          const y = getY(yVal);
-          const label =
-            metric === "attendance"
-              ? `${Math.round(yVal)}%`
-              : metric === "attempts"
-              ? `${Math.round(yVal)}`
-              : `${yVal.toFixed(1)}`;
-
-          return (
-            <g key={ratio}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                stroke="#ded7da"
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-              <text
-                x={padding.left - 8}
-                y={y + 4}
-                textAnchor="end"
-                className="text-[10px] fill-on-surface-variant font-mono"
-              >
-                {label}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Target benchmark dashed line (Only in Score mode) */}
-        {benchmarkY !== null && (
-          <g>
-            <line
-              x1={padding.left}
-              y1={benchmarkY}
-              x2={width - padding.right}
-              y2={benchmarkY}
-              stroke="#e11d48"
-              strokeWidth="1.5"
-              strokeDasharray="5 4"
-            />
-          </g>
-        )}
-
-        {/* Area Gradient Fill */}
-        <path d={areaD} fill="url(#chartGradient)" />
-
-        {/* Main Trend Line */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="#894c5b"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Data points & hover triggers */}
-        {points.map((p, i) => {
-          const x = getX(i);
-          const y = getY(getValue(p));
-          const isHovered = hoveredIndex === i;
-
-          return (
-            <g key={p.dateLabel}>
-              {/* Visible circle dot */}
-              <circle
-                cx={x}
-                cy={y}
-                r={isHovered ? 6 : 3.5}
-                className={`transition-all duration-150 ${
-                  isHovered ? "fill-primary stroke-white stroke-2" : "fill-primary"
-                }`}
-              />
-
-              {/* Large invisible circle for comfortable touch/mouse hover */}
-              <circle
-                cx={x}
-                cy={y}
-                r={16}
-                fill="transparent"
-                className="cursor-pointer"
-                onMouseEnter={() => onHover(i)}
-              />
-
-              {/* X-axis date labels */}
-              {(i % Math.ceil(points.length / 6) === 0 || i === points.length - 1) && (
-                <text
-                  x={x}
-                  y={height - 10}
-                  textAnchor="middle"
-                  className="text-[10px] fill-on-surface-variant font-semibold"
-                >
-                  {p.dateLabel}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Floating Hover Tooltip */}
-      {hoveredIndex !== null && points[hoveredIndex] && (
-        <div
-          className="absolute z-20 pointer-events-none transform -translate-x-1/2 -translate-y-full bg-on-surface text-surface py-1.5 px-3 rounded-xl shadow-lg text-xs"
-          style={{
-            left: `${(getX(hoveredIndex) / width) * 100}%`,
-            top: `${(getY(getValue(points[hoveredIndex])) / height) * 100 - 8}%`,
-          }}
-        >
-          <div className="font-bold">{points[hoveredIndex].dateLabel}</div>
-          <div className="text-[11px] text-surface/80 mt-0.5">
-            {metric === "score"
-              ? `Điểm TB: ${getValue(points[hoveredIndex]).toFixed(2)}`
-              : metric === "attempts"
-              ? `${getValue(points[hoveredIndex])} bài nộp`
-              : `Chuyên cần: ${getValue(points[hoveredIndex])}%`}
-          </div>
-          <div className="text-[10px] text-surface/60">
-            {points[hoveredIndex].completedAttempts} lượt thi
-          </div>
-        </div>
-      )}
     </div>
   );
 }

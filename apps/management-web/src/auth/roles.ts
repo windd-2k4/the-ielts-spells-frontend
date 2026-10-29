@@ -19,10 +19,10 @@ export function hasManagementAccess(roles: readonly UserRole[]): boolean {
 
 export function managementHome(roles: readonly UserRole[]): string {
   if (roles.includes("admin")) return "/dashboard";
+  if (roles.includes("teacher")) return "/teacher-dashboard";
   if (roles.includes("admissions")) return "/students";
   if (roles.includes("social_media")) return "/cms";
   if (roles.includes("student_support")) return "/support/courses";
-  if (roles.includes("teacher")) return "/library";
   return "/login";
 }
 

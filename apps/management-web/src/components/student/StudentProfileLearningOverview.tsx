@@ -2,6 +2,7 @@ import {
   BookOpenText,
   CalendarBlank,
   ChartBar,
+  ChartLineUp,
   Clock,
   GraduationCap,
   Headphones,
@@ -9,8 +10,9 @@ import {
   PauseCircle,
   PenNib,
   Target,
+  TrendUp,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Course, Enrollment, StudentLearningInsights } from "../../academic-types";
 import { date, enrollmentStatusLabel, skillPairLabel } from "../../academic-types";
 
@@ -194,69 +196,158 @@ function CurrentCourses({ courses }: { courses: Array<{ enrollment: Enrollment; 
 }
 
 function SkillTrends({ insights, onRetry }: { insights: StudentLearningInsights; onRetry: () => void }) {
+  const [viewModes, setViewModes] = useState<Record<string, "MONTHLY" | "ACCURACY">>({});
+
   const monthly = Array.isArray(insights.monthlyCompletedAttempts) ? insights.monthlyCompletedAttempts : null;
   const series = ALL_SKILLS.map(skill => ({
     skill,
     points: monthly?.filter(item => item.skill === skill).sort((a, b) => a.month.localeCompare(b.month)) ?? [],
   }));
-  const available = series.filter(item => item.points.some(point => point.completedAttempts > 0));
-  const missing = series.filter(item => item.points.every(point => point.completedAttempts === 0));
+  const available = series.filter(item => {
+    const hasMonthly = item.points.some(point => point.completedAttempts > 0);
+    const hasAttempts = (insights.attempts ?? []).some(a => a.skill === item.skill);
+    return hasMonthly || hasAttempts;
+  });
+  const missing = series.filter(item => !available.some(a => a.skill === item.skill));
   const maxCount = Math.max(1, ...(monthly?.map(item => item.completedAttempts) ?? []));
   const axisMax = Math.max(2, Math.ceil(maxCount / 2) * 2);
 
+  const toggleSkillMode = (skill: string) => {
+    setViewModes(prev => ({
+      ...prev,
+      [skill]: (prev[skill] || "MONTHLY") === "MONTHLY" ? "ACCURACY" : "MONTHLY",
+    }));
+  };
+
+  const isAllAccuracy = ALL_SKILLS.every(s => (viewModes[s] || "MONTHLY") === "ACCURACY");
+  const toggleAll = () => {
+    const nextMode = isAllAccuracy ? "MONTHLY" : "ACCURACY";
+    const next: Record<string, "MONTHLY" | "ACCURACY"> = {};
+    ALL_SKILLS.forEach(s => { next[s] = nextMode; });
+    setViewModes(next);
+  };
+
   return (
     <section aria-labelledby="skill-trends-title">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 id="skill-trends-title" className="font-display text-base font-bold text-on-surface">Số bài đã làm theo tháng</h3>
-        <p className="text-xs text-on-surface-variant">6 tháng gần nhất · bài đã nộp, được chấm hoặc hết hạn</p>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div>
+          <h3 id="skill-trends-title" className="font-display text-base font-bold text-on-surface">
+            {isAllAccuracy ? "Tỷ lệ chính xác (%) các bài gần nhất" : "Số bài đã làm theo tháng & Tỷ lệ chính xác"}
+          </h3>
+          <p className="text-xs text-on-surface-variant">
+            Nhấn vào biểu đồ kĩ năng để chuyển đổi giữa số bài theo tháng và % chính xác các bài gần nhất
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary-container/20 transition shadow-2xs"
+          title={isAllAccuracy ? "Chuyển tất cả về xem số bài theo tháng" : "Chuyển tất cả sang xem % chính xác các bài gần nhất"}
+        >
+          {isAllAccuracy ? <ChartBar size={14} weight="bold" /> : <ChartLineUp size={14} weight="bold" />}
+          <span>{isAllAccuracy ? "Xem tất cả theo tháng" : "Xem tất cả theo % chính xác"}</span>
+        </button>
       </div>
-      {!monthly ? (
+
+      {!monthly && !insights.attempts?.length ? (
         <div className="rounded-xl border border-dashed border-outline-variant/50 p-4 text-sm text-on-surface-variant" role="alert">
-          Chưa tải được thống kê theo tháng.
+          Chưa tải được dữ liệu bài làm theo kỹ năng.
           <button type="button" onClick={onRetry} className="ml-2 min-h-10 font-semibold text-primary underline underline-offset-2">Thử lại</button>
         </div>
       ) : available.length ? (
         <div className={`grid gap-3 ${available.length > 1 ? "xl:grid-cols-2" : ""}`}>
           {available.map(({ skill, points }) => {
             const meta = skillMeta[skill];
-            const total = points.reduce((sum, point) => sum + point.completedAttempts, 0);
+            const isAccuracy = (viewModes[skill] || "MONTHLY") === "ACCURACY";
+            const totalMonthly = points.reduce((sum, point) => sum + point.completedAttempts, 0);
+
+            // Get recent completed attempts with computed accuracy
+            const skillAttempts = (insights.attempts ?? [])
+              .map(item => {
+                const acc = item.accuracy != null
+                  ? Math.round(item.accuracy)
+                  : (item.score != null && item.maxScore > 0 ? Math.round((item.score / item.maxScore) * 100) : null);
+                return { ...item, computedAccuracy: acc };
+              })
+              .filter(item => item.skill === skill && item.computedAccuracy != null)
+              .sort((a, b) => new Date(a.lastActivityAt).getTime() - new Date(b.lastActivityAt).getTime())
+              .slice(-7);
+
+            const avgAccuracy = skillAttempts.length > 0
+              ? Math.round(skillAttempts.reduce((sum, item) => sum + (item.computedAccuracy ?? 0), 0) / skillAttempts.length)
+              : 0;
+
             return (
-              <article key={skill} className="profile-saas-panel min-w-0 rounded-[18px] border px-4 py-3" aria-label={meta.label}>
+              <article
+                key={skill}
+                onClick={() => toggleSkillMode(skill)}
+                className="profile-saas-panel min-w-0 rounded-[18px] border px-4 py-3 cursor-pointer hover:border-primary/60 hover:shadow-xs transition-all group select-none"
+                aria-label={meta.label}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary-container/20 text-primary" aria-hidden="true">{meta.icon}</span>
+                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary-container/20 text-primary shrink-0" aria-hidden="true">
+                      {meta.icon}
+                    </span>
                     <div>
-                      <h4 className="text-sm font-bold text-on-surface">{meta.label}</h4>
-                      <p className="text-xs text-on-surface-variant">6 tháng: {total} bài</p>
-                    </div>
-                  </div>
-                  <span className="text-right text-xs text-on-surface-variant">Tháng này <strong className="ml-1 text-sm tabular-nums text-primary">{points.at(-1)?.completedAttempts ?? 0} bài</strong></span>
-                </div>
-                <div
-                  className="relative mb-2 mt-6 ml-8 h-28 border-b border-outline-variant/60"
-                  role="img"
-                  aria-label={`${meta.label}, số bài đã làm từng tháng: ${points.map(item => `${item.month}: ${item.completedAttempts} bài`).join("; ")}`}
-                >
-                  {[axisMax, axisMax / 2, 0].map(value => (
-                    <div key={value} className="absolute inset-x-0 border-t border-dashed border-outline-variant/40" style={{ bottom: `${value / axisMax * 100}%` }} aria-hidden="true">
-                      <span className="absolute -left-8 -top-2 text-[11px] tabular-nums text-on-surface-variant">{value}</span>
-                    </div>
-                  ))}
-                  <div className="absolute inset-0 flex gap-1 px-1.5" aria-hidden="true">
-                    {points.map((item, index) => (
-                      <div key={item.month} className="relative h-full min-w-0 flex-1">
-                        <div
-                          className={`absolute bottom-0 left-1/2 w-full max-w-9 -translate-x-1/2 rounded-t-sm ${index === points.length - 1 ? "bg-primary" : "bg-primary/55"}`}
-                          style={{ height: `${item.completedAttempts / axisMax * 100}%` }}
-                          title={`Tháng ${monthLabel(item.month)}: ${item.completedAttempts} bài`}
-                        />
-                        <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums text-on-surface" style={{ bottom: `calc(${item.completedAttempts / axisMax * 100}% + 3px)` }}>{item.completedAttempts}</span>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                          {meta.label}
+                        </h4>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                          isAccuracy ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-primary-container/20 text-primary"
+                        }`}>
+                          {isAccuracy ? "% Chính xác" : "Theo tháng"}
+                        </span>
                       </div>
-                    ))}
+                      <p className="text-xs text-on-surface-variant">
+                        {isAccuracy ? `${skillAttempts.length} bài gần nhất` : `6 tháng: ${totalMonthly} bài`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isAccuracy ? (
+                      <span className="text-right text-xs text-on-surface-variant">
+                        Độ chính xác TB <strong className={`ml-1 text-sm font-black tabular-nums ${
+                          avgAccuracy >= 70 ? "text-emerald-600" : avgAccuracy >= 50 ? "text-amber-600" : "text-rose-600"
+                        }`}>{avgAccuracy}%</strong>
+                      </span>
+                    ) : (
+                      <span className="text-right text-xs text-on-surface-variant">
+                        Tháng này <strong className="ml-1 text-sm tabular-nums text-primary">{points.at(-1)?.completedAttempts ?? 0} bài</strong>
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleSkillMode(skill); }}
+                      className="grid size-7 place-items-center rounded-lg border border-outline-variant/60 bg-surface text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary-container/10 transition shadow-2xs"
+                      title={isAccuracy ? "Chuyển sang xem số bài đã làm theo tháng" : "Chuyển sang xem % chính xác các bài gần nhất"}
+                      aria-label="Đổi chế độ xem biểu đồ"
+                    >
+                      {isAccuracy ? <ChartBar size={14} weight="bold" /> : <TrendUp size={14} weight="bold" />}
+                    </button>
                   </div>
                 </div>
-                <div className="ml-8 flex gap-1 px-1.5 text-[11px] tabular-nums text-on-surface-variant" aria-hidden="true">
-                  {points.map(item => <span key={item.month} className="min-w-0 flex-1 text-center">{monthLabel(item.month)}</span>)}
+
+                {/* Chart body */}
+                {isAccuracy ? (
+                  <AccuracyTrendChart attempts={skillAttempts} meta={meta} />
+                ) : (
+                  <MonthlyBarChart points={points} meta={meta} axisMax={axisMax} />
+                )}
+
+                {/* Footer hint */}
+                <div className="mt-2 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px] text-on-surface-variant/80">
+                  <span className="italic text-[10px]">
+                    {isAccuracy ? "Nhấn vào biểu đồ để đổi sang Số bài theo tháng" : "Nhấn vào biểu đồ để đổi sang % Chính xác bài gần nhất"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-bold text-primary text-[10px] group-hover:underline">
+                    {isAccuracy ? <ChartBar size={12} weight="bold" /> : <TrendUp size={12} weight="bold" />}
+                    <span>{isAccuracy ? "Xem số bài" : "Xem % chính xác"}</span>
+                  </span>
                 </div>
               </article>
             );
@@ -270,6 +361,169 @@ function SkillTrends({ insights, onRetry }: { insights: StudentLearningInsights;
       )}
     </section>
   );
+}
+
+function AccuracyTrendChart({
+  attempts,
+  meta,
+}: {
+  attempts: Array<{
+    id: string;
+    title: string;
+    computedAccuracy: number | null;
+    score: number | null;
+    maxScore: number;
+    lastActivityAt: string;
+  }>;
+  meta: { label: string; icon: ReactNode };
+}) {
+  if (attempts.length === 0) {
+    return (
+      <div className="my-2 ml-8 h-28 flex flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low/20 p-3 text-center">
+        <p className="text-xs font-semibold text-on-surface-variant">Chưa có bài làm nào ghi nhận độ chính xác gần đây.</p>
+        <p className="text-[10px] text-on-surface-variant/70 mt-0.5">Dữ liệu sẽ xuất hiện khi học viên hoàn thành bài luyện tập.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6">
+      <div
+        className="relative mb-2 ml-8 h-28 border-b border-outline-variant/60"
+        role="img"
+        aria-label={`${meta.label}, % chính xác các bài gần nhất: ${attempts.map(item => `${item.title}: ${item.computedAccuracy}%`).join("; ")}`}
+      >
+        {[100, 50, 0].map(value => (
+          <div
+            key={value}
+            className="absolute inset-x-0 border-t border-dashed border-outline-variant/40"
+            style={{ bottom: `${value}%` }}
+            aria-hidden="true"
+          >
+            <span className="absolute -left-8 -top-2 text-[10px] tabular-nums text-on-surface-variant">
+              {value}%
+            </span>
+          </div>
+        ))}
+
+        <div className="absolute inset-0 flex gap-2 px-1.5" aria-hidden="true">
+          {attempts.map((item, index) => {
+            const acc = Math.max(0, Math.min(100, item.computedAccuracy ?? 0));
+            let barColor = "bg-rose-500 hover:bg-rose-600";
+            let textColor = "text-rose-600";
+            if (acc >= 70) {
+              barColor = "bg-emerald-600 hover:bg-emerald-700";
+              textColor = "text-emerald-700";
+            } else if (acc >= 50) {
+              barColor = "bg-amber-500 hover:bg-amber-600";
+              textColor = "text-amber-700";
+            }
+
+            return (
+              <div
+                key={item.id || index}
+                className="relative h-full min-w-0 flex-1 group/bar"
+                title={`${item.title} · Độ chính xác: ${acc}% (${item.score ?? 0}/${item.maxScore} câu) · Ngày: ${formatShortDate(item.lastActivityAt)}`}
+              >
+                <span
+                  style={{ bottom: `calc(${acc}% + 3px)` }}
+                  className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black tabular-nums transition-transform group-hover/bar:scale-110 ${textColor}`}
+                >
+                  {acc}%
+                </span>
+
+                <div
+                  className={`absolute bottom-0 left-1/2 w-full max-w-7 -translate-x-1/2 rounded-t-md transition-all shadow-2xs ${barColor}`}
+                  style={{ height: `${Math.max(4, acc)}%` }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="ml-8 flex gap-2 px-1.5 text-[10px] font-medium tabular-nums text-on-surface-variant" aria-hidden="true">
+        {attempts.map((item, index) => (
+          <span
+            key={item.id || index}
+            className="min-w-0 flex-1 text-center truncate hover:text-primary transition-colors"
+            title={item.title}
+          >
+            {formatShortDate(item.lastActivityAt)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MonthlyBarChart({
+  points,
+  meta,
+  axisMax,
+}: {
+  points: Array<{ month: string; completedAttempts: number }>;
+  meta: { label: string };
+  axisMax: number;
+}) {
+  return (
+    <div className="mt-6">
+      <div
+        className="relative mb-2 ml-8 h-28 border-b border-outline-variant/60"
+        role="img"
+        aria-label={`${meta.label}, số bài đã làm từng tháng: ${points.map(item => `${item.month}: ${item.completedAttempts} bài`).join("; ")}`}
+      >
+        {[axisMax, axisMax / 2, 0].map(value => (
+          <div
+            key={value}
+            className="absolute inset-x-0 border-t border-dashed border-outline-variant/40"
+            style={{ bottom: `${(value / axisMax) * 100}%` }}
+            aria-hidden="true"
+          >
+            <span className="absolute -left-8 -top-2 text-[11px] tabular-nums text-on-surface-variant">
+              {value}
+            </span>
+          </div>
+        ))}
+        <div className="absolute inset-0 flex gap-1 px-1.5" aria-hidden="true">
+          {points.map((item, index) => (
+            <div key={item.month} className="relative h-full min-w-0 flex-1">
+              <div
+                className={`absolute bottom-0 left-1/2 w-full max-w-9 -translate-x-1/2 rounded-t-sm transition-all ${
+                  index === points.length - 1 ? "bg-primary" : "bg-primary/55"
+                }`}
+                style={{ height: `${(item.completedAttempts / axisMax) * 100}%` }}
+                title={`Tháng ${monthLabel(item.month)}: ${item.completedAttempts} bài`}
+              />
+              <span
+                className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums text-on-surface"
+                style={{ bottom: `calc(${(item.completedAttempts / axisMax) * 100}% + 3px)` }}
+              >
+                {item.completedAttempts}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="ml-8 flex gap-1 px-1.5 text-[11px] tabular-nums text-on-surface-variant" aria-hidden="true">
+        {points.map(item => (
+          <span key={item.month} className="min-w-0 flex-1 text-center">
+            {monthLabel(item.month)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatShortDate(value: string | null) {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+  } catch {
+    return value;
+  }
 }
 
 function CourseStatus({ status }: { status: Enrollment["status"] }) {

@@ -9,6 +9,7 @@ import type {
 } from "../../academic-types";
 import { classStatusLabel, enrollmentStatusLabel, skillPairLabel } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
+import { useAuth } from "../../auth/AuthContext";
 
 type Roster = { enrollment: Enrollment; student: StudentSummary }[];
 type ExamStatus = "NOT_REGISTERED" | "REGISTERED" | "ISSUE";
@@ -23,7 +24,7 @@ interface CourseStudentsProps {
   courseId: string;
   skillPair: SkillPair;
   roster: Roster;
-  onSelectStudent: (studentId: string) => void;
+  onSelectStudent?: (studentId: string) => void;
   onRosterChanged: () => Promise<void> | void;
 }
 const statusLabel: Record<ExamStatus, string> = {
@@ -54,6 +55,8 @@ function draftOf(enrollment: Enrollment): ExamDraft {
 }
 
 export default function CourseStudents({ courseId, skillPair, roster, onSelectStudent, onRosterChanged }: CourseStudentsProps) {
+  const { roles } = useAuth();
+  const canManageEnrollment = roles.includes("admin");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ATTENTION" | ExamStatus>("ALL");
   const [progress, setProgress] = useState<ClassActivityProgress[]>([]);
@@ -344,7 +347,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                       {/* Sticky Student Name Column (SOLID White BG) */}
                       <td className="sticky left-12 z-10 bg-white group-hover:bg-[#fff0f3] px-4 py-3 border-r border-[#e8d2d7]/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.04)]">
                         <button
-                          onClick={() => onSelectStudent(item.student.id)}
+                          onClick={() => onSelectStudent?.(item.student.id)}
                           className="flex max-w-60 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-[#a83b58]/30 rounded-lg p-1 transition -ml-1"
                         >
                           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e8d2d7] bg-[#fcebee] text-xs font-black text-[#a83b58] shadow-2xs">
@@ -378,6 +381,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                           aria-label={`Tháng dự kiến thi của ${item.student.fullName}`}
                           type="month"
                           value={draft.plannedExamMonth}
+                          disabled={!canManageEnrollment}
                           onChange={event => patchDraft(item.enrollment.id, { plannedExamMonth: event.target.value })}
                           className={cellInput}
                         />
@@ -389,6 +393,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                           aria-label={`Ngày thi của ${item.student.fullName}`}
                           type="date"
                           value={draft.actualExamDate}
+                          disabled={!canManageEnrollment}
                           onChange={event => patchDraft(item.enrollment.id, { actualExamDate: event.target.value })}
                           className={cellInput}
                         />
@@ -400,6 +405,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                           <select
                             aria-label={`Trạng thái đăng ký thi của ${item.student.fullName}`}
                             value={draft.examRegistrationStatus}
+                            disabled={!canManageEnrollment}
                             onChange={event => patchDraft(item.enrollment.id, { examRegistrationStatus: event.target.value as ExamStatus })}
                             className={`${cellInput} appearance-none cursor-pointer text-center pr-7 pl-2 ${statusTone[draft.examRegistrationStatus]}`}
                           >
@@ -417,6 +423,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                       <td className="px-3 py-2.5 border-r border-[#e8d2d7]">
                         <input
                           value={draft.targetNote}
+                          disabled={!canManageEnrollment}
                           onChange={event => patchDraft(item.enrollment.id, { targetNote: event.target.value })}
                           placeholder={item.student.targetBand ? `${item.student.targetBand} overall` : "Chưa đặt"}
                           className={cellInput}
@@ -442,7 +449,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                       ))}
 
                       {/* Sticky action column: exam plan and enrollment lifecycle */}
-                      <td className="sticky right-0 z-10 bg-white group-hover:bg-[#fff0f3] px-3 py-2.5 text-right shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] border-l border-[#e8d2d7]">
+                      {canManageEnrollment && <td className="sticky right-0 z-10 bg-white group-hover:bg-[#fff0f3] px-3 py-2.5 text-right shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] border-l border-[#e8d2d7]">
                         <div className="flex min-w-[184px] items-center justify-end gap-2">
                           <button
                             disabled={savingId === item.enrollment.id}
@@ -461,7 +468,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
                             <DotsThreeVertical size={16} weight="bold" /> Quản lý
                           </button>
                         </div>
-                      </td>
+                      </td>}
                     </tr>
                   );
                 })}
@@ -496,7 +503,7 @@ export default function CourseStudents({ courseId, skillPair, roster, onSelectSt
           currentCourseId={courseId}
           onClose={() => setActionTarget(null)}
           onOpenProfile={() => {
-            onSelectStudent(actionTarget.student.id);
+            onSelectStudent?.(actionTarget.student.id);
             setActionTarget(null);
           }}
           onChanged={async () => {

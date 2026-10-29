@@ -3,7 +3,7 @@
 import type { ReadingAnswer, ReadingQuestion, ReadingQuestionGroup as ReadingQuestionGroupModel } from "@ielts/contracts";
 import { ArrowDown, BookmarkSimple, CheckSquare, Flag, Lightbulb, ListBullets, TextT, TreeStructure, X } from "@phosphor-icons/react";
 import { Fragment, useMemo, useState } from "react";
-import { answerValues, groupQuestionLabel, optionLabel, questionOptions } from "./readingFormat";
+import { answerValues, cleanDisplayText, groupQuestionLabel, optionLabel, questionOptions } from "./readingFormat";
 import { AuthenticatedDiagramImage } from "./AuthenticatedDiagramImage";
 import styles from "./ReadingAttemptPlayer.module.css";
 
@@ -193,7 +193,7 @@ export function ReadingQuestionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
         </div>
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
@@ -252,7 +252,7 @@ function TFNGQuestionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
         </div>
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
@@ -375,7 +375,7 @@ function MCQuestionGroup({
           <div>
             <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
             <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-            {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+            {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
           </div>
           <span className={styles.questionCount}>{group.questions.length} câu</span>
         </div>
@@ -538,7 +538,7 @@ function MCQuestionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
         </div>
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
@@ -872,7 +872,7 @@ function MatchingQuestionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
         </div>
         <span className={styles.questionCount}>{group.questions.length} câu</span>
       </div>
@@ -1303,7 +1303,7 @@ function GapFillQuestionGroup({
 
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
-      ? group.answerConfig.gapFillTemplate.trim()
+      ? cleanDisplayText(group.answerConfig.gapFillTemplate)
       : "";
   const contentTitle = gapFillContentTitle(group);
 
@@ -1546,7 +1546,7 @@ function TableCompletionGroup({
 
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
-      ? group.answerConfig.gapFillTemplate.trim()
+      ? cleanDisplayText(group.answerConfig.gapFillTemplate)
       : "";
   const contentTitle = gapFillContentTitle(group);
 
@@ -1586,7 +1586,7 @@ function TableCompletionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
           {wordLimit ? (
             <div className={styles.gapFillWordLimit}>
               <CheckSquare size={16} aria-hidden="true" />
@@ -1705,7 +1705,7 @@ function FlowChartCompletionGroup({
 
   const rawTemplate =
     typeof group.answerConfig?.gapFillTemplate === "string"
-      ? group.answerConfig.gapFillTemplate.trim()
+      ? cleanDisplayText(group.answerConfig.gapFillTemplate)
       : "";
   const contentTitle = gapFillContentTitle(group);
 
@@ -1750,7 +1750,7 @@ function FlowChartCompletionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
           {wordLimit ? (
             <div className={styles.gapFillWordLimit}>
               <CheckSquare size={16} aria-hidden="true" />
@@ -1994,7 +1994,7 @@ function DiagramLabelingGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
           {wordLimit ? (
             <div className={styles.gapFillWordLimit}>
               <CheckSquare size={16} aria-hidden="true" />
@@ -2083,7 +2083,7 @@ function ShortAnswerQuestionGroup({
         <div>
           <p className={styles.eyebrow}>{groupQuestionLabel(group)}</p>
           <h3 id={`group-${group.key}`} className={styles.groupTitle}>{group.title}</h3>
-          {group.instructions ? <p className={styles.instructions}>{group.instructions}</p> : null}
+          {group.instructions ? <p className={styles.instructions}>{cleanDisplayText(group.instructions)}</p> : null}
           {wordLimit ? (
             <div className={styles.gapFillWordLimit}>
               <CheckSquare size={16} aria-hidden="true" />

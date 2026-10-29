@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SquaresFour, BookOpenText, PencilSimpleLine, GraduationCap, CalendarCheck, MapTrifold, ChartLineUp, ClockCounterClockwise, Robot, ArrowLeft, ChatCircle } from "@phosphor-icons/react";
+import { SquaresFour, BookOpenText, PencilSimpleLine, GraduationCap, CalendarCheck, MapTrifold, ChartLineUp, ClockCounterClockwise, Robot, ArrowLeft, ChatCircle, Cards } from "@phosphor-icons/react";
 import { useStudentPortal } from "./StudentPortalProvider";
 import styles from "./StudentHubLayout.module.css";
 
@@ -11,6 +11,7 @@ const groups = [
     { href: "/student", label: "Tổng quan", icon: SquaresFour },
     { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
     { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
+    { href: "/student/flashcards", label: "Sổ từ vựng", icon: Cards },
     { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },
     { href: "/student/schedule", label: "Lịch học", icon: CalendarCheck },
   ] },
@@ -40,7 +41,9 @@ export function StudentSidebar() {
             {group.items.map((item) => {
               const active = item.href === "/student" ? pathname === "/student" || pathname === "/student/dashboard" : pathname.startsWith(item.href);
               const Icon = item.icon;
-              const count = item.href === "/student/assignments" ? data?.metrics.pendingTests : item.href === "/student/courses" ? data?.enrollments.length : 0;
+              const count = item.href === "/student/assignments"
+                ? (data?.metrics.pendingTests ?? 0) + (data?.metrics.pendingCourseAssignments ?? 0)
+                : item.href === "/student/courses" ? data?.enrollments.length : 0;
               return <Link key={item.href} href={item.href} className={styles.navLink} aria-current={active ? "page" : undefined}>
                 <Icon size={19} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
                 {!!count && <span className={styles.badge}>{count}</span>}

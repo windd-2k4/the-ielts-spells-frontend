@@ -44,9 +44,9 @@ const roleLabels: Record<StaffRole, string> = {
 
 const statusLabels: Record<StaffStatus, string> = {
   DRAFT: "Bản nháp",
-  INVITED: "Đã gửi lời mời",
-  ACTIVE: "Đang hoạt động",
-  SUSPENDED: "Tạm khóa",
+  INVITED: "Chờ kích hoạt",
+  ACTIVE: "Đang làm việc",
+  SUSPENDED: "Tạm ngưng",
   OFFBOARDED: "Đã nghỉ việc",
 };
 
@@ -83,41 +83,41 @@ const roleBadges: Record<StaffRole, { label: string; bg: string; text: string; b
   },
 };
 
-const statusBadges: Record<StaffStatus, { label: string; bg: string; text: string; border: string; dot: string }> = {
+const statusBadges: Record<StaffStatus, { label: string; bg: string; text: string; border: string; icon: ReactNode }> = {
   ACTIVE: {
-    label: "Đang hoạt động",
+    label: "Đang làm việc",
     bg: "bg-emerald-50 dark:bg-emerald-950/40",
-    text: "text-emerald-700 dark:text-emerald-300",
+    text: "text-emerald-800 dark:text-emerald-300",
     border: "border-emerald-200 dark:border-emerald-800",
-    dot: "bg-emerald-500",
+    icon: <Briefcase size={12} weight="bold" className="text-emerald-600 dark:text-emerald-400 shrink-0" />,
   },
   INVITED: {
-    label: "Đã gửi lời mời",
+    label: "Chờ kích hoạt",
     bg: "bg-blue-50 dark:bg-blue-950/40",
-    text: "text-blue-700 dark:text-blue-300",
+    text: "text-blue-800 dark:text-blue-300",
     border: "border-blue-200 dark:border-blue-800",
-    dot: "bg-blue-500",
+    icon: <Clock size={12} weight="bold" className="text-blue-600 dark:text-blue-400 shrink-0" />,
   },
   DRAFT: {
     label: "Bản nháp",
     bg: "bg-slate-100 dark:bg-slate-800",
     text: "text-slate-700 dark:text-slate-300",
     border: "border-slate-200 dark:border-slate-700",
-    dot: "bg-slate-400",
+    icon: <PencilSimple size={12} weight="bold" className="text-slate-500 shrink-0" />,
   },
   SUSPENDED: {
-    label: "Tạm khóa",
+    label: "Tạm ngưng",
     bg: "bg-amber-50 dark:bg-amber-950/40",
-    text: "text-amber-700 dark:text-amber-300",
+    text: "text-amber-800 dark:text-amber-300",
     border: "border-amber-200 dark:border-amber-800",
-    dot: "bg-amber-500",
+    icon: <Lock size={12} weight="bold" className="text-amber-600 dark:text-amber-400 shrink-0" />,
   },
   OFFBOARDED: {
     label: "Đã nghỉ việc",
     bg: "bg-rose-50 dark:bg-rose-950/40",
-    text: "text-rose-700 dark:text-rose-300",
+    text: "text-rose-800 dark:text-rose-300",
     border: "border-rose-200 dark:border-rose-800",
-    dot: "bg-rose-500",
+    icon: <SignOut size={12} weight="bold" className="text-rose-600 dark:text-rose-400 shrink-0" />,
   },
 };
 
@@ -444,13 +444,13 @@ export function StaffAdminPage() {
               ? "border-emerald-500 bg-emerald-500/10"
               : "border-outline-variant/40 bg-surface hover:border-emerald-500/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20"
           }`}
-          title="Lọc nhân sự đang hoạt động"
+          title="Lọc nhân sự đang làm việc"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="grid size-6 place-items-center rounded-md bg-emerald-500/10 text-emerald-600 shrink-0">
-              <CheckCircle size={14} weight="bold" />
+              <Briefcase size={14} weight="bold" />
             </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Đang hoạt động</span>
+            <span className="truncate text-xs font-bold text-on-surface-variant">Đang làm việc</span>
           </div>
           <strong className="font-display text-sm sm:text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0 ml-2">
             {activeCount}
@@ -486,13 +486,13 @@ export function StaffAdminPage() {
               ? "border-amber-500 bg-amber-500/10"
               : "border-outline-variant/40 bg-surface hover:border-amber-500/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20"
           }`}
-          title="Lọc nhân sự tạm khóa hoặc nghỉ"
+          title="Lọc nhân sự tạm ngưng hoặc đã nghỉ việc"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="grid size-6 place-items-center rounded-md bg-amber-500/10 text-amber-600 shrink-0">
               <Lock size={14} weight="bold" />
             </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Tạm khóa / Nghỉ</span>
+            <span className="truncate text-xs font-bold text-on-surface-variant">Tạm ngưng / Nghỉ</span>
           </div>
           <strong className="font-display text-sm sm:text-base font-black tabular-nums text-amber-600 dark:text-amber-400 shrink-0 ml-2">
             {suspendedCount}
@@ -739,9 +739,9 @@ export function StaffAdminPage() {
                             </td>
                             <td className="px-5 py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${status.bg} ${status.text} ${status.border}`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${status.bg} ${status.text} ${status.border}`}
                               >
-                                <span className={`size-1.5 rounded-full ${status.dot}`} />
+                                {status.icon}
                                 <span>{status.label}</span>
                               </span>
                             </td>
@@ -820,8 +820,8 @@ export function StaffAdminPage() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${role.bg} ${role.text} ${role.border}`}>
                             {role.label}
                           </span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${status.bg} ${status.text} ${status.border}`}>
-                            <span className={`size-1.5 rounded-full ${status.dot}`} />
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${status.bg} ${status.text} ${status.border}`}>
+                            {status.icon}
                             <span>{status.label}</span>
                           </span>
                         </div>
@@ -1190,8 +1190,8 @@ export function StaffAdminPage() {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${roleBadges[selected.role]?.bg} ${roleBadges[selected.role]?.text} ${roleBadges[selected.role]?.border}`}>
                       {roleLabels[selected.role]}
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusBadges[selected.status]?.bg} ${statusBadges[selected.status]?.text} ${statusBadges[selected.status]?.border}`}>
-                      <span className={`size-1.5 rounded-full ${statusBadges[selected.status]?.dot}`} />
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${statusBadges[selected.status]?.bg} ${statusBadges[selected.status]?.text} ${statusBadges[selected.status]?.border}`}>
+                      {statusBadges[selected.status]?.icon}
                       <span>{statusLabels[selected.status]}</span>
                     </span>
                   </div>
@@ -1294,7 +1294,7 @@ export function StaffAdminPage() {
                     className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition"
                   >
                     <Lock size={15} />
-                    <span>Tạm khóa tài khoản</span>
+                    <span>Tạm ngưng công tác</span>
                   </button>
                 )}
 
@@ -1305,8 +1305,8 @@ export function StaffAdminPage() {
                     onClick={() => void changeStatus("ACTIVE")}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition"
                   >
-                    <CheckCircle size={15} />
-                    <span>Mở khóa tài khoản</span>
+                    <Briefcase size={15} />
+                    <span>Kích hoạt lại làm việc</span>
                   </button>
                 )}
 
@@ -1317,8 +1317,8 @@ export function StaffAdminPage() {
                     onClick={() => void changeStatus("OFFBOARDED")}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-error/30 bg-error-container/15 px-3.5 py-2 text-xs font-bold text-error hover:bg-error-container/25 transition"
                   >
-                    <Trash size={15} />
-                    <span>Cho nghỉ việc</span>
+                    <SignOut size={15} />
+                    <span>Xác nhận thôi việc</span>
                   </button>
                 )}
               </div>
@@ -1352,14 +1352,6 @@ function StaffAvatar({
     lg: "h-14 w-14 text-base",
   }[size];
 
-  const dotClasses = {
-    ACTIVE: "bg-emerald-500",
-    INVITED: "bg-blue-500",
-    DRAFT: "bg-slate-400",
-    SUSPENDED: "bg-amber-500",
-    OFFBOARDED: "bg-rose-500",
-  };
-
   return (
     <div className="relative shrink-0">
       {src ? (
@@ -1375,14 +1367,6 @@ function StaffAvatar({
           {initial}
         </span>
       )}
-      {status ? (
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${
-            dotClasses[status] || "bg-slate-400"
-          }`}
-          title={statusLabels[status]}
-        />
-      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { BookOpenText, CalendarBlank, IdentificationCard, User } from "@phosphor-icons/react";
+import Link from "next/link";
+import { BookOpenText, CalendarBlank, Gear, IdentificationCard, User } from "@phosphor-icons/react";
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import { StudentTargetBandControl } from "@/features/student-hub/StudentTargetBandControl";
 import { formatBand } from "@/features/student-hub/studentPortalViewModel";
@@ -20,17 +21,27 @@ export default function StudentLearningProfilePage() {
       </header>
 
       <section className="rounded-[22px] border border-[#E8E2D5] bg-white p-5 sm:p-7">
-        <div className="flex flex-col gap-5 border-b border-[#E8E2D5] pb-6 sm:flex-row sm:items-center">
-          <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-[#894C5B] text-2xl font-bold text-white">
-            {profile.avatarPath ? <img src={profile.avatarPath} alt="" className="h-full w-full object-cover" /> : profile.fullName.charAt(0).toUpperCase()}
+        <div className="flex flex-col gap-5 border-b border-[#E8E2D5] pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-[#894C5B] text-2xl font-bold text-white shrink-0">
+              {profile.avatarPath ? <img src={profile.avatarPath} alt="" className="h-full w-full object-cover" /> : profile.fullName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#292528]">{profile.fullName}</h3>
+              <p className="mt-1 text-sm text-[#6F676C]">{profile.email || "Chưa có email"}</p>
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#F7E5EA] px-3 py-1 text-xs font-bold text-[#894C5B]">
+                <IdentificationCard size={15} /> {profile.studentCode}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-[#292528]">{profile.fullName}</h3>
-            <p className="mt-1 text-sm text-[#6F676C]">{profile.email || "Chưa có email"}</p>
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#F7E5EA] px-3 py-1 text-xs font-bold text-[#894C5B]">
-              <IdentificationCard size={15} /> {profile.studentCode}
-            </p>
-          </div>
+
+          <Link
+            href="/student/settings"
+            className="inline-flex items-center gap-2 self-start sm:self-center rounded-xl border border-[#894C5B] bg-[#FDF8F9] px-4 py-2 text-xs font-bold text-[#894C5B] hover:bg-[#F7E5EA] transition-colors shadow-2xs"
+          >
+            <Gear size={16} weight="bold" />
+            <span>Cài đặt tài khoản &amp; Bảo mật</span>
+          </Link>
         </div>
         <dl className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">
           <ProfileFact icon={<User size={18} />} label="Số điện thoại" value={profile.phone || "Chưa cập nhật"} />

@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Books, CaretLeft, CaretRight, ChartDonut, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
+  BookOpenText, Books, CaretLeft, CaretRight, ChalkboardTeacher, ChartDonut, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
   SlidersHorizontal, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
@@ -68,8 +68,9 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
     title: "QUẢN LÝ",
     items: [
       { to: "/dashboard", label: "Tổng quan", icon: ChartDonut, roles: ["admin"] },
-      { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin"] },
-      { to: "/test-assignments", label: "Giao đề", icon: PaperPlaneTilt, roles: ["admin"] },
+      { to: "/teacher-dashboard", label: "Bảng điều khiển giáo viên", icon: ChalkboardTeacher, roles: ["teacher"] },
+      { to: "/courses", label: "Khóa học", icon: BookOpenText, roles: ["admin", "teacher"] },
+      { to: "/test-assignments", label: "Giao đề", icon: PaperPlaneTilt, roles: ["admin", "teacher"] },
       { to: "/writing-evaluations", label: "Chấm Writing & Speaking", icon: NotePencil, roles: ["admin", "teacher"] },
     ],
   },

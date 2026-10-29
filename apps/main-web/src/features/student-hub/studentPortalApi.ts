@@ -54,6 +54,7 @@ export interface StudentSkillTargets {
 export interface StudentPortalMetrics {
   assignedTests: number;
   pendingTests: number;
+  pendingCourseAssignments: number;
   completedAttempts: number;
   currentStreakDays: number;
   lastActivityAt: string | null;
@@ -118,6 +119,7 @@ export interface StudentPortalDailyActivity {
   writing: number;
   speaking: number;
   totalAttempts: number;
+  durationSeconds: number;
 }
 
 export interface StudentCourseRecommendation {
@@ -141,8 +143,33 @@ export interface StudentPortalOverview {
   recentAttempts: StudentPortalAttempt[];
   activityCalendar: StudentPortalDailyActivity[];
   readingAssignments: StudentReadingAssignment[];
+  courseAssignments: StudentCourseAssignment[];
   recommendedCourses: StudentCourseRecommendation[];
   aiStatus: "DEVELOPMENT" | "AVAILABLE";
+}
+
+export interface StudentCourseAssignment {
+  assignmentId: string;
+  classActivityId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  sessionNo: number | null;
+  sessionTitle: string | null;
+  title: string;
+  skill: string;
+  dueAt: string | null;
+  effectiveDueAt: string | null;
+  extensionDueAt: string | null;
+  latePolicy: "ALLOW" | "MARK_LATE" | "BLOCK" | null;
+  lateGraceMinutes: number;
+  canEdit: boolean;
+  canSubmit: boolean;
+  lockReason: string | null;
+  status: string;
+  reviewStatus: string | null;
+  score: number | null;
+  maxScore: number | null;
 }
 
 let pendingOverview: Promise<StudentPortalOverview> | null = null;
@@ -277,10 +304,13 @@ export interface CourseWorkspaceData {
     }[];
     assignments: {
       id: string;
+      classActivityId: string;
       title: string;
       status: string;
       score: number | null;
       maxScore: number | null;
+      dueAt: string | null;
+      reviewStatus: string | null;
     }[];
   }[];
   resources: {
@@ -347,6 +377,60 @@ export function fetchStudentCourseWorkspace(courseId: string) {
   return apiFetch<CourseWorkspaceData>(`/student/portal/courses/${courseId}/workspace`);
 }
 
+export interface StudentPortfolio {
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  skillPair: string;
+  generatedAt: string;
+  summary: {
+    totalAssignments: number;
+    completedAssignments: number;
+    totalSubmissions: number;
+    gradedSubmissions: number;
+    revisionRequests: number;
+    reflections: number;
+  };
+  criterionProgress: {
+    skill: string;
+    criterion: string;
+    label: string;
+    averageScore: number;
+    latestScore: number;
+    gradedCount: number;
+  }[];
+  timeline: {
+    assignmentId: string;
+    classActivityId: string;
+    submissionId: string;
+    attemptId: string;
+    attemptNo: number;
+    sessionNo: number;
+    sessionTitle: string;
+    assignmentTitle: string;
+    skill: string;
+    submissionStatus: string;
+    attemptStatus: string;
+    reviewStatus: string | null;
+    submittedAt: string | null;
+    score: number | null;
+    maxScore: number | null;
+    late: boolean;
+    extensionDueAt: string | null;
+    feedback: string | null;
+    reviewedAt: string | null;
+    reflection: string | null;
+    reflectionDueAt: string | null;
+    audioSubmitted: boolean;
+    rubric: { criterion: string; label: string; score: number | null; feedback: string | null; sortOrder: number }[];
+    annotations: { id: string; startOffset: number; endOffset: number; quotedText: string; comment: string; suggestion: string | null; sortOrder: number }[];
+  }[];
+}
+
+export function fetchStudentPortfolio(courseId: string) {
+  return apiFetch<StudentPortfolio>(`/student/portal/courses/${courseId}/portfolio`);
+}
+
 export interface StudentProgressTask {
   classActivityId: string;
   sessionId: string;
@@ -366,10 +450,60 @@ export interface StudentProgressTask {
   errorAnalysis: string | null;
   evidenceCount: number;
   checklist: { id: string; label: string; description: string | null; required: boolean; completed: boolean }[];
+  assignmentId: string | null;
+  assignmentTitle: string | null;
+  assignmentDescription: string | null;
+  assignmentDueAt: string | null;
+  latePolicy: "ALLOW" | "MARK_LATE" | "BLOCK" | null;
+  lateGraceMinutes: number;
+  late: boolean;
+  extensionDueAt: string | null;
+  effectiveDueAt: string | null;
+  canEdit: boolean;
+  canSubmit: boolean;
+  lockReason: string | null;
+  reflectionDueAt: string | null;
+  allowResubmission: boolean;
+  submissionId: string | null;
+  audioSubmitted: boolean;
+  attemptNo: number;
+  submissionText: string | null;
+  submissionStatus: string | null;
+  reflection: string | null;
+  reviewStatus: string | null;
+  feedbackId: string | null;
+  feedback: string | null;
+  feedbackAt: string | null;
+  audioFiles: { id: string; promptKey: string; promptTitle: string; sortOrder: number; originalName: string; url: string }[];
+  criteria: { criterion: string; score: number | null; feedback: string | null; sortOrder: number }[];
+  annotations: { id: string; startOffset: number; endOffset: number; quotedText: string; comment: string; suggestion: string | null; sortOrder: number }[];
+}
+
+export interface StudentSubmissionRevision {
+  submissionId: string;
+  attemptId: string;
+  attemptNo: number;
+  status: string;
+  textContent: string | null;
+  submittedAt: string | null;
+  score: number | null;
+  reviewStatus: string | null;
+  reflection: string | null;
+  feedback: string | null;
+  feedbackAt: string | null;
+  audioSubmitted: boolean;
+  extensionDueAt: string | null;
+  reflectionDueAt: string | null;
 }
 
 export function fetchStudentCourseProgress(courseId: string) {
   return apiFetch<StudentProgressTask[]>(`/student/portal/courses/${courseId}/progress`);
+}
+
+export function fetchStudentAssignmentRevisions(courseId: string, classActivityId: string) {
+  return apiFetch<StudentSubmissionRevision[]>(
+    `/student/portal/courses/${courseId}/activities/${classActivityId}/submissions/revisions`,
+  );
 }
 
 export function uploadStudentProgressEvidence(courseId: string, classActivityId: string, file: File) {
@@ -399,6 +533,47 @@ export function updateStudentProgressSummary(
   return apiFetch<void>(`/student/portal/courses/${courseId}/progress/${attemptId}/summary`, {
     method: "PATCH",
     body: JSON.stringify({ durationSeconds, comprehensionPercent }),
+  });
+}
+
+export function saveStudentAssignmentSubmission(
+  courseId: string,
+  classActivityId: string,
+  textContent: string,
+  submit: boolean,
+) {
+  return apiFetch(`/student/portal/courses/${courseId}/activities/${classActivityId}/submission`, {
+    method: "PUT",
+    body: JSON.stringify({ textContent, submit }),
+  });
+}
+
+export function saveStudentAssignmentAudio(
+  courseId: string,
+  classActivityId: string,
+  file: File,
+  promptKey: string,
+  promptTitle: string,
+  sortOrder: number,
+  submit: boolean,
+) {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("promptKey", promptKey);
+  body.append("promptTitle", promptTitle);
+  body.append("sortOrder", String(sortOrder));
+  body.append("submit", String(submit));
+  return apiUpload(`/student/portal/courses/${courseId}/activities/${classActivityId}/submission/audio`, body);
+}
+
+export function saveStudentAssignmentReflection(
+  courseId: string,
+  attemptId: string,
+  reflection: string,
+) {
+  return apiFetch<void>(`/student/portal/courses/${courseId}/progress/${attemptId}/reflection`, {
+    method: "PATCH",
+    body: JSON.stringify({ reflection }),
   });
 }
 

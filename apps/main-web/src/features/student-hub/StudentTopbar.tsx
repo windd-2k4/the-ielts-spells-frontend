@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  Cards,
   BookOpenText,
   CaretDown,
   ChartLineUp,
@@ -24,6 +25,8 @@ import {
 } from "@phosphor-icons/react";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
+import { useStudentNotifications } from "@/features/student-hub/StudentNotificationProvider";
+import { NotificationDropdown } from "@/features/student-hub/NotificationDropdown";
 import styles from "./StudentTopbar.module.css";
 
 interface StudentTopbarProps { onToggleMobileMenu?: () => void; }
@@ -33,6 +36,7 @@ const NAV_ITEMS = [
   { href: "/student/placement-test", label: "Test đầu vào", icon: ClipboardText },
   { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
   { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
+  { href: "/student/flashcards", label: "Sổ từ", icon: Cards },
   { href: "/student/courses", label: "Khóa học", icon: GraduationCap },
   { href: "/student/progress", label: "Tiến độ", icon: ChartLineUp },
 ];
@@ -41,10 +45,13 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const pathname = usePathname();
   const { session, signOut } = useStudentSession();
   const { data } = useStudentPortal();
+  const { unreadCount } = useStudentNotifications();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const scrollSentinelRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const studentName = data?.profile.fullName || session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "Học viên";
   const avatarInitials = studentName
@@ -88,7 +95,9 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
             {NAV_ITEMS.map((item) => {
               const active = item.href === "/student" ? pathname === "/student" : pathname.startsWith(item.href);
               const Icon = item.icon;
-              const count = item.href === "/student/assignments" ? data?.metrics.pendingTests : 0;
+              const count = item.href === "/student/assignments"
+                ? (data?.metrics.pendingTests ?? 0) + (data?.metrics.pendingCourseAssignments ?? 0)
+                : 0;
               return (
                 <Link key={item.href} href={item.href} className={styles.navLink} aria-current={active ? "page" : undefined}>
                   <Icon size={15} weight={active ? "fill" : "bold"} />
@@ -103,10 +112,30 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
             <button type="button" className={styles.iconActionBtn} aria-label="Tìm kiếm">
               <MagnifyingGlass size={17} weight="bold" />
             </button>
-            <button type="button" className={styles.iconActionBtn} aria-label="Thông báo (3 mới)">
-              <Bell size={17} weight="bold" />
-              <span className={styles.bellBadge}>3</span>
-            </button>
+            <div className={styles.notificationWrapper}>
+              <button
+                ref={bellButtonRef}
+                type="button"
+                className={styles.iconActionBtn}
+                aria-expanded={notificationOpen}
+                aria-haspopup="dialog"
+                aria-label={`Thông báo ${unreadCount > 0 ? `(${unreadCount} mới)` : ""}`}
+                onClick={() => setNotificationOpen((prev) => !prev)}
+              >
+                <Bell size={17} weight={notificationOpen || unreadCount > 0 ? "fill" : "bold"} />
+                {unreadCount > 0 && (
+                  <span className={styles.bellBadge}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <NotificationDropdown
+                isOpen={notificationOpen}
+                onClose={() => setNotificationOpen(false)}
+                anchorRef={bellButtonRef}
+              />
+            </div>
             <Link
               href="/"
               className={styles.iconActionBtn}
@@ -147,7 +176,7 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                   <div className={styles.menuList}>
                     <Link href="/student/learning-profile" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><User size={17} />Hồ sơ học tập</Link>
                     <Link href="/student/roadmap" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><Target size={17} />Mục tiêu &amp; lộ trình</Link>
-                    <Link href="/student/learning-profile" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><Gear size={17} />Cài đặt tài khoản</Link>
+                    <Link href="/student/settings" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><Gear size={17} />Cài đặt tài khoản</Link>
                     <button type="button" onClick={() => { setDropdownOpen(false); void signOut(); }} className={`${styles.menuItem} ${styles.signOut}`}><SignOut size={17} />Đăng xuất</button>
                   </div>
                 </div>

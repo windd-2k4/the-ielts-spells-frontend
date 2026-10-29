@@ -15,14 +15,14 @@
 }
 
 .bar {
-  min-height: 62px;
+  min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(210px, auto) 1fr auto;
+  grid-template-columns: minmax(224px, auto) 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 8px 16px 8px 18px;
   border: 1px solid #F0E8ED;
-  border-radius: 18px;
+  border-radius: 20px;
   color: #1F2937;
   background: #FFFFFF;
   box-shadow: 0 1px 6px rgba(189, 79, 112, 0.03);
@@ -32,14 +32,14 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   width: max-content;
 }
 
 .logo {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -52,7 +52,7 @@
 }
 
 .brandCopy strong {
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 650;
   color: #1E2530;
   letter-spacing: -0.015em;
@@ -61,7 +61,7 @@
 .brandCopy small {
   margin-top: 3px;
   color: #94A3B8;
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -71,18 +71,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 3px;
 }
 
 .navLink {
-  min-height: 36px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 14px;
-  border-radius: 9px;
+  padding: 7px 11px;
+  border-radius: 10px;
   color: #64748B;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   text-decoration: none;
@@ -90,6 +90,8 @@
 }
 
 .navLink svg {
+  width: 17px;
+  height: 17px;
   color: #94A3B8;
   transition: color 160ms ease;
 }
@@ -131,12 +133,17 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+}
+
+.notificationWrapper {
+  position: relative;
+  display: inline-flex;
 }
 
 .iconActionBtn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: none;
@@ -173,8 +180,8 @@
 
 .menuButton {
   display: none;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   border: 1px solid #F0E8ED;
   border-radius: 10px;
@@ -188,11 +195,11 @@
 }
 
 .accountButton {
-  min-height: 38px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 3px 8px 3px 3px;
+  padding: 4px 9px 4px 4px;
   border: none;
   border-radius: 999px;
   color: #1F2937;
@@ -206,12 +213,12 @@
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #BD4F70;
   color: #FFFFFF;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 650;
   display: grid;
   place-items: center;
@@ -219,7 +226,7 @@
 }
 
 .name {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 550;
   color: #1E2530;
 }
@@ -313,11 +320,75 @@
   color: #DC2626;
 }
 
+/* Sau khi rời đầu trang, chỉ giữ menu điều hướng cạnh avatar. */
+.headerCompact {
+  padding-bottom: 2px;
+  pointer-events: none;
+}
+
+.headerCompact .bar {
+  width: max-content;
+  min-height: 46px;
+  margin-left: auto;
+  grid-template-columns: auto;
+  gap: 0;
+  padding: 5px 6px;
+  border-radius: 999px;
+  border-color: rgba(232, 207, 213, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(55, 38, 45, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+
+.headerCompact .brand,
+.headerCompact .nav,
+.headerCompact .iconActionBtn {
+  display: none;
+}
+
+.headerCompact .actions {
+  gap: 3px;
+}
+
+.headerCompact .menuButton {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  border-color: transparent;
+  background: #FDF2F5;
+  color: #A83E5E;
+}
+
+.headerCompact .accountButton {
+  min-height: 34px;
+  gap: 0;
+  padding: 2px;
+}
+
+.headerCompact .name,
+.headerCompact .caret {
+  display: none;
+}
+
+.headerCompact .avatar {
+  width: 30px;
+  height: 30px;
+}
+
 @media (max-width: 1024px) {
   .nav {
     display: none;
   }
   .menuButton {
     display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .bar {
+    transition: none;
   }
 }

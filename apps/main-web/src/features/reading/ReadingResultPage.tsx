@@ -1,6 +1,12 @@
 "use client";
 
-import type { ReadingAttemptResult, StudentReadingAttempt } from "@ielts/contracts";
+import type {
+  ReadingAttemptResult,
+  SaveTestAttemptQuestionReviewRequest,
+  StudentReadingAttempt,
+  TestAttemptErrorReason,
+  TestAttemptQuestionReview,
+} from "@ielts/contracts";
 import {
   ArrowLeft, CheckCircle, CircleNotch, Clock, ClockCountdown,
   FileText, ListChecks, Sparkle, Trophy, X, XCircle, ArrowRight, CaretDown,
@@ -20,9 +26,25 @@ import {
   groupQuestionLabel,
   requestMessage,
 } from "./readingFormat";
-import { getReadingAttempt, getReadingAttemptResult } from "./readingApi";
+import {
+  deleteReadingAttemptReview,
+  getReadingAttempt,
+  getReadingAttemptResult,
+  getReadingAttemptReviews,
+  saveReadingAttemptReview,
+} from "./readingApi";
 
 type QuestionFilter = "ALL" | "CORRECT" | "INCORRECT" | "UNANSWERED";
+
+const ERROR_REASON_OPTIONS: Array<{ value: TestAttemptErrorReason; label: string }> = [
+  { value: "UNKNOWN_VOCABULARY", label: "Không biết từ" },
+  { value: "LOST_FOCUS", label: "Mất tập trung" },
+  { value: "DISTRACTOR", label: "Bị distractor đánh lừa" },
+  { value: "SPELLING", label: "Sai spelling" },
+  { value: "MISHEARD", label: "Nghe nhầm" },
+  { value: "QUESTION_MISUNDERSTOOD", label: "Hiểu sai câu hỏi" },
+  { value: "OTHER", label: "Lý do khác" },
+];
 
 export function ReadingResultPage({
   attemptId,
@@ -56,17 +78,20 @@ function ReadingResultContent({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<QuestionFilter>("ALL");
+  const [reviews, setReviews] = useState<Record<string, TestAttemptQuestionReview>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [res, att] = await Promise.all([
+      const [res, att, reviewRows] = await Promise.all([
         getReadingAttemptResult(attemptId, skillPath),
         getReadingAttempt(attemptId, skillPath).catch(() => null),
+        getReadingAttemptReviews(attemptId, skillPath).catch(() => []),
       ]);
       setResult(res);
       setAttempt(att);
+      setReviews(Object.fromEntries(reviewRows.map((review) => [review.questionKey, review])));
     } catch (failure) {
       setError(requestMessage(failure));
     } finally {
@@ -379,6 +404,21 @@ function ReadingResultContent({
                       <p className="whitespace-pre-wrap">{q.explanation}</p>
                     </div>
                   )}
+
+                  {(!q.answered || q.correct === false) ? (
+                    <MistakeReviewForm
+                      attemptId={attemptId}
+                      questionKey={q.questionKey}
+                      skill={skillPath}
+                      initialReview={reviews[q.questionKey]}
+                      onSaved={(review) => setReviews((current) => ({ ...current, [review.questionKey]: review }))}
+                      onDeleted={() => setReviews((current) => {
+                        const next = { ...current };
+                        delete next[q.questionKey];
+                        return next;
+                      })}
+                    />
+                  ) : null}
                 </article>
               ))}
 
@@ -414,6 +454,125 @@ function ReadingResultContent({
 
     </main>
   </div>;
+}
+
+function MistakeReviewForm({
+  attemptId,
+  questionKey,
+  skill,
+  initialReview,
+  onSaved,
+  onDeleted,
+}: {
+  attemptId: string;
+  questionKey: string;
+  skill: string;
+  initialReview?: TestAttemptQuestionReview;
+  onSaved: (review: TestAttemptQuestionReview) => void;
+  onDeleted: () => void;
+}) {
+  const [reasonCode, setReasonCode] = useState<TestAttemptErrorReason>(initialReview?.reasonCode ?? "UNKNOWN_VOCABULARY");
+  const [note, setNote] = useState(initialReview?.note ?? "");
+  const [needsRetry, setNeedsRetry] = useState(initialReview?.needsRetry ?? false);
+  const [vocabularyTerm, setVocabularyTerm] = useState(initialReview?.vocabularyTerm ?? "");
+  const [vocabularyMeaning, setVocabularyMeaning] = useState(initialReview?.vocabularyMeaning ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const save = async () => {
+    setSaving(true);
+    setMessage("");
+    const request: SaveTestAttemptQuestionReviewRequest = {
+      reasonCode,
+      note: note.trim() || null,
+      needsRetry,
+      vocabularyTerm: vocabularyTerm.trim() || null,
+      vocabularyMeaning: vocabularyMeaning.trim() || null,
+    };
+    try {
+      const saved = await saveReadingAttemptReview(attemptId, questionKey, request, skill);
+      onSaved(saved);
+      setMessage("Đã lưu");
+    } catch (failure) {
+      setMessage(requestMessage(failure));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      await deleteReadingAttemptReview(attemptId, questionKey, skill);
+      onDeleted();
+      setMessage("Đã bỏ review");
+    } catch (failure) {
+      setMessage(requestMessage(failure));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-extrabold text-amber-950">Học từ lỗi sai</p>
+          <p className="mt-0.5 text-xs text-amber-900/70">Ghi lại một lý do ngắn để lần sau biết cần sửa gì.</p>
+        </div>
+        {message ? <span className="text-xs font-bold text-amber-900">{message}</span> : null}
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-bold text-slate-700">
+          Lý do sai
+          <select
+            value={reasonCode}
+            onChange={(event) => setReasonCode(event.target.value as TestAttemptErrorReason)}
+            className="mt-1.5 min-h-10 w-full rounded-lg border border-amber-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          >
+            {ERROR_REASON_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+
+        <label className="flex items-end gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700">
+          <input type="checkbox" checked={needsRetry} onChange={(event) => setNeedsRetry(event.target.checked)} className="size-4 accent-[#8f4458]" />
+          Cần làm lại câu này
+        </label>
+      </div>
+
+      <label className="mt-3 block text-xs font-bold text-slate-700">
+        Ghi chú cá nhân
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          maxLength={1000}
+          rows={2}
+          placeholder="Ví dụ: nghe thấy từ đúng nhưng bị distractor ở câu sau..."
+          className="mt-1.5 w-full resize-y rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+        />
+      </label>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-bold text-slate-700">
+          Từ mới (nếu có)
+          <input value={vocabularyTerm} onChange={(event) => setVocabularyTerm(event.target.value)} maxLength={200} className="mt-1.5 min-h-10 w-full rounded-lg border border-amber-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" placeholder="Từ / cụm từ" />
+        </label>
+        <label className="text-xs font-bold text-slate-700">
+          Nghĩa / cách nhớ
+          <input value={vocabularyMeaning} onChange={(event) => setVocabularyMeaning(event.target.value)} maxLength={500} className="mt-1.5 min-h-10 w-full rounded-lg border border-amber-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200" placeholder="Nghĩa hoặc ghi chú nhớ" />
+        </label>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" disabled={saving} onClick={() => void save()} className="min-h-9 rounded-lg bg-[#8f4458] px-4 text-xs font-extrabold text-white transition hover:bg-[#743447] disabled:cursor-not-allowed disabled:opacity-60">
+          {saving ? "Đang lưu..." : initialReview ? "Cập nhật review" : "Lưu review"}
+        </button>
+        {initialReview ? <button type="button" disabled={saving} onClick={() => void remove()} className="min-h-9 rounded-lg border border-amber-300 bg-white px-4 text-xs font-extrabold text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60">Bỏ review</button> : null}
+      </div>
+    </div>
+  );
 }
 
 /** SVG Donut Chart Component */

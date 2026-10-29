@@ -58,6 +58,7 @@
 .eyebrow { color: #9c4962; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .meta { display: flex; flex-wrap: wrap; gap: 7px; font-size: 11px; color: #79666e; }
 .meta span { display: inline-flex; align-items: center; gap: 4px; }
+.lateState { color: #a44b20; font-weight: 850; }
 
 .evidenceButton, .assignmentLink, .saveButton {
   display: inline-flex;
@@ -76,6 +77,57 @@
 .evidenceButton { margin-top: 8px; border: 1px solid #d8bcc5; background: #fff; color: #8f4458; }
 .evidenceButton:hover, .saveButton:hover { background: #faeef2; }
 .evidenceButton:disabled, .saveButton:disabled { cursor: wait; opacity: .55; }
+.assignmentForm { display: grid; gap: 10px; margin-top: 12px; }
+.audioSubmission { display: grid; gap: 8px; border: 1px solid #eadde1; border-radius: 11px; background: #fffafb; padding: 10px; }
+.audioGroup { display: grid; gap: 8px; }
+.audioItem { display: grid; gap: 6px; border: 1px solid #eadde1; border-radius: 9px; background: white; padding: 9px; }
+.audioItemHeader { display: flex; align-items: center; gap: 8px; }
+.audioItemHeader input { min-height: 34px; }
+.audioItemHeader button { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid #eadde1; border-radius: 8px; background: #fff7f9; color: #8f4458; cursor: pointer; }
+.audioItem small { overflow: hidden; color: #806d74; text-overflow: ellipsis; white-space: nowrap; }
+.audioPlayer { width: 100%; min-height: 36px; }
+.audioState { display: inline-flex; align-items: center; gap: 5px; color: #168765; font-size: 11px; font-weight: 750; }
+.assignmentForm textarea, .field textarea { width: 100%; border: 1px solid #dfd0d5; border-radius: 10px; background: white; padding: 10px 11px; color: #2d2729; font: inherit; font-size: 13px; resize: vertical; }
+.assignmentActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.feedback { border-left: 3px solid #994b62; border-radius: 8px; background: #fff3f5; padding: 10px 12px; color: #5f3a45; font-size: 12px; }
+.feedback p { margin: 4px 0 0; line-height: 1.5; }
+.annotatedSubmission { margin-top: 10px; border: 1px solid #ead1a0; border-radius: 9px; background: #fffaf0; padding: 9px; }
+.annotatedSubmission > small { color: #8a5a16; font-weight: 800; }
+.annotatedSubmission p { white-space: pre-wrap; }
+.inlineHighlight { border-radius: 3px; background: #f7d77a; box-shadow: 0 0 0 1px #e3b94d; color: inherit; cursor: help; }
+.inlineHighlight:hover { background: #f2c85a; }
+.rubricFeedback { display: grid; gap: 6px; margin-top: 10px; }
+.rubricFeedback > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; border-top: 1px solid #eadde1; padding-top: 7px; }
+.rubricFeedback b { color: #8f4458; }
+.rubricFeedback small { grid-column: 1 / -1; color: #6d5960; line-height: 1.45; }
+.annotationFeedback { display: grid; gap: 7px; margin-top: 10px; }
+.annotationFeedback > div { border-radius: 8px; background: #fff; padding: 8px 9px; }
+.annotationFeedback blockquote { margin: 0; color: #4f4146; font-weight: 750; }
+.annotationFeedback small { display: block; margin-top: 4px; color: #168765; }
+.historyButton { justify-self: start; border: 0; background: transparent; color: #8f4458; padding: 3px 0; font-size: 11px; font-weight: 800; cursor: pointer; }
+.historyButton:disabled { cursor: wait; opacity: .55; }
+.revisionHistory { display: grid; gap: 8px; border-top: 1px solid #eadde1; padding-top: 10px; }
+.revisionRow { display: grid; gap: 4px; border: 1px solid #eadde1; border-radius: 10px; background: #fffafb; padding: 9px 10px; color: #5f4a51; font-size: 11px; }
+.revisionHeader { display: flex; align-items: center; gap: 8px; }
+.revisionHeader span { color: #8a737b; }
+.revisionHeader em { margin-left: auto; color: #8f4458; font-style: normal; font-weight: 800; }
+.revisionRow small { color: #806d74; }
+.revisionRow p { margin: 3px 0 0; line-height: 1.45; }
+.revisionReflection { color: #6d5960; }
+.compareButton { justify-self: start; border: 1px solid #d8bcc5; border-radius: 7px; background: white; color: #8f4458; padding: 4px 7px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.compareButton:hover { background: #faeef2; }
+.revisionCompare { display: grid; gap: 9px; border: 1px solid #cdb6be; border-radius: 11px; background: #fff; padding: 10px; }
+.revisionCompareHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #5f3a45; font-size: 12px; }
+.revisionCompareHeader button { border: 0; background: transparent; color: #8f4458; font-size: 11px; font-weight: 800; cursor: pointer; }
+.revisionCompareGrid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.revisionCompareGrid section { min-width: 0; border: 1px solid #eadde1; border-radius: 8px; background: #fffafb; padding: 8px; }
+.revisionCompareGrid small, .revisionDelta small { color: #806d74; font-weight: 800; }
+.revisionCompareGrid p { max-height: 180px; overflow: auto; white-space: pre-wrap; }
+.revisionDelta { border-radius: 8px; background: #f8f1f3; padding: 8px; color: #5f4a51; }
+.revisionDelta p { margin: 3px 0 0; white-space: pre-wrap; }
+.revisionDelta del { color: #a05c64; }
+.revisionDelta mark { border-radius: 3px; background: #c9efd9; color: #17603f; }
+.historyEmpty { color: #806d74; }
 
 .checklist { display: grid; gap: 8px; }
 .checklistTitle { margin: 0 0 2px; font-size: 11px; font-weight: 850; color: #6f5961; text-transform: uppercase; letter-spacing: .05em; }

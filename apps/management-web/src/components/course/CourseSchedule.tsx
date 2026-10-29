@@ -113,6 +113,7 @@ export default function CourseSchedule({ courseId, skillPair, initialSessions }:
   const [drawerMode, setDrawerMode] = useState<"SESSION" | "TEST">("SESSION");
   const [shiftFollowing, setShiftFollowing] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryInitialKind, setLibraryInitialKind] = useState<"ALL" | "MATERIAL" | "TEST">("ALL");
 
   const ensureTeachers = useCallback(async () => {
     if (!canAssignTeacher || teachers.length) return;
@@ -437,7 +438,10 @@ export default function CourseSchedule({ courseId, skillPair, initialSessions }:
           onClose={() => setDraft(null)}
           onPatchDraft={patchDraft}
           onApplyRoadmap={applyRoadmap}
-          onOpenLibrary={() => setLibraryOpen(true)}
+          onOpenLibrary={(kind = "ALL") => {
+            setLibraryInitialKind(kind);
+            setLibraryOpen(true);
+          }}
           onPatchItem={patchItem}
           onRemoveItem={removeItem}
           onSave={save}
@@ -447,7 +451,7 @@ export default function CourseSchedule({ courseId, skillPair, initialSessions }:
         />
       )}
       {showSetup && <ScheduleSetupModal courseId={courseId} skillPair={skillPair} teachers={teachers} primaryTeacherId={primaryTeacherId} onClose={()=>setShowSetup(false)} onApplied={load}/>}
-      <AttachLibraryModal open={libraryOpen} courseId={courseId} skillPair={skillPair} onClose={()=>setLibraryOpen(false)} onAttach={attachLibrary}/>
+      <AttachLibraryModal open={libraryOpen} courseId={courseId} skillPair={skillPair} initialKind={libraryInitialKind} onClose={()=>setLibraryOpen(false)} onAttach={attachLibrary}/>
     </div>
   );
 }

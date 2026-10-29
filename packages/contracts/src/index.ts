@@ -83,9 +83,12 @@ export interface TestAssignment {
   testVersionId: string;
   testTitle: string;
   versionLabel: string;
-  skill: "READING" | "WRITING";
+  skill: IeltsSkill;
   courseId: string;
   courseName: string;
+  sessionId: string | null;
+  sessionNo: number | null;
+  sessionTitle: string | null;
   mode: ReadingAssignmentMode;
   opensAt: string | null;
   closesAt: string | null;
@@ -99,6 +102,7 @@ export interface TestAssignment {
 export interface CreateTestAssignmentRequest {
   testVersionId: string;
   courseId: string;
+  sessionId: string | null;
   opensAt: string | null;
   closesAt: string | null;
   maxAttempts: number;
@@ -134,6 +138,9 @@ export interface StudentReadingAssignment {
   versionLabel: string;
   courseId: string;
   courseName: string;
+  sessionId: string | null;
+  sessionNo: number | null;
+  sessionTitle: string | null;
   mode: ReadingAssignmentMode;
   opensAt: string | null;
   closesAt: string | null;
@@ -319,8 +326,11 @@ export interface WritingEvaluationResult {
   aiErrorMessage: string | null;
   overallBandAi: number | null;
   aiCriterionBands: Record<string, number>;
+  aiCriterionFeedback: Record<string, string>;
+  aiCriterionEvidence: Record<string, string[]>;
   aiStrengths: string[];
   aiImprovements: string[];
+  aiDetectedErrors: string[];
   aiCompletedAt: string | null;
   teacherStatus: "AVAILABLE" | "REVIEWED" | "PUBLISHED";
   overallBandTeacher: number | null;
@@ -364,6 +374,7 @@ export interface WritingAttemptResult {
 export interface ReadingQuestionResult {
   questionKey: string;
   questionNo: number;
+  answer: Record<string, unknown>;
   answered: boolean;
   correct: boolean | null;
   score: number;
@@ -418,6 +429,35 @@ export interface ReadingAttemptResult {
   unansweredCount: number;
   resultVisible: boolean;
   questions: ReadingQuestionResult[];
+}
+
+export type TestAttemptErrorReason =
+  | "UNKNOWN_VOCABULARY"
+  | "LOST_FOCUS"
+  | "DISTRACTOR"
+  | "SPELLING"
+  | "MISHEARD"
+  | "QUESTION_MISUNDERSTOOD"
+  | "OTHER";
+
+export interface TestAttemptQuestionReview {
+  attemptId: string;
+  questionKey: string;
+  reasonCode: TestAttemptErrorReason;
+  note: string | null;
+  needsRetry: boolean;
+  vocabularyTerm: string | null;
+  vocabularyMeaning: string | null;
+  reviewedAt: string;
+  updatedAt: string;
+}
+
+export interface SaveTestAttemptQuestionReviewRequest {
+  reasonCode: TestAttemptErrorReason;
+  note?: string | null;
+  needsRetry: boolean;
+  vocabularyTerm?: string | null;
+  vocabularyMeaning?: string | null;
 }
 
 export type PublishStatus = "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";

@@ -37,6 +37,7 @@ import {
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { StudentAttemptDetail, StudentLearningInsights as Insights } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
+import TeacherReadingReviewWorkspace from "./reading-review/TeacherReadingReviewWorkspace";
 
 type Props = {
   studentId: string;
@@ -187,7 +188,15 @@ export default function StudentLearningInsights({ studentId, data, loading, erro
         <MistakesSection mistakes={data.recurringMistakes} attempts={data.attempts} onFilterSkill={setSkill} onShowInProgress={() => setStatus("IN_PROGRESS")} />
       </div>
 
-      {selectedAttempt && <AttemptReviewScreen studentId={studentId} item={selectedAttempt} onClose={() => setSelectedAttempt(null)} />}
+      {selectedAttempt && (
+        <AttemptReviewScreen
+          studentId={studentId}
+          item={selectedAttempt}
+          attemptsList={attempts}
+          onNavigateAttempt={setSelectedAttempt}
+          onClose={() => setSelectedAttempt(null)}
+        />
+      )}
     </div>
   );
 }
@@ -397,7 +406,19 @@ type SectionInfo = {
   total: number;
 };
 
-function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; item: LearningAttempt; onClose: () => void }) {
+function AttemptReviewScreen({
+  studentId,
+  item,
+  attemptsList = [],
+  onNavigateAttempt,
+  onClose,
+}: {
+  studentId: string;
+  item: LearningAttempt;
+  attemptsList?: LearningAttempt[];
+  onNavigateAttempt?: (attempt: LearningAttempt) => void;
+  onClose: () => void;
+}) {
   const [detail, setDetail] = useState<StudentAttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -566,6 +587,12 @@ function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; 
   const totalQuestions = questions.length || Math.max(detail?.maxScore ?? 0, 1);
   const correctPct = detail ? Math.round((detail.correctCount / totalQuestions) * 100) : 0;
 
+  const currentIndex = attemptsList.findIndex(a => a.id === item.id);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < attemptsList.length - 1;
+  const onPrev = hasPrev && onNavigateAttempt ? () => onNavigateAttempt(attemptsList[currentIndex - 1]) : undefined;
+  const onNext = hasNext && onNavigateAttempt ? () => onNavigateAttempt(attemptsList[currentIndex + 1]) : undefined;
+
   return (
     <div className="fixed inset-0 z-50 bg-[#2B2228]/55 p-0 backdrop-blur-[3px] sm:p-2 md:p-3" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="attempt-review-title" className="mx-auto flex h-[100dvh] w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-2xl sm:h-[calc(100dvh-1rem)] sm:rounded-2xl sm:border sm:border-[#E6DDE1]">
@@ -599,11 +626,47 @@ function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; 
             </div>
 
             {/* Right: Score Pill, View Mode Toggle & Close Button */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
               {detail && (
-                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-black text-emerald-700 tabular-nums shadow-2xs">
-                  {detail.correctCount}/{totalQuestions} câu đúng ({correctPct}%)
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-black text-emerald-700 tabular-nums shadow-2xs">
+                    {detail.correctCount}/{totalQuestions} câu đúng ({correctPct}%)
+                  </span>
+                  <span className="hidden md:inline-flex rounded-full bg-[#F3E6EB] border border-[#E6DDE1] px-2.5 py-1 text-xs font-black text-[#8B3F56]">
+                    {estimateIeltsBand(detail.correctCount, totalQuestions, detail.skill)}
+                  </span>
+                </div>
+              )}
+
+              {/* Prev / Next Attempt navigation */}
+              {attemptsList.length > 1 && onNavigateAttempt && (
+                <div className="hidden lg:inline-flex items-center rounded-xl border border-[#E6DDE1] bg-[#F7F2F4] p-0.5 text-xs font-bold" role="group" aria-label="Điều hướng các lượt làm">
+                  <button
+                    type="button"
+                    disabled={!hasPrev}
+                    onClick={onPrev}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 transition ${
+                      hasPrev ? "text-[#2B2228] hover:bg-white hover:text-[#8B3F56]" : "text-slate-300 cursor-not-allowed"
+                    }`}
+                    title="Bài làm trước"
+                  >
+                    <CaretLeft size={13} weight="bold" />
+                    <span>Bài trước</span>
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    disabled={!hasNext}
+                    onClick={onNext}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 transition ${
+                      hasNext ? "text-[#2B2228] hover:bg-white hover:text-[#8B3F56]" : "text-slate-300 cursor-not-allowed"
+                    }`}
+                    title="Bài làm sau"
+                  >
+                    <span>Bài sau</span>
+                    <CaretRight size={13} weight="bold" />
+                  </button>
+                </div>
               )}
 
               <div className="hidden sm:inline-flex items-center rounded-xl border border-[#E6DDE1] bg-[#F7F2F4] p-1 text-xs font-bold" role="tablist">
@@ -869,17 +932,31 @@ function AttemptReviewScreen({ studentId, item, onClose }: { studentId: string; 
                 />
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  <TeacherWorkspaceSplit
-                    currentSection={currentSection}
-                    selectedQuestion={selectedQuestion}
-                    questions={questions}
-                    sectionsList={sectionsList}
-                    activeSectionTitle={activeSectionTitle}
-                    onSelectQuestionKey={setSelectedQuestionKey}
-                    onSelectSectionTitle={setActiveSectionTitle}
-                    passageFontSize={passageFontSize}
-                    onFontSizeChange={setPassageFontSize}
-                  />
+                  {skill === "READING" ? (
+                    <TeacherReadingReviewWorkspace
+                      currentSection={currentSection}
+                      selectedQuestion={selectedQuestion}
+                      questions={questions}
+                      sectionsList={sectionsList}
+                      activeSectionTitle={activeSectionTitle}
+                      onSelectQuestionKey={setSelectedQuestionKey}
+                      onSelectSectionTitle={setActiveSectionTitle}
+                      passageFontSize={passageFontSize}
+                      onFontSizeChange={setPassageFontSize}
+                    />
+                  ) : (
+                    <TeacherWorkspaceSplit
+                      currentSection={currentSection}
+                      selectedQuestion={selectedQuestion}
+                      questions={questions}
+                      sectionsList={sectionsList}
+                      activeSectionTitle={activeSectionTitle}
+                      onSelectQuestionKey={setSelectedQuestionKey}
+                      onSelectSectionTitle={setActiveSectionTitle}
+                      passageFontSize={passageFontSize}
+                      onFontSizeChange={setPassageFontSize}
+                    />
+                  )}
                 </div>
               )}
             </div>

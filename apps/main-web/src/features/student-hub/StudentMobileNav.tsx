@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
   BookOpenText,
+  Cards,
   CalendarCheck,
   ChartLineUp,
   ClockCounterClockwise,
@@ -16,6 +17,7 @@ import {
   Sparkle,
   SquaresFour,
   UserGear,
+  Gear,
   X,
 } from "@phosphor-icons/react";
 import styles from "./StudentMobileNav.module.css";
@@ -36,6 +38,7 @@ const groups = [
     { href: "/student/placement-test", label: "Test đầu vào FREE", icon: Sparkle },
     { href: "/student/assignments", label: "Bài tập được giao", icon: BookOpenText },
     { href: "/student/practice", label: "Phòng luyện 4 kỹ năng", icon: PencilSimpleLine },
+    { href: "/student/flashcards", label: "Sổ từ vựng & Flashcards", icon: Cards },
     { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },
     { href: "/student/schedule", label: "Lịch học", icon: CalendarCheck },
   ] },
@@ -47,6 +50,7 @@ const groups = [
   { title: "Cá nhân", items: [
     { href: "/student/ai-tutor", label: "AI Tutor · đang phát triển", icon: Robot },
     { href: "/student/learning-profile", label: "Hồ sơ học tập", icon: UserGear },
+    { href: "/student/settings", label: "Cài đặt tài khoản", icon: Gear },
   ] },
 ];
 

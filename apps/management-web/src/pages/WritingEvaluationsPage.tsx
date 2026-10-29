@@ -63,7 +63,11 @@ const teacherStatuses: Record<string, string> = { AVAILABLE: "Chưa chấm", REV
 export function WritingEvaluationsPage() {
   const { roles } = useAuth();
   const canManageAi = roles.includes("admin");
-  const [tab, setTab] = useState<"overview" | "writing" | "speaking" | "access">("writing");
+  const [tab, setTab] = useState<"overview" | "writing" | "speaking" | "access">(() => {
+    if (typeof window === "undefined") return "writing";
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    return requested === "speaking" || requested === "overview" || requested === "access" ? requested : "writing";
+  });
 
   return <div className="mx-auto max-w-[1540px] space-y-3">
     <header className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-outline-variant/55 bg-surface-container-lowest px-3 sm:px-4">
@@ -185,8 +189,13 @@ function WritingPanel() {
       if (teacherFilter !== "ALL") params.set("teacherStatus", teacherFilter);
       if (debouncedQuery) params.set("q", debouncedQuery);
       const result = await apiFetch<PageResult<WritingEvaluation>>(`/admin/writing-evaluations?${params}`, { signal });
-      setItems(result.content); setTotalElements(result.totalElements); setTotalPages(result.totalPages);
-      setSelectedId((current) => result.content.some((item) => item.id === current) ? current : result.content[0]?.id ?? "");
+      let content = result.content;
+      const requestedId = requestedEvaluationId();
+      if (requestedId && !content.some((item) => item.id === requestedId)) {
+        try { content = [await apiFetch<WritingEvaluation>(`/admin/writing-evaluations/${requestedId}`, { signal }), ...content]; } catch { /* the scoped queue may have moved on */ }
+      }
+      setItems(content); setTotalElements(result.totalElements); setTotalPages(result.totalPages);
+      setSelectedId((current) => requestedId && content.some((item) => item.id === requestedId) ? requestedId : content.some((item) => item.id === current) ? current : content[0]?.id ?? "");
     } catch (reason) { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(message(reason, "Không tải được hàng chờ Writing.")); }
     finally { if (!signal?.aborted) setLoading(false); }
   }
@@ -402,8 +411,12 @@ function SpeakingPanel() {
   async function load() {
     setLoading(true); setError("");
     try {
-      const values = await apiFetch<SpeakingEvaluation[]>("/admin/speaking-evaluations");
-      setItems(values); setSelectedId((current) => values.some((item) => item.id === current) ? current : values[0]?.id ?? "");
+      let values = await apiFetch<SpeakingEvaluation[]>("/admin/speaking-evaluations");
+      const requestedId = requestedEvaluationId();
+      if (requestedId && !values.some((item) => item.id === requestedId)) {
+        try { values = [await apiFetch<SpeakingEvaluation>(`/admin/speaking-evaluations/${requestedId}`), ...values]; } catch { /* the scoped queue may have moved on */ }
+      }
+      setItems(values); setSelectedId((current) => requestedId && values.some((item) => item.id === requestedId) ? requestedId : values.some((item) => item.id === current) ? current : values[0]?.id ?? "");
     } catch (reason) { setError(message(reason, "Không tải được hàng chờ Speaking.")); }
     finally { setLoading(false); }
   }
@@ -1483,6 +1496,7 @@ function percent(value: number | null) { return value == null ? "Chưa có" : `$
 function lines(value: string) { return value.split("\n").map((item) => item.trim()).filter(Boolean); }
 function wordCount(value: string) { return value.trim() ? value.trim().split(/\s+/).length : 0; }
 function message(reason: unknown, fallback: string) { return reason instanceof Error ? reason.message : fallback; }
+function requestedEvaluationId() { return typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("evaluationId") ?? ""; }
 function filterItems<T>(items: T[], query: string, text: (item: T) => string) { const value = query.trim().toLowerCase(); return value ? items.filter((item) => text(item).toLowerCase().includes(value)) : items; }
 function replace<T extends { id: string }>(setItems: React.Dispatch<React.SetStateAction<T[]>>, updated: T) { setItems((current) => current.map((item) => item.id === updated.id ? updated : item)); }
 function toLocalInput(value: string | null) { if (!value) return ""; const date = new Date(value); const offset = date.getTimezoneOffset(); return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16); }

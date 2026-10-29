@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { StudentHubLayout } from "@/features/student-hub/StudentHubLayout";
 import { StudentPortalProvider } from "@/features/student-hub/StudentPortalProvider";
+import { StudentNotificationProvider } from "./StudentNotificationProvider";
 import { WritingEvaluationNotifier } from "./WritingEvaluationNotifier";
 
 export function StudentHubShellGuard({ children }: { children: React.ReactNode }) {
@@ -22,12 +23,20 @@ export function StudentHubShellGuard({ children }: { children: React.ReactNode }
   if (isAuthPage) {
     return <>{children}</>;
   }
-  if (isExamWorkspacePage) return <>{children}<WritingEvaluationNotifier/></>;
 
   return (
-    <StudentPortalProvider>
-      <StudentHubLayout>{children}</StudentHubLayout>
-      <WritingEvaluationNotifier/>
-    </StudentPortalProvider>
+    <StudentNotificationProvider>
+      {isExamWorkspacePage ? (
+        <>
+          {children}
+          <WritingEvaluationNotifier />
+        </>
+      ) : (
+        <StudentPortalProvider>
+          <StudentHubLayout>{children}</StudentHubLayout>
+          <WritingEvaluationNotifier />
+        </StudentPortalProvider>
+      )}
+    </StudentNotificationProvider>
   );
 }

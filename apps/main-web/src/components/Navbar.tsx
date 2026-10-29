@@ -219,12 +219,12 @@ export default function Navbar() {
                           <span>Hồ sơ học tập</span>
                         </Link>
                         <Link
-                          href="/student/learning-profile"
+                          href="/student/settings"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-sm font-medium text-[#5C5752] hover:bg-[#FEF9C3] hover:text-[#1E1B18] transition-colors"
                         >
                           <Gear size={18} className="text-[#857F7A]" />
-                          <span>Cài đặt</span>
+                          <span>Cài đặt tài khoản</span>
                         </Link>
                       </div>
 

@@ -1,6 +1,11 @@
 "use client";
 
-import type { SavedWritingResponse, WritingAttemptResult, WritingTask } from "@ielts/contracts";
+import type {
+  SavedWritingResponse,
+  WritingAttemptResult,
+  WritingEvaluationResult,
+  WritingTask,
+} from "@ielts/contracts";
 import {
   ArrowLeft,
   ArrowRight,
@@ -42,6 +47,22 @@ const criterionDescriptions: Record<string, string> = {
   lexical_resource: "Vốn từ vựng & diễn đạt",
   grammatical_range_accuracy: "Ngữ pháp chính xác & đa dạng",
 };
+
+const criterionShortLabels: Record<string, string> = {
+  task_achievement: "TA",
+  task_response: "TR",
+  coherence_cohesion: "C&C",
+  lexical_resource: "LR",
+  grammatical_range_accuracy: "GRA",
+};
+
+const criterionOrder = [
+  "task_achievement",
+  "task_response",
+  "coherence_cohesion",
+  "lexical_resource",
+  "grammatical_range_accuracy",
+];
 
 export function WritingResultPage({ attemptId }: { attemptId: string }) {
   return (
@@ -465,13 +486,10 @@ function WritingResultContent({ attemptId }: { attemptId: string }) {
 
                   {/* TAB 2: TIS AI FEEDBACK */}
                   {tab === "tis" && evaluation?.overallBandAi != null ? (
-                    <FeedbackSection
-                      title="TIS nhận xét & chấm điểm"
-                      icon="ai"
-                      overall={evaluation.overallBandAi}
-                      criteria={evaluation.aiCriterionBands}
-                      strengths={evaluation.aiStrengths}
-                      improvements={evaluation.aiImprovements}
+                    <AiReviewWorkspace
+                      task={task}
+                      response={response}
+                      evaluation={evaluation}
                     />
                   ) : null}
 
@@ -746,6 +764,242 @@ function ResponseContent({
       </footer>
     </div>
   );
+}
+
+/* ==========================================================================
+   TIS AI REVIEW WORKSPACE
+   ========================================================================== */
+
+function AiReviewWorkspace({
+  task,
+  response,
+  evaluation,
+}: {
+  task: WritingTask;
+  response: SavedWritingResponse | undefined;
+  evaluation: WritingEvaluationResult;
+}) {
+  const criterionFeedback = evaluation.aiCriterionFeedback ?? {};
+  const detectedErrors = evaluation.aiDetectedErrors ?? [];
+  const storedEvidence = evaluation.aiCriterionEvidence ?? {};
+  const hasStoredEvidence = Object.values(storedEvidence).some((quotes) => quotes.length > 0);
+  const legacyEvidence = hasStoredEvidence ? [] : matchingLegacyEvidence(detectedErrors, response?.text ?? "");
+  const criterionEvidence = legacyEvidence.length
+    ? { ...storedEvidence, grammatical_range_accuracy: legacyEvidence }
+    : storedEvidence;
+  const availableCriteria = criterionOrder.filter((key) => evaluation.aiCriterionBands[key] != null);
+  const [activeCriterion, setActiveCriterion] = useState<string>("all");
+  const selectedCriterion = activeCriterion === "all" ? availableCriteria[0] : activeCriterion;
+  const essay = response?.text ?? "";
+
+  return (
+    <section className={styles.aiReviewWorkspace}>
+      <div className={styles.aiReviewDocument}>
+        <nav className={styles.aiCriterionTabs} aria-label="Lọc nhận xét AI theo tiêu chí">
+          <button
+            type="button"
+            aria-pressed={activeCriterion === "all"}
+            onClick={() => setActiveCriterion("all")}
+          >
+            <span>Tất cả</span>
+            <strong>{availableCriteria.reduce((total, key) => total + (criterionEvidence[key]?.length ?? 0), 0)}</strong>
+          </button>
+          {availableCriteria.map((key) => (
+            <button
+              key={key}
+              type="button"
+              data-criterion={key}
+              aria-pressed={activeCriterion === key}
+              onClick={() => setActiveCriterion(key)}
+            >
+              <span>{criterionShortLabels[key] ?? key}</span>
+              <strong>{criterionEvidence[key]?.length ?? 0}</strong>
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.aiDocumentScroll}>
+          <section className={styles.aiPromptBlock}>
+            <div className={styles.aiPromptHeading}>
+              <BookOpenText size={16} weight="bold" />
+              <span>Đề bài Task {task.taskNo}</span>
+            </div>
+            <div className={styles.aiPromptText} dangerouslySetInnerHTML={{ __html: task.promptHtml }} />
+            {task.imageUrl ? (
+              <div className={styles.aiDiagramWrapper}>
+                <AuthenticatedDiagramImage
+                  src={task.imageUrl}
+                  alt={task.imageAltText ?? `Writing Task ${task.taskNo}`}
+                  className={styles.aiDiagram}
+                  fallbackText="Không thể tải ảnh minh họa đề Writing."
+                />
+              </div>
+            ) : null}
+          </section>
+
+          <section className={styles.aiEssayBlock}>
+            <header>
+              <div>
+                <PencilSimple size={17} weight="bold" />
+                <h3>Bài viết của bạn</h3>
+              </div>
+              <span>{response?.wordCount ?? 0} từ</span>
+            </header>
+            <HighlightedEssay
+              text={essay}
+              evidence={criterionEvidence}
+              activeCriterion={activeCriterion}
+              onSelectCriterion={setActiveCriterion}
+            />
+          </section>
+        </div>
+      </div>
+
+      <aside className={styles.aiReviewSidebar}>
+        <div className={styles.aiScoreHeader}>
+          <div>
+            <span>Đánh giá của TIS</span>
+            <strong>{evaluation.overallBandAi?.toFixed(1)}</strong>
+            <small>Overall band</small>
+          </div>
+          <Sparkle size={25} weight="fill" />
+        </div>
+
+        <div className={styles.aiScoreRail}>
+          {availableCriteria.map((key) => (
+            <button
+              key={key}
+              type="button"
+              data-criterion={key}
+              aria-pressed={activeCriterion === key}
+              onClick={() => setActiveCriterion(key)}
+            >
+              <span>{criterionShortLabels[key] ?? key}</span>
+              <strong>{evaluation.aiCriterionBands[key]?.toFixed(1)}</strong>
+            </button>
+          ))}
+        </div>
+
+        {selectedCriterion ? (
+          <article className={styles.aiCriterionDetail} data-criterion={selectedCriterion}>
+            <header>
+              <div>
+                <span>{criterionDescriptions[selectedCriterion]}</span>
+                <h3>{criterionLabels[selectedCriterion]}</h3>
+              </div>
+              <strong>{evaluation.aiCriterionBands[selectedCriterion]?.toFixed(1)}</strong>
+            </header>
+            <div className={styles.aiFeedbackText}>
+              <span>Nhận xét</span>
+              <p>{criterionFeedback[selectedCriterion] || "TIS chưa có nhận xét chi tiết cho tiêu chí này."}</p>
+            </div>
+            {criterionEvidence[selectedCriterion]?.length ? (
+              <div className={styles.aiEvidenceList}>
+                <span>Dẫn chứng trong bài</span>
+                {criterionEvidence[selectedCriterion].map((quote, index) => (
+                  <button
+                    key={`${quote}-${index}`}
+                    type="button"
+                    onClick={() => setActiveCriterion(selectedCriterion)}
+                  >
+                    “{quote}”
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        ) : null}
+
+        <div className={styles.aiActionNotes}>
+          {evaluation.aiStrengths.length ? (
+            <section data-kind="strength">
+              <h3><CheckCircle size={16} weight="fill" /> Điểm đang làm tốt</h3>
+              <ul>{evaluation.aiStrengths.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+          ) : null}
+          {evaluation.aiImprovements.length ? (
+            <section data-kind="improvement">
+              <h3><Lightbulb size={16} weight="fill" /> Hướng cải thiện</h3>
+              <ul>{evaluation.aiImprovements.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+          ) : null}
+          {activeCriterion === "all" && detectedErrors.length ? (
+            <section data-kind="error">
+              <h3><WarningCircle size={16} weight="fill" /> Lỗi TIS ghi nhận</h3>
+              <ul>{detectedErrors.map((item) => <li key={item}>{item}</li>)}</ul>
+            </section>
+          ) : null}
+        </div>
+      </aside>
+    </section>
+  );
+}
+
+function HighlightedEssay({
+  text,
+  evidence,
+  activeCriterion,
+  onSelectCriterion,
+}: {
+  text: string;
+  evidence: Record<string, string[]>;
+  activeCriterion: string;
+  onSelectCriterion: (criterion: string) => void;
+}) {
+  if (!text.trim()) return <p className={styles.aiEmptyEssay}>Bài viết chưa có nội dung.</p>;
+  const criteria = activeCriterion === "all" ? criterionOrder : [activeCriterion];
+  const matches: Array<{ start: number; end: number; criterion: string }> = [];
+
+  for (const criterion of criteria) {
+    for (const rawQuote of evidence[criterion] ?? []) {
+      const quote = rawQuote.trim();
+      if (!quote) continue;
+      let start = text.indexOf(quote);
+      while (start >= 0) {
+        matches.push({ start, end: start + quote.length, criterion });
+        start = text.indexOf(quote, start + quote.length);
+      }
+    }
+  }
+
+  matches.sort((left, right) => left.start - right.start || right.end - right.start - (left.end - left.start));
+  const nonOverlapping: typeof matches = [];
+  for (const match of matches) {
+    if (!nonOverlapping.some((accepted) => accepted.start < match.end && match.start < accepted.end)) {
+      nonOverlapping.push(match);
+    }
+  }
+
+  const content: React.ReactNode[] = [];
+  let cursor = 0;
+  nonOverlapping.forEach((match, index) => {
+    if (match.start > cursor) content.push(text.slice(cursor, match.start));
+    content.push(
+      <button
+        key={`${match.start}-${match.end}-${index}`}
+        type="button"
+        className={styles.aiInlineHighlight}
+        data-criterion={match.criterion}
+        title={`Xem nhận xét ${criterionLabels[match.criterion] ?? match.criterion}`}
+        onClick={() => onSelectCriterion(match.criterion)}
+      >
+        {text.slice(match.start, match.end)}
+      </button>,
+    );
+    cursor = match.end;
+  });
+  if (cursor < text.length) content.push(text.slice(cursor));
+
+  return <div className={styles.aiHighlightedEssay}>{content}</div>;
+}
+
+function matchingLegacyEvidence(errors: string[], essay: string) {
+  const candidates = errors.flatMap((error) => {
+    const quoted = [...error.matchAll(/[“\"]([^”\"]{4,})[”\"]/g)].map((match) => match[1]);
+    const prefix = error.split(/\.\.\.|…/, 1)[0]?.trim();
+    return prefix ? [...quoted, prefix] : quoted;
+  });
+  return [...new Set(candidates)].filter((quote) => essay.includes(quote)).slice(0, 5);
 }
 
 /* ==========================================================================

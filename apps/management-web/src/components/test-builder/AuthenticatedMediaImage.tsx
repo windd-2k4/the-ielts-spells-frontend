@@ -36,18 +36,18 @@ export default function AuthenticatedMediaImage({ fileUrl, alt, className = "" }
 
   if (failed) {
     return (
-      <div role="alert" className="flex min-h-40 items-center justify-center gap-2 rounded-xl bg-rose-50 p-4 text-xs font-semibold text-[#b4232d]">
-        <WarningCircle size={18} aria-hidden="true" />
-        Không thể tải ảnh xem trước.
+      <div role="alert" className="flex h-full min-h-[60px] w-full items-center justify-center gap-1.5 rounded-xl bg-rose-50 p-2 text-center text-xs font-semibold text-[#b4232d]">
+        <WarningCircle size={16} aria-hidden="true" className="shrink-0" />
+        <span className="truncate">Không thể tải ảnh</span>
       </div>
     );
   }
 
   if (!objectUrl) {
     return (
-      <div className="flex min-h-40 items-center justify-center gap-2 rounded-xl bg-[#f8f6fa] text-xs font-semibold text-[#746A6E]" aria-label="Đang tải ảnh xem trước">
-        <SpinnerGap size={18} className="animate-spin" aria-hidden="true" />
-        Đang tải ảnh...
+      <div className="flex h-full min-h-[60px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#f8f6fa] p-2 text-xs font-semibold text-[#746A6E]" aria-label="Đang tải ảnh xem trước">
+        <SpinnerGap size={16} className="animate-spin shrink-0 text-primary" aria-hidden="true" />
+        <span className="truncate">Đang tải...</span>
       </div>
     );
   }

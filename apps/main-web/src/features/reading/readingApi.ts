@@ -6,6 +6,8 @@ import type {
   StudentReadingAssignment,
   StudentReadingAttempt,
   StudentReadingCatalogItem,
+  SaveTestAttemptQuestionReviewRequest,
+  TestAttemptQuestionReview,
 } from "@ielts/contracts";
 import { ApiClientError } from "@ielts/api-client";
 import { apiFetch, apiKeepalivePost } from "@/lib/api";
@@ -22,8 +24,8 @@ function resolvePath(skill?: string) {
   return skill && skill.toLowerCase() === "listening" ? "/student/listening" : "/student/reading";
 }
 
-export function getReadingAssignments() {
-  return apiFetch<StudentReadingAssignment[]>("/student/reading/assignments");
+export function getReadingAssignments(skill: string = "reading") {
+  return apiFetch<StudentReadingAssignment[]>(`${resolvePath(skill)}/assignments`);
 }
 
 export function getPublishedReadingTests() {
@@ -36,8 +38,8 @@ export function startOrResumeSelfPractice(testVersionId: string, skill: string =
   });
 }
 
-export function startOrResumeReadingAttempt(assignmentId: string) {
-  return apiFetch<StudentReadingAttempt>(`/student/reading/assignments/${assignmentId}/attempts`, {
+export function startOrResumeReadingAttempt(assignmentId: string, skill: string = "reading") {
+  return apiFetch<StudentReadingAttempt>(`${resolvePath(skill)}/assignments/${assignmentId}/attempts`, {
     method: "POST",
   });
 }
@@ -105,4 +107,26 @@ export function submitReadingAttempt(attemptId: string, skill: string = "reading
 
 export function getReadingAttemptResult(attemptId: string, skill: string = "reading") {
   return apiFetch<ReadingAttemptResult>(`${resolvePath(skill)}/attempts/${attemptId}/result`);
+}
+
+export function getReadingAttemptReviews(attemptId: string, skill: string = "reading") {
+  return apiFetch<TestAttemptQuestionReview[]>(`${resolvePath(skill)}/attempts/${attemptId}/reviews`);
+}
+
+export function saveReadingAttemptReview(
+  attemptId: string,
+  questionKey: string,
+  request: SaveTestAttemptQuestionReviewRequest,
+  skill: string = "reading",
+) {
+  return apiFetch<TestAttemptQuestionReview>(
+    `${resolvePath(skill)}/attempts/${attemptId}/reviews/${encodeURIComponent(questionKey)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+}
+
+export function deleteReadingAttemptReview(attemptId: string, questionKey: string, skill: string = "reading") {
+  return apiFetch<void>(`${resolvePath(skill)}/attempts/${attemptId}/reviews/${encodeURIComponent(questionKey)}`, {
+    method: "DELETE",
+  });
 }

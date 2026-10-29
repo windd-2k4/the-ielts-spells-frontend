@@ -169,3 +169,51 @@ export function getAdminDashboard(timeRange = "7d", courseId?: string) {
 export function getContentHubDashboard() {
   return deduplicatedGet<ContentHubDashboard>("/admin/library/dashboard");
 }
+
+export type TeacherDashboardCourse = {
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  skillPair: string;
+  status: string;
+  activeStudents: number;
+  nextSessionAt: string | null;
+  pendingReviews: number;
+  revisionRequests: number;
+  completionPercent: number;
+};
+
+export type TeacherEvaluationQueueItem = {
+  itemType: "ASSIGNMENT" | "WRITING" | "SPEAKING";
+  itemId: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  classActivityId: string | null;
+  sessionId: string | null;
+  sessionNo: number | null;
+  sessionTitle: string | null;
+  activityTitle: string;
+  skill: string;
+  studentId: string;
+  studentName: string;
+  attemptNo: number;
+  submittedAt: string | null;
+  late: boolean;
+  submissionStatus: string;
+  reviewStatus: string;
+  courseRoute: string;
+};
+
+export type TeacherDashboard = {
+  teacherName: string;
+  pendingCount: number;
+  revisionCount: number;
+  courses: TeacherDashboardCourse[];
+  evaluationQueue: TeacherEvaluationQueueItem[];
+  updatedAt: string;
+};
+
+export function getTeacherDashboard() {
+  return deduplicatedGet<TeacherDashboard>("/admin/teacher-dashboard");
+}

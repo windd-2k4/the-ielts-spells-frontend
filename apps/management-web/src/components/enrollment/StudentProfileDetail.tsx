@@ -222,7 +222,7 @@ export default function StudentProfileDetail({
   );
 }
 
-function EditStudentModal({ student, onClose, onSaved }: { student: StudentDetail; onClose: () => void; onSaved: () => Promise<void> }) {
+export function EditStudentModal({ student, onClose, onSaved }: { student: StudentDetail; onClose: () => void; onSaved: () => Promise<void> }) {
   const emergency = normalizeEmergencyContact(student.emergencyContact);
   const initialForm: EditForm = {
     fullName: student.fullName,

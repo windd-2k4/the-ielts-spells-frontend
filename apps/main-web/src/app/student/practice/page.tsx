@@ -443,7 +443,7 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   const hasFilters = Boolean(query || testType !== "ALL" || format !== "ALL" || progress !== "ALL" || selectedQuestionTypes.length);
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles[skill.toLowerCase()]}`}>
       <header className={styles.hero}>
         <div className={styles.heroMain}>
           <div className={styles.heroKicker}>
@@ -467,7 +467,8 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
             const Icon = item.icon;
             const active = item.id === skill;
             return (
-              <Link key={item.id} href={`/student/practice?skill=${item.id}`} aria-current={active ? "page" : undefined}>
+              <Link key={item.id} href={`/student/practice?skill=${item.id}`} className={styles[item.id.toLowerCase()]}
+                aria-current={active ? "page" : undefined}>
                 <Icon size={19} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
               </Link>
             );

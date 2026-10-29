@@ -3,14 +3,22 @@ import {
   ArrowClockwise,
   BookOpenText,
   CalendarBlank,
+  Cards,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
   Check,
   CheckCircle,
   Clock,
-  Exam,
   Eye,
   EyeSlash,
+  GraduationCap,
+  Headphones,
+  Image as ImageIcon,
   MagnifyingGlass,
+  Microphone,
   PaperPlaneTilt,
+  PencilSimpleLine,
   SpinnerGap,
   Student,
   WarningCircle,
@@ -22,9 +30,11 @@ import type {
 } from "@ielts/contracts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Course, Page } from "../../academic-types";
+import { useAuth } from "../../auth/AuthContext";
+import type { ClassSession, Course, Page } from "../../academic-types";
 import type { TestBankSummary } from "../../library-types";
 import { apiFetch } from "../../lib/api";
+import AuthenticatedMediaImage from "../test-builder/AuthenticatedMediaImage";
 
 type ComposerState = {
   mode: ReadingAssignmentMode;
@@ -35,6 +45,8 @@ type ComposerState = {
   showResultAfterSubmit: boolean;
 };
 
+type AssignmentSkill = "LISTENING" | "READING" | "WRITING" | "SPEAKING";
+
 const initialComposer: ComposerState = {
   mode: "PRACTICE",
   opensAt: "",
@@ -43,6 +55,36 @@ const initialComposer: ComposerState = {
   durationMinutes: "60",
   showResultAfterSubmit: true,
 };
+
+const formatLabels: Record<string, string> = {
+  ALL: "Tất cả cấu trúc",
+  SINGLE: "Bài lẻ",
+  FULL: "Full đề (Full Test)",
+  DICTATION: "Dictation",
+  PASSAGE_1: "Reading Passage 1",
+  PASSAGE_2: "Reading Passage 2",
+  PASSAGE_3: "Reading Passage 3",
+  SECTION_1: "Listening Section 1",
+  SECTION_2: "Listening Section 2",
+  SECTION_3: "Listening Section 3",
+  SECTION_4: "Listening Section 4",
+  TASK_1: "Writing Task 1",
+  TASK_2: "Writing Task 2",
+  PART_1: "Speaking Part 1",
+  PART_2: "Speaking Part 2",
+  PART_3: "Speaking Part 3",
+};
+
+function formatLabelOf(test: TestBankSummary): string {
+  const rawFormat = (test.format || "").toUpperCase();
+  if (formatLabels[rawFormat]) return formatLabels[rawFormat];
+  const tagFormat = test.tags?.find((tag) => formatLabels[tag.toUpperCase()]);
+  if (tagFormat) return formatLabels[tagFormat.toUpperCase()];
+  if (test.testType === "FULL_TEST" || (test.sectionsCount && test.sectionsCount > 1)) {
+    return "Full đề (Full Test)";
+  }
+  return "Bài lẻ";
+}
 
 function dateTimeLabel(value: string | null) {
   if (!value) return "Không giới hạn";
@@ -54,6 +96,31 @@ function dateTimeLabel(value: string | null) {
 
 function dateTimePayload(value: string) {
   return value ? new Date(value).toISOString() : null;
+}
+
+function shortDateLabel(value: string | null | undefined) {
+  if (!value) return "Chưa xác định";
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function skillLabel(skill: AssignmentSkill) {
+  return skill === "READING"
+    ? "Reading"
+    : skill === "LISTENING"
+    ? "Listening"
+    : skill === "WRITING"
+    ? "Writing"
+    : "Speaking";
+}
+
+function coursePairForSkill(skill: AssignmentSkill) {
+  return ["READING", "LISTENING"].includes(skill)
+    ? "LISTENING_READING"
+    : "SPEAKING_WRITING";
 }
 
 function assignmentStatus(item: TestAssignment) {
@@ -73,12 +140,14 @@ function StatusBadge({ assignment }: { assignment: TestAssignment }) {
   const classes = {
     active: "border-emerald-200 bg-emerald-50 text-emerald-800",
     scheduled: "border-amber-200 bg-amber-50 text-amber-800",
-    closed: "border-outline-variant bg-surface-container-low text-on-surface-variant",
-    muted: "border-outline-variant bg-surface-container text-on-surface-variant",
+    closed: "border-slate-200 bg-slate-100 text-slate-600",
+    muted: "border-slate-200 bg-slate-50 text-slate-400",
   }[status.tone];
 
   return (
-    <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-bold ${classes}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-bold ${classes}`}
+    >
       {status.label}
     </span>
   );
@@ -86,26 +155,51 @@ function StatusBadge({ assignment }: { assignment: TestAssignment }) {
 
 function WorkspaceSkeleton() {
   return (
-    <div className="space-y-5" role="status" aria-label="Đang tải màn hình giao đề">
-      <div className="h-24 animate-pulse rounded-[22px] bg-surface-container" />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="h-[520px] animate-pulse rounded-[22px] bg-surface-container" />
-        <div className="h-[520px] animate-pulse rounded-[22px] bg-surface-container" />
+    <div className="space-y-4" role="status" aria-label="Đang tải màn hình giao đề">
+      <div className="h-16 animate-pulse rounded-2xl bg-surface-container" />
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-8 space-y-4">
+          <div className="h-48 animate-pulse rounded-2xl bg-surface-container" />
+          <div className="h-80 animate-pulse rounded-2xl bg-surface-container" />
+        </div>
+        <div className="xl:col-span-4 h-[500px] animate-pulse rounded-2xl bg-surface-container" />
       </div>
     </div>
   );
 }
 
 export function TestAssignmentWorkspace() {
+  const { roles } = useAuth();
+  const isTeacher = roles.includes("teacher") && !roles.includes("admin");
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTestId = searchParams.get("testId") ?? "";
-  const [skill, setSkill] = useState<"READING" | "WRITING">(searchParams.get("skill") === "WRITING" ? "WRITING" : "READING");
+  const requestedSkill = searchParams.get("skill");
+  const [skill, setSkill] = useState<AssignmentSkill>(
+    requestedSkill === "LISTENING" ||
+      requestedSkill === "WRITING" ||
+      requestedSkill === "SPEAKING"
+      ? requestedSkill
+      : "READING"
+  );
   const [courses, setCourses] = useState<Course[]>([]);
   const [tests, setTests] = useState<TestBankSummary[]>([]);
   const [assignments, setAssignments] = useState<TestAssignment[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState(searchParams.get("courseId") ?? "");
+  const [selectedCourseId, setSelectedCourseId] = useState(
+    searchParams.get("courseId") ?? ""
+  );
+  const [courseQuery, setCourseQuery] = useState("");
+  const [coursePage, setCoursePage] = useState(1);
+  const COURSES_PER_PAGE = 4;
+
+  const [sessions, setSessions] = useState<ClassSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState("");
   const [selectedTestId, setSelectedTestId] = useState(requestedTestId);
   const [testQuery, setTestQuery] = useState("");
+  const [testTypeFilter, setTestTypeFilter] = useState<string>("ALL");
+  const [testSort, setTestSort] = useState<string>("newest");
+  const [testPage, setTestPage] = useState(1);
+  const TESTS_PER_PAGE = 6;
+
   const [historyQuery, setHistoryQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [composer, setComposer] = useState<ComposerState>(initialComposer);
@@ -118,36 +212,124 @@ export function TestAssignmentWorkspace() {
   const [success, setSuccess] = useState("");
 
   const eligibleCourses = useMemo(
-    () => courses.filter((course) => course.isActive && course.skillPair === (skill === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING")),
-    [courses, skill],
+    () =>
+      courses.filter(
+        (course) =>
+          course.isActive && course.skillPair === coursePairForSkill(skill)
+      ),
+    [courses, skill]
   );
+
   const publishedTests = useMemo(
-    () => tests.filter((test) => test.skill === skill && test.status === "PUBLISHED" && test.publishedVersion),
-    [skill, tests],
+    () =>
+      tests.filter(
+        (test) =>
+          test.skill === skill &&
+          test.status === "PUBLISHED" &&
+          test.publishedVersion
+      ),
+    [skill, tests]
   );
-  const selectedCourse = eligibleCourses.find((course) => course.id === selectedCourseId) ?? null;
-  const selectedTest = publishedTests.find((test) => test.id === selectedTestId) ?? null;
+
+  const selectedCourse =
+    eligibleCourses.find((course) => course.id === selectedCourseId) ?? null;
+  const selectedTest =
+    publishedTests.find((test) => test.id === selectedTestId) ?? null;
+
+  const filteredCourses = useMemo(() => {
+    const normalized = courseQuery.trim().toLocaleLowerCase("vi");
+    if (!normalized) return eligibleCourses;
+    return eligibleCourses.filter((course) =>
+      `${course.code} ${course.name} ${course.level ?? ""}`
+        .toLocaleLowerCase("vi")
+        .includes(normalized)
+    );
+  }, [courseQuery, eligibleCourses]);
+
+  // Paginated Courses (4 per page)
+  const totalCoursePages = Math.max(1, Math.ceil(filteredCourses.length / COURSES_PER_PAGE));
+  const paginatedCourses = useMemo(() => {
+    const start = (coursePage - 1) * COURSES_PER_PAGE;
+    return filteredCourses.slice(start, start + COURSES_PER_PAGE);
+  }, [coursePage, filteredCourses]);
+
+  useEffect(() => {
+    setCoursePage(1);
+  }, [courseQuery, skill]);
 
   const filteredTests = useMemo(() => {
+    let result = publishedTests;
+
+    // Filter by search query
     const normalized = testQuery.trim().toLocaleLowerCase("vi");
-    if (!normalized) return publishedTests;
-    return publishedTests.filter((test) =>
-      `${test.code} ${test.title} ${test.tags.join(" ")}`.toLocaleLowerCase("vi").includes(normalized),
-    );
-  }, [publishedTests, testQuery]);
+    if (normalized) {
+      result = result.filter((test) =>
+        `${test.code} ${test.title} ${test.tags?.join(" ") ?? ""}`
+          .toLocaleLowerCase("vi")
+          .includes(normalized)
+      );
+    }
+
+    // Filter by test type
+    if (testTypeFilter !== "ALL") {
+      result = result.filter((test) => test.testType === testTypeFilter);
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      if (testSort === "duration_asc") {
+        return (a.durationMinutes || 0) - (b.durationMinutes || 0);
+      }
+      if (testSort === "duration_desc") {
+        return (b.durationMinutes || 0) - (a.durationMinutes || 0);
+      }
+      if (testSort === "questions") {
+        return (b.totalQuestions || 0) - (a.totalQuestions || 0);
+      }
+      // default "newest"
+      const dateA = a.publishedVersion?.publishedAt ? new Date(a.publishedVersion.publishedAt).getTime() : 0;
+      const dateB = b.publishedVersion?.publishedAt ? new Date(b.publishedVersion.publishedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return result;
+  }, [publishedTests, testQuery, testSort, testTypeFilter]);
+
+  // Paginated Tests (6 per page)
+  const totalTestPages = Math.max(1, Math.ceil(filteredTests.length / TESTS_PER_PAGE));
+  const paginatedTests = useMemo(() => {
+    const start = (testPage - 1) * TESTS_PER_PAGE;
+    return filteredTests.slice(start, start + TESTS_PER_PAGE);
+  }, [filteredTests, testPage]);
+
+  useEffect(() => {
+    setTestPage(1);
+  }, [testQuery, testTypeFilter, testSort, skill]);
 
   const filteredAssignments = useMemo(() => {
     const normalized = historyQuery.trim().toLocaleLowerCase("vi");
     return assignments.filter((item) => {
       if (!showArchived && item.archivedAt) return false;
-      return !normalized || `${item.testTitle} ${item.versionLabel} ${item.mode}`
-        .toLocaleLowerCase("vi")
-        .includes(normalized);
+      return (
+        !normalized ||
+        `${item.testTitle} ${item.versionLabel} ${item.mode}`
+          .toLocaleLowerCase("vi")
+          .includes(normalized)
+      );
     });
   }, [assignments, historyQuery, showArchived]);
 
-  const openCount = assignments.filter((item) => assignmentStatus(item).tone === "active").length;
-  const scheduledCount = assignments.filter((item) => assignmentStatus(item).tone === "scheduled").length;
+  const openCount = assignments.filter(
+    (item) => assignmentStatus(item).tone === "active"
+  ).length;
+  const scheduledCount = assignments.filter(
+    (item) => assignmentStatus(item).tone === "scheduled"
+  ).length;
+  const selectedSession =
+    sessions.find((session) => session.id === selectedSessionId) ?? null;
+
+  // Active step calculation
+  const activeStep = !selectedCourseId ? 0 : !selectedTestId ? 1 : 2;
 
   const loadAssignments = useCallback(async (courseId: string) => {
     if (!courseId) {
@@ -157,12 +339,45 @@ export function TestAssignmentWorkspace() {
     setLoadingAssignments(true);
     setAssignmentError("");
     try {
-      setAssignments(await apiFetch<TestAssignment[]>(`/admin/test-assignments?courseId=${encodeURIComponent(courseId)}`));
+      setAssignments(
+        await apiFetch<TestAssignment[]>(
+          `/admin/test-assignments?courseId=${encodeURIComponent(courseId)}`
+        )
+      );
     } catch (value) {
       setAssignments([]);
-      setAssignmentError(value instanceof Error ? value.message : "Không tải được lịch sử giao đề.");
+      setAssignmentError(
+        value instanceof Error ? value.message : "Không tải được lịch sử giao đề."
+      );
     } finally {
       setLoadingAssignments(false);
+    }
+  }, []);
+
+  const loadSessions = useCallback(async (courseId: string) => {
+    if (!courseId) {
+      setSessions([]);
+      setSelectedSessionId("");
+      return;
+    }
+    try {
+      const values = await apiFetch<ClassSession[]>(
+        `/admin/courses/${courseId}/sessions`
+      );
+      setSessions(values);
+      setSelectedSessionId((current) =>
+        current && values.some((session) => session.id === current)
+          ? current
+          : values[0]?.id ?? ""
+      );
+    } catch (value) {
+      setSessions([]);
+      setSelectedSessionId("");
+      setAssignmentError(
+        value instanceof Error
+          ? value.message
+          : "Không tải được session của khóa học."
+      );
     }
   }, []);
 
@@ -170,29 +385,47 @@ export function TestAssignmentWorkspace() {
     setLoading(true);
     setError("");
     try {
-      const [coursePage, testPage] = await Promise.all([
-        apiFetch<Page<Course>>("/admin/courses?active=true&size=100&sort=startsOn,desc"),
-        apiFetch<Page<TestBankSummary>>("/admin/test-bank?status=PUBLISHED&size=24"),
+      const [coursePageData, testPageData] = await Promise.all([
+        apiFetch<Page<Course>>(
+          `${
+            isTeacher ? "/admin/courses/assigned" : "/admin/courses"
+          }?active=true&size=100&sort=startsOn,desc`
+        ),
+        apiFetch<Page<TestBankSummary>>("/admin/test-bank?status=PUBLISHED&size=50"),
       ]);
-      setCourses(coursePage.content);
-      setTests(testPage.content);
+      setCourses(coursePageData.content);
+      setTests(testPageData.content);
 
-      const availableCourses = coursePage.content.filter((course) => course.isActive && course.skillPair === (skill === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING"));
-      const nextCourseId = selectedCourseId && availableCourses.some((course) => course.id === selectedCourseId)
-        ? selectedCourseId
-        : availableCourses[0]?.id ?? "";
+      const availableCourses = coursePageData.content.filter(
+        (course) =>
+          course.isActive && course.skillPair === coursePairForSkill(skill)
+      );
+      const nextCourseId =
+        selectedCourseId &&
+        availableCourses.some((course) => course.id === selectedCourseId)
+          ? selectedCourseId
+          : availableCourses[0]?.id ?? "";
       setSelectedCourseId(nextCourseId);
-      if (nextCourseId) await loadAssignments(nextCourseId);
+      if (nextCourseId) {
+        await Promise.all([
+          loadAssignments(nextCourseId),
+          loadSessions(nextCourseId),
+        ]);
+      } else {
+        setSessions([]);
+        setSelectedSessionId("");
+      }
     } catch (value) {
-      setError(value instanceof Error ? value.message : "Không tải được dữ liệu giao đề.");
+      setError(
+        value instanceof Error ? value.message : "Không tải được dữ liệu giao đề."
+      );
     } finally {
       setLoading(false);
     }
-  }, [loadAssignments, selectedCourseId, skill]);
+  }, [isTeacher, loadAssignments, loadSessions, selectedCourseId, skill]);
 
   useEffect(() => {
     void loadWorkspace();
-    // Initial workspace hydration only. Course changes are handled separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -211,23 +444,32 @@ export function TestAssignmentWorkspace() {
     const params = new URLSearchParams(searchParams);
     courseId ? params.set("courseId", courseId) : params.delete("courseId");
     setSearchParams(params, { replace: true });
-    void loadAssignments(courseId);
+    void Promise.all([loadAssignments(courseId), loadSessions(courseId)]);
   }
 
-  function changeSkill(next: "READING" | "WRITING") {
+  function changeSkill(next: AssignmentSkill) {
     setSkill(next);
     setSelectedTestId("");
+    setCourseQuery("");
     setTestQuery("");
     setSuccess("");
-    const nextCourses = courses.filter((course) => course.isActive && course.skillPair === (next === "WRITING" ? "SPEAKING_WRITING" : "LISTENING_READING"));
+    const nextCourses = courses.filter(
+      (course) =>
+        course.isActive && course.skillPair === coursePairForSkill(next)
+    );
     const nextCourseId = nextCourses[0]?.id ?? "";
     setSelectedCourseId(nextCourseId);
     const params = new URLSearchParams(searchParams);
     params.set("skill", next);
     params.delete("testId");
-    nextCourseId ? params.set("courseId", nextCourseId) : params.delete("courseId");
+    nextCourseId
+      ? params.set("courseId", nextCourseId)
+      : params.delete("courseId");
     setSearchParams(params, { replace: true });
-    void loadAssignments(nextCourseId);
+    void Promise.all([
+      loadAssignments(nextCourseId),
+      loadSessions(nextCourseId),
+    ]);
   }
 
   function selectTest(testId: string) {
@@ -240,16 +482,26 @@ export function TestAssignmentWorkspace() {
 
   function validateComposer() {
     if (!selectedCourseId) return "Vui lòng chọn khóa học nhận đề.";
-    if (!selectedTest?.publishedVersion) return `Vui lòng chọn một đề ${skill === "WRITING" ? "Writing" : "Reading"} đã xuất bản.`;
+    if (!selectedSessionId) return "Vui lòng chọn session nhận đề.";
+    if (!selectedTest?.publishedVersion)
+      return `Vui lòng chọn một đề ${skillLabel(skill)} đã xuất bản.`;
     const maxAttempts = Number(composer.maxAttempts);
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
       return "Số lượt làm phải từ 1 đến 10.";
     }
     const durationMinutes = Number(composer.durationMinutes);
-    if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 240) {
+    if (
+      !Number.isInteger(durationMinutes) ||
+      durationMinutes < 1 ||
+      durationMinutes > 240
+    ) {
       return "Thời lượng phải từ 1 đến 240 phút.";
     }
-    if (composer.opensAt && composer.closesAt && new Date(composer.closesAt) <= new Date(composer.opensAt)) {
+    if (
+      composer.opensAt &&
+      composer.closesAt &&
+      new Date(composer.closesAt) <= new Date(composer.opensAt)
+    ) {
       return "Thời điểm đóng bài phải sau thời điểm mở bài.";
     }
     return "";
@@ -269,6 +521,7 @@ export function TestAssignmentWorkspace() {
     const body: CreateTestAssignmentRequest = {
       testVersionId: selectedTest.publishedVersion.id,
       courseId: selectedCourseId,
+      sessionId: selectedSessionId,
       opensAt: dateTimePayload(composer.opensAt),
       closesAt: dateTimePayload(composer.closesAt),
       maxAttempts: Number(composer.maxAttempts),
@@ -291,7 +544,9 @@ export function TestAssignmentWorkspace() {
       params.delete("testId");
       setSearchParams(params, { replace: true });
     } catch (value) {
-      setAssignmentError(value instanceof Error ? value.message : "Không thể giao đề lúc này.");
+      setAssignmentError(
+        value instanceof Error ? value.message : "Không thể giao đề lúc này."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -299,22 +554,64 @@ export function TestAssignmentWorkspace() {
 
   async function archiveAssignment(item: TestAssignment) {
     const confirmed = window.confirm(
-      `Lưu trữ “${item.testTitle}”? Học viên sẽ không thể bắt đầu lượt làm mới từ bài giao này.`,
+      `Lưu trữ “${item.testTitle}”? Học viên sẽ không thể bắt đầu lượt làm mới từ bài giao này.`
     );
     if (!confirmed) return;
 
     setArchivingId(item.id);
     setAssignmentError("");
     try {
-      await apiFetch<void>(`/admin/test-assignments/${item.id}`, { method: "DELETE" });
-      setAssignments((current) => current.map((value) => (
-        value.id === item.id ? { ...value, archivedAt: new Date().toISOString() } : value
-      )));
+      await apiFetch<void>(`/admin/test-assignments/${item.id}`, {
+        method: "DELETE",
+      });
+      setAssignments((current) =>
+        current.map((value) =>
+          value.id === item.id
+            ? { ...value, archivedAt: new Date().toISOString() }
+            : value
+        )
+      );
       setSuccess(`Đã lưu trữ bài giao “${item.testTitle}”.`);
     } catch (value) {
-      setAssignmentError(value instanceof Error ? value.message : "Không thể lưu trữ bài giao.");
+      setAssignmentError(
+        value instanceof Error ? value.message : "Không thể lưu trữ bài giao."
+      );
     } finally {
       setArchivingId(null);
+    }
+  }
+
+  // Render Skill Badge for test card
+  function renderSkillBadge(testSkill: AssignmentSkill) {
+    switch (testSkill) {
+      case "READING":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md border border-sky-200/90 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-800 shadow-2xs">
+            <BookOpenText size={11} weight="fill" className="text-sky-600" />
+            <span>READING</span>
+          </span>
+        );
+      case "LISTENING":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200/90 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-800 shadow-2xs">
+            <Headphones size={11} weight="fill" className="text-indigo-600" />
+            <span>LISTENING</span>
+          </span>
+        );
+      case "WRITING":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 shadow-2xs">
+            <PencilSimpleLine size={11} weight="fill" className="text-amber-600" />
+            <span>WRITING</span>
+          </span>
+        );
+      case "SPEAKING":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md border border-rose-200/90 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-800 shadow-2xs">
+            <Microphone size={11} weight="fill" className="text-rose-600" />
+            <span>SPEAKING</span>
+          </span>
+        );
     }
   }
 
@@ -322,18 +619,27 @@ export function TestAssignmentWorkspace() {
 
   if (error) {
     return (
-      <section className="mx-auto max-w-[1440px] rounded-[22px] border border-error/25 bg-error-container/35 p-6" role="alert">
+      <section
+        className="mx-auto max-w-[1440px] rounded-2xl border border-rose-300 bg-rose-50/50 p-6"
+        role="alert"
+      >
         <div className="flex items-start gap-3">
-          <WarningCircle size={24} weight="fill" className="mt-0.5 shrink-0 text-error" />
+          <WarningCircle
+            size={24}
+            weight="fill"
+            className="mt-0.5 shrink-0 text-rose-600"
+          />
           <div>
-            <h1 className="font-display text-xl font-bold text-on-error-container">Không tải được màn hình giao đề</h1>
-            <p className="mt-1 text-sm text-on-error-container">{error}</p>
+            <h1 className="font-display text-lg font-bold text-rose-950">
+              Không tải được màn hình giao đề
+            </h1>
+            <p className="mt-1 text-sm text-rose-800">{error}</p>
             <button
               type="button"
               onClick={() => void loadWorkspace()}
-              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-error px-4 text-sm font-bold text-on-error transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700"
             >
-              <ArrowClockwise size={18} /> Thử lại
+              <ArrowClockwise size={16} /> Thử lại
             </button>
           </div>
         </div>
@@ -342,373 +648,964 @@ export function TestAssignmentWorkspace() {
   }
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
-      <header className="grid gap-5 rounded-[22px] border border-outline-variant/55 bg-surface-container-lowest p-5 shadow-[0_12px_36px_rgba(90,56,68,0.06)] lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)] lg:p-6">
-        <div className="flex items-start gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-fixed text-on-primary-fixed-variant">
-            <PaperPlaneTilt size={25} weight="duotone" />
-          </span>
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-primary">Vận hành học vụ</p>
-            <h1 className="mt-1 font-display text-2xl font-extrabold tracking-[-0.02em] text-on-surface sm:text-3xl">
-              Giao đề {skill === "WRITING" ? "Writing" : "Reading"}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
-              Chọn đúng phiên bản đã xuất bản, thiết lập thời gian và kiểm soát cách học viên xem kết quả.
-            </p>
-            <div className="mt-4 inline-flex rounded-xl border border-outline-variant bg-surface-container-low p-1" aria-label="Kỹ năng cần giao">
-              {(["READING", "WRITING"] as const).map((value) => <button key={value} type="button" onClick={() => changeSkill(value)} aria-pressed={skill === value} className={`min-h-9 rounded-lg px-4 text-xs font-extrabold transition ${skill === value ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:bg-surface"}`}>{value === "READING" ? "Reading" : "Writing"}</button>)}
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-12">
+      {/* =========================================================================
+          A. HEADER GỌN: TITLE + SKILL SWITCHER + STEPPER + METRICS BAR
+      ========================================================================= */}
+      <header className="rounded-2xl border border-outline-variant/30 bg-surface px-4 py-3 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Title & Description */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#8B3F56]/10 text-[#8B3F56] flex items-center justify-center shrink-0">
+              <PaperPlaneTilt size={20} weight="duotone" />
             </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-lg sm:text-xl font-black text-on-surface tracking-tight">
+                  Giao đề kiểm tra
+                </h1>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#8B3F56]/10 text-[#8B3F56]">
+                  {skillLabel(skill)}
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant line-clamp-1">
+                Phân phối đề thi IELTS theo khóa học, cài đặt chế độ và giám sát làm bài.
+              </p>
+            </div>
+          </div>
+
+          {/* Skill Selector Tabs */}
+          <div
+            className="flex items-center bg-surface-container p-1 rounded-xl border border-outline-variant/30 self-start sm:self-auto text-xs font-bold"
+            aria-label="Kỹ năng cần giao"
+          >
+            {(["LISTENING", "READING", "WRITING", "SPEAKING"] as const).map(
+              (value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => changeSkill(value)}
+                  aria-pressed={skill === value}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    skill === value
+                      ? "bg-white text-[#8B3F56] shadow-xs font-black"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                  }`}
+                >
+                  {skillLabel(value)}
+                </button>
+              )
+            )}
           </div>
         </div>
 
-        <label className="self-center">
-          <span className="mb-2 block text-xs font-bold text-on-surface-variant">Khóa học nhận đề</span>
-          <select
-            value={selectedCourseId}
-            onChange={(event) => changeCourse(event.target.value)}
-            className="min-h-12 w-full rounded-xl border-outline-variant bg-surface px-3.5 text-sm font-bold text-on-surface shadow-none focus:border-primary focus:ring-4 focus:ring-primary/10"
-          >
-            <option value="">Chọn khóa học</option>
-            {eligibleCourses.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.code} - {course.name}
-              </option>
+        {/* Sub-bar: Compact Stepper & Metrics */}
+        <div className="mt-3 pt-2.5 border-t border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+          {/* Stepper 3 Bước */}
+          <ol className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            {[
+              { step: 0, label: "1. Chọn khóa học", done: !!selectedCourseId },
+              { step: 1, label: "2. Chọn đề thi", done: !!selectedTestId },
+              { step: 2, label: "3. Cấu hình & giao", done: !!(selectedCourseId && selectedTestId && selectedSessionId) },
+            ].map((item, idx) => (
+              <li key={item.step} className="flex items-center gap-1.5 sm:gap-2">
+                {idx > 0 && <span className="text-outline-variant/60 font-mono text-[10px]">→</span>}
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-colors ${
+                    item.done
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : activeStep === item.step
+                      ? "bg-[#8B3F56]/10 text-[#8B3F56] border border-[#8B3F56]/20"
+                      : "bg-surface-container-low text-on-surface-variant/70 border border-transparent"
+                  }`}
+                >
+                  {item.done && <Check size={11} weight="bold" className="text-emerald-600" />}
+                  {item.label}
+                </span>
+              </li>
             ))}
-          </select>
-          {eligibleCourses.length === 0 && (
-            <span className="mt-2 block text-xs text-error">Chưa có khóa {skill === "WRITING" ? "Speaking + Writing" : "Listening + Reading"} đang hoạt động.</span>
-          )}
-        </label>
+          </ol>
+
+          {/* Metrics summary */}
+          <div className="flex items-center gap-3 text-[11px] font-semibold text-on-surface-variant shrink-0">
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-[#8B3F56]" />
+              <strong className="text-on-surface font-bold">{publishedTests.length}</strong> đề đã xuất bản
+            </span>
+            <span className="text-outline-variant/60">•</span>
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              <strong className="text-on-surface font-bold">{openCount}</strong> đang mở
+            </span>
+            <span className="text-outline-variant/60">•</span>
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              <strong className="text-on-surface font-bold">{scheduledCount}</strong> sắp mở
+            </span>
+          </div>
+        </div>
       </header>
 
-      <section aria-label="Tổng quan giao đề" className="grid gap-3 sm:grid-cols-3">
-        {[
-          { label: "Đề đã xuất bản", value: publishedTests.length, icon: Exam },
-          { label: "Đang mở", value: openCount, icon: CheckCircle },
-          { label: "Sắp mở", value: scheduledCount, icon: CalendarBlank },
-        ].map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <div key={metric.label} className="flex min-h-24 items-center gap-4 rounded-2xl border border-outline-variant/50 bg-surface-container-lowest px-5 py-4">
-              <Icon size={22} weight="duotone" className="text-primary" />
-              <div>
-                <strong className="block font-display text-2xl font-extrabold text-on-surface">{metric.value}</strong>
-                <span className="text-xs font-semibold text-on-surface-variant">{metric.label}</span>
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
+      {/* Global Alerts (Success or Error) */}
       {(success || assignmentError) && (
         <div
-          className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+          className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs sm:text-sm ${
             assignmentError
-              ? "border-error/25 bg-error-container/35 text-on-error-container"
-              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+              ? "border-rose-300 bg-rose-50/70 text-rose-900"
+              : "border-emerald-300 bg-emerald-50/70 text-emerald-900"
           }`}
           role={assignmentError ? "alert" : "status"}
           aria-live="polite"
         >
-          {assignmentError
-            ? <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
-            : <CheckCircle size={20} weight="fill" className="mt-0.5 shrink-0" />}
-          <span>{assignmentError || success}</span>
+          {assignmentError ? (
+            <WarningCircle size={18} weight="fill" className="mt-0.5 shrink-0 text-rose-600" />
+          ) : (
+            <CheckCircle size={18} weight="fill" className="mt-0.5 shrink-0 text-emerald-600" />
+          )}
+          <span className="font-semibold">{assignmentError || success}</span>
         </div>
       )}
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.32fr)_minmax(340px,0.68fr)]">
-        <div className="overflow-hidden rounded-[22px] border border-outline-variant/55 bg-surface-container-lowest">
-          <div className="border-b border-outline-variant/45 px-5 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-lg font-extrabold text-on-surface">Chọn đề đã xuất bản</h2>
-                <p className="mt-1 text-xs text-on-surface-variant">Bản giao sẽ ghim đúng phiên bản, không thay đổi khi đề có bản mới.</p>
-              </div>
-              <span className="text-xs font-bold text-primary">{filteredTests.length} đề</span>
-            </div>
-            <label className="relative mt-4 block">
-              <span className="sr-only">Tìm đề {skill === "WRITING" ? "Writing" : "Reading"}</span>
-              <MagnifyingGlass aria-hidden="true" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-              <input
-                value={testQuery}
-                onChange={(event) => setTestQuery(event.target.value)}
-                placeholder="Tìm theo mã đề, tiêu đề hoặc tag"
-                className="min-h-11 w-full rounded-xl border-outline-variant bg-surface-container-low px-10 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
-          </div>
-
-          <div className="custom-scrollbar max-h-[470px] overflow-y-auto p-3" aria-label={`Đề ${skill === "WRITING" ? "Writing" : "Reading"} đã xuất bản`}>
-            {filteredTests.length === 0 ? (
-              <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-6 text-center">
+      {/* =========================================================================
+          B. KHU VỰC LÀM VIỆC CHÍNH: LAYOUT HAI CỘT (67% - 33%)
+      ========================================================================= */}
+      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5 items-start">
+        {/* =====================================================================
+            CỘT TRÁI (8/12 - 67%): CHỌN KHÓA HỌC & NGÂN HÀNG ĐỀ THI
+        ===================================================================== */}
+        <div className="xl:col-span-8 space-y-4">
+          {/* -----------------------------------------------------------------
+              SECTION 1: CHỌN KHÓA HỌC NHẬN ĐỀ (VỚI ẢNH ĐẠI DIỆN KHÓA HỌC)
+          ----------------------------------------------------------------- */}
+          <section
+            className="rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-xs"
+            aria-labelledby="course-selection-heading"
+          >
+            {/* Header: Title + Search on same row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/20">
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#8B3F56]/10 text-[#8B3F56] flex items-center justify-center text-xs font-black shrink-0">
+                  1
+                </span>
                 <div>
-                  <BookOpenText size={30} weight="duotone" className="mx-auto text-primary" />
-                  <h3 className="mt-3 font-display text-base font-bold text-on-surface">Không có đề phù hợp</h3>
-                  <p className="mt-1 text-sm text-on-surface-variant">Hãy xuất bản đề {skill === "WRITING" ? "Writing" : "Reading"} trong Ngân hàng đề trước khi giao.</p>
+                  <h2
+                    id="course-selection-heading"
+                    className="font-display text-sm sm:text-base font-extrabold text-on-surface"
+                  >
+                    Chọn khóa học nhận đề
+                  </h2>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Khóa học {coursePairForSkill(skill)} đang hoạt động ({filteredCourses.length})
+                  </p>
                 </div>
               </div>
-            ) : filteredTests.map((test) => {
-              const selected = selectedTestId === test.id;
-              return (
-                <button
-                  key={test.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => selectTest(test.id)}
-                  className={`mb-2 grid min-h-[92px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border p-4 text-left transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                    selected
-                      ? "border-primary bg-primary-fixed/45 shadow-[inset_4px_0_0_#894c5b]"
-                      : "border-outline-variant/55 bg-surface hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low"
-                  }`}
+
+              {/* Course Search */}
+              <div className="relative sm:w-64">
+                <MagnifyingGlass
+                  size={15}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+                />
+                <input
+                  value={courseQuery}
+                  onChange={(e) => setCourseQuery(e.target.value)}
+                  placeholder="Tìm mã hoặc tên khóa..."
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/50 bg-surface-container-low pl-8 pr-2.5 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            {/* Course Cards with Cover Images */}
+            <div className="pt-3">
+              {filteredCourses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low/40">
+                  <Student size={28} weight="duotone" className="text-[#8B3F56]/60 mb-1" />
+                  <p className="text-xs font-bold text-on-surface">Không tìm thấy khóa học phù hợp</p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Thử tìm với từ khóa khác hoặc chuyển sang kỹ năng khác.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {paginatedCourses.map((course) => {
+                      const selected = selectedCourseId === course.id;
+                      return (
+                        <button
+                          key={course.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => changeCourse(course.id)}
+                          className={`group relative text-left rounded-xl border p-2.5 sm:p-3 flex items-center gap-3 transition-all ${
+                            selected
+                              ? "border-[#8B3F56] bg-[#8B3F56]/5 shadow-xs ring-1 ring-[#8B3F56]/30"
+                              : "border-outline-variant/40 bg-surface hover:border-[#8B3F56]/40 hover:bg-surface-container-low/50"
+                          }`}
+                        >
+                          {/* Left: Course Avatar / Cover Image */}
+                          <div className="w-16 h-16 sm:w-18 sm:h-18 shrink-0 rounded-lg overflow-hidden border border-outline-variant/30 relative bg-surface-container-low flex items-center justify-center">
+                            {course.coverImageUrl ? (
+                              <AuthenticatedMediaImage
+                                fileUrl={course.coverImageUrl}
+                                alt={course.coverImageAltText || course.name}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-[#8B3F56]/5 text-[#8B3F56]">
+                                <GraduationCap size={22} weight="duotone" />
+                                <span className="text-[9px] font-bold mt-0.5 text-on-surface-variant">Khóa học</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Course Info */}
+                          <div className="min-w-0 flex-1">
+                            {/* Row 1: Code + Radio Check */}
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] font-mono font-black text-[#8B3F56] uppercase tracking-wider bg-[#8B3F56]/10 px-1.5 py-0.5 rounded truncate">
+                                {course.code}
+                              </span>
+                              <div
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                                  selected
+                                    ? "border-[#8B3F56] bg-[#8B3F56] text-white"
+                                    : "border-outline-variant bg-white"
+                                }`}
+                              >
+                                {selected && <Check size={10} weight="bold" />}
+                              </div>
+                            </div>
+
+                            {/* Row 2: Name */}
+                            <strong
+                              className="mt-1 block text-xs font-bold text-on-surface line-clamp-1 group-hover:text-[#8B3F56] transition-colors"
+                              title={course.name}
+                            >
+                              {course.name}
+                            </strong>
+
+                            {/* Row 3: Meta details */}
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-on-surface-variant">
+                              <span>
+                                {shortDateLabel(course.startsOn)} - {shortDateLabel(course.endsOn)}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold">{course.totalSessions} buổi</span>
+                              {course.targetBand && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-bold text-emerald-700 bg-emerald-50 px-1 rounded">
+                                    Band {course.targetBand}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Course Pagination Controls */}
+                  {totalCoursePages > 1 && (
+                    <div className="flex items-center justify-between pt-2 text-[11px] text-on-surface-variant border-t border-outline-variant/20">
+                      <span>
+                        Hiển thị {paginatedCourses.length} trên {filteredCourses.length} khóa
+                      </span>
+                      <div className="flex items-center gap-1 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setCoursePage((p) => Math.max(1, p - 1))}
+                          disabled={coursePage === 1}
+                          className="p-1 rounded-lg hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+                          aria-label="Trang trước"
+                        >
+                          <CaretLeft size={13} weight="bold" />
+                        </button>
+                        <span className="px-1.5">
+                          {coursePage} / {totalCoursePages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCoursePage((p) => Math.min(totalCoursePages, p + 1))}
+                          disabled={coursePage === totalCoursePages}
+                          className="p-1 rounded-lg hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+                          aria-label="Trang sau"
+                        >
+                          <CaretRight size={13} weight="bold" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* -----------------------------------------------------------------
+              SECTION 2: NGÂN HÀNG ĐỀ THI ĐÃ XUẤT BẢN (GIAO DIỆN NGÂN HÀNG ĐỀ THU NHỎ)
+          ----------------------------------------------------------------- */}
+          <section
+            className="rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-xs"
+            aria-labelledby="test-selection-heading"
+          >
+            {/* Header: Title + Count */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/20">
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#8B3F56]/10 text-[#8B3F56] flex items-center justify-center text-xs font-black shrink-0">
+                  2
+                </span>
+                <div>
+                  <h2
+                    id="test-selection-heading"
+                    className="font-display text-sm sm:text-base font-extrabold text-on-surface"
+                  >
+                    Chọn đề {skillLabel(skill)} đã xuất bản
+                  </h2>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Phiên bản đề thi được ghim cố định cho đợt giao
+                  </p>
+                </div>
+              </div>
+
+              {/* Total count badge */}
+              <span className="text-xs font-bold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg self-start sm:self-auto">
+                {filteredTests.length} đề thi khả dụng
+              </span>
+            </div>
+
+            {/* Filter toolbar: Search + Format + Sort on same row */}
+            <div className="pt-3 pb-2 flex flex-col sm:flex-row items-center gap-2 text-xs">
+              {/* Search */}
+              <div className="relative flex-1 w-full">
+                <MagnifyingGlass
+                  size={15}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+                />
+                <input
+                  value={testQuery}
+                  onChange={(e) => setTestQuery(e.target.value)}
+                  placeholder="Tìm mã đề, tiêu đề hoặc tag..."
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/50 bg-surface-container-low pl-8 pr-2.5 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Filter by Test Type */}
+              <div className="relative shrink-0 w-full sm:w-auto">
+                <select
+                  value={testTypeFilter}
+                  onChange={(e) => setTestTypeFilter(e.target.value)}
+                  className="h-8.5 w-full appearance-none rounded-lg border border-outline-variant/50 bg-surface-container-low pl-2.5 pr-7 text-xs font-semibold text-on-surface focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <span className={`mt-0.5 grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-primary text-on-primary" : "bg-primary-fixed text-on-primary-fixed-variant"}`}>
-                    {selected ? <Check size={18} weight="bold" /> : <Exam size={19} weight="duotone" />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-extrabold text-on-surface">{test.title}</span>
-                    <span className="mt-1 block text-xs text-on-surface-variant">
-                      {test.code} · {skill === "WRITING" ? `${test.sectionsCount} task` : `${test.totalQuestions} câu`} · {test.durationMinutes} phút
-                    </span>
-                    <span className="mt-2 inline-flex rounded-full bg-surface-container px-2 py-1 text-[11px] font-bold text-primary">
-                      {test.publishedVersion?.versionLabel}
-                    </span>
-                  </span>
-                  <span className="text-right text-[11px] font-semibold text-on-surface-variant">
-                    {new Intl.DateTimeFormat("vi-VN").format(new Date(test.publishedVersion!.publishedAt))}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  <option value="ALL">Tất cả định dạng</option>
+                  <option value="FULL_TEST">Full Test (60 phút)</option>
+                  <option value="SINGLE_SKILL">Single Skill / Mini</option>
+                </select>
+                <CaretDown
+                  size={12}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                />
+              </div>
+
+              {/* Sort by */}
+              <div className="relative shrink-0 w-full sm:w-auto">
+                <select
+                  value={testSort}
+                  onChange={(e) => setTestSort(e.target.value)}
+                  className="h-8.5 w-full appearance-none rounded-lg border border-outline-variant/50 bg-surface-container-low pl-2.5 pr-7 text-xs font-semibold text-on-surface focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="newest">Mới nhất</option>
+                  <option value="duration_desc">Thời lượng (giảm dần)</option>
+                  <option value="duration_asc">Thời lượng (tăng dần)</option>
+                  <option value="questions">Số câu hỏi nhiều nhất</option>
+                </select>
+                <CaretDown
+                  size={12}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                />
+              </div>
+            </div>
+
+            {/* Test Cards: Miniature Test Bank Cards (GIỐNG NGÂN HÀNG ĐỀ THU NHỎ) */}
+            <div className="pt-2">
+              {filteredTests.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low/40">
+                  <BookOpenText size={32} weight="duotone" className="text-[#8B3F56]/60 mb-1.5" />
+                  <p className="text-xs font-bold text-on-surface">Không tìm thấy đề thi phù hợp</p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Thử tìm với từ khóa khác hoặc xuất bản thêm đề trong Ngân hàng đề.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {paginatedTests.map((test) => {
+                      const selected = selectedTestId === test.id;
+                      const thumbnailImageUrl =
+                        test.writingTaskImage?.fileUrl || test.coverImage?.fileUrl;
+                      const isFullTest =
+                        test.testType === "FULL_TEST" || (test.sectionsCount && test.sectionsCount > 1);
+
+                      return (
+                        <article
+                          key={test.id}
+                          onClick={() => selectTest(test.id)}
+                          className={`group cursor-pointer flex flex-col overflow-hidden rounded-2xl border transition-all duration-200 text-left ${
+                            selected
+                              ? "border-[#8B3F56] ring-2 ring-[#8B3F56]/25 bg-white shadow-md -translate-y-0.5"
+                              : "border-outline-variant/40 bg-white hover:border-[#8B3F56]/40 hover:shadow-sm hover:-translate-y-0.5"
+                          }`}
+                        >
+                          {/* 1. Miniature Cover Image Container */}
+                          <div className="relative h-28 overflow-hidden border-b border-outline-variant/30 bg-[#f4f0f3]">
+                            {thumbnailImageUrl ? (
+                              <AuthenticatedMediaImage
+                                fileUrl={thumbnailImageUrl}
+                                alt={test.title}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-[#f4f0f3] text-[#8B3F56]">
+                                <ImageIcon size={24} weight="duotone" />
+                                <span className="text-[10px] font-bold">Chưa có ảnh minh họa</span>
+                              </div>
+                            )}
+
+                            {/* Top-Right Status Badge (Published) */}
+                            <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white/95 px-2 py-0.5 text-[10px] font-bold text-emerald-800 shadow-2xs backdrop-blur-xs">
+                              <span className="size-1.5 rounded-full bg-emerald-500" />
+                              Published
+                            </span>
+
+                            {/* Top-Left Radio Checkmark Indicator */}
+                            <div
+                              className={`absolute left-2.5 top-2.5 size-5 rounded-full border-2 flex items-center justify-center shadow-xs transition-all ${
+                                selected
+                                  ? "border-[#8B3F56] bg-[#8B3F56] text-white"
+                                  : "border-slate-300 bg-white/90 backdrop-blur-xs"
+                              }`}
+                            >
+                              {selected && <Check size={11} weight="bold" />}
+                            </div>
+                          </div>
+
+                          {/* 2. Miniature Card Body (Like Test Bank) */}
+                          <div className="p-3 flex flex-1 flex-col justify-between">
+                            <div>
+                              {/* Code & Version */}
+                              <div className="flex items-center justify-between gap-1.5">
+                                <span className="truncate text-[11px] font-bold text-[#8B3F56]">
+                                  {test.code}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded shrink-0">
+                                  {test.publishedVersion?.versionLabel || test.version || "v1.0"}
+                                </span>
+                              </div>
+
+                              {/* Title */}
+                              <h3
+                                className="mt-1 font-display text-xs sm:text-sm font-extrabold leading-snug text-slate-900 line-clamp-2 min-h-[2.5rem] group-hover:text-[#8B3F56] transition-colors"
+                                title={test.title}
+                              >
+                                {test.title}
+                              </h3>
+
+                              {/* Badges Row (Skill + Format/Sub-type) */}
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                {renderSkillBadge(test.skill as AssignmentSkill)}
+
+                                {isFullTest ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-extrabold text-purple-900 shadow-2xs">
+                                    <Cards size={11} weight="fill" className="text-purple-700" />
+                                    <span>Full đề (Full Test)</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                                    <span>{formatLabelOf(test)}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Footer Metadata */}
+                            <p className="mt-2.5 pt-2 border-t border-slate-100 text-[10px] font-medium text-slate-500 flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                {test.skill === "WRITING"
+                                  ? `${test.sectionsCount || 2} task`
+                                  : test.skill === "SPEAKING"
+                                  ? `${test.sectionsCount || 3} part`
+                                  : `${test.totalQuestions || 40} câu`}
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span>{test.durationMinutes || 60} phút</span>
+                              <span aria-hidden="true">·</span>
+                              <span>
+                                Cập nhật {shortDateLabel(test.updatedAt || test.publishedVersion?.publishedAt)}
+                              </span>
+                            </p>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  {/* Test Bank Pagination Controls */}
+                  {totalTestPages > 1 && (
+                    <div className="flex items-center justify-between pt-2 text-xs text-on-surface-variant border-t border-outline-variant/20">
+                      <span>
+                        Hiển thị <strong>{paginatedTests.length}</strong> trên <strong>{filteredTests.length}</strong> đề thi
+                      </span>
+                      <div className="flex items-center gap-1 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setTestPage((p) => Math.max(1, p - 1))}
+                          disabled={testPage === 1}
+                          className="px-2.5 py-1 rounded-lg border border-outline-variant/40 bg-surface hover:bg-surface-container disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
+                        >
+                          <CaretLeft size={13} weight="bold" /> Trước
+                        </button>
+                        <span className="px-2">
+                          {testPage} / {totalTestPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setTestPage((p) => Math.min(totalTestPages, p + 1))}
+                          disabled={testPage === totalTestPages}
+                          className="px-2.5 py-1 rounded-lg border border-outline-variant/40 bg-surface hover:bg-surface-container disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
+                        >
+                          Sau <CaretRight size={13} weight="bold" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
 
-        <aside className="rounded-[22px] border border-outline-variant/55 bg-surface-container-lowest p-5 xl:sticky xl:top-4 xl:self-start">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-fixed text-on-primary-fixed-variant">
-              <Clock size={21} weight="duotone" />
-            </span>
-            <div>
-              <h2 className="font-display text-lg font-extrabold text-on-surface">Cấu hình bài giao</h2>
-              <p className="mt-1 text-xs leading-5 text-on-surface-variant">Thiết lập quyền làm bài cho toàn bộ học viên đang ghi danh.</p>
+        {/* =====================================================================
+            CỘT PHẢI (4/12 - 33%): PANEL CẤU HÌNH GIAO ĐỀ (STICKY DESKTOP)
+        ===================================================================== */}
+        <aside className="xl:col-span-4 xl:sticky xl:top-4 xl:self-start">
+          <div className="rounded-2xl border border-outline-variant/40 bg-surface p-4 shadow-sm space-y-3.5">
+            {/* Header */}
+            <div className="flex items-center gap-2.5 pb-2.5 border-b border-outline-variant/20">
+              <span className="w-6 h-6 rounded-lg bg-[#8B3F56]/10 text-[#8B3F56] flex items-center justify-center text-xs font-black shrink-0">
+                3
+              </span>
+              <div>
+                <h2 className="font-display text-sm sm:text-base font-extrabold text-on-surface leading-tight">
+                  Cấu hình & Giao đề
+                </h2>
+                <p className="text-[11px] text-on-surface-variant">
+                  Áp dụng cho học viên đang ghi danh
+                </p>
+              </div>
             </div>
-          </div>
 
-          <fieldset className="mt-5">
-            <legend className="text-xs font-bold text-on-surface-variant">Chế độ làm bài</legend>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {([
-                ["PRACTICE", "Luyện tập", "Xem kết quả theo cấu hình"],
-                ["EXAM", "Thi thử", "Mô phỏng điều kiện thi"],
-              ] as const).map(([value, label, helper]) => (
+            {/* 1. Live Summary Card (Khóa học + Đề thi kèm thumbnail) */}
+            <div className="rounded-xl bg-surface-container-low/70 border border-outline-variant/25 p-2.5 space-y-2 text-xs">
+              {/* Course row */}
+              <div className="flex items-center gap-2.5">
+                <div className="size-9 rounded-lg overflow-hidden border border-outline-variant/30 bg-white shrink-0 flex items-center justify-center">
+                  {selectedCourse?.coverImageUrl ? (
+                    <AuthenticatedMediaImage
+                      fileUrl={selectedCourse.coverImageUrl}
+                      alt={selectedCourse.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <GraduationCap size={18} className="text-[#8B3F56]" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant block">
+                    Khóa nhận đề
+                  </span>
+                  {selectedCourse ? (
+                    <strong className="block font-bold text-on-surface truncate text-xs">
+                      {selectedCourse.code} · {selectedCourse.name}
+                    </strong>
+                  ) : (
+                    <span className="text-amber-700 font-semibold text-[11px] block">
+                      ⚠️ Chưa chọn khóa học
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Test row */}
+              <div className="flex items-center gap-2.5 pt-2 border-t border-outline-variant/20">
+                <div className="size-9 rounded-lg overflow-hidden border border-outline-variant/30 bg-white shrink-0 flex items-center justify-center">
+                  {selectedTest?.coverImage?.fileUrl || selectedTest?.writingTaskImage?.fileUrl ? (
+                    <AuthenticatedMediaImage
+                      fileUrl={
+                        selectedTest.writingTaskImage?.fileUrl ||
+                        selectedTest.coverImage?.fileUrl ||
+                        ""
+                      }
+                      alt={selectedTest.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <BookOpenText size={18} className="text-[#8B3F56]" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant block">
+                    Đề thi gán
+                  </span>
+                  {selectedTest ? (
+                    <strong className="block font-bold text-on-surface truncate text-xs">
+                      {selectedTest.code} · {selectedTest.title} ({selectedTest.publishedVersion?.versionLabel || "v1.0"})
+                    </strong>
+                  ) : (
+                    <span className="text-amber-700 font-semibold text-[11px] block">
+                      ⚠️ Chưa chọn đề thi
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Session Selector */}
+            <div>
+              <label htmlFor="session-select" className="block text-xs font-bold text-on-surface mb-1">
+                Session nhận đề <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="session-select"
+                  value={selectedSessionId}
+                  onChange={(e) => setSelectedSessionId(e.target.value)}
+                  className="h-9 w-full appearance-none rounded-xl border border-outline-variant/60 bg-surface pl-3 pr-8 text-xs font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">Chọn buổi học (Session)</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      Session {session.sessionNo} · {session.title || "Chưa đặt tên"}
+                    </option>
+                  ))}
+                </select>
+                <CaretDown
+                  size={12}
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-on-surface-variant">
+                Xuất hiện trong Session {selectedSession?.sessionNo ?? "..."} của Course Progress.
+              </p>
+            </div>
+
+            {/* 3. Assignment Mode: Segmented Toggle */}
+            <div>
+              <span className="block text-xs font-bold text-on-surface mb-1.5">
+                Chế độ làm bài
+              </span>
+              <div className="grid grid-cols-2 gap-1.5 bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
                 <button
-                  key={value}
                   type="button"
-                  aria-pressed={composer.mode === value}
-                  onClick={() => setComposer((current) => ({ ...current, mode: value }))}
-                  className={`min-h-[76px] rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                    composer.mode === value
-                      ? "border-primary bg-primary-fixed/45"
-                      : "border-outline-variant bg-surface hover:bg-surface-container-low"
+                  aria-pressed={composer.mode === "PRACTICE"}
+                  onClick={() => setComposer((c) => ({ ...c, mode: "PRACTICE" }))}
+                  className={`py-1.5 px-2 rounded-lg text-left transition-all ${
+                    composer.mode === "PRACTICE"
+                      ? "bg-white text-[#8B3F56] shadow-xs font-black"
+                      : "text-on-surface-variant hover:text-on-surface"
                   }`}
                 >
-                  <span className="block text-sm font-extrabold text-on-surface">{label}</span>
-                  <span className="mt-1 block text-[11px] leading-4 text-on-surface-variant">{helper}</span>
+                  <span className="block text-xs font-bold leading-tight">Luyện tập</span>
+                  <span className="block text-[10px] text-on-surface-variant mt-0.5 leading-tight">
+                    Tự do, xem đáp án
+                  </span>
                 </button>
-              ))}
+                <button
+                  type="button"
+                  aria-pressed={composer.mode === "EXAM"}
+                  onClick={() => setComposer((c) => ({ ...c, mode: "EXAM" }))}
+                  className={`py-1.5 px-2 rounded-lg text-left transition-all ${
+                    composer.mode === "EXAM"
+                      ? "bg-white text-[#8B3F56] shadow-xs font-black"
+                      : "text-on-surface-variant hover:text-on-surface"
+                  }`}
+                >
+                  <span className="block text-xs font-bold leading-tight">Thi thử</span>
+                  <span className="block text-[10px] text-on-surface-variant mt-0.5 leading-tight">
+                    Mô phỏng thi thật
+                  </span>
+                </button>
+              </div>
             </div>
-          </fieldset>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-on-surface-variant">Mở bài</span>
-              <input
-                type="datetime-local"
-                value={composer.opensAt}
-                onChange={(event) => setComposer((current) => ({ ...current, opensAt: event.target.value }))}
-                className="min-h-11 w-full rounded-xl border-outline-variant bg-surface text-sm text-on-surface focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-              <span className="mt-1 block text-[11px] text-on-surface-variant">Để trống nếu mở ngay.</span>
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-on-surface-variant">Đóng bài</span>
-              <input
-                type="datetime-local"
-                value={composer.closesAt}
-                onChange={(event) => setComposer((current) => ({ ...current, closesAt: event.target.value }))}
-                className="min-h-11 w-full rounded-xl border-outline-variant bg-surface text-sm text-on-surface focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-              <span className="mt-1 block text-[11px] text-on-surface-variant">Để trống nếu không giới hạn.</span>
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-on-surface-variant">Số lượt làm</span>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                inputMode="numeric"
-                value={composer.maxAttempts}
-                onChange={(event) => setComposer((current) => ({ ...current, maxAttempts: event.target.value }))}
-                className="min-h-11 w-full rounded-xl border-outline-variant bg-surface text-sm text-on-surface focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-bold text-on-surface-variant">Thời lượng (phút)</span>
-              <input
-                type="number"
-                min={1}
-                max={240}
-                inputMode="numeric"
-                value={composer.durationMinutes}
-                onChange={(event) => setComposer((current) => ({ ...current, durationMinutes: event.target.value }))}
-                className="min-h-11 w-full rounded-xl border-outline-variant bg-surface text-sm text-on-surface focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
-          </div>
+            {/* 4. OpensAt & ClosesAt (Side-by-side) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
+                  Mở bài
+                </label>
+                <input
+                  type="datetime-local"
+                  value={composer.opensAt}
+                  onChange={(e) => setComposer((c) => ({ ...c, opensAt: e.target.value }))}
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/60 bg-surface px-2 text-[11px] text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
+                  Đóng bài
+                </label>
+                <input
+                  type="datetime-local"
+                  value={composer.closesAt}
+                  onChange={(e) => setComposer((c) => ({ ...c, closesAt: e.target.value }))}
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/60 bg-surface px-2 text-[11px] text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+            </div>
 
-          <label className="mt-4 flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface p-3.5">
-            <span className="flex items-start gap-3">
-              {composer.showResultAfterSubmit
-                ? <Eye size={19} className="mt-0.5 shrink-0 text-primary" />
-                : <EyeSlash size={19} className="mt-0.5 shrink-0 text-on-surface-variant" />}
-              <span>
-                <span className="block text-sm font-bold text-on-surface">Hiện kết quả sau khi nộp</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-on-surface-variant">Học viên xem điểm và đáp án sau khi hoàn thành.</span>
+            {/* 5. Max Attempts & Duration (Side-by-side) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
+                  Số lượt làm
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={composer.maxAttempts}
+                  onChange={(e) => setComposer((c) => ({ ...c, maxAttempts: e.target.value }))}
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/60 bg-surface px-2.5 text-xs font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
+                  Thời lượng (phút)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={composer.durationMinutes}
+                  onChange={(e) => setComposer((c) => ({ ...c, durationMinutes: e.target.value }))}
+                  className="h-8.5 w-full rounded-lg border border-outline-variant/60 bg-surface px-2.5 text-xs font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 6. Show Results After Submit */}
+            <label className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-outline-variant/30 bg-surface-container-low/40 cursor-pointer hover:bg-surface-container-low transition-colors">
+              <span className="flex items-center gap-2">
+                {composer.showResultAfterSubmit ? (
+                  <Eye size={16} className="text-[#8B3F56]" />
+                ) : (
+                  <EyeSlash size={16} className="text-on-surface-variant" />
+                )}
+                <div>
+                  <span className="block text-xs font-bold text-on-surface leading-tight">
+                    Hiện kết quả sau nộp
+                  </span>
+                  <span className="block text-[10px] text-on-surface-variant mt-0.5">
+                    Cho phép học viên xem đáp án chi tiết
+                  </span>
+                </div>
               </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={composer.showResultAfterSubmit}
-              onChange={(event) => setComposer((current) => ({ ...current, showResultAfterSubmit: event.target.checked }))}
-              className="h-5 w-5 shrink-0 rounded border-outline text-primary focus:ring-primary"
-            />
-          </label>
+              <input
+                type="checkbox"
+                checked={composer.showResultAfterSubmit}
+                onChange={(e) =>
+                  setComposer((c) => ({ ...c, showResultAfterSubmit: e.target.checked }))
+                }
+                className="size-4 rounded border-outline-variant text-[#8B3F56] focus:ring-[#8B3F56]"
+              />
+            </label>
 
-          <dl className="mt-5 space-y-2 rounded-2xl bg-surface-container-low p-4 text-xs">
-            <div className="flex justify-between gap-4">
-              <dt className="text-on-surface-variant">Khóa học</dt>
-              <dd className="max-w-[60%] truncate text-right font-bold text-on-surface">{selectedCourse?.name ?? "Chưa chọn"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-on-surface-variant">Đề thi</dt>
-              <dd className="max-w-[60%] truncate text-right font-bold text-on-surface">{selectedTest?.title ?? "Chưa chọn"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-on-surface-variant">Phiên bản</dt>
-              <dd className="font-bold text-primary">{selectedTest?.publishedVersion?.versionLabel ?? "Chưa chọn"}</dd>
-            </div>
-          </dl>
+            {/* 7. Action Button & Condition Prompts */}
+            <div className="pt-2 border-t border-outline-variant/20">
+              {/* Missing Requirements Guidance */}
+              {(!selectedCourseId || !selectedTest || !selectedSessionId) && (
+                <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-semibold space-y-0.5">
+                  <div className="font-bold flex items-center gap-1 text-amber-950">
+                    <WarningCircle size={13} weight="fill" className="text-amber-600" />
+                    Cần hoàn tất trước khi giao:
+                  </div>
+                  {!selectedCourseId && <div>• Chọn khóa học nhận đề (Bước 1)</div>}
+                  {!selectedTest && <div>• Chọn đề thi đã xuất bản (Bước 2)</div>}
+                  {!selectedSessionId && <div>• Chọn Session trong khóa học (Bước 3)</div>}
+                </div>
+              )}
 
-          <button
-            type="button"
-            onClick={() => void submitAssignment()}
-            disabled={submitting || !selectedCourseId || !selectedTest}
-            className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-extrabold text-on-primary transition duration-200 hover:bg-on-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            {submitting ? <SpinnerGap size={19} className="animate-spin" /> : <PaperPlaneTilt size={19} weight="bold" />}
-            {submitting ? "Đang giao đề..." : "Giao đề cho khóa học"}
-          </button>
+              {/* Primary Submit Button */}
+              <button
+                type="button"
+                onClick={() => void submitAssignment()}
+                disabled={submitting || !selectedCourseId || !selectedTest || !selectedSessionId}
+                className="h-11 w-full rounded-xl bg-[#8B3F56] text-white font-extrabold text-sm shadow-xs flex items-center justify-center gap-2 transition-all hover:bg-[#723346] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                {submitting ? (
+                  <SpinnerGap size={18} className="animate-spin" />
+                ) : (
+                  <PaperPlaneTilt size={18} weight="bold" />
+                )}
+                <span>{submitting ? "Đang giao đề..." : "Giao đề cho khóa học"}</span>
+              </button>
+            </div>
+          </div>
         </aside>
       </section>
 
-      <section className="overflow-hidden rounded-[22px] border border-outline-variant/55 bg-surface-container-lowest">
-        <div className="flex flex-col gap-4 border-b border-outline-variant/45 p-5 md:flex-row md:items-end md:justify-between">
+      {/* =========================================================================
+          F. LỊCH SỬ GIAO ĐỀ (HIGH DENSITY TABLE)
+      ========================================================================= */}
+      <section className="rounded-2xl border border-outline-variant/30 bg-surface p-4 sm:p-5 shadow-xs">
+        {/* Table Header & Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/20">
           <div>
-            <h2 className="font-display text-lg font-extrabold text-on-surface">Lịch sử giao đề</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">
-              {selectedCourse ? `${selectedCourse.code} - ${selectedCourse.name}` : "Chọn khóa học để xem bài đã giao."}
+            <h2 className="font-display text-base sm:text-lg font-extrabold text-on-surface">
+              Lịch sử giao đề
+            </h2>
+            <p className="text-xs text-on-surface-variant">
+              {selectedCourse
+                ? `${selectedCourse.code} · ${selectedCourse.name}`
+                : "Chọn khóa học để xem danh sách bài đã giao"}
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="relative block">
-              <span className="sr-only">Tìm trong lịch sử giao đề</span>
-              <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+            {/* Search History */}
+            <div className="relative">
+              <MagnifyingGlass
+                size={15}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+              />
               <input
                 value={historyQuery}
-                onChange={(event) => setHistoryQuery(event.target.value)}
-                placeholder="Tìm bài đã giao"
-                className="min-h-10 w-full rounded-xl border-outline-variant bg-surface pl-9 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-56"
+                onChange={(e) => setHistoryQuery(e.target.value)}
+                placeholder="Tìm bài đã giao..."
+                className="h-8.5 w-full sm:w-56 rounded-lg border border-outline-variant/50 bg-surface-container-low pl-8 pr-2.5 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary"
               />
-            </label>
-            <label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-outline-variant bg-surface px-3 text-xs font-bold text-on-surface">
+            </div>
+
+            {/* Show Archived Checkbox */}
+            <label className="inline-flex items-center gap-2 h-8.5 px-2.5 rounded-lg border border-outline-variant/50 bg-surface text-xs font-semibold text-on-surface cursor-pointer hover:bg-surface-container-low">
               <input
                 type="checkbox"
                 checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-                className="rounded border-outline text-primary focus:ring-primary"
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="size-3.5 rounded border-outline-variant text-[#8B3F56] focus:ring-[#8B3F56]"
               />
               Hiện đã lưu trữ
             </label>
+
+            {/* Total items badge */}
+            <span className="text-xs font-bold text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-lg">
+              {filteredAssignments.length} bài giao
+            </span>
           </div>
         </div>
 
+        {/* Table Content */}
         {loadingAssignments ? (
-          <div className="grid min-h-52 place-items-center" role="status">
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant">
-              <SpinnerGap size={20} className="animate-spin text-primary" /> Đang tải bài đã giao...
+          <div className="flex flex-col items-center justify-center py-10" role="status">
+            <SpinnerGap size={24} className="animate-spin text-[#8B3F56] mb-2" />
+            <span className="text-xs font-bold text-on-surface-variant">
+              Đang tải lịch sử bài đã giao...
             </span>
           </div>
         ) : !selectedCourseId ? (
-          <div className="grid min-h-52 place-items-center p-6 text-center">
-            <div>
-              <Student size={30} weight="duotone" className="mx-auto text-primary" />
-              <p className="mt-3 text-sm font-bold text-on-surface">Chưa chọn khóa học</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Chọn khóa học ở đầu trang để xem lịch sử.</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Student size={32} weight="duotone" className="text-[#8B3F56]/60 mb-2" />
+            <p className="text-xs font-bold text-on-surface">Chưa chọn khóa học</p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">
+              Chọn khóa học ở danh sách bên trên để xem các bài đã giao.
+            </p>
           </div>
         ) : filteredAssignments.length === 0 ? (
-          <div className="grid min-h-52 place-items-center p-6 text-center">
-            <div>
-              <PaperPlaneTilt size={30} weight="duotone" className="mx-auto text-primary" />
-              <p className="mt-3 text-sm font-bold text-on-surface">Chưa có đề nào được giao</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Chọn đề ở phía trên và hoàn tất cấu hình đầu tiên.</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <PaperPlaneTilt size={32} weight="duotone" className="text-[#8B3F56]/60 mb-2" />
+            <p className="text-xs font-bold text-on-surface">Chưa có đề nào được giao cho khóa này</p>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">
+              Chọn đề thi và nhấn "Giao đề cho khóa học" để tạo bài giao đầu tiên.
+            </p>
           </div>
         ) : (
-          <div className="custom-scrollbar overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-              <thead className="bg-surface-container-low text-xs text-on-surface-variant">
+          <div className="overflow-x-auto pt-2">
+            <table className="w-full min-w-[850px] border-collapse text-left text-xs">
+              <thead className="bg-surface-container-low/70 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-3 font-bold">Đề đã giao</th>
-                  <th className="px-4 py-3 font-bold">Chế độ</th>
-                  <th className="px-4 py-3 font-bold">Thời gian</th>
-                  <th className="px-4 py-3 font-bold">Thiết lập</th>
-                  <th className="px-4 py-3 font-bold">Trạng thái</th>
-                  <th className="px-5 py-3 text-right font-bold">Thao tác</th>
+                  <th className="px-3.5 py-2.5 rounded-l-lg">Đề đã giao</th>
+                  <th className="px-3 py-2.5">Chế độ</th>
+                  <th className="px-3 py-2.5">Thời gian mở / đóng</th>
+                  <th className="px-3 py-2.5">Cấu hình</th>
+                  <th className="px-3 py-2.5">Trạng thái</th>
+                  <th className="px-3.5 py-2.5 text-right rounded-r-lg">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/40">
+              <tbody className="divide-y divide-outline-variant/20">
                 {filteredAssignments.map((item) => (
-                  <tr key={item.id} className="transition-colors hover:bg-surface-container-low/65">
-                    <td className="px-5 py-4">
-                      <strong className="block max-w-xs truncate text-sm text-on-surface">{item.testTitle}</strong>
-                      <span className="mt-1 block text-xs font-semibold text-primary">{item.versionLabel}</span>
+                  <tr
+                    key={item.id}
+                    className="transition-colors hover:bg-surface-container-low/50"
+                  >
+                    {/* Test Info */}
+                    <td className="px-3.5 py-2.5">
+                      <strong className="block font-bold text-on-surface max-w-xs truncate text-xs" title={item.testTitle}>
+                        {item.testTitle}
+                      </strong>
+                      <span className="text-[10px] font-bold text-[#8B3F56]">
+                        {item.versionLabel}
+                      </span>
                     </td>
-                    <td className="px-4 py-4">
-                      <span className="font-bold text-on-surface">{item.mode === "EXAM" ? "Thi thử" : "Luyện tập"}</span>
+
+                    {/* Mode */}
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          item.mode === "EXAM"
+                            ? "bg-purple-50 text-purple-800 border border-purple-200"
+                            : "bg-blue-50 text-blue-800 border border-blue-200"
+                        }`}
+                      >
+                        {item.mode === "EXAM" ? "Thi thử" : "Luyện tập"}
+                      </span>
                     </td>
-                    <td className="px-4 py-4 text-xs leading-5 text-on-surface-variant">
-                      <span className="block">Mở: {dateTimeLabel(item.opensAt)}</span>
-                      <span className="block">Đóng: {dateTimeLabel(item.closesAt)}</span>
+
+                    {/* Time */}
+                    <td className="px-3 py-2.5 text-[11px] text-on-surface-variant leading-relaxed">
+                      <div>Mở: <span className="font-semibold text-on-surface">{dateTimeLabel(item.opensAt)}</span></div>
+                      <div>Đóng: <span className="font-semibold text-on-surface">{dateTimeLabel(item.closesAt)}</span></div>
                     </td>
-                    <td className="px-4 py-4 text-xs leading-5 text-on-surface-variant">
-                      <span className="block">{item.maxAttempts} lượt</span>
-                      <span className="block">{item.durationSeconds ? `${Math.round(item.durationSeconds / 60)} phút` : "Theo thời lượng đề"}</span>
+
+                    {/* Config */}
+                    <td className="px-3 py-2.5 text-[11px] text-on-surface-variant leading-relaxed">
+                      <div><strong className="text-on-surface">{item.maxAttempts}</strong> lượt làm</div>
+                      <div>
+                        {item.durationSeconds
+                          ? `${Math.round(item.durationSeconds / 60)} phút`
+                          : "Theo thời lượng đề"}
+                      </div>
                     </td>
-                    <td className="px-4 py-4"><StatusBadge assignment={item} /></td>
-                    <td className="px-5 py-4 text-right">
+
+                    {/* Status */}
+                    <td className="px-3 py-2.5">
+                      <StatusBadge assignment={item} />
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-3.5 py-2.5 text-right">
                       {!item.archivedAt && (
                         <button
                           type="button"
                           onClick={() => void archiveAssignment(item)}
                           disabled={archivingId === item.id}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold text-error transition hover:bg-error-container/45 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
                         >
-                          {archivingId === item.id
-                            ? <SpinnerGap size={17} className="animate-spin" />
-                            : <Archive size={17} />}
-                          Lưu trữ
+                          {archivingId === item.id ? (
+                            <SpinnerGap size={13} className="animate-spin" />
+                          ) : (
+                            <Archive size={13} />
+                          )}
+                          <span>Lưu trữ</span>
                         </button>
                       )}
                     </td>

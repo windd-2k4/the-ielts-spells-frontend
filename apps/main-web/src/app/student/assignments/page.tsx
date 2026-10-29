@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { BookOpenText, ArrowRight, Clock, CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { getReadingAssignments, startOrResumeReadingAttempt } from "@/features/reading/readingApi";
 import { getWritingAssignments, startOrResumeWritingAssignment } from "@/features/writing/writingApi";
+import { getSpeakingAssignments, startOrResumeSpeakingAssignment } from "@/features/speaking/speakingApi";
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { StudentEmptyState } from "@/features/student-hub/StudentEmptyState";
+import { getStudentPortalOverview, type StudentCourseAssignment } from "@/features/student-hub/studentPortalApi";
+
+type LegacyAssignment = StudentReadingAssignment & {
+  kind: "TEST";
+  skill: "LISTENING" | "READING" | "WRITING" | "SPEAKING";
+};
+type CourseAssignment = StudentCourseAssignment & { kind: "COURSE" };
+type AssignmentItem = LegacyAssignment | CourseAssignment;
 
 export default function StudentAssignmentsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [assignments, setAssignments] = useState<Array<StudentReadingAssignment & { skill: "READING" | "WRITING" }>>([]);
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
 
@@ -19,12 +28,25 @@ export default function StudentAssignmentsPage() {
     let active = true;
     async function loadData() {
       try {
-        const [reading, writing] = await Promise.all([getReadingAssignments(), getWritingAssignments()]);
+        const [reading, listening, writing, speaking, portal] = await Promise.all([
+          getReadingAssignments("reading"),
+          getReadingAssignments("listening"),
+          getWritingAssignments(),
+          getSpeakingAssignments(),
+          getStudentPortalOverview(),
+        ]);
         if (active) {
           setAssignments([
-            ...reading.map((item) => ({ ...item, skill: "READING" as const })),
-            ...writing.map((item) => ({ ...item, skill: "WRITING" as const })),
-          ].sort((a, b) => (b.opensAt ?? "").localeCompare(a.opensAt ?? "")));
+            ...portal.courseAssignments.map((item) => ({ ...item, kind: "COURSE" as const })),
+            ...reading.map((item) => ({ ...item, kind: "TEST" as const, skill: "READING" as const })),
+            ...listening.map((item) => ({ ...item, kind: "TEST" as const, skill: "LISTENING" as const })),
+            ...writing.map((item) => ({ ...item, kind: "TEST" as const, skill: "WRITING" as const })),
+            ...speaking.map((item) => ({ ...item, kind: "TEST" as const, skill: "SPEAKING" as const })),
+          ].sort((a, b) => {
+            const left = a.kind === "COURSE" ? a.dueAt : a.closesAt ?? a.opensAt;
+            const right = b.kind === "COURSE" ? b.dueAt : b.closesAt ?? b.opensAt;
+            return (left ?? "9999").localeCompare(right ?? "9999");
+          }));
         }
       } catch (failure) {
         if (active) setError(failure instanceof Error ? failure.message : "Không tải được danh sách bài tập.");
@@ -38,16 +60,23 @@ export default function StudentAssignmentsPage() {
     };
   }, []);
 
-  async function openAssignment(item: StudentReadingAssignment & { skill: "READING" | "WRITING" }) {
+  async function openAssignment(item: AssignmentItem) {
     setStartingId(item.assignmentId);
     setError("");
     try {
+      if (item.kind === "COURSE") {
+        router.push(`/student/courses/${item.courseId}?tab=assignments&activityId=${item.classActivityId}`);
+        return;
+      }
       if (item.skill === "WRITING") {
         const attempt = await startOrResumeWritingAssignment(item.assignmentId);
         router.push(`/student/writing/attempts/${attempt.attemptId}`);
+      } else if (item.skill === "SPEAKING") {
+        const attempt = await startOrResumeSpeakingAssignment(item.assignmentId);
+        router.push(`/student/speaking/attempts/${attempt.attemptId}`);
       } else {
-        const attempt = await startOrResumeReadingAttempt(item.assignmentId);
-        router.push(`/student/reading/attempts/${attempt.attemptId}`);
+        const attempt = await startOrResumeReadingAttempt(item.assignmentId, item.skill.toLowerCase());
+        router.push(`/student/${item.skill === "LISTENING" ? "listening" : "reading"}/attempts/${attempt.attemptId}`);
       }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Không thể mở bài tập này.");
@@ -91,49 +120,58 @@ export default function StudentAssignmentsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.map((item) => {
-            const isSubmitted = item.attemptsUsed >= item.maxAttempts;
-            const isInProgress = Boolean(item.activeAttemptExpiresAt);
+            const isCourse = item.kind === "COURSE";
+            const isSubmitted = isCourse
+              ? ["WAITING_REVIEW", "COMPLETED"].includes(item.status)
+              : item.attemptsUsed >= item.maxAttempts;
+            const isInProgress = isCourse ? item.status === "IN_PROGRESS" : Boolean(item.activeAttemptExpiresAt);
+            const needsRevision = isCourse && item.status === "NEEDS_REVISION";
+            const deadline = isCourse ? item.dueAt : item.closesAt;
             return (
               <div
-                key={item.assignmentId}
+                key={`${item.kind}-${item.assignmentId}`}
                 className="bg-white rounded-2xl p-5 border border-[#F3E8C4] shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-1 rounded-full bg-[#F7E5EA] text-[#894C5B] text-[11px] font-extrabold">
-                      IELTS {item.skill === "WRITING" ? "Writing" : "Reading"}
+                      IELTS {item.skill === "WRITING" ? "Writing" : item.skill === "SPEAKING" ? "Speaking" : item.skill === "LISTENING" ? "Listening" : "Reading"}
                     </span>
                     <span className="text-xs font-bold text-[#857F7A] flex items-center gap-1">
                       <Clock size={14} />
                       <span>
-                        Hạn: {item.closesAt ? new Date(item.closesAt).toLocaleDateString("vi-VN") : "Không giới hạn"}
+                        Hạn: {isCourse ? (item.effectiveDueAt ? new Date(item.effectiveDueAt).toLocaleString("vi-VN") : "Không giới hạn") : (deadline ? new Date(deadline).toLocaleDateString("vi-VN") : "Không giới hạn")}
                       </span>
                     </span>
                   </div>
 
                   <h3 className="font-extrabold text-base text-[#1E1B18]">{item.title}</h3>
+                  {!isCourse && (item.sessionNo || item.sessionTitle) ? <p className="text-xs font-semibold text-[#625B55]">{item.courseName} · {item.sessionTitle || `Session ${item.sessionNo}`}</p> : null}
+                  {isCourse ? <p className="text-xs font-semibold text-[#625B55]">{item.courseCode} · {item.courseName}{item.sessionNo ? ` · Session ${item.sessionNo}` : ""}</p> : null}
                   <p className="text-xs text-[#78726A]">
                     Trạng thái:{" "}
                     <strong className="text-[#894C5B]">
-                      {isSubmitted ? "Đã nộp bài" : isInProgress ? "Đang làm dở" : "Chưa bắt đầu"}
+                      {needsRevision ? "Cần nộp bản sửa" : isSubmitted ? "Đã nộp bài" : isInProgress ? "Đang làm dở" : "Chưa bắt đầu"}
                     </strong>
                   </p>
+                  {isCourse && item.latePolicy ? <p className="text-[11px] font-semibold text-[#857F7A]">{item.latePolicy === "BLOCK" ? "Chặn sau deadline" : item.latePolicy === "ALLOW" ? "Cho nộp sau deadline" : "Nộp sau deadline sẽ đánh dấu muộn"}{item.lateGraceMinutes > 0 ? ` · Grace ${item.lateGraceMinutes} phút` : ""}</p> : null}
+                  {isCourse && item.lockReason ? <p className="flex items-center gap-1 text-[11px] font-semibold text-amber-700"><WarningCircle size={14} />{item.lockReason}</p> : null}
                 </div>
 
                 <div className="pt-2 border-t border-[#F3E8C4] flex items-center justify-end">
-                  <button type="button" disabled={startingId === item.assignmentId || isSubmitted}
+                  <button type="button" disabled={startingId === item.assignmentId || (isSubmitted && !isCourse)}
                     onClick={() => void openAssignment(item)}
                     className="flex min-h-11 items-center gap-1.5 rounded-xl bg-[#894C5B] px-4 py-2 text-xs font-extrabold text-white shadow-xs transition-all hover:bg-[#723c4a] focus:outline-none focus:ring-2 focus:ring-[#C85F78] disabled:cursor-not-allowed disabled:opacity-55">
                     {startingId === item.assignmentId ? (
                       <><CircleNotch size={16} className="animate-spin" /><span>Đang mở bài</span></>
-                    ) : isSubmitted ? (
+                    ) : isSubmitted && !isCourse ? (
                       <>
                         <CheckCircle size={16} weight="fill" className="text-[#F5C842]" />
                         <span>Đã hết lượt làm</span>
                       </>
                     ) : (
                       <>
-                        <span>{isInProgress ? "Tiếp tục làm" : "Làm bài ngay"}</span>
+                        <span>{needsRevision && isCourse && item.canEdit ? "Mở để sửa bài" : isSubmitted || (isCourse && !item.canSubmit) ? "Xem trạng thái" : isInProgress ? "Tiếp tục làm" : "Làm bài ngay"}</span>
                         <ArrowRight size={14} weight="bold" />
                       </>
                     )}

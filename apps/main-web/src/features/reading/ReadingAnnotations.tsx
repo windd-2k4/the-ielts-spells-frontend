@@ -2,8 +2,9 @@
 
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { ReadingAnnotation, ReadingAnnotationColor, ReadingAnnotationType, SaveReadingAnnotationRequest } from "@ielts/contracts";
-import { Check, Highlighter, NotePencil, PencilSimpleLine, Plus, SpinnerGap, Trash, WarningCircle, X } from "@phosphor-icons/react";
+import { Cards, Check, Highlighter, NotePencil, PencilSimpleLine, SpinnerGap, Trash, WarningCircle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { addVocabularyCard } from "@/features/flashcards/flashcardApi";
 import { deleteReadingAnnotation, saveReadingAnnotation } from "./readingApi";
 import { requestMessage } from "./readingFormat";
 import styles from "./ReadingAnnotations.module.css";
@@ -54,6 +55,8 @@ export function ReadingAnnotations({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [addingVocabulary, setAddingVocabulary] = useState(false);
+  const [vocabularyMessage, setVocabularyMessage] = useState("");
   const [error, setError] = useState("");
 
   const sectionAnnotations = useMemo(
@@ -66,6 +69,7 @@ export function ReadingAnnotations({
     setToolbarPosition(null);
     setNoteDraft("");
     setSelectedAnnotationId(null);
+    setVocabularyMessage("");
     setError("");
   }, [sectionKey]);
 
@@ -213,9 +217,30 @@ export function ReadingAnnotations({
     clearSelection();
   }
 
-  function openAnnotationList() {
-    dismissSelection();
-    onNotesOpenChange(true);
+  async function addSelectedToVocabulary() {
+    if (!anchor || addingVocabulary) return;
+    const term = anchor.selectedText.trim().replace(/\s+/g, " ");
+    if (term.length > 200) {
+      setError("Flashcard chỉ nhận một từ hoặc cụm từ tối đa 200 ký tự.");
+      return;
+    }
+    setAddingVocabulary(true);
+    setError("");
+    setVocabularyMessage("");
+    try {
+      await addVocabularyCard({
+        term,
+        exampleSentence: `${anchor.prefix}${anchor.selectedText}${anchor.suffix}`.trim(),
+        sourceLabel: `Reading · ${sectionKey}`,
+      });
+      setVocabularyMessage(`Đã thêm “${term}” vào Sổ từ vựng.`);
+      setAnchor(null);
+      clearSelection();
+    } catch (failure) {
+      setError(requestMessage(failure));
+    } finally {
+      setAddingVocabulary(false);
+    }
   }
 
   function onContentClick(event: ReactMouseEvent<HTMLDivElement>) {
@@ -273,9 +298,15 @@ export function ReadingAnnotations({
       <button type="button" className={styles.textToolButton} onClick={() => void persistAnnotation("STRIKETHROUGH", "INK", null)} disabled={saving} aria-label="Gạch ngang đoạn đã chọn" title="Gạch ngang">
         <span className={styles.strikeGlyph}>abc</span>
       </button>
-      <button type="button" className={styles.toolButton} onClick={openAnnotationList} disabled={saving} aria-label="Mở danh sách ghi chú" title="Mở danh sách ghi chú">
-        {saving ? <SpinnerGap size={18} className={styles.spin} aria-hidden="true" /> : <Plus size={19} weight="bold" aria-hidden="true" />}
+      <button type="button" className={styles.toolButton} onClick={() => void addSelectedToVocabulary()} disabled={saving || addingVocabulary} aria-label="Thêm từ đã chọn vào flashcard" title="Thêm vào flashcard">
+        {addingVocabulary ? <SpinnerGap size={18} className={styles.spin} aria-hidden="true" /> : <Cards size={19} weight="bold" aria-hidden="true" />}
       </button>
+    </div> : null}
+
+    {vocabularyMessage ? <div className={styles.annotationSuccess} role="status">
+      <Check size={19} weight="bold" aria-hidden="true" />
+      <span>{vocabularyMessage}</span>
+      <button type="button" onClick={() => setVocabularyMessage("")} aria-label="Đóng thông báo"><X size={17} /></button>
     </div> : null}
 
     {error && !notesOpen ? <div className={styles.annotationToast} role="alert">

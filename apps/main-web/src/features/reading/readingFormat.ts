@@ -86,6 +86,33 @@ export function questionOptions(question: ReadingQuestion, group: ReadingQuestio
   return [];
 }
 
+export function cleanDisplayText(text: string | null | undefined): string {
+  if (!text) return "";
+  let clean = text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "\n• ")
+    .replace(/<[^>]+>/g, "");
+  if (typeof document !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(clean, "text/html");
+      clean = doc.body.textContent || clean;
+    } catch {
+      // fallback
+    }
+  }
+  return clean
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&ldquo;|&rdquo;/gi, '"')
+    .replace(/&lsquo;|&rsquo;/gi, "'")
+    .trim();
+}
+
 export function optionLabel(code: string | null | undefined, text: string | null | undefined) {
   const normalizedCode = code?.trim();
   const normalizedText = text?.trim() ?? "";

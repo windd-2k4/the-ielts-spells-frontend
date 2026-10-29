@@ -57,13 +57,37 @@ function parseLocalDate(value: string) {
   return new Date(year, month - 1, day || 1);
 }
 
+function formatDuration(seconds: number) {
+  if (seconds <= 0) return "0m";
+  const totalMinutes = Math.max(1, Math.round(seconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h${minutes ? `${minutes}m` : ""}` : `${minutes}m`;
+}
+
+function ActivityCountCell({ value }: { value: number }) {
+  const intensityClass = value >= 4
+    ? styles.activityCellStrong
+    : value >= 2
+      ? styles.activityCellMedium
+      : value === 1
+        ? styles.activityCellLight
+        : "";
+
+  return (
+    <td className={intensityClass || undefined}>
+      {value || <span className={styles.activityEmptyDash}>—</span>}
+    </td>
+  );
+}
+
 export default function StudentDashboardPage() {
   const { session } = useStudentSession();
   const { data, loading, error, refresh } = useStudentPortal();
 
   const today = new Date();
   const [selectedMonthDate, setSelectedMonthDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
-  const [viewMode, setViewMode] = useState<"month" | "week" | "today">("month");
+  const [selectedDate, setSelectedDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   const [activity, setActivity] = useState<StudentPortalDailyActivity[]>([]);
   const [showGoalModal, setShowGoalModal] = useState(false);
 
@@ -74,14 +98,20 @@ export default function StudentDashboardPage() {
     }
   }, [data?.activityCalendar]);
 
-  // Fetch month activity when month changes
+  // Fetch the visible month plus its neighbours so boundary weeks stay complete.
   useEffect(() => {
-    const selectedKey = monthKey(selectedMonthDate);
     const controller = new AbortController();
+    const monthDates = [-1, 0, 1].map((offset) => (
+      new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + offset, 1)
+    ));
+    const requestedMonths = monthDates.map(monthKey);
 
-    void getStudentPortalActivity(selectedKey, controller.signal)
-      .then((res) => {
-        if (res && res.length > 0) setActivity(res);
+    void Promise.all(requestedMonths.map((month) => getStudentPortalActivity(month, controller.signal)))
+      .then((pages) => {
+        setActivity((current) => [
+          ...current.filter((item) => !requestedMonths.some((month) => item.activityDate.startsWith(month))),
+          ...pages.flat(),
+        ]);
       })
       .catch(() => {
         // keep existing activity on error
@@ -96,6 +126,9 @@ export default function StudentDashboardPage() {
 
   const studentName = data.profile.fullName || session?.user?.user_metadata?.full_name || "Học viên";
   const pendingAssignments = data.readingAssignments.filter((item) => item.attemptsUsed < item.maxAttempts);
+  const pendingCourseAssignments = data.courseAssignments.filter((item) => !["COMPLETED", "WAITING_REVIEW"].includes(item.status));
+  const pendingAssignmentCount = pendingAssignments.length + pendingCourseAssignments.length;
+  const nextCourseAssignment = pendingCourseAssignments[0];
   const nextSession = data.upcomingSessions[0];
   const activeEnrollment = data.enrollments.find((item) => item.status === "ACTIVE") ?? data.enrollments[0];
   const scheduleSkillPair = nextSession
@@ -114,28 +147,24 @@ export default function StudentDashboardPage() {
   const activityByDate = new Map(activity.map((item) => [item.activityDate, item]));
   const monthStart = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), 1);
   const calendarStart = startOfWeek(monthStart);
-  const calendarDays = Array.from({ length: 35 }, (_, index) => addDays(calendarStart, index));
+  const daysInMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0).getDate();
+  const monthStartOffset = (monthStart.getDay() + 6) % 7;
+  const calendarDayCount = Math.ceil((monthStartOffset + daysInMonth) / 7) * 7;
+  const calendarDays = Array.from({ length: calendarDayCount }, (_, index) => addDays(calendarStart, index));
 
-  // Monthly activity summary - REAL DATA ONLY
-  const monthDaysCount = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 0).getDate();
-  const monthDays = Array.from(
-    { length: monthDaysCount },
-    (_, index) => new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth(), index + 1),
-  );
-  const monthItems = monthDays.map((d) => ({ date: d, activity: activityByDate.get(dateKey(d)) }));
-  
-  // Real totals
-  const monthlyTotals = monthItems.reduce((total, item) => ({
+  // YouPass-style weekly summary anchored to the selected calendar day.
+  const selectedWeekStart = startOfWeek(selectedDate);
+  const weekItems = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(selectedWeekStart, index);
+    return { date, activity: activityByDate.get(dateKey(date)) };
+  });
+  const weeklyTotals = weekItems.reduce((total, item) => ({
     reading: total.reading + (item.activity?.reading ?? 0),
     listening: total.listening + (item.activity?.listening ?? 0),
     writing: total.writing + (item.activity?.writing ?? 0),
     speaking: total.speaking + (item.activity?.speaking ?? 0),
-    totalAttempts: total.totalAttempts + (item.activity?.totalAttempts ?? 0),
-  }), { reading: 0, listening: 0, writing: 0, speaking: 0, totalAttempts: 0 });
-
-  // Real rows: only active days, or first 6 days of the month with real empty dashes
-  const activeRows = monthItems.filter((item) => (item.activity?.totalAttempts ?? 0) > 0);
-  const tableRows = activeRows.length > 0 ? activeRows.slice(-6) : monthItems.slice(0, 6);
+    durationSeconds: total.durationSeconds + (item.activity?.durationSeconds ?? 0),
+  }), { reading: 0, listening: 0, writing: 0, speaking: 0, durationSeconds: 0 });
 
   // Real course progress percentage
   const courseProgress = activeEnrollment && activeEnrollment.totalSessions > 0
@@ -151,11 +180,18 @@ export default function StudentDashboardPage() {
     ? Math.max(0, Math.ceil((examDateObject.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000))
     : null;
 
-  function handlePrevMonth() {
-    setSelectedMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  function moveMonth(offset: number) {
+    const nextMonth = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + offset, 1);
+    const nextDay = Math.min(selectedDate.getDate(), new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate());
+    setSelectedMonthDate(nextMonth);
+    setSelectedDate(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), nextDay));
   }
-  function handleNextMonth() {
-    setSelectedMonthDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+
+  function selectCalendarDate(date: Date) {
+    setSelectedDate(date);
+    if (date.getMonth() !== selectedMonthDate.getMonth() || date.getFullYear() !== selectedMonthDate.getFullYear()) {
+      setSelectedMonthDate(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
   }
 
   return (
@@ -187,8 +223,8 @@ export default function StudentDashboardPage() {
               <p className={styles.heroSubtitle}>
                 Hãy tiếp tục hành trình chinh phục IELTS của bạn nhé!
               </p>
-              <Link href={pendingAssignments.length > 0 ? "/student/reading" : "/student/practice"} className={styles.heroActionBtn}>
-                Tiếp tục học tập →
+              <Link href={nextCourseAssignment ? `/student/courses/${nextCourseAssignment.courseId}?tab=assignments` : pendingAssignments.length > 0 ? "/student/reading" : "/student/practice"} className={styles.heroActionBtn}>
+                {nextCourseAssignment ? "Mở bài được giao →" : "Tiếp tục học tập →"}
               </Link>
             </div>
 
@@ -302,46 +338,26 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          {/* Middle Row: Calendar & Monthly Activity Grid */}
+          {/* YouPass-style diligence calendar and selected-week activity */}
           <div className={styles.middleActivityGrid}>
-            {/* Lịch học của bạn */}
             <div className={styles.calendarCard}>
               <div className={styles.calendarHeader}>
                 <div className={styles.calendarHeaderTitle}>
                   <div className={styles.calendarIconBox}>
                     <CalendarBlank size={16} weight="bold" />
                   </div>
-                  <span>Lịch học của bạn</span>
+                  <div className={styles.calendarHeaderCopy}>
+                    <span>Biểu đồ “chăm chỉ” của bạn</span>
+                    <small>Bấm vào một ngày để xem thống kê của tuần tương ứng.</small>
+                  </div>
                 </div>
                 <div className={styles.calendarControls}>
-                  <div className={styles.viewModeTabs}>
-                    <button
-                      type="button"
-                      className={`${styles.tabBtn} ${viewMode === "month" ? styles.tabBtnActive : ""}`}
-                      onClick={() => setViewMode("month")}
-                    >
-                      Tháng
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.tabBtn} ${viewMode === "week" ? styles.tabBtnActive : ""}`}
-                      onClick={() => setViewMode("week")}
-                    >
-                      Tuần
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.tabBtn} ${viewMode === "today" ? styles.tabBtnActive : ""}`}
-                      onClick={() => setViewMode("today")}
-                    >
-                      Hôm nay
-                    </button>
-                  </div>
+                  <span className={styles.submissionLegend}><i />Có nộp bài</span>
                   <div className={styles.monthNavigator}>
                     <button
                       type="button"
                       className={styles.monthNavBtn}
-                      onClick={handlePrevMonth}
+                      onClick={() => moveMonth(-1)}
                       aria-label="Tháng trước"
                     >
                       <CaretLeft size={12} weight="bold" />
@@ -352,7 +368,7 @@ export default function StudentDashboardPage() {
                     <button
                       type="button"
                       className={styles.monthNavBtn}
-                      onClick={handleNextMonth}
+                      onClick={() => moveMonth(1)}
                       aria-label="Tháng sau"
                     >
                       <CaretRight size={12} weight="bold" />
@@ -373,33 +389,41 @@ export default function StudentDashboardPage() {
                   const dayNum = date.getDate();
                   const isCurrentMonth = date.getMonth() === selectedMonthDate.getMonth();
                   const isToday = key === dateKey(today);
+                  const isSelected = key === dateKey(selectedDate);
                   const act = activityByDate.get(key);
                   const hasAttempts = (act?.totalAttempts ?? 0) > 0;
                   const hasSession = nextSession && dateKey(new Date(nextSession.startsAt)) === key;
 
                   let cellClass = styles.calDayCell;
                   if (!isCurrentMonth) cellClass += ` ${styles.calDayCellOutside}`;
-                  if (isToday) cellClass += ` ${styles.calDayCellActive}`;
-                  else if (hasSession) cellClass += ` ${styles.calDayCellSoft}`;
+                  if (isSelected) cellClass += ` ${styles.calDayCellSelected}`;
 
                   return (
-                    <div key={key} className={cellClass} title={`${key}: ${act?.totalAttempts ?? 0} bài`}>
-                      <span>{dayNum}</span>
+                    <button
+                      key={key}
+                      type="button"
+                      className={cellClass}
+                      title={`${key}: ${act?.totalAttempts ?? 0} bài đã nộp`}
+                      aria-label={`${date.toLocaleDateString("vi-VN")}, ${act?.totalAttempts ?? 0} bài đã nộp`}
+                      aria-pressed={isSelected}
+                      onClick={() => selectCalendarDate(date)}
+                    >
+                      <span className={`${styles.calDayNumber} ${hasAttempts ? styles.calDayNumberActive : ""}`}>
+                        {dayNum}
+                      </span>
                       <div className={styles.calDayDots}>
-                        {isToday && <span className={styles.calDotWhite} />}
-                        {!isToday && hasAttempts && <span className={styles.calDotPink} />}
-                        {!isToday && hasSession && <span className={styles.calDotOrange} />}
+                        {isToday && <span className={styles.calDotToday} />}
+                        {hasSession && <span className={styles.calDotSession} />}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Monthly Activity Table - REAL DATA ONLY */}
             <div className={styles.activityCard}>
               <div className={styles.activityCardHeader}>
-                <span className={styles.activityCardTitle}>Monthly activity</span>
+                <span className={styles.activityCardTitle}>Thống kê số bài đã làm trong tuần</span>
                 <Link href="/student/history" className={styles.activityCardLink}>
                   Xem tất cả →
                 </Link>
@@ -411,33 +435,41 @@ export default function StudentDashboardPage() {
                   <thead>
                     <tr>
                       <th>NGÀY</th>
-                      <th>R</th>
-                      <th>L</th>
-                      <th>W</th>
-                      <th>S</th>
-                      <th>TỔNG</th>
+                      <th aria-label="Reading" title="Reading">
+                        <BookOpenText className={styles.activitySkillIcon} size={17} weight="bold" aria-hidden="true" />
+                      </th>
+                      <th aria-label="Listening" title="Listening">
+                        <Headphones className={styles.activitySkillIcon} size={17} weight="bold" aria-hidden="true" />
+                      </th>
+                      <th aria-label="Writing" title="Writing">
+                        <PencilLine className={styles.activitySkillIcon} size={17} weight="bold" aria-hidden="true" />
+                      </th>
+                      <th aria-label="Speaking" title="Speaking">
+                        <Microphone className={styles.activitySkillIcon} size={17} weight="bold" aria-hidden="true" />
+                      </th>
+                      <th>THỜI GIAN<br />HỌC</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows.map(({ date, activity: item }) => (
+                    {weekItems.map(({ date, activity: item }) => (
                       <tr key={dateKey(date)}>
-                        <td>{date.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</td>
-                        <td>{item?.reading ? item.reading : <span className={styles.activityEmptyDash}>—</span>}</td>
-                        <td>{item?.listening ? item.listening : <span className={styles.activityEmptyDash}>—</span>}</td>
-                        <td>{item?.writing ? item.writing : <span className={styles.activityEmptyDash}>—</span>}</td>
-                        <td>{item?.speaking ? item.speaking : <span className={styles.activityEmptyDash}>—</span>}</td>
-                        <td>{item?.totalAttempts ? <strong>{item.totalAttempts}</strong> : <span className={styles.activityEmptyDash}>—</span>}</td>
+                        <td>{date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</td>
+                        <ActivityCountCell value={item?.reading ?? 0} />
+                        <ActivityCountCell value={item?.listening ?? 0} />
+                        <ActivityCountCell value={item?.writing ?? 0} />
+                        <ActivityCountCell value={item?.speaking ?? 0} />
+                        <td className={styles.activityDuration}>{formatDuration(item?.durationSeconds ?? 0)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className={styles.activityTotalRow}>
                       <td>Tổng</td>
-                      <td>{monthlyTotals.reading || "—"}</td>
-                      <td>{monthlyTotals.listening || "—"}</td>
-                      <td>{monthlyTotals.writing || "—"}</td>
-                      <td>{monthlyTotals.speaking || "—"}</td>
-                      <td>{monthlyTotals.totalAttempts || "—"}</td>
+                      <td>{weeklyTotals.reading}</td>
+                      <td>{weeklyTotals.listening}</td>
+                      <td>{weeklyTotals.writing}</td>
+                      <td>{weeklyTotals.speaking}</td>
+                      <td>{formatDuration(weeklyTotals.durationSeconds)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -468,9 +500,9 @@ export default function StudentDashboardPage() {
                   <h3>
                     <BookOpenText size={16} weight="bold" /> Priority tasks
                   </h3>
-                  <span>{pendingAssignments.length} bài</span>
+                  <span>{pendingAssignmentCount} bài</span>
                 </div>
-                {pendingAssignments.length ? (
+                {pendingAssignmentCount ? (
                   <div className={styles.taskList}>
                     {pendingAssignments.slice(0, 3).map((item) => (
                       <div key={item.assignmentId} className={styles.taskRow}>
@@ -485,6 +517,19 @@ export default function StudentDashboardPage() {
                         </span>
                         <Link href="/student/reading" className={styles.rowAction}>
                           {item.activeAttemptExpiresAt ? "Tiếp tục" : "Mở bài"}
+                          <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    ))}
+                    {pendingCourseAssignments.slice(0, 3).map((item) => (
+                      <div key={item.assignmentId} className={styles.taskRow}>
+                        <span className={styles.taskIcon}><BookOpenText size={17} weight="bold" /></span>
+                        <span className={styles.taskCopy}>
+                          <strong>{item.title}</strong>
+                          <span>{item.courseName} · {item.sessionTitle || (item.sessionNo ? `Buổi ${item.sessionNo}` : "Assignment khóa học")}{item.dueAt ? ` · Hạn ${new Date(item.dueAt).toLocaleDateString("vi-VN")}` : ""}</span>
+                        </span>
+                        <Link href={`/student/courses/${item.courseId}?tab=assignments`} className={styles.rowAction}>
+                          {item.status === "NEEDS_REVISION" ? "Nộp bản sửa" : "Mở bài"}
                           <ArrowRight size={12} />
                         </Link>
                       </div>

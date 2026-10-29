@@ -18,6 +18,8 @@ const CourseManagementPage = lazy(() => import("./pages/CourseManagementPage")
   .then((module) => ({ default: module.CourseManagementPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage")
   .then((module) => ({ default: module.DashboardPage })));
+const TeacherDashboardPage = lazy(() => import("./pages/TeacherDashboardPage")
+  .then((module) => ({ default: module.TeacherDashboardPage })));
 const EnrollmentsPage = lazy(() => import("./pages/EnrollmentsPage")
   .then((module) => ({ default: module.EnrollmentsPage })));
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage")
@@ -123,9 +125,14 @@ export default function App() {
               <Route index element={<HomeRedirect />} />
               <Route element={<RequireRoles any={["admin"]} />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/classes" element={<Navigate to="/courses" replace />} />
+              </Route>
+              <Route element={<RequireRoles any={["admin", "teacher"]} />}>
+                <Route element={<RequireRoles any={["teacher"]} />}>
+                  <Route path="/teacher-dashboard" element={<TeacherDashboardPage />} />
+                </Route>
                 <Route path="/courses" element={<CourseManagementPage />} />
                 <Route path="/courses/:courseId" element={<CourseManagementPage />} />
-                <Route path="/classes" element={<Navigate to="/courses" replace />} />
                 <Route path="/test-assignments" element={<TestAssignmentsPage />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "teacher"]} />}>

@@ -23,6 +23,7 @@ import { CourseDeleteModal } from "../components/course/CourseDeleteModal";
 import CourseCoverImageField from "../components/course/CourseCoverImageField";
 import CourseEnrollmentModal from "../components/enrollment/CourseEnrollmentModal";
 import AuthenticatedMediaImage from "../components/test-builder/AuthenticatedMediaImage";
+import { useAuth } from "../auth/AuthContext";
 
 type Tab = "overview" | "schedule" | "students" | "attendance" | "progress" | "matrix" | "library";
 type CourseStatusFilter = "all" | Course["status"];
@@ -81,6 +82,8 @@ function startMonthLabel(value: string) {
 
 function CourseList() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const canManageCourses = roles.includes("admin");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollmentCounts, setEnrollmentCounts] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
@@ -103,16 +106,18 @@ function CourseList() {
     setError("");
     try {
       const [coursePage, enrollmentPage] = await Promise.all([
-        apiFetch<Page<Course>>("/admin/courses?active=true&size=100"),
-        // ponytail: one bulk read avoids N+1 requests; add a backend aggregate endpoint beyond 2,000 enrollments.
-        apiFetch<Page<Enrollment>>("/admin/enrollments?size=2000"),
+        apiFetch<Page<Course>>(canManageCourses ? "/admin/courses?active=true&size=100" : "/admin/courses/assigned?active=true&size=100"),
+        canManageCourses
+          // ponytail: one bulk read avoids N+1 requests; add a backend aggregate endpoint beyond 2,000 enrollments.
+          ? apiFetch<Page<Enrollment>>("/admin/enrollments?size=2000")
+          : Promise.resolve(null),
       ]);
-      const counts = enrollmentPage.content.reduce<Record<string, number>>((values, enrollment) => {
+      const counts = enrollmentPage?.content.reduce<Record<string, number>>((values, enrollment) => {
         if (enrollment.status === "PENDING" || enrollment.status === "ACTIVE") {
           values[enrollment.courseId] = (values[enrollment.courseId] ?? 0) + 1;
         }
         return values;
-      }, {});
+      }, {}) ?? {};
       setCourses(coursePage.content);
       setEnrollmentCounts(counts);
     } catch (value) {
@@ -120,7 +125,7 @@ function CourseList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canManageCourses]);
 
   useEffect(() => {
     void load();
@@ -246,13 +251,13 @@ function CourseList() {
             </button>
           )}
 
-          <button
+          {canManageCourses && <button
             type="button"
             onClick={() => setDialogOpen(true)}
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 text-sm font-bold text-on-primary shadow-xs transition duration-200 hover:opacity-90 active:scale-[0.98]"
           >
             <Plus size={18} weight="bold" /> Tạo khóa học mới
-          </button>
+          </button>}
           </div>
         </div>
 
@@ -489,7 +494,7 @@ function CourseList() {
 
                     {/* Actions */}
                     <div className="flex items-center justify-end gap-2">
-                      <div className="relative">
+                      {canManageCourses && <div className="relative">
                         <button
                           type="button"
                           onClick={event => {
@@ -545,7 +550,7 @@ function CourseList() {
                             </button>
                           </div>
                         )}
-                      </div>
+                      </div>}
 
                       <Link
                         to={`/courses/${course.id}`}
@@ -626,7 +631,7 @@ function CourseList() {
                         </div>
 
                         {/* Dropdown Menu */}
-                        <div className="relative shrink-0">
+                        {canManageCourses && <div className="relative shrink-0">
                           <button
                             type="button"
                             onClick={event => {
@@ -681,7 +686,7 @@ function CourseList() {
                               </button>
                             </div>
                           )}
-                        </div>
+                        </div>}
                       </div>
 
                       {/* Course Title & Description */}
@@ -771,7 +776,7 @@ function CourseList() {
             >
               <ArrowCounterClockwise size={17} weight="bold" /> Đặt lại bộ lọc
             </button>
-          ) : (
+          ) : canManageCourses ? (
             <button
               type="button"
               onClick={() => setDialogOpen(true)}
@@ -779,7 +784,7 @@ function CourseList() {
             >
               <Plus size={17} weight="bold" /> Tạo khóa học
             </button>
-          )}
+          ) : null}
         </section>
       )}
 
@@ -941,6 +946,8 @@ function Field({ label, children }: { label: string; children: React.ReactElemen
 function Workspace() {
   const { courseId = "" } = useParams();
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const canManageCourse = roles.includes("admin");
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") as Tab | null;
   const activeTab: Tab = tabs.some(tab => tab.id === requestedTab) ? requestedTab! : "overview";
@@ -954,32 +961,24 @@ function Workspace() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const loadRoster = useCallback(async () => {
-    try {
-      const studentPage = await apiFetch<Page<StudentSummary>>("/admin/students?size=100");
-      setStudents(studentPage.content);
-    } catch {
-      // Keep the existing roster visible if the optional directory refresh fails.
-    }
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [courseData, enrollmentPage] = await Promise.all([
+      const [courseData, enrollmentPage, studentPage] = await Promise.all([
         apiFetch<Course>(`/admin/courses/${courseId}`),
         apiFetch<Page<Enrollment>>(`/admin/enrollments?courseId=${courseId}&size=100`),
+        apiFetch<Page<StudentSummary>>(`/admin/courses/${courseId}/students?size=100`),
       ]);
       setCourse(courseData);
       setEnrollments(enrollmentPage.content);
-      void loadRoster();
+      setStudents(studentPage.content);
     } catch (value) {
       setError(value instanceof Error ? value.message : "Không tải được khóa học");
     } finally {
       setLoading(false);
     }
-  }, [courseId, loadRoster]);
+  }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1061,7 +1060,7 @@ function Workspace() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <button
+            {canManageCourse && <button
               type="button"
               onClick={() => setEnrollmentOpen(true)}
               aria-label="Ghi danh học viên"
@@ -1069,9 +1068,9 @@ function Workspace() {
               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-on-primary transition-colors hover:bg-on-primary-container focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <Plus size={16} weight="bold" /> Ghi danh
-            </button>
+            </button>}
 
-            <details className="group relative">
+            {canManageCourse && <details className="group relative">
               <summary
                 aria-label="Thêm thao tác khóa học"
                 title="Thêm thao tác"
@@ -1102,7 +1101,7 @@ function Workspace() {
                   {course.isActive ? "Ngừng hoặc xóa" : "Khôi phục khóa học"}
                 </button>
               </div>
-            </details>
+            </details>}
           </div>
         </div>
       </header>
@@ -1125,25 +1124,25 @@ function Workspace() {
         })}
       </nav>
 
-      {activeTab === "overview" && <CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={openStudentProfile} />}
+      {activeTab === "overview" && <CourseOverview course={course} selectedClass={course} roster={roster} setTab={setTab} onSelectStudent={canManageCourse ? openStudentProfile : undefined} />}
       {activeTab === "schedule" && <CourseSchedule courseId={course.id} skillPair={course.skillPair} initialSessions={sessions.length ? sessions : undefined} />}
-      {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={openStudentProfile} onRosterChanged={load} />}
-      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={openStudentProfile} onEnrollmentUpdated={updated => setEnrollments(current => current.map(item => item.id === updated.id ? updated : item))} />}
-      {activeTab === "progress" && <CourseProgress courseId={course.id} skillPair={course.skillPair} roster={roster} initialSessions={sessions.length ? sessions : undefined} onSelectStudent={openStudentProfile} />}
+      {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={canManageCourse ? openStudentProfile : undefined} onRosterChanged={load} />}
+      {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={canManageCourse ? openStudentProfile : undefined} onEnrollmentUpdated={updated => setEnrollments(current => current.map(item => item.id === updated.id ? updated : item))} />}
+      {activeTab === "progress" && <CourseProgress courseId={course.id} skillPair={course.skillPair} roster={roster} initialSessions={sessions.length ? sessions : undefined} onSelectStudent={canManageCourse ? openStudentProfile : undefined} />}
       {activeTab === "matrix" && <CourseMatrix courseId={course.id} roster={roster} />}
       {activeTab === "library" && <CourseLibrary courseId={course.id} />}
 
-      <CourseEnrollmentModal course={course} enrollments={enrollments} open={enrollmentOpen} onClose={() => setEnrollmentOpen(false)} onSaved={load} />
+      {canManageCourse && <CourseEnrollmentModal course={course} enrollments={enrollments} open={enrollmentOpen} onClose={() => setEnrollmentOpen(false)} onSaved={load} />}
 
-      <CourseEditModal
+      {canManageCourse && <CourseEditModal
         course={course}
         currentEnrollmentsCount={roster.length}
         open={editOpen}
         onClose={() => setEditOpen(false)}
         onSaved={load}
-      />
+      />}
 
-      <CourseDeleteModal
+      {canManageCourse && <CourseDeleteModal
         course={course}
         enrollmentsCount={roster.length}
         open={deleteOpen}
@@ -1155,7 +1154,7 @@ function Workspace() {
             await load();
           }
         }}
-      />
+      />}
     </section>
   );
 }
