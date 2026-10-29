@@ -1,0 +1,1810 @@
+/* Curated Vocabulary Hub - Concept: The IELTS Spells (Inspired by YouPass Vocab) */
+
+.hubContainer {
+  padding: 0 0 40px;
+}
+
+/* Header Tabs */
+.tabNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: #f2ecee;
+  border-radius: 14px;
+  width: fit-content;
+  margin-bottom: 24px;
+  border: 1px solid #ebdbe2;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6f676c;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 180ms ease;
+  font-family: inherit;
+}
+
+.tabBtn:hover {
+  color: #292528;
+}
+
+.tabBtnActive {
+  color: #c85f78;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(200, 95, 120, 0.08);
+}
+
+.tabBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #f7e5ea;
+  color: #c85f78;
+}
+
+/* Filters & Search Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.categoryFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6f676c;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.filterPill:hover {
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+.filterPillActive {
+  background: #292528;
+  color: #ffffff;
+  border-color: #292528;
+}
+
+.filterPillActive:hover {
+  color: #ffffff;
+  background: #181518;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 12px;
+  min-width: 260px;
+}
+
+.searchBox input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13.5px;
+  width: 100%;
+  color: #292528;
+  font-family: inherit;
+}
+
+.searchBox input::placeholder {
+  color: #a49a9f;
+}
+
+/* Decks Grid */
+.decksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.deckCard {
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  position: relative;
+}
+
+.deckCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(41, 37, 40, 0.05);
+  border-color: #c85f78;
+}
+
+.deckCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deckBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.badgeBasic {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.badgeAdvanced {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.badgeIntensive {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.deckTitle {
+  margin: 8px 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #292528;
+  line-height: 1.3;
+}
+
+.deckDesc {
+  margin: 0;
+  font-size: 13px;
+  color: #6f676c;
+  line-height: 1.4;
+}
+
+/* Progress Section in Card */
+.deckProgressBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f7f5f4;
+  border-radius: 12px;
+}
+
+.progressRingWrap {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.progressDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.progressDetailTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #292528;
+}
+
+.progressDetailSub {
+  font-size: 11.5px;
+  color: #6f676c;
+}
+
+/* Actions in Card */
+.deckActions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.btnStudy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #c85f78;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+  font-family: inherit;
+}
+
+.btnStudy:hover {
+  background: #ad4c64;
+}
+
+.btnView {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #292528;
+  background: #f7f5f4;
+  border: 1px solid #ded7da;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnView:hover {
+  background: #f2ecee;
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DECK DETAIL VIEW (YouPass Style)
+   ───────────────────────────────────────────────────────────── */
+.detailHeader {
+  margin-bottom: 24px;
+}
+
+.btnBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #6f676c;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 0;
+  margin-bottom: 14px;
+  transition: color 160ms ease;
+  font-family: inherit;
+}
+
+.btnBack:hover {
+  color: #c85f78;
+}
+
+.detailHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(41, 37, 40, 0.03);
+}
+
+.heroLeft {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.heroIconBox {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #f7e5ea;
+  color: #c85f78;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.heroTitle {
+  margin: 4px 0 2px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #292528;
+}
+
+.heroSubtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: #6f676c;
+}
+
+.heroRight {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.heroProgressStats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btnHeroStudy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #c85f78;
+  border: none;
+  border-radius: 26px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(200, 95, 120, 0.25);
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnHeroStudy:hover {
+  background: #ad4c64;
+  transform: translateY(-1px);
+}
+
+/* Detail Vocab Table */
+.vocabTableContainer {
+  margin-top: 24px;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(41, 37, 40, 0.02);
+}
+
+.vocabTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.vocabTable th {
+  padding: 14px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6f676c;
+  background: #f7f5f4;
+  border-bottom: 1px solid #ded7da;
+}
+
+.vocabTable td {
+  padding: 18px 20px;
+  font-size: 14px;
+  color: #292528;
+  border-bottom: 1px solid #f2ecee;
+  vertical-align: middle;
+}
+
+.vocabTable tr:last-child td {
+  border-bottom: none;
+}
+
+.vocabTable tr:hover {
+  background: #faf8f9;
+}
+
+.termCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.termRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.termWord {
+  font-size: 16px;
+  font-weight: 700;
+  color: #292528;
+}
+
+.btnAudio {
+  border: none;
+  background: transparent;
+  color: #6f676c;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: 6px;
+  transition: color 140ms ease;
+}
+
+.btnAudio:hover {
+  color: #c85f78;
+}
+
+.phoneticText {
+  font-size: 12px;
+  color: #6f676c;
+  font-family: ui-monospace, monospace;
+}
+
+.posTag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6f676c;
+  background: #f2ecee;
+  padding: 3px 10px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.meaningText {
+  font-weight: 500;
+  color: #292528;
+  line-height: 1.4;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusMastered {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.statusFamiliar {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.statusNotLearned {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.btnSaveNotebook {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #6f676c;
+  transition: all 160ms ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btnSaveNotebook:hover {
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+.btnSaved {
+  background: #f7e5ea;
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   STUDY SESSION PLAYER - FULL YOUPASS FLOW & 2-COLUMN LAYOUT
+   ───────────────────────────────────────────────────────────── */
+.sessionPlayerPage {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 0 40px;
+}
+
+.sessionTopNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.btnBackToDeck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #292528;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnBackToDeck:hover {
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+.btnSkipKnown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #6f676c;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnSkipKnown:hover {
+  color: #292528;
+  background: #f7f5f4;
+}
+
+/* Two-column layout */
+.sessionGrid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+@media (max-width: 860px) {
+  .sessionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Sidebar */
+.sessionSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebarCard {
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 18px;
+  padding: 18px 20px;
+}
+
+.sidebarTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 12px;
+}
+
+/* Segmented progress bar (10 dashes) */
+.dashBar {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+}
+
+.dash {
+  height: 5px;
+  border-radius: 4px;
+  background: #ebdbe2;
+  transition: background 200ms ease;
+}
+
+.dashActive {
+  background: #c85f78;
+}
+
+.dashDone {
+  background: #10b981;
+}
+
+/* Stepper items */
+.stepperList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #6f676c;
+  transition: all 160ms ease;
+}
+
+.stepItemActive {
+  background: #f7e5ea;
+  color: #c85f78;
+  font-weight: 700;
+}
+
+.stepItemDone {
+  color: #10b981;
+}
+
+.stepBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: #e5e5ea;
+  color: #6f676c;
+  flex-shrink: 0;
+}
+
+.stepItemActive .stepBadge {
+  background: #c85f78;
+  color: #ffffff;
+}
+
+.stepItemDone .stepBadge {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Mini Deck widget in sidebar */
+.miniDeckWidget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RIGHT CONTENT: STEP 1 - FLASHCARD (FRONT & BACK)
+   ───────────────────────────────────────────────────────────── */
+.mainCardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.flashcard {
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 22px;
+  padding: 36px 32px;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(41, 37, 40, 0.04);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  position: relative;
+}
+
+.flashcard:hover {
+  border-color: #c85f78;
+  box-shadow: 0 10px 30px rgba(200, 95, 120, 0.08);
+}
+
+.flashcardWordHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: auto 0;
+}
+
+.bigWord {
+  font-size: 40px;
+  font-weight: 800;
+  color: #292528;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.wordMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnAudioRound {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #f7e5ea;
+  color: #c85f78;
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.btnAudioRound:hover {
+  transform: scale(1.08);
+  background: #ebdbe2;
+}
+
+.cardFlipHint {
+  margin: 20px -32px -36px;
+  padding: 12px 20px;
+  background: #fbf5f7;
+  color: #8c8288;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom-left-radius: 22px;
+  border-bottom-right-radius: 22px;
+  border-top: 1px solid #f2ecee;
+}
+
+/* Flashcard Back Content */
+.backWordSmall {
+  font-size: 15px;
+  font-weight: 600;
+  color: #6f676c;
+  margin-bottom: 4px;
+}
+
+.backMeaningBig {
+  font-size: 26px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 18px;
+}
+
+.exampleBoxBilingual {
+  border-top: 1px solid #f2ecee;
+  padding-top: 16px;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.exEn {
+  font-size: 15px;
+  font-weight: 500;
+  color: #292528;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.exVi {
+  font-size: 13.5px;
+  color: #6f676c;
+  line-height: 1.4;
+}
+
+/* Target word highlight like YouPass (light green tag) */
+.highlight {
+  background: #e6f4ea;
+  color: #137333;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-weight: 700;
+}
+
+/* Sections below Card: Công thức, Collocations, Hiểu sâu, Họ từ */
+.detailSections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionHeader {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8c8288;
+}
+
+.chunkFormula {
+  font-size: 16px;
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+.collocWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.collocPill {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: #f2ecee;
+  color: #292528;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.deepExplainBox {
+  font-size: 13.5px;
+  color: #292528;
+  line-height: 1.5;
+}
+
+.wordFamilyList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.familyRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.familyRow strong {
+  font-weight: 700;
+  color: #292528;
+}
+
+.familyPos {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #ebdbe2;
+  color: #6f676c;
+}
+
+/* Bottom Action Bar */
+.bottomBarRight {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btnPrimaryLarge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  background: #c85f78;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(200, 95, 120, 0.25);
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnPrimaryLarge:hover {
+  background: #ad4c64;
+  transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RIGHT CONTENT: STEP 2 - CHÉP CHÍNH TẢ (DICTATION DRILL)
+   ───────────────────────────────────────────────────────────── */
+.drillContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drillCategoryLabel {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #c85f78;
+}
+
+.drillCard {
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 22px;
+  padding: 32px;
+  box-shadow: 0 6px 20px rgba(41, 37, 40, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.drillMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drillMeaning {
+  font-size: 18px;
+  font-weight: 800;
+  color: #292528;
+}
+
+.drillPrompt {
+  font-size: 14.5px;
+  color: #6f676c;
+  margin: 0;
+}
+
+.btnListenBig {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #fbf5f7;
+  color: #c85f78;
+  border: 1px solid #ebdbe2;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: fit-content;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnListenBig:hover {
+  background: #f7e5ea;
+  border-color: #c85f78;
+}
+
+.drillInputWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drillInput {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 16px;
+  color: #292528;
+  background: #ffffff;
+  border: 1.5px solid #ded7da;
+  border-radius: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.drillInput:focus {
+  border-color: #c85f78;
+  box-shadow: 0 0 0 3px rgba(200, 95, 120, 0.15);
+}
+
+.drillInputCorrect {
+  border-color: #10b981 !important;
+  background: #f0fdf4;
+}
+
+.drillInputIncorrect {
+  border-color: #ef4444 !important;
+  background: #fef2f2;
+}
+
+.btnHint {
+  font-size: 12.5px;
+  color: #6f676c;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  width: fit-content;
+  padding: 0;
+  font-family: inherit;
+}
+
+.btnHint:hover {
+  color: #c85f78;
+}
+
+.drillFeedbackBox {
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.feedbackCorrect {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.feedbackIncorrect {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CELEBRATION / SUMMARY SCREEN
+   ───────────────────────────────────────────────────────────── */
+.celebrationPage {
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #ded7da;
+  border-radius: 24px;
+  padding: 48px 32px;
+  max-width: 560px;
+  margin: 30px auto;
+  box-shadow: 0 10px 30px rgba(41, 37, 40, 0.05);
+}
+
+.celebrationIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #f7e5ea;
+  color: #c85f78;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+}
+
+.celebrationTitle {
+  font-size: 24px;
+  font-weight: 800;
+  color: #292528;
+  margin: 0 0 8px;
+}
+
+.celebrationDesc {
+  font-size: 14px;
+  color: #6f676c;
+  margin: 0 0 28px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.statCard {
+  background: #f7f5f4;
+  border-radius: 14px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statVal {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.statLbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6f676c;
+}
+
+.celebrationActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Tip & Word Family HTML styles */
+.tipContainer {
+  margin-top: 12px;
+  border-top: 1px solid #f2ecee;
+  padding-top: 14px;
+}
+
+.tipContainer :global(.tip-main) {
+  font-size: 13.5px;
+  color: #292528;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.tipContainer :global(.tip-fam-h) {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8c8288;
+  margin-bottom: 8px;
+}
+
+.tipContainer :global(.tip-fam-l) {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tipContainer :global(.tip-fam-l li) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #292528;
+}
+
+.tipContainer :global(.tip-fam-pos) {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f2ecee;
+  color: #c85f78;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BOTTOM FIXED SUCCESS BANNER (Matching YouPass Image 1)
+   ───────────────────────────────────────────────────────────── */
+.fixedSuccessBanner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #16a34a;
+  color: #ffffff;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  z-index: 1000;
+  box-shadow: 0 -8px 24px rgba(22, 163, 74, 0.25);
+  animation: slideUpBanner 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpBanner {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bannerLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 820px;
+}
+
+.bannerSpeakerBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: all 160ms ease;
+}
+
+.bannerSpeakerBtn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.05);
+}
+
+.bannerTextCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bannerTitleRow {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.bannerTitleWord {
+  font-size: 17px;
+  font-weight: 800;
+  margin-left: 6px;
+}
+
+.bannerMeaningRow {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.bannerExampleRow {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.92);
+  margin-top: 2px;
+}
+
+.bannerExampleRow strong {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.bannerExampleVi {
+  font-size: 13px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.bannerRight {
+  flex-shrink: 0;
+}
+
+.bannerBtnNext {
+  background: #ffffff;
+  color: #166534;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: all 180ms ease;
+  font-family: inherit;
+}
+
+.bannerBtnNext:hover {
+  background: #f0fdf4;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   STAGE 2 & 3: MULTI-STEP LEARNING WORKFLOW (Dịch câu & Viết câu)
+   ───────────────────────────────────────────────────────────── */
+.workflowStageContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stageHeaderSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f2ecee;
+}
+
+.stageTitleTag {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ea580c;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stageWordRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.stageWordText {
+  font-size: 22px;
+  font-weight: 800;
+  color: #292528;
+}
+
+.stageMeaningText {
+  font-size: 15px;
+  color: #6f676c;
+}
+
+.stageBookmarkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #ded7da;
+  background: #ffffff;
+  color: #6f676c;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.stageBookmarkBtn:hover {
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+.stageBookmarkBtnActive {
+  background: #fbf5f7;
+  border-color: #c85f78;
+  color: #c85f78;
+}
+
+/* Step 2 Prompt Box */
+.promptBoxTranslate {
+  background: #fff8f3;
+  border: 1.5px solid #fed7aa;
+  border-radius: 16px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.promptBoxLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a3412;
+}
+
+.promptViSentence {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.interactiveChunk {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 150ms ease;
+  border-bottom: 1.5px dashed #cbd5e1;
+}
+
+.interactiveChunk:hover {
+  background: #fef3c7;
+}
+
+.interactiveChunkHighlighted {
+  background: #dcfce7 !important;
+  color: #166534;
+  font-weight: 700;
+  border-bottom: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.chunkHoverTooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 50;
+  animation: fadeIn 150ms ease;
+}
+
+.chunkHoverTooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #1f2937 transparent transparent transparent;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.promptHelperCaption {
+  font-size: 13px;
+  color: #9a3412;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.difficultyToggleBtn {
+  align-self: flex-start;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ea580c;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  transition: color 150ms ease;
+}
+
+.difficultyToggleBtn:hover {
+  color: #9a3412;
+  text-decoration: underline;
+}
+
+/* Textarea for Translation / Write Own */
+.workflowTextarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 16px 18px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1f2937;
+  background: #ffffff;
+  border: 1.5px solid #ded7da;
+  border-radius: 14px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.workflowTextarea:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+/* Feedback & Review section for Step 2 */
+.modelAnswerBox {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #fed7aa;
+}
+
+.modelAnswerLabel {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a3412;
+  margin-bottom: 4px;
+}
+
+.modelAnswerText {
+  font-size: 16.5px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.modelAnswerText strong {
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.feedbackAlertYellow {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.userSentenceReviewCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewSectionLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.userSentenceDashedLine {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #1f2937;
+}
+
+.dashedMistakeItem {
+  position: relative;
+  display: inline-block;
+  border-bottom: 2px dashed #f59e0b;
+  color: #b45309;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.dashedMistakeItem:hover {
+  background: #fef3c7;
+}
+
+.mistakeTooltipBox {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-width: 220px;
+  max-width: 320px;
+  line-height: 1.4;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  z-index: 60;
+  white-space: normal;
+}
+
+.mistakeTooltipBox::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #111827 transparent transparent transparent;
+}
+
+.correctedSentenceText {
+  font-size: 16px;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.correctedSentenceText strong {
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Step 3: Viết câu của bạn specific boxes */
+.boxYourTurn {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.boxYourTurnLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.boxYourTurnTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.boxUseChunk {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.boxUseChunkLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ea580c;
+}
+
+.boxUseChunkFormula {
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #c2410c;
+}
+
+.btnHintIdea {
+  background: #ffffff;
+  color: #4b5563;
+  border: 1.5px solid #d1d5db;
+  border-radius: 9999px;
+  padding: 10px 20px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnHintIdea:hover {
+  border-color: #ea580c;
+  color: #ea580c;
+  background: #fff7ed;
+}
+
+.ideaDrawer {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 14px;
+  color: #92400e;
+  line-height: 1.5;
+  animation: fadeIn 180ms ease;
+}
+
+.btnOrangeCheck {
+  background: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 10px 26px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.25);
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnOrangeCheck:hover {
+  background: #c2410c;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+  transform: translateY(-1px);
+}
+
+.btnOutlineRewrite {
+  background: #ffffff;
+  color: #4b5563;
+  border: 1.5px solid #d1d5db;
+  border-radius: 9999px;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 160ms ease;
+  font-family: inherit;
+}
+
+.btnOutlineRewrite:hover {
+  border-color: #1f2937;
+  color: #1f2937;
+}
+
+.bottomActionRowWorkflow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
