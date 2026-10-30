@@ -47,7 +47,7 @@ type Props = {
   onRetry: () => void;
 };
 
-type LearningAttempt = Insights["attempts"][number];
+export type LearningAttempt = Insights["attempts"][number];
 type SortKey = "TIME" | "RESULT";
 type SortDirection = "asc" | "desc";
 
@@ -406,7 +406,7 @@ type SectionInfo = {
   total: number;
 };
 
-function AttemptReviewScreen({
+export function AttemptReviewScreen({
   studentId,
   item,
   attemptsList = [],

@@ -32,7 +32,6 @@ export function CourseEditModal({
     tuitionAmount: course.tuitionAmount != null ? String(course.tuitionAmount) : "",
     capacity: String(course.capacity),
     startsOn: course.startsOn,
-    endsOn: course.endsOn ?? "",
     status: course.status,
     defaultZoomUrl: course.defaultZoomUrl ?? "",
     isPublic: course.isPublic,
@@ -55,7 +54,6 @@ export function CourseEditModal({
       tuitionAmount: course.tuitionAmount != null ? String(course.tuitionAmount) : "",
       capacity: String(course.capacity),
       startsOn: course.startsOn,
-      endsOn: course.endsOn ?? "",
       status: course.status,
       defaultZoomUrl: course.defaultZoomUrl ?? "",
       isPublic: course.isPublic,
@@ -73,12 +71,6 @@ export function CourseEditModal({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-
-    // Frontend validation: endsOn >= startsOn
-    if (form.endsOn && form.endsOn < form.startsOn) {
-      setError("Ngày kết thúc không được trước ngày bắt đầu.");
-      return;
-    }
 
     if (form.coverImageUrl && !form.coverImageAltText.trim()) {
       setError("Vui lòng thêm mô tả thay thế cho ảnh minh họa khóa học.");
@@ -110,7 +102,6 @@ export function CourseEditModal({
           tuitionAmount: form.tuitionAmount ? Number(form.tuitionAmount) : null,
           capacity: newCapacity,
           startsOn: form.startsOn,
-          endsOn: form.endsOn || null,
           status: form.status,
           defaultZoomUrl: form.defaultZoomUrl ? form.defaultZoomUrl.trim() : null,
           isPublic: form.isPublic,
@@ -238,15 +229,9 @@ export function CourseEditModal({
               onChange={(e) => field("startsOn")(e.target.value)}
             />
           </Field>
-
-          {/* Ngày kết thúc */}
-          <Field label="Ngày kết thúc dự kiến">
-            <input
-              type="date"
-              value={form.endsOn}
-              onChange={(e) => field("endsOn")(e.target.value)}
-            />
-          </Field>
+          <p className="sm:col-span-2 -mt-2 text-xs text-on-surface-variant">
+            Ngày kết thúc được cập nhật tự động theo session cuối cùng.
+          </p>
 
           {/* Số session */}
           <Field label="Tổng số buổi học (sessions) *">

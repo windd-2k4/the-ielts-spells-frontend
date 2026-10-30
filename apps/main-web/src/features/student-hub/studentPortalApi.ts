@@ -101,6 +101,7 @@ export interface StudentPortalSession {
 export interface StudentPortalAttempt {
   attemptId: string;
   assignmentId: string | null;
+  attemptOrigin: "ASSIGNMENT" | "SELF_PRACTICE";
   title: string;
   skill: "READING" | "LISTENING" | "WRITING" | "SPEAKING" | string;
   status: StudentAttemptStatus;
@@ -529,10 +530,11 @@ export function updateStudentProgressSummary(
   attemptId: string,
   durationSeconds: number | null,
   comprehensionPercent: number | null,
+  errorAnalysis: string | null = null,
 ) {
   return apiFetch<void>(`/student/portal/courses/${courseId}/progress/${attemptId}/summary`, {
     method: "PATCH",
-    body: JSON.stringify({ durationSeconds, comprehensionPercent }),
+    body: JSON.stringify({ durationSeconds, comprehensionPercent, errorAnalysis }),
   });
 }
 

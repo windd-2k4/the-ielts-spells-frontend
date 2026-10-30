@@ -856,7 +856,6 @@ function CourseDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           tuitionAmount: form.tuitionAmount ? Number(form.tuitionAmount) : null,
           capacity: Number(form.capacity),
           startsOn: form.startsOn,
-          endsOn: form.endsOn || null,
           status: form.status,
           defaultZoomUrl: form.defaultZoomUrl || null,
           isPublic: form.isPublic,
@@ -911,7 +910,7 @@ function CourseDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () =
             </select>
           </Field>
           <Field label="Ngày bắt đầu"><input required type="date" value={form.startsOn} onChange={e => field("startsOn")(e.target.value)} /></Field>
-          <Field label="Ngày kết thúc"><input type="date" value={form.endsOn} onChange={e => field("endsOn")(e.target.value)} /></Field>
+          <p className="sm:col-span-2 -mt-2 text-xs text-on-surface-variant">Ngày kết thúc được cập nhật tự động theo session cuối cùng.</p>
           <Field label="Số session"><input required min="1" type="number" value={form.totalSessions} onChange={e => field("totalSessions")(e.target.value)} /></Field>
           <Field label="Sĩ số tối đa"><input required min="1" type="number" value={form.capacity} onChange={e => field("capacity")(e.target.value)} /></Field>
           <Field label="Band mục tiêu"><input min="0" max="9" step="0.5" type="number" value={form.targetBand} onChange={e => field("targetBand")(e.target.value)} /></Field>
@@ -1043,9 +1042,9 @@ function Workspace() {
                 {course.status === "CANCELLED" ? <X size={16} weight="bold" /> : course.status === "OPEN" ? <Target size={16} weight="fill" /> : <CheckCircle size={16} weight="fill" />}
               </span>
               <div className="hidden shrink-0 items-center text-xs font-bold tabular-nums text-on-surface-variant sm:flex">
-                <span aria-label={`Thời gian: ${date(course.startsOn)} đến ${date(course.endsOn)}`} title="Thời gian khóa học" className="hidden h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary lg:flex">
+                <span aria-label={`Bắt đầu: ${date(course.startsOn)}; kết thúc theo session cuối`} title="Thời gian khóa học" className="hidden h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary lg:flex">
                   <CalendarBlank size={16} />
-                  {date(course.startsOn)}–{date(course.endsOn)}
+                  {date(course.startsOn)}–{course.endsOn ? date(course.endsOn) : "Theo session cuối"}
                 </span>
                 <span aria-label={`Sĩ số: ${roster.length} trên ${course.capacity} học viên`} title="Sĩ số học viên" className="flex h-8 items-center gap-1 rounded-lg px-1.5 hover:bg-surface-container-high hover:text-primary">
                   <UsersThree size={16} />
@@ -1128,7 +1127,7 @@ function Workspace() {
       {activeTab === "schedule" && <CourseSchedule courseId={course.id} skillPair={course.skillPair} initialSessions={sessions.length ? sessions : undefined} />}
       {activeTab === "students" && <CourseStudents courseId={course.id} skillPair={course.skillPair} roster={roster} onSelectStudent={canManageCourse ? openStudentProfile : undefined} onRosterChanged={load} />}
       {activeTab === "attendance" && <CourseAttendance courseId={course.id} roster={roster} onSelectStudent={canManageCourse ? openStudentProfile : undefined} onEnrollmentUpdated={updated => setEnrollments(current => current.map(item => item.id === updated.id ? updated : item))} />}
-      {activeTab === "progress" && <CourseProgress courseId={course.id} skillPair={course.skillPair} roster={roster} initialSessions={sessions.length ? sessions : undefined} onSelectStudent={canManageCourse ? openStudentProfile : undefined} />}
+      {activeTab === "progress" && <CourseProgress courseId={course.id} courseCode={course.code} courseName={course.name} skillPair={course.skillPair} roster={roster} initialSessions={sessions.length ? sessions : undefined} onSelectStudent={canManageCourse ? openStudentProfile : undefined} />}
       {activeTab === "matrix" && <CourseMatrix courseId={course.id} roster={roster} />}
       {activeTab === "library" && <CourseLibrary courseId={course.id} />}
 

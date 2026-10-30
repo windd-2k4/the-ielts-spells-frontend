@@ -28,6 +28,7 @@ import type {
   ReadingAssignmentMode,
   TestAssignment,
 } from "@ielts/contracts";
+import { UNLIMITED_ASSIGNMENT_ATTEMPTS, hasUnlimitedAssignmentAttempts } from "@ielts/contracts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
@@ -51,7 +52,7 @@ const initialComposer: ComposerState = {
   mode: "PRACTICE",
   opensAt: "",
   closesAt: "",
-  maxAttempts: "1",
+  maxAttempts: String(UNLIMITED_ASSIGNMENT_ATTEMPTS),
   durationMinutes: "60",
   showResultAfterSubmit: true,
 };
@@ -486,8 +487,8 @@ export function TestAssignmentWorkspace() {
     if (!selectedTest?.publishedVersion)
       return `Vui lòng chọn một đề ${skillLabel(skill)} đã xuất bản.`;
     const maxAttempts = Number(composer.maxAttempts);
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
-      return "Số lượt làm phải từ 1 đến 10.";
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > UNLIMITED_ASSIGNMENT_ATTEMPTS) {
+      return "Số lượt làm không hợp lệ.";
     }
     const durationMinutes = Number(composer.durationMinutes);
     if (
@@ -887,7 +888,7 @@ export function TestAssignmentWorkspace() {
                             {/* Row 3: Meta details */}
                             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-on-surface-variant">
                               <span>
-                                {shortDateLabel(course.startsOn)} - {shortDateLabel(course.endsOn)}
+                                {shortDateLabel(course.startsOn)} - {course.endsOn ? shortDateLabel(course.endsOn) : "Theo session cuối"}
                               </span>
                               <span>•</span>
                               <span className="font-semibold">{course.totalSessions} buổi</span>
@@ -1369,14 +1370,14 @@ export function TestAssignmentWorkspace() {
                 <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
                   Số lượt làm
                 </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
+                <select
                   value={composer.maxAttempts}
                   onChange={(e) => setComposer((c) => ({ ...c, maxAttempts: e.target.value }))}
                   className="h-8.5 w-full rounded-lg border border-outline-variant/60 bg-surface px-2.5 text-xs font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-                />
+                >
+                  <option value={UNLIMITED_ASSIGNMENT_ATTEMPTS}>Không giới hạn</option>
+                  {[1, 2, 3, 5, 10].map((attempts) => <option key={attempts} value={attempts}>{attempts} lượt</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
@@ -1578,7 +1579,7 @@ export function TestAssignmentWorkspace() {
 
                     {/* Config */}
                     <td className="px-3 py-2.5 text-[11px] text-on-surface-variant leading-relaxed">
-                      <div><strong className="text-on-surface">{item.maxAttempts}</strong> lượt làm</div>
+                      <div><strong className="text-on-surface">{hasUnlimitedAssignmentAttempts(item.maxAttempts) ? "Không giới hạn" : item.maxAttempts}</strong>{hasUnlimitedAssignmentAttempts(item.maxAttempts) ? "" : " lượt làm"}</div>
                       <div>
                         {item.durationSeconds
                           ? `${Math.round(item.durationSeconds / 60)} phút`

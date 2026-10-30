@@ -423,7 +423,7 @@ export default function CourseEnrollmentModal({
                   <h4 className="mt-3 font-display text-lg font-bold text-on-surface">{course.name}</h4>
                   <p className="mt-1 text-sm font-semibold text-primary">{course.code}</p>
                   <dl className="mt-5 space-y-4 text-sm">
-                    <div className="flex items-start gap-3"><CalendarBlank className="mt-0.5 shrink-0 text-outline" size={18} /><div><dt className="text-xs text-on-surface-variant">Thời gian</dt><dd className="mt-1 font-semibold">{date(course.startsOn)} - {date(course.endsOn)}</dd></div></div>
+                    <div className="flex items-start gap-3"><CalendarBlank className="mt-0.5 shrink-0 text-outline" size={18} /><div><dt className="text-xs text-on-surface-variant">Thời gian</dt><dd className="mt-1 font-semibold">{date(course.startsOn)} - {course.endsOn ? date(course.endsOn) : "Theo session cuối"}</dd></div></div>
                     <div className="flex items-start gap-3"><UsersThree className="mt-0.5 shrink-0 text-outline" size={18} /><div><dt className="text-xs text-on-surface-variant">Sĩ số</dt><dd className="mt-1 font-semibold tabular-nums">{occupied}/{course.capacity}, còn {seatsLeft} chỗ</dd></div></div>
                     <div className="flex items-start gap-3"><UserPlus className="mt-0.5 shrink-0 text-outline" size={18} /><div><dt className="text-xs text-on-surface-variant">Cặp kỹ năng</dt><dd className="mt-1 font-semibold">{skillPairLabel[course.skillPair]}</dd></div></div>
                   </dl>

@@ -77,6 +77,14 @@ export interface StudentPracticeCatalogItem {
 
 export type ReadingAssignmentMode = "PRACTICE" | "EXAM";
 
+// PostgreSQL SMALLINT sentinel used by assignment delivery for an unlimited
+// number of attempts. Keeping the transport numeric preserves existing APIs.
+export const UNLIMITED_ASSIGNMENT_ATTEMPTS = 32_767;
+
+export function hasUnlimitedAssignmentAttempts(maxAttempts: number) {
+  return maxAttempts >= UNLIMITED_ASSIGNMENT_ATTEMPTS;
+}
+
 export interface TestAssignment {
   id: string;
   testId: string;
@@ -138,6 +146,7 @@ export interface StudentReadingAssignment {
   versionLabel: string;
   courseId: string;
   courseName: string;
+  classActivityId: string | null;
   sessionId: string | null;
   sessionNo: number | null;
   sessionTitle: string | null;
@@ -249,6 +258,9 @@ export interface SaveReadingAnnotationRequest {
 export interface StudentReadingAttempt {
   attemptId: string;
   assignmentId: string | null;
+  courseId: string | null;
+  classActivityId: string | null;
+  attemptOrigin: "ASSIGNMENT" | "SELF_PRACTICE";
   testVersionId: string;
   status: ReadingAttemptStatus;
   startedAt: string;
@@ -420,6 +432,7 @@ export interface ReadingQuestionSolution {
 export interface ReadingAttemptResult {
   attemptId: string;
   status: Exclude<ReadingAttemptStatus, "IN_PROGRESS">;
+  attemptOrigin: "ASSIGNMENT" | "SELF_PRACTICE";
   submittedAt: string | null;
   expiresAt: string;
   autoScore: number | null;

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpenText, ArrowRight, Clock, CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
+import { BookOpenText, ArrowRight, Clock, CheckCircle, CircleNotch, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { getReadingAssignments, startOrResumeReadingAttempt } from "@/features/reading/readingApi";
 import { getWritingAssignments, startOrResumeWritingAssignment } from "@/features/writing/writingApi";
 import { getSpeakingAssignments, startOrResumeSpeakingAssignment } from "@/features/speaking/speakingApi";
 import type { StudentReadingAssignment } from "@ielts/contracts";
 import { StudentEmptyState } from "@/features/student-hub/StudentEmptyState";
-import { getStudentPortalOverview, type StudentCourseAssignment } from "@/features/student-hub/studentPortalApi";
+import { getStudentPortalOverview, uploadStudentProgressEvidence, type StudentCourseAssignment } from "@/features/student-hub/studentPortalApi";
 
 type LegacyAssignment = StudentReadingAssignment & {
   kind: "TEST";
@@ -22,7 +22,9 @@ export default function StudentAssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [startingId, setStartingId] = useState("");
+  const [uploadingId, setUploadingId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -85,6 +87,24 @@ export default function StudentAssignmentsPage() {
     }
   }
 
+  async function uploadEvidence(item: AssignmentItem, file: File) {
+    if (!item.classActivityId) {
+      setError("Bài được giao chưa được liên kết với tiến độ session. Vui lòng báo giáo viên cập nhật assignment.");
+      return;
+    }
+    setUploadingId(item.assignmentId);
+    setError("");
+    setNotice("");
+    try {
+      await uploadStudentProgressEvidence(item.courseId, item.classActivityId, file);
+      setNotice(`Đã nộp minh chứng cho “${item.title}”. Giáo viên có thể xem trong báo cáo tiến độ.`);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Không thể nộp minh chứng.");
+    } finally {
+      setUploadingId("");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -100,6 +120,12 @@ export default function StudentAssignmentsPage() {
       {error ? (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
           <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />{error}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+          <CheckCircle size={20} weight="fill" className="mt-0.5 shrink-0" />{notice}
         </div>
       ) : null}
 
@@ -158,7 +184,22 @@ export default function StudentAssignmentsPage() {
                   {isCourse && item.lockReason ? <p className="flex items-center gap-1 text-[11px] font-semibold text-amber-700"><WarningCircle size={14} />{item.lockReason}</p> : null}
                 </div>
 
-                <div className="pt-2 border-t border-[#F3E8C4] flex items-center justify-end">
+                <div className="pt-2 border-t border-[#F3E8C4] flex flex-wrap items-center justify-end gap-2">
+                  <label className={`flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-[#D8BCC5] bg-white px-4 py-2 text-xs font-extrabold text-[#894C5B] transition hover:bg-[#FAEEF2] ${uploadingId === item.assignmentId || !item.classActivityId ? "pointer-events-none opacity-55" : ""}`}>
+                    {uploadingId === item.assignmentId ? <CircleNotch size={16} className="animate-spin" /> : <UploadSimple size={16} />}
+                    <span>{uploadingId === item.assignmentId ? "Đang tải ảnh" : "Nộp minh chứng"}</span>
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={uploadingId === item.assignmentId || !item.classActivityId}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadEvidence(item, file);
+                        event.target.value = "";
+                      }}
+                    />
+                  </label>
                   <button type="button" disabled={startingId === item.assignmentId || (isSubmitted && !isCourse)}
                     onClick={() => void openAssignment(item)}
                     className="flex min-h-11 items-center gap-1.5 rounded-xl bg-[#894C5B] px-4 py-2 text-xs font-extrabold text-white shadow-xs transition-all hover:bg-[#723c4a] focus:outline-none focus:ring-2 focus:ring-[#C85F78] disabled:cursor-not-allowed disabled:opacity-55">

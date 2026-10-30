@@ -74,6 +74,36 @@
 }
 
 .assignmentLink { margin-top: 12px; background: #994b62; color: white; text-decoration: none; }
+.reviewLink {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  border: 1px solid #d8bcc5;
+  border-radius: 10px;
+  background: #fff7f9;
+  padding: 0 12px;
+  color: #8f4458;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+.reviewLink:hover { background: #faeef2; }
+.reviewReminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  border: 1px solid #edca83;
+  border-radius: 10px;
+  background: #fff8e8;
+  padding: 9px 10px;
+  color: #775313;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.reviewReminder svg { flex: 0 0 auto; margin-top: 1px; }
 .evidenceButton { margin-top: 8px; border: 1px solid #d8bcc5; background: #fff; color: #8f4458; }
 .evidenceButton:hover, .saveButton:hover { background: #faeef2; }
 .evidenceButton:disabled, .saveButton:disabled { cursor: wait; opacity: .55; }

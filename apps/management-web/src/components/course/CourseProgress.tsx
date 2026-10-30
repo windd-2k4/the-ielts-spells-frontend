@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen, Check, CheckSquare, Clock, Ear, Gear, ImageSquare, LockKey, MagnifyingGlass,
-  Microphone, Pencil, Square, Trash, WarningCircle, X,
+  Microphone, PaperPlaneTilt, Pencil, Plus, Square, Trash, WarningCircle, X,
 } from "@phosphor-icons/react";
 import { useSearchParams } from "react-router-dom";
 import type {
-  ActivityAttempt, ActivityChecklistItem, ClassActivityProgress, ClassSession, SkillPair,
+  ActivityAttempt, ActivityChecklistItem, ClassActivityProgress, ClassSession, Page, SkillPair,
 } from "../../academic-types";
+import { UNLIMITED_ASSIGNMENT_ATTEMPTS } from "@ielts/contracts";
+import type { TestBankSummary } from "../../library-types";
 import { apiFetch, apiMediaUrl, revokeMediaUrl } from "../../lib/api";
+import { AttemptReviewScreen, type LearningAttempt } from "../student/StudentLearningInsights";
+import AuthenticatedMediaImage from "../test-builder/AuthenticatedMediaImage";
 
 interface StudentSummary {
   id: string;
@@ -77,38 +81,6 @@ type TestAttemptSummary = {
   incorrectCount: number;
   unansweredCount: number;
 };
-type TestAttemptReview = {
-  attempt: TestAttemptSummary;
-  attemptHistory: TestAttemptSummary[];
-  attemptPayload: {
-    status: string;
-    startedAt: string;
-    expiresAt: string;
-    sections: TestAttemptSection[];
-    responses: { questionKey: string; answer: Record<string, unknown>; answeredAt: string }[];
-  };
-  result: {
-    submittedAt: string | null;
-    autoScore: number | null;
-    maxScore: number;
-    correctCount: number;
-    incorrectCount: number;
-    unansweredCount: number;
-    questions: TestQuestionResult[];
-  } | null;
-  reviews: TestAttemptQuestionReview[];
-};
-type TestAttemptQuestionReview = {
-  attemptId: string;
-  questionKey: string;
-  reasonCode: string;
-  note: string | null;
-  needsRetry: boolean;
-  vocabularyTerm: string | null;
-  vocabularyMeaning: string | null;
-  reviewedAt: string;
-  updatedAt: string;
-};
 type TestAttemptInsights = {
   questionTypes: { type: string; wrongCount: number; answeredCount: number; reviewedCount: number }[];
   reasons: { reasonCode: string; count: number }[];
@@ -119,26 +91,14 @@ type TestAttemptInsights = {
 type TestMatrixStatus = "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED" | "LOW_SCORE";
 type TestMatrixAssignment = { id: string; title: string; versionLabel: string; activity: ClassActivityProgress | null };
 type TestMatrixCell = { status: TestMatrixStatus; attempt: TestAttemptSummary | null };
-type TestAttemptSection = {
-  sectionNo: number;
-  title: string;
-  contentHtml: string;
-  audioUrl?: string;
-  audioFilename?: string;
-  audioDurationSeconds?: number;
-  questionGroups?: { title: string; answerConfig?: Record<string, unknown> }[];
-};
-type TestQuestionResult = {
-  questionKey: string;
-  questionNo: number;
-  answer: Record<string, unknown>;
-  answered: boolean;
-  correct: boolean | null;
-  score: number;
-  maxScore: number;
-  correctAnswers: string[];
-  explanation: string | null;
-  solution?: { explanation: string | null; reasoningSteps: string[]; trapAnalysis: string | null; vocabularyNotes: string | null } | null;
+type TestAssignmentDraft = {
+  testIds: string[];
+  mode: "PRACTICE" | "EXAM";
+  opensAt: string;
+  closesAt: string;
+  maxAttempts: string;
+  durationMinutes: string;
+  showResultAfterSubmit: boolean;
 };
 
 const WRITING_RUBRIC = [
@@ -180,6 +140,8 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
 
 interface CourseProgressProps {
   courseId: string;
+  courseCode?: string;
+  courseName?: string;
   skillPair: SkillPair;
   roster: Roster;
   initialSessions?: ClassSession[];
@@ -228,6 +190,29 @@ function ieltsBand(attempt: TestAttemptSummary) {
   return 2;
 }
 
+function asLearningAttempt(attempt: TestAttemptSummary): LearningAttempt {
+  const answered = attempt.correctCount + attempt.incorrectCount;
+  return {
+    id: attempt.attemptId,
+    title: attempt.testTitle,
+    skill: attempt.skill,
+    status: attempt.status,
+    origin: "ASSIGNMENT",
+    courseCode: null,
+    courseName: null,
+    attemptNo: attempt.attemptNo,
+    startedAt: attempt.startedAt,
+    submittedAt: attempt.submittedAt,
+    lastActivityAt: attempt.submittedAt ?? attempt.startedAt,
+    score: attempt.score,
+    maxScore: attempt.maxScore,
+    correctCount: attempt.correctCount,
+    incorrectCount: attempt.incorrectCount,
+    unansweredCount: attempt.unansweredCount,
+    accuracy: answered ? Math.round(attempt.correctCount / answered * 100) : null,
+  };
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("vi-VN", {
@@ -254,12 +239,6 @@ function downloadCsv(filename: string, rows: unknown[][]) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function sectionTimestamps(section: TestAttemptSection) {
-  return Array.from(new Set((section.questionGroups ?? [])
-    .map((group) => group.answerConfig?.linkedAudioTimestamp)
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)));
 }
 
 function dateTimeLocal(value: string | null | undefined) {
@@ -437,7 +416,7 @@ function TestAttemptMatrix({
   );
 }
 
-export default function CourseProgress({ courseId, skillPair, roster, initialSessions, onSelectStudent }: CourseProgressProps) {
+export default function CourseProgress({ courseId, courseCode, courseName, skillPair, roster, initialSessions, onSelectStudent }: CourseProgressProps) {
   const skillTabs = skillPair === "LISTENING_READING"
     ? ([{ id: "LISTENING", label: "Listening", icon: Ear }, { id: "READING", label: "Reading", icon: BookOpen }] as const)
     : ([{ id: "SPEAKING", label: "Speaking", icon: Microphone }, { id: "WRITING", label: "Writing", icon: Pencil }] as const);
@@ -493,10 +472,24 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
   const [testReminderTarget, setTestReminderTarget] = useState<{ assignmentId: string; title: string; studentIds: string[] } | null>(null);
   const [testReminderMessage, setTestReminderMessage] = useState("");
   const [testReminderSaving, setTestReminderSaving] = useState(false);
-  const [testViewerStudent, setTestViewerStudent] = useState<StudentSummary | null>(null);
-  const [testViewerDetail, setTestViewerDetail] = useState<TestAttemptReview | null>(null);
+  const [testViewerAttempt, setTestViewerAttempt] = useState<TestAttemptSummary | null>(null);
   const [testViewerLoading, setTestViewerLoading] = useState(false);
-  const [testViewerDetailLoading, setTestViewerDetailLoading] = useState(false);
+  const [progressReloadKey, setProgressReloadKey] = useState(0);
+  const [activityCreatorOpen, setActivityCreatorOpen] = useState(false);
+  const [activityTitle, setActivityTitle] = useState("");
+  const [activityDueAt, setActivityDueAt] = useState("");
+  const [activitySaving, setActivitySaving] = useState(false);
+  const [testReloadKey, setTestReloadKey] = useState(0);
+  const [testAssignmentTarget, setTestAssignmentTarget] = useState<ClassActivityProgress | null>(null);
+  const [publishedTests, setPublishedTests] = useState<TestBankSummary[]>([]);
+  const [testAssignmentLoading, setTestAssignmentLoading] = useState(false);
+  const [testAssignmentSaving, setTestAssignmentSaving] = useState(false);
+  const [testAssignmentDraft, setTestAssignmentDraft] = useState<TestAssignmentDraft | null>(null);
+  const [testAssignmentError, setTestAssignmentError] = useState("");
+  const [testAssignmentQuery, setTestAssignmentQuery] = useState("");
+  const [testAssignmentFormat, setTestAssignmentFormat] = useState<"ALL" | "SINGLE" | "FULL">("ALL");
+  const [testAssignmentStep, setTestAssignmentStep] = useState<"SELECT" | "CONFIG">("SELECT");
+  const [testAssignmentView, setTestAssignmentView] = useState<"LIST" | "GRID">("GRID");
 
   useEffect(() => {
     let cancelled = false;
@@ -532,7 +525,7 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [courseId, selectedSessionId, selectedSkill]);
+  }, [courseId, selectedSessionId, selectedSkill, progressReloadKey]);
 
   useEffect(() => {
     if (!selectedSessionId) {
@@ -557,32 +550,16 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
       })
       .finally(() => { if (!cancelled) setTestViewerLoading(false); });
     return () => { cancelled = true; };
-  }, [courseId, selectedSessionId, selectedSkill]);
+  }, [courseId, selectedSessionId, selectedSkill, testReloadKey]);
 
   useEffect(() => setSelectedSkill(current => skillTabs.some(tab => tab.id === current) ? current : skillTabs[0].id), [skillPair]);
 
-  async function loadTestAttemptDetail(summary: TestAttemptSummary) {
-    setTestViewerDetailLoading(true);
-    try {
-      setTestViewerDetail(await apiFetch<TestAttemptReview>(`/admin/courses/${courseId}/test-attempts/${summary.attemptId}`));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể tải chi tiết bài làm.");
-    } finally {
-      setTestViewerDetailLoading(false);
-    }
-  }
-
   function openTestViewer(student: StudentSummary) {
-    const attempts = testAttempts.filter((item) => item.studentId === student.id);
-    setTestViewerStudent(student);
-    setTestViewerDetail(null);
-    if (attempts[0]) void loadTestAttemptDetail(attempts[0]);
+    setTestViewerAttempt(testAttempts.find((item) => item.studentId === student.id) ?? null);
   }
 
-  function openTestViewerAttempt(student: StudentSummary, attempt: TestAttemptSummary) {
-    setTestViewerStudent(student);
-    setTestViewerDetail(null);
-    void loadTestAttemptDetail(attempt);
+  function openTestViewerAttempt(_student: StudentSummary, attempt: TestAttemptSummary) {
+    setTestViewerAttempt(attempt);
   }
 
   function openTestReminder(assignment: TestMatrixAssignment, studentIds: string[]) {
@@ -614,11 +591,6 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
     } finally {
       setTestReminderSaving(false);
     }
-  }
-
-  function answerLabel(answer: Record<string, unknown>) {
-    const values = Object.values(answer).filter((value) => value != null && value !== "");
-    return values.length ? values.map((value) => typeof value === "string" ? value : JSON.stringify(value)).join(", ") : "Bỏ trống";
   }
 
   async function createAssignment(activity: ClassActivityProgress) {
@@ -934,9 +906,136 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
   }
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId);
+
+  function openActivityCreator() {
+    if (!selectedSession) return;
+    setActivityTitle(`${selectedSkill === "LISTENING" ? "Listening" : selectedSkill === "READING" ? "Reading" : selectedSkill === "WRITING" ? "Writing" : "Speaking"} · ${selectedSession.title || `Session ${selectedSession.sessionNo}`}`);
+    setActivityDueAt(dateTimeLocal(selectedSession.endsAt));
+    setActivityCreatorOpen(true);
+    setError("");
+  }
+
+  async function createDirectActivity() {
+    if (!selectedSessionId || !activityTitle.trim()) return;
+    setActivitySaving(true);
+    setError("");
+    try {
+      await apiFetch(`/admin/courses/${courseId}/progress/activities`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: selectedSessionId,
+          title: activityTitle.trim(),
+          skill: selectedSkill,
+          dueAt: isoDateTime(activityDueAt),
+        }),
+      });
+      setActivityCreatorOpen(false);
+      setNotice(`Đã thêm activity “${activityTitle.trim()}” vào Session ${selectedSession?.sessionNo || ""}.`);
+      setQueueFilter("ALL");
+      setProgressReloadKey((value) => value + 1);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể thêm activity vào session.");
+    } finally {
+      setActivitySaving(false);
+    }
+  }
+
+  async function openTestAssignment(activity: ClassActivityProgress) {
+    const now = new Date();
+    const opensAt = activity.opensAt && new Date(activity.opensAt) > now ? new Date(activity.opensAt) : now;
+    const requestedClose = activity.dueAt ? new Date(activity.dueAt) : null;
+    const closesAt = requestedClose && requestedClose > opensAt
+      ? requestedClose
+      : new Date(opensAt.getTime() + 2 * 24 * 60 * 60 * 1000);
+    setTestAssignmentTarget(activity);
+    setTestAssignmentError("");
+    setTestAssignmentQuery("");
+    setTestAssignmentFormat("ALL");
+    setTestAssignmentStep("SELECT");
+    setTestAssignmentView("GRID");
+    setPublishedTests([]);
+    setTestAssignmentDraft({
+      testIds: [],
+      mode: "PRACTICE",
+      opensAt: dateTimeLocal(opensAt.toISOString()),
+      closesAt: dateTimeLocal(closesAt.toISOString()),
+      maxAttempts: String(UNLIMITED_ASSIGNMENT_ATTEMPTS),
+      durationMinutes: "",
+      showResultAfterSubmit: true,
+    });
+    setTestAssignmentLoading(true);
+    setError("");
+    try {
+      const page = await apiFetch<Page<TestBankSummary>>(`/admin/test-bank?status=PUBLISHED&skill=${activity.skill}&size=100`);
+      setPublishedTests(page.content.filter((test) => test.skill === activity.skill && test.publishedVersion));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể tải danh sách đề đã xuất bản.");
+      setTestAssignmentTarget(null);
+    } finally {
+      setTestAssignmentLoading(false);
+    }
+  }
+
+  async function submitTestAssignment() {
+    if (!testAssignmentTarget || !testAssignmentDraft) return;
+    const tests = publishedTests.filter((item) => testAssignmentDraft.testIds.includes(item.id) && item.publishedVersion);
+    if (!tests.length) return;
+    if (testAssignmentDraft.opensAt && testAssignmentDraft.closesAt
+      && new Date(testAssignmentDraft.closesAt) <= new Date(testAssignmentDraft.opensAt)) {
+      setTestAssignmentError("Thời điểm đóng bài phải sau thời điểm mở bài.");
+      return;
+    }
+    setTestAssignmentSaving(true);
+    setTestAssignmentError("");
+    try {
+      const results = await Promise.allSettled(tests.map((test) => apiFetch("/admin/test-assignments", {
+        method: "POST",
+        body: JSON.stringify({
+          testVersionId: test.publishedVersion!.id,
+          courseId,
+          sessionId: testAssignmentTarget.sessionId,
+          opensAt: isoDateTime(testAssignmentDraft.opensAt),
+          closesAt: isoDateTime(testAssignmentDraft.closesAt),
+          maxAttempts: Number(testAssignmentDraft.maxAttempts) || 1,
+          mode: testAssignmentDraft.mode,
+          durationSeconds: (Number(testAssignmentDraft.durationMinutes) || test.durationMinutes || 60) * 60,
+          showResultAfterSubmit: testAssignmentDraft.showResultAfterSubmit,
+        }),
+      })));
+      const failedIds = tests.filter((_, index) => results[index].status === "rejected").map((test) => test.id);
+      const successCount = tests.length - failedIds.length;
+      if (successCount) {
+        setNotice(`Đã giao ${successCount} đề cho Session ${selectedSession?.sessionNo || ""}.`);
+        setQueueFilter("ALL");
+        setProgressReloadKey((value) => value + 1);
+        setTestReloadKey((value) => value + 1);
+      }
+      if (failedIds.length) {
+        setTestAssignmentDraft((current) => current && { ...current, testIds: failedIds });
+        setTestAssignmentError(`${failedIds.length} đề chưa giao được, thường do đề đã được giao trước đó cho khóa học này.`);
+      } else {
+        setTestAssignmentTarget(null);
+      }
+    } finally {
+      setTestAssignmentSaving(false);
+    }
+  }
+
   const activities = useMemo(() => progress.filter((activity) => (
     activity.skill === selectedSkill && activity.sessionId === selectedSessionId
   )), [progress, selectedSessionId, selectedSkill]);
+  const filteredPublishedTests = useMemo(() => {
+    const query = testAssignmentQuery.trim().toLocaleLowerCase("vi");
+    return publishedTests.filter((test) => {
+      const fullTest = test.testType === "FULL_TEST" || test.sectionsCount > 1;
+      if (testAssignmentFormat === "FULL" && !fullTest) return false;
+      if (testAssignmentFormat === "SINGLE" && fullTest) return false;
+      return !query || `${test.code} ${test.title} ${test.tags?.join(" ") || ""}`.toLocaleLowerCase("vi").includes(query);
+    });
+  }, [publishedTests, testAssignmentFormat, testAssignmentQuery]);
+  const selectedPublishedTests = useMemo(() => publishedTests.filter((test) => (
+    testAssignmentDraft?.testIds.includes(test.id)
+  )), [publishedTests, testAssignmentDraft?.testIds]);
   const visibleActivities = useMemo(() => queueFilter === "ALL"
     ? activities
     : activities.filter((activity) => hasQueueStatus(activity, queueFilter)), [activities, queueFilter]);
@@ -1073,6 +1172,7 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lọc hoạt động cần xử lý">
           {([["ALL", "Tất cả", activities.length], ["PENDING", "Chờ chấm", pendingQueueCount], ["REVISION", "Cần sửa", revisionQueueCount]] as const).map(([value, label, count]) => <button key={value} type="button" aria-pressed={queueFilter === value} onClick={() => setQueueFilter(value)} className={"inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-bold transition " + (queueFilter === value ? "border-primary bg-primary text-on-primary" : "border-outline-variant/50 text-on-surface-variant hover:border-primary/40 hover:text-primary")}>{label}<span className={queueFilter === value ? "rounded-md bg-white/20 px-1.5" : "rounded-md bg-surface-container-low px-1.5"}>{count}</span></button>)}
         </div>
+        <button type="button" onClick={openActivityCreator} disabled={!selectedSessionId} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-primary/30 px-2.5 text-[11px] font-extrabold text-primary hover:bg-primary/10 disabled:opacity-50"><Plus size={14} weight="bold" />Thêm activity</button>
         <div className="ml-auto flex flex-wrap items-center gap-2"><label className="text-[11px] font-bold text-on-surface-variant">Nộp muộn<select value={newLatePolicy} onChange={(event) => setNewLatePolicy(event.target.value)} className="ml-1.5 h-8 rounded-lg border border-outline-variant/50 bg-surface px-2 text-[11px] font-bold text-on-surface"><option value="MARK_LATE">Cho nộp, đánh dấu muộn</option><option value="ALLOW">Cho nộp không phạt</option><option value="BLOCK">Chặn sau deadline</option></select></label><label className="text-[11px] font-bold text-on-surface-variant">Gia hạn<input type="number" min="0" max="10080" value={newLateGraceMinutes} onChange={(event) => setNewLateGraceMinutes(event.target.value)} className="ml-1.5 h-8 w-16 rounded-lg border border-outline-variant/50 bg-surface px-2 text-[11px] font-bold text-on-surface" /><span className="ml-1">phút</span></label></div>
       </section>
 
@@ -1109,14 +1209,14 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
                     <time className="mt-1 block font-bold leading-5 text-on-surface">{formatDateTime(scheduleValue)}</time>
                   </th> : null}
                   {rowIndex === 0 ? <th rowSpan={REPORT_ROWS.length} scope="rowgroup" className="sticky left-24 z-20 border-r border-outline-variant/35 bg-surface px-2 py-2 align-top">
-                    <div className="flex items-start gap-2"><BookOpen size={17} className="mt-0.5 shrink-0 text-primary" /><div><strong className="block leading-5 text-on-surface">{activity.title}</strong><span className="mt-1 block text-[10px] font-semibold text-on-surface-variant">{completed}/{roster.length} hoàn thành</span>{evidence ? <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-primary"><ImageSquare size={13} />{evidence} minh chứng</span> : null}<div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => activity.assignmentId ? void openAssignmentSettings(activity) : void createAssignment(activity)} className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-[10px] font-extrabold text-primary hover:bg-primary/10">{activity.assignmentId ? <><Gear size={12} />Cấu hình</> : "Tạo assignment"}</button>{activity.assignmentId ? <button type="button" onClick={() => void openReminder(activity)} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-extrabold text-amber-800 hover:bg-amber-100">Nhắc cả lớp</button> : null}</div></div></div>
+                    <div className="flex items-start gap-2"><BookOpen size={17} className="mt-0.5 shrink-0 text-primary" /><div><strong className="block leading-5 text-on-surface">{activity.title}</strong><span className="mt-1 block text-[10px] font-semibold text-on-surface-variant">{completed}/{roster.length} hoàn thành</span>{evidence ? <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-primary"><ImageSquare size={13} />{evidence} minh chứng</span> : null}<div className="mt-2 flex flex-wrap gap-1.5">{activity.testAssignmentId ? <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-extrabold text-emerald-800"><Check size={12} weight="bold" />Đã giao đề</span> : <><button type="button" onClick={() => void openTestAssignment(activity)} className="inline-flex items-center gap-1 rounded-lg bg-primary px-2 py-1 text-[10px] font-extrabold text-on-primary hover:opacity-90"><PaperPlaneTilt size={12} weight="bold" />Giao đề</button><button type="button" onClick={() => activity.assignmentId ? void openAssignmentSettings(activity) : void createAssignment(activity)} className="inline-flex items-center gap-1 rounded-lg border border-primary/30 px-2 py-1 text-[10px] font-extrabold text-primary hover:bg-primary/10">{activity.assignmentId ? <><Gear size={12} />Cấu hình bài nộp</> : "Tạo bài nộp"}</button></>}{activity.assignmentId ? <button type="button" onClick={() => void openReminder(activity)} className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-extrabold text-amber-800 hover:bg-amber-100">Nhắc cả lớp</button> : null}</div></div></div>
                   </th> : null}
                   <th scope="row" className="sticky left-[17rem] z-20 border-r border-outline-variant/35 bg-surface px-2 py-2 text-[11px] font-bold leading-4 text-on-surface">{row.label}</th>
                   {filteredRoster.map(({ student }) => { const attempt = latestAttempt(activity, student.id); return <td key={student.id} className="border-r border-outline-variant/20 px-2 py-2 text-center leading-5 text-on-surface"><StudentMetric activity={activity} studentId={student.id} row={row} />{rowIndex === 0 && activity.assignmentId ? <div className="mt-2 flex flex-wrap justify-center gap-1"><button type="button" onClick={() => void openStudentExtension(activity, student.id, student.fullName)} className="text-[10px] font-extrabold text-amber-700 hover:underline">Gia hạn</button>{attempt && attempt.status !== "IN_PROGRESS" ? <button type="button" onClick={() => void openReview(activity, student.id, student.fullName)} className="text-[10px] font-extrabold text-primary hover:underline">Feedback / sửa bài</button> : null}</div> : null}</td>; })}
                 </tr>)}
               </tbody>;
             })}
-            {!loading && (!visibleActivities.length || !filteredRoster.length) ? <tbody><tr><td colSpan={Math.max(3, filteredRoster.length + 3)} className="px-6 py-14 text-center text-sm text-on-surface-variant">{!activities.length ? "Session này chưa có bài được xuất bản cho kỹ năng đã chọn." : queueFilter !== "ALL" ? "Không có hoạt động phù hợp với hàng đợi đã chọn." : roster.length ? "Không tìm thấy học viên phù hợp." : "Khóa học chưa có học viên."}</td></tr></tbody> : null}
+            {!loading && (!visibleActivities.length || !filteredRoster.length) ? <tbody><tr><td colSpan={Math.max(3, filteredRoster.length + 3)} className="px-6 py-12 text-center text-sm text-on-surface-variant">{!activities.length ? <div className="mx-auto flex max-w-lg flex-col items-center"><BookOpen size={28} className="text-primary" /><strong className="mt-3 text-on-surface">Session chưa có activity cho kỹ năng {selectedSkill.toLowerCase()}.</strong><p className="mt-1 text-xs">Tạo activity trực tiếp tại đây; không cần có sẵn đề hoặc assignment.</p><button type="button" onClick={openActivityCreator} className="mt-4 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-extrabold text-on-primary hover:opacity-90"><Plus size={15} weight="bold" />Thêm activity vào session</button>{testAttempts.length ? <p className="mt-3 text-[11px] text-on-surface-variant">Đề đã giao và kết quả vẫn được giữ trong Lịch sử làm đề bên dưới.</p> : null}</div> : queueFilter !== "ALL" ? "Không có hoạt động phù hợp với hàng đợi đã chọn." : roster.length ? "Không tìm thấy học viên phù hợp." : "Khóa học chưa có học viên."}</td></tr></tbody> : null}
             {loading ? <tbody><tr><td colSpan={Math.max(3, filteredRoster.length + 3)} className="px-6 py-14 text-center text-sm text-on-surface-variant">Đang tải báo cáo tiến độ…</td></tr></tbody> : null}
           </table>
         </div>
@@ -1155,6 +1255,41 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
       {testInsights?.listeningParts.length ? <section className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-xs" aria-label="Thống kê Listening Part"><h3 className="text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Thống kê theo Listening Part</h3><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-xs"><thead className="bg-surface-container-low text-[10px] font-extrabold text-on-surface-variant"><tr><th className="px-3 py-2">Part</th><th className="px-3 py-2">Sai</th><th className="px-3 py-2">Đã trả lời</th><th className="px-3 py-2">Đã review</th></tr></thead><tbody className="divide-y divide-outline-variant/20">{testInsights.listeningParts.map((part) => <tr key={part.partNo}><td className="px-3 py-2.5 font-bold">Part {part.partNo} · {part.title}</td><td className="px-3 py-2.5 font-extrabold text-rose-700">{part.wrongCount}</td><td className="px-3 py-2.5">{part.answeredCount}</td><td className="px-3 py-2.5 text-primary">{part.reviewedCount}</td></tr>)}</tbody></table></div></section> : null}
       {attemptComparisons.length ? <section className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-xs" aria-label="So sánh Attempt 1 và Attempt 2"><h3 className="text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">So sánh Attempt 1 → Attempt 2</h3><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead className="bg-surface-container-low text-[10px] font-extrabold text-on-surface-variant"><tr><th className="px-3 py-2">Học viên</th><th className="px-3 py-2">Đề</th><th className="px-3 py-2">Attempt 1</th><th className="px-3 py-2">Attempt 2</th><th className="px-3 py-2">Thay đổi</th></tr></thead><tbody className="divide-y divide-outline-variant/20">{attemptComparisons.map((row) => { const first = row.first?.score; const second = row.second?.score; const delta = first != null && second != null ? second - first : null; return <tr key={`${row.studentCode}-${row.testTitle}`}><td className="px-3 py-2.5"><strong className="block">{row.studentName}</strong><span className="text-[10px] text-on-surface-variant">{row.studentCode}</span></td><td className="px-3 py-2.5 font-semibold">{row.testTitle}</td><td className="px-3 py-2.5">{row.first?.score == null ? "—" : `${row.first.score}/${row.first.maxScore}`}</td><td className="px-3 py-2.5">{row.second?.score == null ? "—" : `${row.second.score}/${row.second.maxScore}`}</td><td className={`px-3 py-2.5 font-extrabold ${delta == null ? "text-on-surface-variant" : delta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{delta == null ? "Chưa đủ 2 lần" : `${delta > 0 ? "+" : ""}${delta}`}</td></tr>; })}</tbody></table></div></section> : null}
 
+      {activityCreatorOpen ? <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="Thêm activity vào session">
+        <section className="w-full max-w-lg rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-2xl">
+          <header className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-wider text-primary">Course Workspace</p><h2 className="mt-1 font-display text-xl font-extrabold">Thêm activity vào Session {selectedSession?.sessionNo}</h2><p className="mt-1 text-sm text-on-surface-variant">Activity sẽ xuất hiện ngay trong bảng tiến độ. Có thể tạo assignment hoặc gắn đề sau.</p></div><button type="button" onClick={() => setActivityCreatorOpen(false)} aria-label="Đóng"><X size={20} /></button></header>
+          <div className="mt-5 space-y-4">
+            <label className="block text-sm font-bold">Tên activity<input autoFocus maxLength={180} value={activityTitle} onChange={(event) => setActivityTitle(event.target.value)} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface" placeholder="Ví dụ: Reading review · Matching Headings" /></label>
+            <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-bold">Kỹ năng<input value={selectedSkill[0] + selectedSkill.slice(1).toLowerCase()} readOnly className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface-container-low text-on-surface-variant" /></label><label className="block text-sm font-bold">Deadline (không bắt buộc)<input type="datetime-local" value={activityDueAt} onChange={(event) => setActivityDueAt(event.target.value)} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface" /></label></div>
+            <div className="rounded-xl border border-primary/20 bg-primary-container/10 px-3 py-3 text-xs text-on-surface-variant"><strong className="text-on-surface">Không cần chọn đề.</strong> Activity độc lập hỗ trợ học viên nộp minh chứng; nút “Tạo assignment” và luồng giao đề vẫn là lựa chọn sau khi tạo.</div>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setActivityCreatorOpen(false)} className="min-h-10 rounded-lg border border-outline-variant/60 px-4 text-sm font-bold">Hủy</button><button type="button" disabled={activitySaving || !activityTitle.trim()} onClick={() => void createDirectActivity()} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-on-primary disabled:opacity-50">{activitySaving ? "Đang tạo…" : <><Plus size={16} weight="bold" />Tạo activity</>}</button></div>
+          </div>
+        </section>
+      </div> : null}
+      {testAssignmentTarget ? <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/55 p-3 sm:p-5" role="dialog" aria-modal="true" aria-label="Giao nhiều đề cho session">
+        <section className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xl">
+          <header className="flex shrink-0 items-center gap-4 border-b border-outline-variant/35 px-4 py-3 sm:px-5">
+            <div className="min-w-0 flex-1"><h2 className="truncate text-lg font-extrabold">Giao đề cho Session {selectedSession?.sessionNo}</h2><p className="mt-0.5 truncate text-xs text-on-surface-variant">{courseCode ? `${courseCode} · ` : ""}{courseName || "Khóa học hiện tại"} · {testAssignmentTarget.skill}</p></div>
+            <ol className="hidden items-center gap-2 text-xs font-bold sm:flex" aria-label="Tiến trình giao đề"><li className={`inline-flex items-center gap-1.5 ${testAssignmentStep === "SELECT" ? "text-primary" : "text-on-surface-variant"}`}><span className={`grid size-6 place-items-center rounded-full ${testAssignmentStep === "SELECT" ? "bg-primary text-on-primary" : "bg-surface-container"}`}>1</span>Chọn đề</li><li className="h-px w-6 bg-outline-variant/60" /><li className={`inline-flex items-center gap-1.5 ${testAssignmentStep === "CONFIG" ? "text-primary" : "text-on-surface-variant"}`}><span className={`grid size-6 place-items-center rounded-full ${testAssignmentStep === "CONFIG" ? "bg-primary text-on-primary" : "bg-surface-container"}`}>2</span>Thiết lập</li></ol>
+            <button type="button" onClick={() => setTestAssignmentTarget(null)} aria-label="Đóng" className="grid size-9 shrink-0 place-items-center rounded-lg hover:bg-surface-container-low"><X size={18} /></button>
+          </header>
+          {testAssignmentLoading || !testAssignmentDraft ? <div className="grid min-h-72 place-items-center text-sm text-on-surface-variant">Đang tải danh sách đề...</div> : testAssignmentStep === "SELECT" ? <>
+            <div className="shrink-0 space-y-2 border-b border-outline-variant/25 px-4 py-3 sm:px-5">
+              <div className="flex flex-wrap gap-2"><label className="relative min-w-[240px] flex-1"><MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" /><input type="search" aria-label="Tìm đề" value={testAssignmentQuery} onChange={(event) => setTestAssignmentQuery(event.target.value)} placeholder="Tìm mã đề hoặc tiêu đề" className="h-10 w-full rounded-lg border-outline-variant/50 bg-surface pl-9 pr-3 text-sm" /></label><div className="flex rounded-lg bg-surface-container p-1">{([["ALL", "Tất cả"], ["SINGLE", "Bài lẻ"], ["FULL", "Full đề"]] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setTestAssignmentFormat(value)} className={`min-h-8 rounded-md px-3 text-xs font-bold ${testAssignmentFormat === value ? "bg-surface text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"}`}>{label}</button>)}</div><div className="flex rounded-lg border border-outline-variant/40 p-1" aria-label="Kiểu hiển thị"><button type="button" aria-pressed={testAssignmentView === "LIST"} onClick={() => setTestAssignmentView("LIST")} className={`min-h-8 rounded-md px-3 text-xs font-bold ${testAssignmentView === "LIST" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container-low"}`}>Danh sách</button><button type="button" aria-pressed={testAssignmentView === "GRID"} onClick={() => setTestAssignmentView("GRID")} className={`min-h-8 rounded-md px-3 text-xs font-bold ${testAssignmentView === "GRID" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container-low"}`}>Lưới</button></div></div>
+              <div className="flex items-center justify-between gap-3 text-xs"><span className="text-on-surface-variant">Hiển thị {filteredPublishedTests.length} đề</span><button type="button" disabled={!filteredPublishedTests.length} onClick={() => { const visibleIds = filteredPublishedTests.map((test) => test.id); const allSelected = visibleIds.every((id) => testAssignmentDraft.testIds.includes(id)); setTestAssignmentDraft({ ...testAssignmentDraft, testIds: allSelected ? testAssignmentDraft.testIds.filter((id) => !visibleIds.includes(id)) : Array.from(new Set([...testAssignmentDraft.testIds, ...visibleIds])) }); }} className="font-bold text-primary hover:underline disabled:opacity-50">{filteredPublishedTests.length && filteredPublishedTests.every((test) => testAssignmentDraft.testIds.includes(test.id)) ? "Bỏ chọn tất cả" : "Chọn tất cả"}</button></div>
+            </div>
+            <div className={`min-h-0 flex-1 overflow-y-auto p-3 ${testAssignmentView === "GRID" ? "grid content-start gap-2 sm:grid-cols-2" : "space-y-1"}`}>{filteredPublishedTests.map((test) => { const selected = testAssignmentDraft.testIds.includes(test.id); const imageUrl = test.writingTaskImage?.fileUrl || test.coverImage?.fileUrl; const fullTest = test.testType === "FULL_TEST" || test.sectionsCount > 1; return <button key={test.id} type="button" aria-pressed={selected} onClick={() => setTestAssignmentDraft({ ...testAssignmentDraft, testIds: selected ? testAssignmentDraft.testIds.filter((id) => id !== test.id) : [...testAssignmentDraft.testIds, test.id] })} className={`grid w-full grid-cols-[24px_56px_minmax(0,1fr)] items-center gap-3 rounded-lg text-left transition ${testAssignmentView === "GRID" ? "min-h-[104px] border border-outline-variant/35 p-3" : "min-h-[68px] px-3 py-2 sm:grid-cols-[24px_56px_minmax(0,1fr)_auto]"} ${selected ? "border-primary bg-primary/8 ring-1 ring-primary/20" : "hover:bg-surface-container-low"}`}><span className={`grid size-5 place-items-center rounded border ${selected ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface"}`}>{selected ? <Check size={12} weight="bold" /> : null}</span><span className={`grid w-14 overflow-hidden rounded-md bg-surface-container-low ${testAssignmentView === "GRID" ? "h-14" : "h-11"}`}>{imageUrl ? <AuthenticatedMediaImage fileUrl={imageUrl} alt="" className="h-full w-full object-cover" /> : <BookOpen size={20} className="m-auto text-primary/55" />}</span><span className="min-w-0"><strong className={`block text-sm ${testAssignmentView === "GRID" ? "line-clamp-2 leading-5" : "truncate"}`}>{test.title}</strong><span className="mt-1 block truncate text-xs text-on-surface-variant">{test.code} · {test.publishedVersion?.versionLabel || test.version} · {fullTest ? "Full đề" : "Bài lẻ"}</span>{testAssignmentView === "GRID" ? <span className="mt-2 flex gap-3 text-xs font-semibold text-on-surface-variant"><span>{test.totalQuestions || 0} câu</span><span>{test.durationMinutes || 60} phút</span></span> : null}</span>{testAssignmentView === "LIST" ? <span className="col-start-3 flex gap-3 text-xs font-semibold text-on-surface-variant sm:col-start-auto"><span>{test.totalQuestions || 0} câu</span><span>{test.durationMinutes || 60} phút</span></span> : null}</button>; })}{!filteredPublishedTests.length ? <div className="grid min-h-52 place-items-center text-center sm:col-span-2"><div><BookOpen size={28} className="mx-auto text-primary/45" /><strong className="mt-2 block text-sm">Không tìm thấy đề</strong><p className="mt-1 text-xs text-on-surface-variant">Đổi từ khóa hoặc bộ lọc để thử lại.</p></div></div> : null}</div>
+            <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-outline-variant/30 bg-surface px-4 py-3 sm:px-5"><span className="text-sm"><strong className="text-primary">{testAssignmentDraft.testIds.length}</strong> đề đã chọn</span><div className="flex gap-2"><button type="button" onClick={() => setTestAssignmentTarget(null)} className="min-h-10 rounded-lg px-4 text-sm font-bold text-on-surface-variant hover:bg-surface-container-low">Hủy</button><button type="button" disabled={!testAssignmentDraft.testIds.length} onClick={() => setTestAssignmentStep("CONFIG")} className="min-h-10 rounded-lg bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-50">Tiếp tục</button></div></footer>
+          </> : <>
+            {testAssignmentError ? <div role="alert" className="mx-5 mt-3 rounded-lg border border-error/25 bg-error-container/30 px-3 py-2 text-sm font-semibold text-error">{testAssignmentError}</div> : null}
+            <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(260px,.8fr)_minmax(0,1.2fr)]">
+              <section className="border-b border-outline-variant/30 p-4 lg:border-b-0 lg:border-r sm:p-5"><div className="flex items-center justify-between"><h3 className="text-sm font-extrabold">Đề đã chọn</h3><span className="text-xs font-bold text-primary">{selectedPublishedTests.length} đề</span></div><div className="mt-3 space-y-1">{selectedPublishedTests.map((test) => <div key={test.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-container-low"><span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><BookOpen size={16} /></span><span className="min-w-0 flex-1"><strong className="block truncate text-xs">{test.title}</strong><span className="text-[11px] text-on-surface-variant">{test.code} · {test.durationMinutes || 60} phút</span></span><Check size={15} weight="bold" className="text-primary" /></div>)}</div></section>
+              <section className="p-4 sm:p-5"><h3 className="text-sm font-extrabold">Thiết lập bài giao</h3><p className="mt-1 text-xs text-on-surface-variant">Áp dụng chung cho toàn bộ đề đã chọn.</p><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="text-xs font-bold">Chế độ<select value={testAssignmentDraft.mode} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, mode: event.target.value as "PRACTICE" | "EXAM" })} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface text-sm"><option value="PRACTICE">Luyện tập</option><option value="EXAM">Thi thử</option></select></label><label className="text-xs font-bold">Số lượt<select value={testAssignmentDraft.maxAttempts} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, maxAttempts: event.target.value })} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface text-sm"><option value={UNLIMITED_ASSIGNMENT_ATTEMPTS}>Không giới hạn</option>{[1, 2, 3, 5, 10].map((attempts) => <option key={attempts} value={attempts}>{attempts} lượt</option>)}</select></label><label className="text-xs font-bold">Mở bài<input type="datetime-local" value={testAssignmentDraft.opensAt} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, opensAt: event.target.value })} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface text-sm" /></label><label className="text-xs font-bold">Đóng bài<input type="datetime-local" value={testAssignmentDraft.closesAt} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, closesAt: event.target.value })} className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface text-sm" /></label><label className="text-xs font-bold sm:col-span-2">Thời lượng chung <span className="font-normal text-on-surface-variant">(không bắt buộc)</span><input type="number" min="1" value={testAssignmentDraft.durationMinutes} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, durationMinutes: event.target.value })} placeholder="Để trống để dùng thời lượng riêng của từng đề" className="mt-1.5 min-h-10 w-full rounded-lg border-outline-variant/60 bg-surface text-sm" /></label><label className="flex min-h-10 items-center gap-2 text-xs font-bold sm:col-span-2"><input type="checkbox" checked={testAssignmentDraft.showResultAfterSubmit} onChange={(event) => setTestAssignmentDraft({ ...testAssignmentDraft, showResultAfterSubmit: event.target.checked })} />Cho học viên xem kết quả sau khi nộp</label></div></section>
+            </div>
+            <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-outline-variant/30 bg-surface px-4 py-3 sm:px-5"><button type="button" onClick={() => setTestAssignmentStep("SELECT")} className="min-h-10 rounded-lg border border-outline-variant/60 px-4 text-sm font-bold">Quay lại chọn đề</button><button type="button" disabled={testAssignmentSaving || !testAssignmentDraft.testIds.length} onClick={() => void submitTestAssignment()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-on-primary disabled:opacity-50"><PaperPlaneTilt size={16} weight="bold" />{testAssignmentSaving ? "Đang giao..." : `Giao ${testAssignmentDraft.testIds.length} đề`}</button></footer>
+          </>}
+        </section>
+      </div> : null}
       {reviewTarget ? <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="Feedback assignment">
         <section className="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-2xl">
           <header className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-wider text-primary">Feedback assignment</p><h2 className="mt-1 font-display text-xl font-extrabold">{reviewTarget.studentName}</h2><p className="mt-1 text-sm text-on-surface-variant">{reviewTarget.activity.title}</p></div><button type="button" onClick={() => setReviewTarget(null)} aria-label="Đóng"><X size={20} /></button></header>
@@ -1179,18 +1314,13 @@ export default function CourseProgress({ courseId, skillPair, roster, initialSes
           </div>}
         </section>
       </div> : null}
-      {testViewerStudent ? <div className="fixed inset-0 z-[55] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="Xem bài làm Listening Reading">
-        <section className="max-h-[94vh] w-full max-w-7xl overflow-y-auto rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-2xl">
-          <header className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-wider text-primary">Teacher Attempt Viewer · {selectedSkill}</p><h2 className="mt-1 font-display text-xl font-extrabold">{testViewerStudent.fullName}</h2><p className="mt-1 text-sm text-on-surface-variant">Xem trực tiếp các lần làm, đáp án từng câu, kết quả và transcript/audio của phiên bản đã giao.</p></div><button type="button" onClick={() => { setTestViewerStudent(null); setTestViewerDetail(null); }} aria-label="Đóng"><X size={20} /></button></header>
-          {!testViewerDetail && testViewerDetailLoading ? <p className="py-10 text-center text-sm text-on-surface-variant">Đang tải chi tiết bài làm…</p> : !testViewerDetail ? <p className="py-10 text-center text-sm text-on-surface-variant">Học viên chưa có bài làm.</p> : <div className="mt-5 grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <aside className="space-y-3"><section className="rounded-xl border border-outline-variant/40 bg-surface-container-low p-3"><h3 className="text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">Lịch sử lần làm</h3><div className="mt-2 space-y-2">{testViewerDetail.attemptHistory.map((item) => <button key={item.attemptId} type="button" onClick={() => void loadTestAttemptDetail(item)} className={`w-full rounded-lg border p-3 text-left text-xs ${item.attemptId === testViewerDetail.attempt.attemptId ? "border-primary bg-primary-fixed/35" : "border-outline-variant/35 bg-surface hover:border-primary/40"}`}><strong className="block">{item.testTitle}</strong><span className="mt-1 block text-on-surface-variant">Attempt {item.attemptNo} · {item.status}</span><span className="mt-1 block font-bold text-primary">{item.score == null ? "Chưa có điểm" : `${item.score}/${item.maxScore}`}</span><span className="mt-1 block text-[10px] text-on-surface-variant">{formatDateTime(item.submittedAt || item.startedAt)}</span></button>)}</div></section></aside>
-            <div className="min-w-0 space-y-5"><section className="grid gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 sm:grid-cols-2 xl:grid-cols-5"><div><span className="block text-[11px] font-bold text-on-surface-variant">Đề / phiên bản</span><strong className="mt-1 block text-sm">{testViewerDetail.attempt.testTitle}</strong><span className="text-xs text-primary">{testViewerDetail.attempt.versionLabel}</span></div><div><span className="block text-[11px] font-bold text-on-surface-variant">Kết quả</span><strong className="mt-1 block text-sm">{testViewerDetail.result ? `${testViewerDetail.result.autoScore ?? testViewerDetail.attempt.score ?? 0}/${testViewerDetail.result.maxScore}` : testViewerDetail.attempt.status}</strong><span className="text-xs text-on-surface-variant">{testViewerDetail.attempt.correctCount} đúng · {testViewerDetail.attempt.incorrectCount} sai · {testViewerDetail.attempt.unansweredCount} bỏ trống{ieltsBand(testViewerDetail.attempt) == null ? "" : ` · Band ${ieltsBand(testViewerDetail.attempt)!.toFixed(1)}`}</span></div><div><span className="block text-[11px] font-bold text-on-surface-variant">Thời gian làm</span><strong className="mt-1 block text-sm">{formatDuration(testViewerDetail.attempt.durationSeconds)}</strong><span className="text-xs text-on-surface-variant">Bắt đầu {formatDateTime(testViewerDetail.attempt.startedAt)}</span></div><div><span className="block text-[11px] font-bold text-on-surface-variant">Nộp bài</span><strong className="mt-1 block text-sm">{formatDateTime(testViewerDetail.attempt.submittedAt)}</strong></div><div><span className="block text-[11px] font-bold text-on-surface-variant">Session</span><strong className="mt-1 block text-sm">{testViewerDetail.attempt.sessionNo == null ? "—" : `Session ${testViewerDetail.attempt.sessionNo}`}</strong><span className="text-xs text-on-surface-variant">{testViewerDetail.attempt.sessionTitle || ""}</span></div></section>
-              {testViewerDetail.result?.questions?.length ? <section className="overflow-hidden rounded-xl border border-outline-variant/40"><div className="border-b border-outline-variant/35 px-4 py-3"><h3 className="text-sm font-extrabold">Đáp án từng câu</h3><p className="mt-1 text-xs text-on-surface-variant">Đáp án được đọc từ test_attempt_responses và chấm theo đúng test version đã giao.</p></div><div className="divide-y divide-outline-variant/25">{testViewerDetail.result.questions.map((question) => <div key={question.questionKey} className="grid gap-3 px-4 py-3 md:grid-cols-[52px_150px_120px_minmax(0,1fr)] md:items-start"><strong className="text-sm">#{question.questionNo}</strong><span className="text-xs"><span className="block text-[10px] font-bold uppercase text-on-surface-variant">Học viên</span><strong className={question.correct === true ? "text-emerald-700" : question.correct === false ? "text-rose-700" : "text-on-surface"}>{answerLabel(question.answer)}</strong></span><span className="text-xs"><span className="block text-[10px] font-bold uppercase text-on-surface-variant">Trạng thái</span><strong>{question.correct === true ? "Đúng" : question.correct === false ? "Sai" : question.answered ? "Chưa xác định" : "Bỏ trống"}</strong><span className="block text-on-surface-variant">{question.score}/{question.maxScore}</span></span><div className="text-xs"><span className="block text-[10px] font-bold uppercase text-on-surface-variant">Đáp án đúng / explanation</span><span className="block font-semibold">{question.correctAnswers.length ? question.correctAnswers.join(", ") : "—"}</span>{question.explanation || question.solution?.explanation ? <p className="mt-1 whitespace-pre-wrap text-on-surface-variant">{question.explanation || question.solution?.explanation}</p> : null}</div></div>)}</div></section> : <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>Bài đang làm dở</strong><div className="mt-2 grid gap-2">{testViewerDetail.attemptPayload.responses.map((response) => <div key={response.questionKey} className="flex justify-between gap-3 text-xs"><span>{response.questionKey}</span><strong>{answerLabel(response.answer)}</strong></div>)}</div></section>}
-              {testViewerDetail.attemptPayload.sections.map((section) => <section key={`${section.sectionNo}-${section.title}`} className="rounded-xl border border-outline-variant/40 bg-surface-container-low p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-extrabold">Section {section.sectionNo} · {section.title}</h3><p className="mt-1 text-[11px] text-on-surface-variant">Transcript / nội dung phiên bản đã giao</p></div>{section.audioUrl ? <span className="text-[11px] font-bold text-primary">{section.audioFilename || "Audio Listening"}</span> : null}</div>{section.audioUrl ? <SubmissionAudio url={section.audioUrl} timestamps={sectionTimestamps(section)} /> : null}{section.contentHtml ? <div className="mt-3 max-h-56 overflow-y-auto rounded-lg border border-outline-variant/30 bg-surface p-3 text-xs leading-6" dangerouslySetInnerHTML={{ __html: section.contentHtml }} /> : <p className="mt-3 text-xs text-on-surface-variant">Không có transcript text cho section này.</p>}</section>)}
-            </div>
-          </div>}
-        </section>
-      </div> : null}
+      {testViewerAttempt ? <AttemptReviewScreen
+        studentId={testViewerAttempt.studentId}
+        item={asLearningAttempt(testViewerAttempt)}
+        attemptsList={testAttempts.filter((attempt) => attempt.studentId === testViewerAttempt.studentId).map(asLearningAttempt)}
+        onNavigateAttempt={(item) => setTestViewerAttempt(testAttempts.find((attempt) => attempt.attemptId === item.id) ?? null)}
+        onClose={() => setTestViewerAttempt(null)}
+      /> : null}
       {settingsTarget ? <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-label="Cấu hình assignment">
         <section className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-2xl">
           <header className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-wider text-primary">Assignment settings</p><h2 className="mt-1 font-display text-xl font-extrabold">{settingsTarget.title}</h2><p className="mt-1 text-sm text-on-surface-variant">Điều chỉnh deadline và cách xử lý bài nộp của hoạt động này.</p></div><button type="button" onClick={() => setSettingsTarget(null)} aria-label="Đóng"><X size={20} /></button></header>

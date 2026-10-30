@@ -10,12 +10,9 @@ import {
   CaretDown,
   ChartLineUp,
   ClipboardText,
-  FileText,
   Gear,
   GraduationCap,
-  House,
   List,
-  MagnifyingGlass,
   PencilSimpleLine,
   SignOut,
   Sparkle,
@@ -46,10 +43,13 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const { session, signOut } = useStudentSession();
   const { data } = useStudentPortal();
   const { unreadCount } = useStudentNotifications();
+  const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const scrollSentinelRef = useRef<HTMLDivElement>(null);
+  const brandMenuRef = useRef<HTMLDivElement>(null);
+  const brandButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -64,6 +64,7 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
+      if (brandMenuRef.current && !brandMenuRef.current.contains(event.target as Node)) setBrandMenuOpen(false);
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setDropdownOpen(false);
     };
     document.addEventListener("mousedown", closeOutside);
@@ -83,13 +84,48 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
       <div ref={scrollSentinelRef} className={styles.scrollSentinel} aria-hidden="true" />
       <header className={`${styles.header} ${isCompact ? styles.headerCompact : ""}`}>
         <div className={styles.bar}>
-          <Link href="/student" className={styles.brand} aria-label="The IELTS Spells, góc học tập">
-            <img className={styles.logo} src="/logo.jpg" alt="" width={37} height={37} />
-            <span className={styles.brandCopy}>
-              <strong>The IELTS Spells</strong>
-              <small>Learning workspace</small>
-            </span>
-          </Link>
+          <div
+            ref={brandMenuRef}
+            className={`${styles.brandMenu} ${brandMenuOpen ? styles.brandMenuOpen : ""}`}
+            onMouseEnter={() => setBrandMenuOpen(true)}
+            onMouseLeave={() => setBrandMenuOpen(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") { setBrandMenuOpen(false); brandButtonRef.current?.focus(); }
+            }}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) setBrandMenuOpen(false);
+            }}
+          >
+            <button
+              ref={brandButtonRef}
+              type="button"
+              className={styles.brand}
+              aria-label="Mở điều hướng The IELTS Spells"
+              aria-haspopup="menu"
+              aria-expanded={brandMenuOpen}
+              aria-controls="student-brand-menu"
+              onClick={() => setBrandMenuOpen(true)}
+            >
+              <img className={styles.logo} src="/logo.jpg" alt="" width={40} height={40} />
+              <span className={styles.brandCopy}>
+                <strong>The IELTS Spells</strong>
+                <small>Learning workspace</small>
+              </span>
+              <CaretDown className={styles.brandCaret} size={12} weight="bold" />
+            </button>
+            {brandMenuOpen && (
+              <nav id="student-brand-menu" className={styles.brandDropdown} aria-label="Điều hướng The IELTS Spells">
+                <Link href="/student" className={styles.brandDropdownItem}>
+                  <SquaresFour size={17} weight="bold" />
+                  Homepage góc học tập
+                </Link>
+                <Link href="/" className={styles.brandDropdownItem}>
+                  <Sparkle size={17} weight="bold" />
+                  Landing page
+                </Link>
+              </nav>
+            )}
+          </div>
 
           <nav className={styles.nav} aria-label="Điều hướng chính của góc học tập">
             {NAV_ITEMS.map((item) => {
@@ -109,9 +145,6 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
           </nav>
 
           <div className={styles.actions}>
-            <button type="button" className={styles.iconActionBtn} aria-label="Tìm kiếm">
-              <MagnifyingGlass size={17} weight="bold" />
-            </button>
             <div className={styles.notificationWrapper}>
               <button
                 ref={bellButtonRef}
@@ -136,14 +169,6 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                 anchorRef={bellButtonRef}
               />
             </div>
-            <Link
-              href="/"
-              className={styles.iconActionBtn}
-              title="Về trang chủ Landing Page"
-              aria-label="Về trang chủ Landing Page"
-            >
-              <House size={18} weight="bold" />
-            </Link>
             {onToggleMobileMenu && (
               <button type="button" className={styles.menuButton} onClick={onToggleMobileMenu} aria-label="Mở menu học tập" aria-haspopup="dialog">
                 <List size={19} weight="bold" />

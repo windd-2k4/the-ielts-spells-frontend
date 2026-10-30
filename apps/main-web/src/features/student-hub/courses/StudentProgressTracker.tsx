@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, Clock, ImageSquare, LockKey, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowRight, BellRinging, CheckCircle, Clock, ImageSquare, LockKey, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import {
   fetchStudentAssignmentRevisions,
   fetchStudentCourseProgress,
@@ -96,6 +96,15 @@ function ProgressActivity({ courseId, task, reload }: {
   const reflectionExpired = Boolean(task.reflectionDueAt && new Date(task.reflectionDueAt).getTime() < Date.now());
   const canReflect = hasFeedback(task) && !reflectionExpired;
   const effectiveDeadline = task.effectiveDueAt;
+  const requiredChecklistDone = task.checklist.filter((item) => item.required).every((item) => item.completed);
+  const progressReportDone = requiredChecklistDone && Boolean(task.errorAnalysis?.trim());
+  const reviewHref = task.attemptId
+    ? `/student/${task.skill.toLowerCase()}/attempts/${task.attemptId}/result?review=1`
+    : null;
+  const minutesToDeadline = effectiveDeadline
+    ? Math.round((new Date(effectiveDeadline).getTime() - Date.now()) / 60_000)
+    : null;
+  const shouldRemindReview = unlocked && !progressReportDone && minutesToDeadline != null && minutesToDeadline > 0 && minutesToDeadline <= 60;
   const [minutes, setMinutes] = useState(task.durationSeconds == null ? "" : String(Math.round(task.durationSeconds / 60)));
   const [comprehension, setComprehension] = useState(task.comprehensionPercent == null ? "" : String(task.comprehensionPercent));
   const [busy, setBusy] = useState(false);
@@ -205,6 +214,8 @@ function ProgressActivity({ courseId, task, reload }: {
         {task.evidenceCount ? <span><ImageSquare size={14} /> {task.evidenceCount} minh chứng</span> : null}
       </div>
       {!unlocked ? <Link className={styles.assignmentLink} href="/student/assignments">Làm bài được giao</Link> : null}
+      {shouldRemindReview ? <div className={styles.reviewReminder} role="status"><BellRinging size={17} weight="fill" /><span><strong>Còn {minutesToDeadline} phút</strong> · Bạn chưa hoàn tất checklist sau bài làm.</span></div> : null}
+      {unlocked && !progressReportDone && reviewHref ? <Link className={styles.reviewLink} href={reviewHref}>Hoàn tất phân tích <ArrowRight size={15} weight="bold" /></Link> : null}
       {task.assignmentId ? <div className={styles.assignmentForm}>
         <label className={styles.field}>Nội dung submission
           <textarea rows={5} value={submissionText} disabled={busy || !canEditSubmission} onChange={(event) => setSubmissionText(event.target.value)} placeholder={task.assignmentDescription ?? "Nhập bài làm của bạn…"} />

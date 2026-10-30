@@ -108,7 +108,10 @@ function detectFormat(title: string): string {
 /** Link to review attempt result */
 function getReviewUrl(attempt: StudentPortalAttempt): string {
   const skill = (attempt.skill || "READING").toUpperCase();
-  const skillPath = skill === "WRITING" ? "writing" : skill === "LISTENING" ? "listening" : "reading";
+  const skillPath = skill === "WRITING" ? "writing"
+    : skill === "SPEAKING" ? "speaking"
+      : skill === "LISTENING" ? "listening"
+        : "reading";
   if (attempt.submittedAt) {
     return `/student/${skillPath}/attempts/${attempt.attemptId}/result`;
   }
@@ -117,8 +120,13 @@ function getReviewUrl(attempt: StudentPortalAttempt): string {
 
 /** Link to retry / launch self-practice for this test */
 function getRetryUrl(attempt: StudentPortalAttempt): string {
+  if (isAssignedAttempt(attempt)) return "/student/assignments";
   const skill = (attempt.skill || "READING").toUpperCase();
   return `/student/practice?skill=${skill}&query=${encodeURIComponent(attempt.title)}`;
+}
+
+function isAssignedAttempt(attempt: StudentPortalAttempt): boolean {
+  return attempt.attemptOrigin === "ASSIGNMENT" || Boolean(attempt.assignmentId);
 }
 
 export default function StudentHistoryPage() {
@@ -392,6 +400,9 @@ export default function StudentHistoryPage() {
                               {attempt.skill}
                             </span>
                           )}
+                          <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${isAssignedAttempt(attempt) ? "bg-[#F7E5EA] text-[#894C5B]" : "bg-[#EAF7F0] text-[#18794E]"}`}>
+                            {isAssignedAttempt(attempt) ? "Bài được giao" : "Tự luyện"}
+                          </span>
                         </div>
                       </td>
 
@@ -457,9 +468,9 @@ export default function StudentHistoryPage() {
                           <Link
                             href={retryUrl}
                             className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline"
-                            title="Làm lại bài thi này"
+                            title={isAssignedAttempt(attempt) ? "Mở danh sách bài được giao" : "Làm lại bài tự luyện này"}
                           >
-                            Làm lại
+                            {isAssignedAttempt(attempt) ? "Bài được giao" : "Làm lại"}
                           </Link>
                           <Link
                             href={reviewUrl}

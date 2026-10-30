@@ -319,22 +319,42 @@ export default function SessionDrawer({
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Thời gian bắt đầu *">
-                    <input
-                      type="datetime-local"
-                      value={draft.startsAt}
-                      onChange={(e) => onPatchDraft({ startsAt: e.target.value })}
-                      className={`${inputClass} font-semibold`}
-                    />
+                  <Field label="Ngày & giờ bắt đầu *">
+                    <div className="grid grid-cols-[1fr_7rem] gap-2">
+                      <input
+                        required
+                        type="date"
+                        value={draft.startsAt.slice(0, 10)}
+                        onChange={(e) => onPatchDraft({ startsAt: `${e.target.value}T${draft.startsAt.slice(11, 16)}` })}
+                        className={`${inputClass} font-semibold`}
+                      />
+                      <input
+                        required
+                        type="time"
+                        value={draft.startsAt.slice(11, 16)}
+                        onChange={(e) => onPatchDraft({ startsAt: `${draft.startsAt.slice(0, 10)}T${e.target.value}` })}
+                        className={`${inputClass} font-semibold`}
+                      />
+                    </div>
                   </Field>
 
-                  <Field label="Thời gian kết thúc *">
-                    <input
-                      type="datetime-local"
-                      value={draft.endsAt}
-                      onChange={(e) => onPatchDraft({ endsAt: e.target.value })}
-                      className={`${inputClass} font-semibold`}
-                    />
+                  <Field label="Ngày & giờ kết thúc *">
+                    <div className="grid grid-cols-[1fr_7rem] gap-2">
+                      <input
+                        required
+                        type="date"
+                        value={draft.endsAt.slice(0, 10)}
+                        onChange={(e) => onPatchDraft({ endsAt: `${e.target.value}T${draft.endsAt.slice(11, 16)}` })}
+                        className={`${inputClass} font-semibold`}
+                      />
+                      <input
+                        required
+                        type="time"
+                        value={draft.endsAt.slice(11, 16)}
+                        onChange={(e) => onPatchDraft({ endsAt: `${draft.endsAt.slice(0, 10)}T${e.target.value}` })}
+                        className={`${inputClass} font-semibold`}
+                      />
+                    </div>
                   </Field>
                 </div>
               </div>

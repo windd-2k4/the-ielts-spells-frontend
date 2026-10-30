@@ -48,6 +48,30 @@ const StudentNotificationContext = createContext<StudentNotificationContextValue
   undefined
 );
 
+const REVIEW_REMINDERS_KEY = "student-progress-review-reminders";
+
+type ScheduledReviewReminder = StudentNotice & { notifyAt: string };
+
+function readDueReviewReminders() {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(REVIEW_REMINDERS_KEY) || "[]") as ScheduledReviewReminder[];
+    const now = Date.now();
+    return rows.filter((item) => Date.parse(item.notifyAt) <= now);
+  } catch {
+    return [];
+  }
+}
+
+function markLocalReviewRemindersRead(ids: string[]) {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(REVIEW_REMINDERS_KEY) || "[]") as ScheduledReviewReminder[];
+    const now = new Date().toISOString();
+    window.localStorage.setItem(REVIEW_REMINDERS_KEY, JSON.stringify(rows.map((item) => ids.includes(item.id) ? { ...item, readAt: item.readAt || now } : item)));
+  } catch {
+    // Ignore malformed local reminders; server notifications still work.
+  }
+}
+
 function playNotificationChime(enabled: boolean) {
   try {
     if (!enabled) return;
@@ -93,6 +117,10 @@ export function StudentNotificationProvider({ children }: { children: ReactNode 
         data = await apiFetch<StudentNotice[]>("/student/notifications/writing");
       }
 
+      const localReminders = preferencesRef.current?.assignmentDeadlineReminder === false
+        ? []
+        : readDueReviewReminders();
+      data = [...localReminders, ...data].sort((left, right) => Date.parse(right.createdAt || "") - Date.parse(left.createdAt || ""));
       setNotifications(data);
 
       // Check for new unread notifications that haven't been shown in toast
@@ -147,6 +175,12 @@ export function StudentNotificationProvider({ children }: { children: ReactNode 
     return () => clearInterval(interval);
   }, [fetchNotices, fetchPreferences, userId]);
 
+  useEffect(() => {
+    const refreshLocalReminders = () => void fetchNotices();
+    window.addEventListener("student-review-reminders-changed", refreshLocalReminders);
+    return () => window.removeEventListener("student-review-reminders-changed", refreshLocalReminders);
+  }, [fetchNotices]);
+
   const markAsRead = useCallback(
     async (id: string) => {
       // Optimistic update
@@ -158,6 +192,10 @@ export function StudentNotificationProvider({ children }: { children: ReactNode 
       }
 
       try {
+        if (id.startsWith("local-review-")) {
+          markLocalReviewRemindersRead([id]);
+          return;
+        }
         await apiFetch(`/student/notifications/writing/${id}/read`, { method: "POST" });
       } catch {
         // If failed, re-fetch to restore accurate state
@@ -174,6 +212,7 @@ export function StudentNotificationProvider({ children }: { children: ReactNode 
     const now = new Date().toISOString();
     setNotifications((current) => current.map((n) => ({ ...n, readAt: n.readAt || now })));
     setActiveToast(null);
+    markLocalReviewRemindersRead(unreadIds.filter((id) => id.startsWith("local-review-")));
 
     try {
       try {

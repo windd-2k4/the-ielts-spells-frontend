@@ -14,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
 import { ReadingStatePanel } from "./ReadingStatePanel";
 import { StudentPageHeader } from "./StudentPageHeader";
@@ -33,6 +33,12 @@ import {
   getReadingAttemptReviews,
   saveReadingAttemptReview,
 } from "./readingApi";
+import {
+  fetchStudentCourseProgress,
+  updateStudentProgressChecklist,
+  updateStudentProgressSummary,
+  type StudentProgressTask,
+} from "@/features/student-hub/studentPortalApi";
 
 type QuestionFilter = "ALL" | "CORRECT" | "INCORRECT" | "UNANSWERED";
 
@@ -45,6 +51,54 @@ const ERROR_REASON_OPTIONS: Array<{ value: TestAttemptErrorReason; label: string
   { value: "QUESTION_MISUNDERSTOOD", label: "Hiểu sai câu hỏi" },
   { value: "OTHER", label: "Lý do khác" },
 ];
+
+const REVIEW_REMINDERS_KEY = "student-progress-review-reminders";
+
+function removeScheduledReviewReminder(attemptId: string) {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(REVIEW_REMINDERS_KEY) || "[]") as Array<{ id: string }>;
+    window.localStorage.setItem(REVIEW_REMINDERS_KEY, JSON.stringify(rows.filter((item) => item.id !== `local-review-${attemptId}`)));
+    window.dispatchEvent(new Event("student-review-reminders-changed"));
+  } catch {
+    // A malformed local reminder must never block saving progress.
+  }
+}
+
+function scheduleReviewReminder({
+  attemptId,
+  title,
+  skill,
+  deadline,
+}: {
+  attemptId: string;
+  title: string;
+  skill: "READING" | "LISTENING";
+  deadline: string | null;
+}) {
+  if (!deadline) return;
+  const deadlineAt = Date.parse(deadline);
+  if (!Number.isFinite(deadlineAt) || deadlineAt <= Date.now()) return;
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(REVIEW_REMINDERS_KEY) || "[]") as Array<Record<string, unknown>>;
+    const notifyAt = new Date(Math.max(Date.now(), deadlineAt - 60 * 60_000)).toISOString();
+    const reminder = {
+      id: `local-review-${attemptId}`,
+      type: "ASSIGNMENT_REVIEW_REMINDER",
+      title: "Bạn còn checklist sau bài làm",
+      body: `Hoàn tất phân tích “${title}” trước khi bài đóng.`,
+      attemptId,
+      skill,
+      createdAt: notifyAt,
+      readAt: null,
+      link: `/student/${skill.toLowerCase()}/attempts/${attemptId}/result?review=1`,
+      notifyAt,
+    };
+    window.localStorage.setItem(REVIEW_REMINDERS_KEY, JSON.stringify([...rows.filter((item) => item.id !== reminder.id), reminder]));
+    window.dispatchEvent(new Event("student-review-reminders-changed"));
+  } catch {
+    // The course detail fallback remains available if local storage is blocked.
+  }
+}
 
 export function ReadingResultPage({
   attemptId,
@@ -69,7 +123,6 @@ function ReadingResultContent({
 }) {
   const skillPath = skill.toLowerCase();
   const skillLabel = skill === "LISTENING" ? "Listening" : "Reading";
-  const catalogUrl = `/student/practice?skill=${skill}`;
   const searchParams = useSearchParams();
   const fromPlacement = searchParams.get("from") === "placement";
 
@@ -79,6 +132,20 @@ function ReadingResultContent({
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<QuestionFilter>("ALL");
   const [reviews, setReviews] = useState<Record<string, TestAttemptQuestionReview>>({});
+  const [progressTask, setProgressTask] = useState<StudentProgressTask | null>(null);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const [progressMessage, setProgressMessage] = useState("");
+  const [comprehension, setComprehension] = useState("0");
+  const [errorAnalysis, setErrorAnalysis] = useState("");
+  const [checklistValues, setChecklistValues] = useState<Record<string, boolean>>({});
+  const [showQuestionDetails, setShowQuestionDetails] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const progressModalPrompted = useRef(false);
+  const isAssignedAttempt = attempt?.attemptOrigin === "ASSIGNMENT" || Boolean(attempt?.assignmentId);
+  const catalogUrl = isAssignedAttempt
+    ? "/student/assignments"
+    : `/student/practice?skill=${skill}`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,6 +169,70 @@ function ReadingResultContent({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!attempt?.courseId || !attempt.classActivityId) {
+      setProgressTask(null);
+      return;
+    }
+    let active = true;
+    setProgressLoading(true);
+    void fetchStudentCourseProgress(attempt.courseId)
+      .then((tasks) => {
+        if (!active) return;
+        const task = tasks.find((item) => item.classActivityId === attempt.classActivityId) ?? null;
+        setProgressTask(task);
+        setComprehension(task?.comprehensionPercent == null ? "0" : String(task.comprehensionPercent));
+        setErrorAnalysis(task?.errorAnalysis ?? "");
+        setChecklistValues(Object.fromEntries((task?.checklist ?? []).map((item) => [item.id, item.completed])));
+      })
+      .catch(() => {
+        if (active) setProgressTask(null);
+      })
+      .finally(() => {
+        if (active) setProgressLoading(false);
+      });
+    return () => { active = false; };
+  }, [attempt?.classActivityId, attempt?.courseId]);
+
+  async function saveProgressSummary() {
+    if (!attempt?.courseId || !progressTask?.attemptId) return false;
+    setProgressSaving(true);
+    setProgressMessage("");
+    try {
+      await Promise.all([
+        updateStudentProgressSummary(
+          attempt.courseId,
+          progressTask.attemptId,
+          null,
+          Number(comprehension),
+          errorAnalysis.trim() || null,
+        ),
+        ...progressTask.checklist.map((item) => updateStudentProgressChecklist(
+          attempt.courseId!,
+          progressTask.attemptId!,
+          item.id,
+          Boolean(checklistValues[item.id]),
+        )),
+      ]);
+      setProgressTask((current) => current ? {
+        ...current,
+        comprehensionPercent: Number(comprehension),
+        errorAnalysis: errorAnalysis.trim() || null,
+        checklist: current.checklist.map((item) => ({ ...item, completed: Boolean(checklistValues[item.id]) })),
+      } : current);
+      window.localStorage.removeItem(`post-attempt-review-deferred:${attemptId}`);
+      removeScheduledReviewReminder(attemptId);
+      setProgressMessage("Đã lưu báo cáo sau bài làm.");
+      setShowProgressModal(false);
+      return true;
+    } catch (failure) {
+      setProgressMessage(requestMessage(failure));
+      return false;
+    } finally {
+      setProgressSaving(false);
+    }
+  }
 
   const optionMap = useMemo(() => buildReadingOptionMap(attempt?.sections), [attempt]);
 
@@ -138,6 +269,42 @@ function ReadingResultContent({
 
     return Array.from(map.values());
   }, [attempt, result]);
+
+  useEffect(() => {
+    if (!result || !progressTask || errorAnalysis.trim()) return;
+    const weakestType = [...typeBreakdown]
+      .sort((left, right) => (right.incorrect + right.unanswered) - (left.incorrect + left.unanswered))[0];
+    const summary = [
+      `Hệ thống ghi nhận ${result.incorrectCount} câu sai và ${result.unansweredCount} câu bỏ trống.`,
+      weakestType && weakestType.incorrect + weakestType.unanswered > 0
+        ? `Nhóm cần ưu tiên luyện lại: ${weakestType.typeName} (${weakestType.incorrect + weakestType.unanswered}/${weakestType.total} câu chưa đạt).`
+        : "Chưa phát hiện nhóm câu hỏi cần ưu tiên.",
+      "Hãy kiểm tra lại nguyên nhân và chọn bước tự học phù hợp trước lần làm tiếp theo.",
+    ].join(" ");
+    setErrorAnalysis(summary);
+  }, [errorAnalysis, progressTask, result, typeBreakdown]);
+
+  useEffect(() => {
+    if (progressModalPrompted.current || !result?.resultVisible || !isAssignedAttempt || !progressTask?.attemptId) return;
+    const requiredDone = progressTask.checklist.filter((item) => item.required).every((item) => item.completed);
+    const reportDone = requiredDone && Boolean(progressTask.errorAnalysis?.trim());
+    const deferred = window.localStorage.getItem(`post-attempt-review-deferred:${attemptId}`) === "1";
+    if (searchParams.get("review") === "1" || (!reportDone && !deferred)) {
+      progressModalPrompted.current = true;
+      setShowProgressModal(true);
+    }
+  }, [attemptId, isAssignedAttempt, progressTask, result?.resultVisible, searchParams]);
+
+  function deferProgressReview() {
+    window.localStorage.setItem(`post-attempt-review-deferred:${attemptId}`, "1");
+    scheduleReviewReminder({
+      attemptId,
+      title: attempt?.title ?? `Bài ${skillLabel}`,
+      skill,
+      deadline: progressTask?.effectiveDueAt ?? null,
+    });
+    setShowProgressModal(false);
+  }
 
   if (loading) {
     return <main className="grid min-h-dvh place-items-center bg-slate-50 px-4" aria-busy="true"><span className="flex items-center gap-3 text-sm font-medium text-slate-500"><CircleNotch size={22} className="animate-spin text-[#8f4458]" aria-hidden="true" />Đang tải kết quả bài làm...</span></main>;
@@ -181,6 +348,7 @@ function ReadingResultContent({
           <span className="text-xs font-extrabold uppercase tracking-wider text-[#8f4458]">The IELTS Spells</span>
           <span className="hidden text-slate-300 sm:inline">|</span>
           <span className="hidden truncate text-sm font-semibold text-slate-700 sm:inline max-w-md">{attempt?.title ?? `Kết quả bài ${skillLabel}`}</span>
+          {attempt ? <span className="hidden rounded-full bg-[#F7E5EA] px-2 py-1 text-[10px] font-bold text-[#894C5B] md:inline">{isAssignedAttempt ? "Bài được giao" : "Tự luyện"}</span> : null}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Nộp lúc: {formatDateTime(result.submittedAt)}</span>
@@ -276,7 +444,27 @@ function ReadingResultContent({
 
           </div>
 
-          {/* Omitted recommendation section as requested */}
+          {isAssignedAttempt && (progressLoading || progressTask) ? (
+            <section className="relative overflow-hidden rounded-2xl border border-[#E8D5DC] bg-white p-5 shadow-[0_12px_32px_rgba(136,68,88,0.08)]" aria-label="Báo cáo sau bài làm">
+              <span className="absolute inset-y-0 left-0 w-1.5 bg-[#D96E91]" aria-hidden="true" />
+              <div className="flex flex-wrap items-center justify-between gap-5 pl-2">
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                  <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#FFE9F0] text-[#B7476B]"><ListChecks size={24} weight="fill" /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-extrabold text-slate-950">Báo cáo sau lần làm này</h3>
+                      {progressTask ? <span className="rounded-full bg-[#EEF8F4] px-2.5 py-1 text-[11px] font-extrabold text-[#16715A]">{progressTask.checklist.filter((item) => checklistValues[item.id]).length}/{progressTask.checklist.length} mục</span> : null}
+                    </div>
+                    {progressTask ? <div className="mt-2 h-1.5 max-w-sm overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-[#D96E91] transition-all" style={{ width: `${progressTask.checklist.length ? Math.round((progressTask.checklist.filter((item) => checklistValues[item.id]).length / progressTask.checklist.length) * 100) : 0}%` }} /></div> : null}
+                    {progressMessage ? <p role="status" className="mt-2 text-xs font-bold text-[#A33F60]">{progressMessage}</p> : null}
+                  </div>
+                </div>
+                <button type="button" disabled={progressLoading || !progressTask} onClick={() => setShowProgressModal(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#B7476B] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(183,71,107,0.22)] transition hover:bg-[#A33F60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7476B] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-55">
+                  {progressLoading ? <CircleNotch size={17} className="animate-spin" /> : <ListChecks size={17} weight="bold" />} {progressLoading ? "Đang chuẩn bị…" : "Mở báo cáo"}
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {/* Detailed Question Type Breakdown Table ("Bảng dữ liệu chi tiết") */}
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -316,13 +504,13 @@ function ReadingResultContent({
           {/* Detailed Question Review List with Explanations */}
           <section id="detailed-explanations" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900">Chi tiết từng câu & Giải thích</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Xem chi tiết đáp án chuẩn và lời giải thích từ đội ngũ IELTS Spells</p>
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-[#EEF6FF] text-[#3976B8]"><Lightbulb size={20} weight="fill" /></span>
+                <div><h3 className="text-lg font-extrabold text-slate-900">Đáp án & phân tích từng câu</h3><span className="text-xs font-bold text-slate-400">{totalQuestions} câu</span></div>
               </div>
 
               {/* Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-bold">
+              {showQuestionDetails ? <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-bold">
                 <button
                   type="button"
                   onClick={() => setFilter("ALL")}
@@ -351,10 +539,13 @@ function ReadingResultContent({
                 >
                   <MinusCircle size={14} weight="fill" aria-hidden="true" /> Bỏ qua ({result.unansweredCount})
                 </button>
-              </div>
+              </div> : <button type="button" onClick={() => setShowQuestionDetails(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#BCD8F3] bg-[#F4F9FF] px-4 text-sm font-extrabold text-[#27679F] transition hover:bg-[#EAF4FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A8CC8]">
+                <CaretDown size={16} weight="bold" /> Xem chi tiết
+              </button>}
             </div>
 
-            <div className="space-y-3">
+            {showQuestionDetails ? <div className="space-y-3">
+              <button type="button" onClick={() => setShowQuestionDetails(false)} className="text-xs font-bold text-slate-500 hover:text-[#894C5B]">Ẩn danh sách câu hỏi</button>
               {filteredQuestions.map((q) => (
                 <article key={q.questionKey} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition hover:bg-slate-50">
                   <div className="flex items-center justify-between gap-3">
@@ -427,7 +618,7 @@ function ReadingResultContent({
                   Không có câu hỏi nào trong mục này.
                 </div>
               )}
-            </div>
+            </div> : null}
           </section>
         </>
       )}
@@ -453,6 +644,143 @@ function ReadingResultContent({
       </div>
 
     </main>
+    {showProgressModal && progressTask ? <PostAttemptReviewModal
+      task={progressTask}
+      title={attempt?.title ?? `Bài ${skillLabel}`}
+      correctCount={result.correctCount}
+      incorrectCount={result.incorrectCount}
+      unansweredCount={result.unansweredCount}
+      typeBreakdown={typeBreakdown}
+      comprehension={comprehension}
+      errorAnalysis={errorAnalysis}
+      checklistValues={checklistValues}
+      saving={progressSaving}
+      message={progressMessage}
+      practiceUrl={catalogUrl}
+      onComprehensionChange={setComprehension}
+      onErrorAnalysisChange={setErrorAnalysis}
+      onChecklistChange={(id, completed) => setChecklistValues((current) => ({ ...current, [id]: completed }))}
+      onSave={saveProgressSummary}
+      onDefer={deferProgressReview}
+    /> : null}
+  </div>;
+}
+
+function PostAttemptReviewModal({
+  task,
+  title,
+  correctCount,
+  incorrectCount,
+  unansweredCount,
+  typeBreakdown,
+  comprehension,
+  errorAnalysis,
+  checklistValues,
+  saving,
+  message,
+  practiceUrl,
+  onComprehensionChange,
+  onErrorAnalysisChange,
+  onChecklistChange,
+  onSave,
+  onDefer,
+}: {
+  task: StudentProgressTask;
+  title: string;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  typeBreakdown: Array<{ typeName: string; total: number; correct: number; incorrect: number; unanswered: number }>;
+  comprehension: string;
+  errorAnalysis: string;
+  checklistValues: Record<string, boolean>;
+  saving: boolean;
+  message: string;
+  practiceUrl: string;
+  onComprehensionChange: (value: string) => void;
+  onErrorAnalysisChange: (value: string) => void;
+  onChecklistChange: (id: string, completed: boolean) => void;
+  onSave: () => Promise<boolean>;
+  onDefer: () => void;
+}) {
+  const total = correctCount + incorrectCount + unansweredCount;
+  const percentage = total ? Math.round((correctCount / total) * 100) : 0;
+  const weakGroups = typeBreakdown
+    .filter((item) => item.incorrect + item.unanswered > 0)
+    .sort((left, right) => (right.incorrect + right.unanswered) - (left.incorrect + left.unanswered))
+    .slice(0, 3);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDefer();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onDefer]);
+
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-[#172033]/35 p-3 backdrop-blur-[3px] sm:p-6" role="presentation">
+    <section role="dialog" aria-modal="true" aria-labelledby="post-attempt-review-title" className="flex h-[560px] min-h-0 max-h-[calc(100%-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[#DDE7F0] bg-[#F7FAFD] shadow-[0_28px_80px_rgba(31,41,55,0.22)] [@media(max-height:760px)]:h-[420px]">
+      <header className="flex items-start justify-between gap-4 border-b border-[#E8EEF4] bg-white px-5 py-4 sm:px-6">
+        <div className="min-w-0">
+          <p className="inline-flex rounded-full bg-[#FFEAF1] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.13em] text-[#A83F62]">Sau lần làm này</p>
+          <h2 id="post-attempt-review-title" className="mt-1 truncate text-xl font-extrabold text-slate-950">Nhìn lại nhanh trước khi luyện tiếp</h2>
+          <p className="mt-1 truncate text-sm text-slate-500">{title}</p>
+        </div>
+        <button type="button" onClick={onDefer} aria-label="Đóng và hoàn thành sau" className="grid size-11 shrink-0 place-items-center rounded-xl border border-[#DDE7F0] bg-[#F8FBFF] text-slate-500 transition hover:border-[#B8D5EE] hover:bg-[#EDF6FF] hover:text-[#27679F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A8CC8]"><X size={19} /></button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-[#F0CDDA] bg-[#FFF7FA] p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div><span className="text-xs font-extrabold uppercase tracking-wide text-[#9A5C70]">Kết quả lần này</span><strong className="mt-1 block text-4xl font-black tracking-tight text-[#9F3E60]">{correctCount}<span className="text-2xl text-[#C68A9D]">/{total}</span></strong></div>
+                <span className="rounded-full border border-[#F0CDDA] bg-white px-3 py-1.5 text-sm font-extrabold text-[#A83F62] shadow-sm">{percentage}%</span>
+              </div>
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-[#EAF9F3] px-2 py-3 text-center"><strong className="block text-lg text-[#14745A]">{correctCount}</strong><span className="text-[11px] font-bold text-[#438C78]">Đúng</span></div>
+                <div className="rounded-xl bg-[#FFF0F2] px-2 py-3 text-center"><strong className="block text-lg text-[#C4455C]">{incorrectCount}</strong><span className="text-[11px] font-bold text-[#B86673]">Sai</span></div>
+                <div className="rounded-xl bg-[#FFF7E8] px-2 py-3 text-center"><strong className="block text-lg text-[#A86B13]">{unansweredCount}</strong><span className="text-[11px] font-bold text-[#A88145]">Bỏ trống</span></div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#CFE4F5] bg-[#F5FAFF] p-4">
+              <div className="flex items-center gap-2 text-[#3976B8]"><Sparkle size={18} weight="fill" /><h3 className="text-sm font-extrabold text-slate-900">Nhóm cần xem lại</h3></div>
+              {weakGroups.length ? <div className="mt-3 grid gap-2">{weakGroups.map((group) => <div key={group.typeName} className="flex items-center justify-between gap-3 rounded-xl border border-[#DCEBF7] bg-white px-3 py-2.5 text-sm shadow-sm"><span className="min-w-0 truncate font-semibold text-slate-700">{group.typeName}</span><strong className="shrink-0 rounded-full bg-[#E9F4FF] px-2.5 py-1 text-xs text-[#27679F]">{group.incorrect + group.unanswered}/{group.total}</strong></div>)}</div> : <p className="mt-3 text-sm font-semibold text-[#3976B8]">Không có nhóm câu nổi bật.</p>}
+            </section>
+
+            <section className="rounded-2xl border border-[#CFE9DF] bg-[#F3FBF7] p-4">
+              <div className="flex items-center justify-between gap-3"><label htmlFor="review-comprehension" className="text-sm font-extrabold text-slate-900">Mức độ thấu hiểu</label><strong className="text-xl text-[#16715A]">{comprehension}%</strong></div>
+              <input id="review-comprehension" type="range" min="0" max="100" step="5" value={comprehension} onChange={(event) => onComprehensionChange(event.target.value)} className="mt-3 w-full accent-[#25A47C]" />
+              <div className="mt-1 flex justify-between text-[10px] font-bold text-[#6E9A8D]"><span>Cần luyện lại</span><span>Đã nắm chắc</span></div>
+            </section>
+          </div>
+
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-[#E9D5DD] bg-white p-4 shadow-[0_8px_24px_rgba(136,68,88,0.06)]">
+              <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-extrabold text-slate-900">Checklist sau bài làm</h3><span className="inline-flex items-center gap-1 rounded-full bg-[#FFEAF1] px-2.5 py-1 text-xs font-extrabold text-[#A83F62]"><ListChecks size={14} weight="fill" /> {task.checklist.filter((item) => checklistValues[item.id]).length}/{task.checklist.length}</span></div>
+              <div className="mt-3 grid gap-2">{task.checklist.map((item) => <label key={item.id} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition ${checklistValues[item.id] ? "border-[#9BD9C4] bg-[#EEFBF6]" : "border-[#E4EAF0] bg-[#FAFCFE] hover:border-[#E0B9C7] hover:bg-[#FFF8FA]"}`}><input type="checkbox" checked={Boolean(checklistValues[item.id])} onChange={(event) => onChecklistChange(item.id, event.target.checked)} className="size-4 shrink-0 accent-[#25A47C]" /><span className="flex min-w-0 flex-1 items-center justify-between gap-2 text-sm font-semibold leading-5 text-slate-700"><span>{item.label}</span>{item.required ? <small className="shrink-0 rounded-full bg-[#FFF0F3] px-2 py-0.5 text-[10px] font-extrabold text-[#B7476B]">Bắt buộc</small> : null}</span></label>)}</div>
+            </section>
+
+            <section className="rounded-2xl border border-[#F0DFC0] bg-[#FFFCF5] p-4">
+              <label htmlFor="review-error-analysis" className="text-sm font-extrabold text-slate-900">Kết luận cho lần luyện tiếp theo</label>
+              <textarea id="review-error-analysis" rows={5} value={errorAnalysis} onChange={(event) => onErrorAnalysisChange(event.target.value)} className="mt-3 w-full resize-y rounded-xl border border-[#E9D7B8] bg-white px-3 py-2.5 text-sm leading-6 text-slate-700 outline-none transition focus:border-[#C38A34] focus:ring-2 focus:ring-[#F3DDAF]" />
+            </section>
+            {message ? <p role="status" className="rounded-xl border border-[#CFE9DF] bg-[#F0FBF6] px-3 py-2 text-xs font-bold text-[#16715A]">{message}</p> : null}
+          </div>
+        </div>
+      </div>
+
+      <footer className="flex flex-col-reverse gap-2 border-t border-[#E5EDF4] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <Link href={practiceUrl} onClick={onDefer} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#CFE1F1] bg-[#F5FAFF] px-4 text-sm font-extrabold text-[#27679F] transition hover:bg-[#EAF4FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A8CC8]">Để sau, luyện lại <ArrowRight size={16} /></Link>
+        <button type="button" disabled={saving || !task.attemptId} onClick={() => void onSave()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#B7476B] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(183,71,107,0.22)] transition hover:bg-[#A33F60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7476B] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-55">{saving ? <CircleNotch size={17} className="animate-spin" /> : <CheckCircle size={17} weight="fill" />}{saving ? "Đang lưu…" : "Lưu vào tiến độ"}</button>
+      </footer>
+    </section>
   </div>;
 }
 

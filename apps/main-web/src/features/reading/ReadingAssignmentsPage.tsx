@@ -1,6 +1,7 @@
 "use client";
 
 import type { StudentReadingAssignment, StudentReadingCatalogItem } from "@ielts/contracts";
+import { hasUnlimitedAssignmentAttempts } from "@ielts/contracts";
 import {
   ArrowLeft, ArrowRight, BookOpenText, CalendarBlank, CheckCircle, CircleNotch,
   Clock, FunnelSimple, MagnifyingGlass, Play, Sparkle, Stack, WarningCircle,
@@ -185,7 +186,7 @@ function AssignmentCard({ assignment, starting, onStart }: { assignment: Student
       <div className={styles.assignmentIcon}><BookOpenText size={23} weight="fill" /></div>
       <div className={styles.assignmentCopy}>
         <div><span>{assignment.courseName}</span><small>{state.label}</small></div><h2>{assignment.title}</h2>
-        <dl><div><Clock size={17} /><dt className="sr-only">Thời lượng</dt><dd>{assignment.durationSeconds ? formatDuration(assignment.durationSeconds) : "Theo thời lượng đề"}</dd></div><div><CalendarBlank size={17} /><dt className="sr-only">Hạn làm</dt><dd>{formatDateTime(assignment.closesAt)}</dd></div><div><CheckCircle size={17} /><dt className="sr-only">Lượt làm</dt><dd>{assignment.attemptsUsed}/{assignment.maxAttempts} lượt</dd></div></dl>
+        <dl><div><Clock size={17} /><dt className="sr-only">Thời lượng</dt><dd>{assignment.durationSeconds ? formatDuration(assignment.durationSeconds) : "Theo thời lượng đề"}</dd></div><div><CalendarBlank size={17} /><dt className="sr-only">Hạn làm</dt><dd>{formatDateTime(assignment.closesAt)}</dd></div><div><CheckCircle size={17} /><dt className="sr-only">Lượt làm</dt><dd>{hasUnlimitedAssignmentAttempts(assignment.maxAttempts) ? `${assignment.attemptsUsed} lượt · Không giới hạn` : `${assignment.attemptsUsed}/${assignment.maxAttempts} lượt`}</dd></div></dl>
       </div>
       <button type="button" disabled={!state.available || starting} onClick={() => onStart(assignment.assignmentId)}>
         {starting ? <CircleNotch size={18} className={styles.spin} /> : <Play size={17} weight="fill" />}{starting ? "Đang mở" : resume ? "Tiếp tục" : "Làm bài"}<ArrowRight size={16} weight="bold" />

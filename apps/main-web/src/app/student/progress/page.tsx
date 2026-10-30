@@ -9,12 +9,12 @@ export default function StudentProgressPage() {
   const { data, loading } = useStudentPortal();
   const attempts: RecentAttemptItem[] = (data?.recentAttempts ?? []).map((attempt) => {
     const skillName = attempt.skill ? attempt.skill.toUpperCase() : "READING";
-    const skillPath = skillName === "WRITING" ? "writing" : skillName === "LISTENING" ? "listening" : "reading";
+    const skillPath = skillName === "WRITING" ? "writing" : skillName === "SPEAKING" ? "speaking" : skillName === "LISTENING" ? "listening" : "reading";
     const skillLabel = skillName === "WRITING" ? "IELTS Writing" : skillName === "LISTENING" ? "IELTS Listening" : skillName === "SPEAKING" ? "IELTS Speaking" : "IELTS Reading";
     return {
       id: attempt.attemptId,
       testTitle: attempt.title,
-      skill: skillLabel,
+      skill: `${skillLabel} · ${attempt.attemptOrigin === "ASSIGNMENT" || attempt.assignmentId ? "Bài được giao" : "Tự luyện"}`,
       completedDate: formatDateTime(attempt.submittedAt ?? attempt.startedAt),
       scoreText: attempt.submittedAt && attempt.score != null
         ? `${attempt.correctCount ?? 0}/${attempt.totalQuestions} câu · ${Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%`
