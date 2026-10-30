@@ -29,6 +29,8 @@ import {
   VocabularyNotebook,
 } from "./flashcardApi";
 import styles from "./FlashcardNotebook.module.css";
+import { CuratedVocabHub } from "./CuratedVocabHub";
+import curatedStyles from "./CuratedVocab.module.css";
 
 const STATUS_COPY: Record<VocabularyMasteryStatus, string> = {
   NOT_LEARNED: "Chưa thuộc",
@@ -47,6 +49,7 @@ export function FlashcardNotebook() {
   const [loading, setLoading] = useState(true);
   const [editingCard, setEditingCard] = useState<VocabularyCard | null | undefined>(undefined);
   const [creatingTopic, setCreatingTopic] = useState(false);
+  const [mainTab, setMainTab] = useState<"notebook" | "curated">("notebook");
 
   async function load() {
     setLoading(true);
@@ -122,7 +125,35 @@ export function FlashcardNotebook() {
         <Summary notebook={notebook} />
       </header>
 
-      <div className={styles.workspace}>
+      <div style={{ padding: "16px 18px 0" }}>
+        <div className={curatedStyles.tabNav}>
+          <button
+            type="button"
+            className={`${curatedStyles.tabBtn} ${mainTab === "notebook" ? curatedStyles.tabBtnActive : ""}`}
+            onClick={() => setMainTab("notebook")}
+          >
+            <BookOpen size={16} weight={mainTab === "notebook" ? "fill" : "regular"} />
+            Sổ từ của tôi
+            <span className={curatedStyles.tabBadge}>{notebook.summary.total}</span>
+          </button>
+          <button
+            type="button"
+            className={`${curatedStyles.tabBtn} ${mainTab === "curated" ? curatedStyles.tabBtnActive : ""}`}
+            onClick={() => setMainTab("curated")}
+          >
+            <Cards size={16} weight={mainTab === "curated" ? "fill" : "regular"} />
+            Kho từ vựng tuyển chọn (Basic & Advanced)
+            <span className={curatedStyles.tabBadge}>72 bộ từ</span>
+          </button>
+        </div>
+      </div>
+
+      {mainTab === "curated" ? (
+        <div style={{ padding: "0 18px" }}>
+          <CuratedVocabHub />
+        </div>
+      ) : (
+        <div className={styles.workspace}>
         <aside className={styles.topicRail}>
           <div className={styles.topicHeading}>
             <h2>Chủ đề của tôi</h2>
@@ -251,6 +282,7 @@ export function FlashcardNotebook() {
           )}
         </section>
       </div>
+      )}
 
       {editingCard !== undefined ? <CardDialog
         card={editingCard}
