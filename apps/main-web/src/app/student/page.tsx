@@ -29,7 +29,6 @@ import {
 } from "@/features/student-hub/studentPortalApi";
 import { formatBand, formatDateTime } from "@/features/student-hub/studentPortalViewModel";
 import { PlacementTestBanner } from "@/features/placement-test/PlacementTestBanner";
-import { AdaptiveRecommendationCard } from "@/features/adaptive-learning/AdaptiveRecommendationCard";
 import styles from "@/features/student-hub/StudentLearningOverview.module.css";
 
 const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -238,8 +237,6 @@ export default function StudentDashboardPage() {
               />
             </div>
           </section>
-
-          <AdaptiveRecommendationCard />
 
           {/* 5 Score Cards Row - NO FAKE DATA */}
           <div className={styles.scoreCardsRow}>
