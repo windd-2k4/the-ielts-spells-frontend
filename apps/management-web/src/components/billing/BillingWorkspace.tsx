@@ -2917,6 +2917,16 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               </span>
                               <button
                                 type="button"
+                                onClick={() => ord.invoiceId
+                                  ? handleRecheckInvoice(ord.invoiceId)
+                                  : handleRecheckInvoice(ord.id, true)}
+                                disabled={retryingInvoiceId === (ord.invoiceId || ord.id)}
+                                className="block text-[10.5px] font-bold text-primary hover:underline mt-0.5 cursor-pointer disabled:opacity-50"
+                              >
+                                {retryingInvoiceId === (ord.invoiceId || ord.id) ? "Đang tra cứu..." : "Kiểm tra lại với SePay"}
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleIssueDraftInvoice(ord.id)}
                                 disabled={issuingDraftId === ord.id}
                                 className="block text-[10.5px] font-bold text-emerald-600 hover:underline mt-0.5 cursor-pointer disabled:opacity-50"
@@ -3094,6 +3104,17 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   </>
                                 )}
                                 {ord.invoiceStatus === "DRAFT" && (
+                                <button
+                                  type="button"
+                                  onClick={() => ord.invoiceId
+                                    ? handleRecheckInvoice(ord.invoiceId)
+                                    : handleRecheckInvoice(ord.id, true)}
+                                  disabled={retryingInvoiceId === (ord.invoiceId || ord.id)}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-primary hover:bg-primary/10 transition font-medium disabled:opacity-50"
+                                >
+                                  <MagnifyingGlass size={13} />
+                                  <span>{retryingInvoiceId === (ord.invoiceId || ord.id) ? "Đang tra cứu..." : "Kiểm tra lại trạng thái với SePay"}</span>
+                                </button>
                                   <button
                                     type="button"
                                     onClick={() => handleIssueDraftInvoice(ord.id)}
