@@ -13,6 +13,7 @@ import {
   type StudentCourseItem,
 } from "@/features/student-hub/studentPortalApi";
 import { formatDateTime, skillPairLabel, studentPortalErrorMessage } from "@/features/student-hub/studentPortalViewModel";
+import { getStudentCoursesHref } from "@/features/student-hub/studentCourseNav";
 import { StudentCoursesCuratedTrack } from "@/features/student-hub/courses/StudentCoursesCuratedTrack";
 import { ArrowClockwise, BookOpenText, CaretDown, CaretUp, Compass, GraduationCap, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 
@@ -23,6 +24,16 @@ export default function StudentCoursesPage() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [showAllCourses, setShowAllCourses] = useState(false);
+
+  // If the student already has enrolled courses, skip this catalog page and redirect straight to their active course workspace
+  useEffect(() => {
+    if (portalLoading) return;
+    const enrollments = data?.enrollments ?? [];
+    if (enrollments.length > 0) {
+      const targetHref = getStudentCoursesHref(enrollments);
+      router.replace(targetHref);
+    }
+  }, [portalLoading, data?.enrollments, router]);
 
   const loadCourses = useCallback(async () => {
     setLoadingCourses(true);
@@ -37,8 +48,11 @@ export default function StudentCoursesPage() {
   }, []);
 
   useEffect(() => {
-    void loadCourses();
-  }, [loadCourses]);
+    // Only load public courses catalog if student has no enrollments or is still checking
+    if (!portalLoading && (data?.enrollments ?? []).length === 0) {
+      void loadCourses();
+    }
+  }, [portalLoading, data?.enrollments, loadCourses]);
 
   // Map enrolled courses from student portal DB overview
   const enrolledCourses: CourseEnrollmentItem[] = useMemo(() => {
@@ -62,7 +76,7 @@ export default function StudentCoursesPage() {
       startsOn: item.startsOn,
       nextSessionText: item.nextSessionAt ? formatDateTime(item.nextSessionAt) : undefined,
       status: item.status,
-      href: `#course-${item.courseId}`,
+      href: `/student/courses/${item.courseId}`,
       coverImageUrl: item.coverImageUrl,
       coverImageAltText: item.coverImageAltText,
     }));
@@ -103,6 +117,19 @@ export default function StudentCoursesPage() {
   );
 
   const visibleCourses = showAllCourses ? unenrolledCourses : unenrolledCourses.slice(0, 2);
+
+  // If loading portal or redirecting enrolled student to their course workspace
+  if (portalLoading || (data?.enrollments && data.enrollments.length > 0)) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3 rounded-[20px] border border-[#E8D8DC] bg-[#FAF5F7] p-8 text-center" aria-live="polite">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#9B465D] text-white shadow-lg shadow-[#9B465D]/20 animate-pulse">
+          <GraduationCap size={26} weight="duotone" />
+        </div>
+        <p className="text-sm font-bold text-[#894C5B]">Đang chuyển đến không gian khóa học của bạn...</p>
+        <span className="text-xs text-[#847A7E]">Hệ thống đang mở trực tiếp lớp học gần nhất</span>
+      </div>
+    );
+  }
 
   return (
     <main id="courses-catalog" className="space-y-5 pb-10">

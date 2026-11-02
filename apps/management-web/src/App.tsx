@@ -52,6 +52,12 @@ const StudentSupportCoursesPage = lazy(() => import("./pages/StudentSupportCours
   .then((module) => ({ default: module.StudentSupportCoursesPage })));
 const CmsContentPage = lazy(() => import("./pages/CmsContentPage")
   .then((module) => ({ default: module.CmsContentPage })));
+const AdaptiveLearningPage = lazy(() => import("./pages/AdaptiveLearningPage")
+  .then((module) => ({ default: module.AdaptiveLearningPage })));
+const AdaptiveKnowledgeMapPage = lazy(() => import("./pages/AdaptiveKnowledgeMapPage")
+  .then((module) => ({ default: module.AdaptiveKnowledgeMapPage })));
+const AdaptiveContentMappingsPage = lazy(() => import("./pages/AdaptiveContentMappingsPage")
+  .then((module) => ({ default: module.AdaptiveContentMappingsPage })));
 
 function Loader() {
   return <div className="app-loader" role="status">
@@ -125,6 +131,9 @@ export default function App() {
               <Route index element={<HomeRedirect />} />
               <Route element={<RequireRoles any={["admin"]} />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/adaptive-learning" element={<AdaptiveLearningPage />} />
+                <Route path="/adaptive-learning/knowledge-map" element={<AdaptiveKnowledgeMapPage />} />
+                <Route path="/adaptive-learning/content-mappings" element={<AdaptiveContentMappingsPage />} />
                 <Route path="/classes" element={<Navigate to="/courses" replace />} />
               </Route>
               <Route element={<RequireRoles any={["admin", "teacher"]} />}>

@@ -20,6 +20,8 @@ import {
   Gear,
   X,
 } from "@phosphor-icons/react";
+import { useStudentPortal } from "./StudentPortalProvider";
+import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentMobileNav.module.css";
 
 interface StudentMobileNavProps { isOpen: boolean; onClose: () => void; }
@@ -61,6 +63,8 @@ function isCurrent(pathname: string, href: string) {
 export function StudentMobileNav({ isOpen, onClose }: StudentMobileNavProps) {
   const pathname = usePathname();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const { data } = useStudentPortal();
+  const coursesHref = getStudentCoursesHref(data?.enrollments);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -89,7 +93,8 @@ export function StudentMobileNav({ isOpen, onClose }: StudentMobileNavProps) {
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const active = isCurrent(pathname, item.href);
-                      return <Link key={item.href} href={item.href} className={styles.drawerLink} aria-current={active ? "page" : undefined} onClick={onClose}><Icon size={18} weight={active ? "fill" : "regular"} />{item.label}</Link>;
+                      const targetHref = item.href === "/student/courses" ? coursesHref : item.href;
+                      return <Link key={item.href} href={targetHref} className={styles.drawerLink} aria-current={active ? "page" : undefined} onClick={onClose}><Icon size={18} weight={active ? "fill" : "regular"} />{item.label}</Link>;
                     })}
                   </div>
                 </div>

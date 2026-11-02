@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpenText,
@@ -15,8 +15,10 @@ import {
   SquaresFour,
   X,
 } from "@phosphor-icons/react";
-import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
-import type { StudentPortalAttempt } from "@/features/student-hub/studentPortalApi";
+import {
+  getStudentAttemptHistory,
+  type StudentPortalAttempt,
+} from "@/features/student-hub/studentPortalApi";
 
 type SkillTabId = "ALL" | "WRITING" | "SPEAKING" | "READING" | "LISTENING" | "MOCK_TEST";
 
@@ -130,13 +132,32 @@ function isAssignedAttempt(attempt: StudentPortalAttempt): boolean {
 }
 
 export default function StudentHistoryPage() {
-  const { data, loading } = useStudentPortal();
+  const [attempts, setAttempts] = useState<StudentPortalAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<SkillTabId>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "COMPLETED" | "IN_PROGRESS">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const rawAttempts = useMemo(() => data?.recentAttempts ?? [], [data?.recentAttempts]);
+  useEffect(() => {
+    let active = true;
+    getStudentAttemptHistory()
+      .then((items) => {
+        if (active) setAttempts(items);
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const rawAttempts = useMemo(() => attempts, [attempts]);
 
   // Tab count indicators
   const tabCounts = useMemo(() => {
@@ -355,19 +376,27 @@ export default function StudentHistoryPage() {
                   <td colSpan={7} className="py-12 text-center">
                     <div className="max-w-xs mx-auto space-y-3">
                       <p className="text-sm font-semibold text-[#1E1B18]">
-                        Không có lượt làm bài nào
+                        {loadError ? "Không tải được lịch sử làm bài" : "Không có lượt làm bài nào"}
                       </p>
                       <p className="text-xs text-[#6F676C]">
-                        {searchQuery
+                        {loadError
+                          ? "Vui lòng thử tải lại trang."
+                          : searchQuery
                           ? "Không tìm thấy bài thi phù hợp với từ khóa tìm kiếm."
                           : "Lượt làm bài sẽ tự động hiển thị tại đây sau khi bạn hoàn thành bài thi."}
                       </p>
-                      <Link
+                      {loadError ? <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#FF5B45] text-white text-xs font-bold hover:bg-[#E54833] transition-colors shadow-2xs"
+                      >
+                        Tải lại
+                      </button> : <Link
                         href="/student/practice"
                         className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#FF5B45] text-white text-xs font-bold hover:bg-[#E54833] transition-colors shadow-2xs"
                       >
                         Luyện đề ngay
-                      </Link>
+                      </Link>}
                     </div>
                   </td>
                 </tr>

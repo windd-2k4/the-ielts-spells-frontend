@@ -33,12 +33,16 @@ import {
   RocketLaunch,
   Power,
   ShieldWarning,
+  UploadSimple,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../AdminUi";
 import { apiBlob, apiFetch } from "../../lib/api";
+import { useAuth } from "../../auth/AuthContext";
 import { EinvoiceSplitPreview } from "./EinvoiceSplitPreview";
+import { LegacyTransactionImportDialog } from "./LegacyTransactionImportDialog";
+import { ManualInvoiceDialog } from "./ManualInvoiceDialog";
 
 export interface InvoiceStatsDto {
   totalCount: number;
@@ -115,6 +119,10 @@ export interface OrderAdminDto {
   pilotApproved?: boolean;
   createdAt: string;
   standalonePayment?: boolean;
+  invoiceProviderErrorCode?: string;
+  invoiceProviderErrorMessage?: string;
+  invoiceErrorLog?: string;
+  invoiceLastStatusCheckedAt?: string;
 }
 
 export interface InvoiceAdminDto {
@@ -152,6 +160,8 @@ export interface InvoiceAdminDto {
   reconciliationStatus?: "NOT_REQUIRED" | "PENDING" | "RECONCILED" | "FAILED" | "REQUIRES_REVIEW";
   taxTreatment?: number;
   errorCategory?: "RETRYABLE" | "NON_RETRYABLE" | "REQUIRES_ACTION" | "UNDETERMINED" | "RECONCILABLE";
+  providerErrorCode?: string;
+  providerErrorMessage?: string;
   firstSubmittedAt?: string;
   lastStatusCheckedAt?: string;
   courseTitle?: string;
@@ -403,6 +413,9 @@ const PERIOD_OPTIONS = [
 ];
 
 export function BillingWorkspace() {
+  const { roles } = useAuth();
+  const canImportLegacyTransactions = roles.includes("admin");
+  const canCreateManualInvoice = roles.includes("admin") || roles.includes("admissions");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "orders";
 
@@ -415,15 +428,9 @@ export function BillingWorkspace() {
   const [ordersPageSize, setOrdersPageSize] = useState(25);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
-  const [orderPeriod, setOrderPeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("THIS_MONTH");
-  const [orderFromDate, setOrderFromDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
-  });
-  const [orderToDate, setOrderToDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-  });
+  const [orderPeriod, setOrderPeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("ALL");
+  const [orderFromDate, setOrderFromDate] = useState("");
+  const [orderToDate, setOrderToDate] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<OrderAdminDto | null>(null);
 
   // Modal: Tạo đơn tư vấn Zalo / VietQR
@@ -451,6 +458,8 @@ export function BillingWorkspace() {
   const [staticQr, setStaticQr] = useState<StaticQrResponse | null>(null);
   const [staticQrLoading, setStaticQrLoading] = useState(false);
   const [isStaticQrModalOpen, setIsStaticQrModalOpen] = useState(false);
+  const [isLegacyImportOpen, setIsLegacyImportOpen] = useState(false);
+  const [isManualInvoiceOpen, setIsManualInvoiceOpen] = useState(false);
 
   // Tab 2: Invoices Enhanced State (100% VIN-HOADON Replica)
   const [invoices, setInvoices] = useState<InvoiceAdminDto[]>([]);
@@ -461,15 +470,9 @@ export function BillingWorkspace() {
   const [invoicePageSize, setInvoicePageSize] = useState(25);
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("ALL");
-  const [invoicePeriod, setInvoicePeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("THIS_MONTH");
-  const [invoiceFromDate, setInvoiceFromDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
-  });
-  const [invoiceToDate, setInvoiceToDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-  });
+  const [invoicePeriod, setInvoicePeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("ALL");
+  const [invoiceFromDate, setInvoiceFromDate] = useState("");
+  const [invoiceToDate, setInvoiceToDate] = useState("");
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStatsDto | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceAdminDto | null>(null);
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
@@ -576,15 +579,9 @@ export function BillingWorkspace() {
   const [reconciliationPageSize, setReconciliationPageSize] = useState(25);
   const [reconciliationSearchQuery, setReconciliationSearchQuery] = useState("");
   const [reconciliationStatusFilter, setReconciliationStatusFilter] = useState("ALL");
-  const [reconciliationPeriod, setReconciliationPeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("THIS_MONTH");
-  const [reconciliationFromDate, setReconciliationFromDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
-  });
-  const [reconciliationToDate, setReconciliationToDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-  });
+  const [reconciliationPeriod, setReconciliationPeriod] = useState<"ALL" | "THIS_MONTH" | "LAST_MONTH" | "THIS_QUARTER" | "CUSTOM">("ALL");
+  const [reconciliationFromDate, setReconciliationFromDate] = useState("");
+  const [reconciliationToDate, setReconciliationToDate] = useState("");
   const [matchingTx, setMatchingTx] = useState<ReconciliationDto | null>(null);
   const [manualOrderCode, setManualOrderCode] = useState("");
   const [manualNote, setManualNote] = useState("");
@@ -645,6 +642,9 @@ export function BillingWorkspace() {
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [issuingDraftId, setIssuingDraftId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+  const [selectedDraftOrderIds, setSelectedDraftOrderIds] = useState<Set<string>>(new Set());
+  const [bulkDraftIssueProgress, setBulkDraftIssueProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isManualProviderOverride, setIsManualProviderOverride] = useState(false);
 
   // Global Feedback banner
@@ -722,6 +722,14 @@ export function BillingWorkspace() {
     }
   };
 
+  const invoiceRecoveryAction = (category?: string, code?: string) => {
+    if (category === "REQUIRES_ACTION" || code === "INVALID_CONFIG" || code === "PERMISSION_DENIED") {
+      return "Sửa cấu hình hoặc hạn mức SePay rồi thử lại.";
+    }
+    if (category === "NON_RETRYABLE") return "Liên hệ SePay và cung cấp mã lỗi này.";
+    return "Hệ thống sẽ tự kiểm tra lại; có thể bấm Kiểm tra lại nếu cần gấp.";
+  };
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(label);
@@ -796,26 +804,22 @@ export function BillingWorkspace() {
       }
       if (orderFromDate) params.set("fromDate", orderFromDate);
       if (orderToDate) params.set("toDate", orderToDate);
-
-      const res = await apiFetch<PageResponse<OrderAdminDto>>(`/admin/billing/orders?${params.toString()}`);
-      let list = res.content || [];
-
-      // Filter by CQT status if specified
-      if (filterCqtStatus !== "ALL" && filterCqtStatus) {
-        if (filterCqtStatus === "ISSUED") {
-          list = list.filter((o) => o.invoiceStatus === "ISSUED");
-        } else if (filterCqtStatus === "PENDING_ISSUE") {
-          list = list.filter((o) => o.invoiceStatus === "PENDING_ISSUE" || o.invoiceStatus === "ISSUING");
-        } else if (filterCqtStatus === "FAILED") {
-          list = list.filter((o) => o.invoiceStatus === "FAILED");
-        } else if (filterCqtStatus === "NOT_ISSUED") {
-          list = list.filter((o) => !o.invoiceStatus && o.status === "PAID");
-        } else if (filterCqtStatus === "CANCELLED") {
-          list = list.filter((o) => o.invoiceStatus === "CANCELLED");
-        }
+      if (filterCqtStatus === "DRAFT") {
+        params.set("invoiceStatus", "DRAFT");
+        params.set("includePendingDrafts", "true");
+      } else if (filterCqtStatus === "NOT_ISSUED") {
+        params.set("unissued", "true");
+      } else if (filterCqtStatus !== "ALL" && filterCqtStatus) {
+        params.set("invoiceStatus", filterCqtStatus);
       }
 
+      const res = await apiFetch<PageResponse<OrderAdminDto>>(`/admin/billing/orders?${params.toString()}`);
+      const list = res.content || [];
+
       setOrders(list);
+      setSelectedDraftOrderIds((current) => new Set(
+        [...current].filter((id) => list.some((order) => order.id === id && order.invoiceStatus === "DRAFT"))
+      ));
       setOrdersTotalCount(res.totalElements || 0);
       setOrdersTotalPages(res.totalPages || 1);
     } catch (err: unknown) {
@@ -867,6 +871,11 @@ export function BillingWorkspace() {
       createdAt: order.createdAt,
       courseTitle: order.courseTitle,
       invoiceAddress: order.invoiceAddress,
+      errorCategory: order.invoiceErrorCategory,
+      errorLog: order.invoiceErrorLog,
+      providerErrorCode: order.invoiceProviderErrorCode,
+      providerErrorMessage: order.invoiceProviderErrorMessage,
+      lastStatusCheckedAt: order.invoiceLastStatusCheckedAt,
     } as any);
   };
 
@@ -1047,23 +1056,17 @@ export function BillingWorkspace() {
       if (orderStatusFilter !== "ALL" && orderStatusFilter) params.set("status", orderStatusFilter);
       if (orderFromDate) params.set("fromDate", orderFromDate);
       if (orderToDate) params.set("toDate", orderToDate);
+      if (filterCqtStatus === "DRAFT") {
+        params.set("invoiceStatus", "DRAFT");
+        params.set("includePendingDrafts", "true");
+      } else if (filterCqtStatus === "NOT_ISSUED") {
+        params.set("unissued", "true");
+      } else if (filterCqtStatus !== "ALL" && filterCqtStatus) {
+        params.set("invoiceStatus", filterCqtStatus);
+      }
 
       const res = await apiFetch<PageResponse<OrderAdminDto>>(`/admin/billing/orders?${params.toString()}`).catch(() => null);
-      let items = res?.content || orders;
-
-      if (filterCqtStatus !== "ALL" && filterCqtStatus) {
-        if (filterCqtStatus === "ISSUED") {
-          items = items.filter((o) => o.invoiceStatus === "ISSUED");
-        } else if (filterCqtStatus === "PENDING_ISSUE") {
-          items = items.filter((o) => o.invoiceStatus === "PENDING_ISSUE" || o.invoiceStatus === "ISSUING");
-        } else if (filterCqtStatus === "FAILED") {
-          items = items.filter((o) => o.invoiceStatus === "FAILED");
-        } else if (filterCqtStatus === "NOT_ISSUED") {
-          items = items.filter((o) => !o.invoiceStatus && o.status === "PAID");
-        } else if (filterCqtStatus === "CANCELLED") {
-          items = items.filter((o) => o.invoiceStatus === "CANCELLED");
-        }
-      }
+      const items = res?.content || orders;
 
       if (!items || items.length === 0) {
         setFeedback({ type: "info", text: "Không có đơn hàng hoặc hóa đơn nào trong kỳ để xuất bảng kê." });
@@ -1703,7 +1706,7 @@ export function BillingWorkspace() {
       });
       setFeedback({
         type: "success",
-        text: "Đã gửi lệnh phát hành hóa đơn chính thức lên SePay thành công!",
+        text: "Đã xếp hàng phát hành. Hệ thống đang xử lý với SePay ở nền.",
       });
       if (activeTab === "orders") fetchOrders();
       if (activeTab === "invoices") fetchInvoices();
@@ -1712,6 +1715,69 @@ export function BillingWorkspace() {
       setFeedback({ type: "error", text: msg });
     } finally {
       setIssuingDraftId(null);
+    }
+  };
+
+  const handleDeleteDraftInvoice = async (order: OrderAdminDto) => {
+    if (!order.invoiceId || order.invoiceStatus !== "DRAFT") return;
+    if (!window.confirm("Xóa hóa đơn nháp này và giao dịch thủ công liên quan? Thao tác không thể hoàn tác.")) return;
+
+    setDeletingDraftId(order.invoiceId);
+    try {
+      await apiFetch<void>(`/admin/billing/invoices/${order.invoiceId}/draft`, { method: "DELETE" });
+      setSelectedDraftOrderIds((current) => {
+        const next = new Set(current);
+        next.delete(order.id);
+        return next;
+      });
+      setFeedback({ type: "success", text: "Đã xóa hóa đơn nháp." });
+      await fetchOrders();
+      await fetchInvoiceStats();
+    } catch (err: unknown) {
+      setFeedback({ type: "error", text: err instanceof Error ? err.message : "Không thể xóa hóa đơn nháp" });
+    } finally {
+      setDeletingDraftId(null);
+    }
+  };
+
+  const handleIssueSelectedDraftInvoices = async () => {
+    const ids = [...selectedDraftOrderIds];
+    if (ids.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Phát hành chính thức ${ids.length} hóa đơn nháp lên SePay/CQT?\n\n` +
+      "Ngày giao dịch vẫn được lưu riêng trong Billing; ngày lập hóa đơn chính thức do SePay ghi nhận theo ngày phát hành. " +
+      "Thao tác này sử dụng hạn mức hóa đơn và không thể hoàn tác bằng cách xóa."
+    );
+    if (!confirmed) return;
+
+    setBulkDraftIssueProgress({ completed: 0, total: ids.length });
+    let succeeded = 0;
+    const failed: string[] = [];
+
+    for (let index = 0; index < ids.length; index += 1) {
+      const id = ids[index];
+      try {
+        await apiFetch<InvoiceAdminDto>(`/admin/billing/invoices/${id}/issue`, { method: "POST" });
+        succeeded += 1;
+      } catch {
+        failed.push(id);
+      }
+      setBulkDraftIssueProgress({ completed: index + 1, total: ids.length });
+    }
+
+    setSelectedDraftOrderIds(new Set(failed));
+    setBulkDraftIssueProgress(null);
+    await fetchOrders();
+    await fetchInvoiceStats();
+
+    if (failed.length === 0) {
+      setFeedback({ type: "success", text: `Đã phát hành thành công ${succeeded}/${ids.length} hóa đơn nháp.` });
+    } else {
+      setFeedback({
+        type: "error",
+        text: `Đã phát hành ${succeeded}/${ids.length} hóa đơn. Còn ${failed.length} hóa đơn lỗi được giữ lại để thử lại.`,
+      });
     }
   };
 
@@ -1733,17 +1799,15 @@ export function BillingWorkspace() {
     }
   };
 
-  // Effects for tab changes
   useEffect(() => {
     fetchSettings();
+    fetchCoursesSummary();
+  }, []);
+
+  // Orders are the unified billing list; only list filters/pagination reload it.
+  useEffect(() => {
     if (activeTab === "orders" || activeTab === "invoices") {
       fetchOrders();
-      fetchInvoiceStats();
-      fetchCoursesSummary();
-    } else if (activeTab === "reconciliation") {
-      fetchReconciliation();
-    } else if (activeTab === "settings") {
-      fetchLiveProviders();
     }
   }, [
     activeTab,
@@ -1752,13 +1816,27 @@ export function BillingWorkspace() {
     orderFromDate,
     orderToDate,
     orderStatusFilter,
-    filterCqtStatus,
+    filterCqtStatus
+  ]);
+
+  useEffect(() => {
+    if (activeTab === "orders" || activeTab === "invoices") fetchInvoiceStats();
+  }, [activeTab, orderFromDate, orderToDate]);
+
+  useEffect(() => {
+    if (activeTab === "reconciliation") fetchReconciliation();
+  }, [
+    activeTab,
     reconciliationPage,
     reconciliationPageSize,
     reconciliationFromDate,
     reconciliationToDate,
     reconciliationStatusFilter
   ]);
+
+  useEffect(() => {
+    if (activeTab === "settings") fetchLiveProviders();
+  }, [activeTab]);
 
   // Overall KPIs
   const totalPaidRevenue = useMemo(() => {
@@ -1774,6 +1852,25 @@ export function BillingWorkspace() {
   const pendingOrdersCount = useMemo(() => {
     return orders.filter((o) => o.status === "PENDING_PAYMENT").length;
   }, [orders]);
+
+  const hasInFlightInvoices = useMemo(
+    () => orders.some((order) => ["PENDING_ISSUE", "CREATING", "PROCESSING", "ISSUING"].includes(order.invoiceStatus || "")),
+    [orders]
+  );
+
+  useEffect(() => {
+    if ((activeTab !== "orders" && activeTab !== "invoices") || !hasInFlightInvoices) return;
+    const timer = window.setInterval(() => { void fetchOrders(); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [activeTab, hasInFlightInvoices]);
+
+  const draftOrdersOnPage = useMemo(
+    () => orders.filter((order) => order.invoiceStatus === "DRAFT"),
+    [orders]
+  );
+
+  const allDraftsOnPageSelected = draftOrdersOnPage.length > 0
+    && draftOrdersOnPage.every((order) => selectedDraftOrderIds.has(order.id));
 
   // Action Handlers
   const handleRefreshAll = () => {
@@ -1973,8 +2070,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
       const endpoint = isOrderId
         ? `/admin/billing/orders/${id}/recheck-invoice`
         : `/admin/billing/invoices/${id}/recheck`;
-      await apiFetch(endpoint, { method: "POST" });
-      setFeedback({ type: "success", text: "Đã kiểm tra và đồng bộ trạng thái từ SePay thành công!" });
+      const result = await apiFetch<InvoiceAdminDto>(endpoint, { method: "POST" });
+      setFeedback({
+        type: result.status === "ISSUED" ? "success" : "info",
+        text: result.status === "ISSUED"
+          ? "Đã đồng bộ trạng thái phát hành từ SePay."
+          : `Đã kiểm tra lúc ${formatDate(result.lastStatusCheckedAt)}; SePay vẫn trả trạng thái ${result.status}.`,
+      });
       await Promise.all([fetchInvoices(), fetchOrders()]);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Lỗi kiểm tra lại trạng thái";
@@ -2490,6 +2592,29 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {canCreateManualInvoice && (
+                <button
+                  type="button"
+                  onClick={() => setIsManualInvoiceOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-primary bg-primary/5 text-primary hover:bg-primary/10 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  title="Tạo giao dịch và hóa đơn nháp thủ công"
+                >
+                  <Receipt size={14} weight="bold" />
+                  <span>Tạo hóa đơn thủ công</span>
+                </button>
+              )}
+              {canImportLegacyTransactions && (
+                <button
+                  type="button"
+                  onClick={() => setIsLegacyImportOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-primary text-primary hover:bg-primary/10 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  title="Nhập giao dịch cũ từ Excel và tạo hóa đơn nháp"
+                >
+                  <UploadSimple size={14} weight="bold" />
+                  <span>Nhập giao dịch cũ</span>
+                </button>
+              )}
+
               {/* Xuất Excel Chuẩn Báo Cáo */}
               <button
                 type="button"
@@ -2595,6 +2720,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   <option value="ISSUED">CQT xác nhận</option>
                   <option value="PENDING_ISSUE">Đang gửi CQT</option>
                   <option value="FAILED">Lỗi cấp mã</option>
+                  <option value="DRAFT">Hóa đơn nháp / đang xử lý</option>
                   <option value="NOT_ISSUED">Chưa xuất HĐ (Đơn đã trả)</option>
                   <option value="CANCELLED">Đã hủy HĐ</option>
                 </select>
@@ -2672,31 +2798,101 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
 
           {/* Unified Table Container (10 Cột chuẩn EdTech & HĐĐT) */}
           <div className="overflow-hidden rounded-lg border border-outline-variant/40 bg-surface shadow-2xs">
+            {(draftOrdersOnPage.length > 0 || selectedDraftOrderIds.size > 0) && (
+              <div className="flex flex-col gap-2 border-b border-outline-variant/25 bg-amber-50/70 px-3 py-2.5 dark:bg-amber-950/10 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-bold text-on-surface">
+                    Phát hành hàng loạt hóa đơn nháp
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-on-surface-variant">
+                    Đã chọn {selectedDraftOrderIds.size} bản nháp. Hệ thống phát hành tuần tự để hạn chế lỗi hoặc trùng yêu cầu với SePay.
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {draftOrdersOnPage.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDraftOrderIds((current) => {
+                        const next = new Set(current);
+                        if (allDraftsOnPageSelected) {
+                          draftOrdersOnPage.forEach((order) => next.delete(order.id));
+                        } else {
+                          draftOrdersOnPage.forEach((order) => next.add(order.id));
+                        }
+                        return next;
+                      })}
+                      disabled={bulkDraftIssueProgress !== null}
+                      className="h-8 rounded border border-outline-variant/50 bg-surface px-3 text-[11px] font-bold text-on-surface hover:bg-surface-container disabled:opacity-50"
+                    >
+                      {allDraftsOnPageSelected ? "Bỏ chọn trang này" : `Chọn ${draftOrdersOnPage.length} nháp trang này`}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleIssueSelectedDraftInvoices}
+                    disabled={selectedDraftOrderIds.size === 0 || bulkDraftIssueProgress !== null}
+                    className="inline-flex h-8 items-center gap-1.5 rounded bg-emerald-600 px-3 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {bulkDraftIssueProgress ? (
+                      <>
+                        <SpinnerGap size={13} className="animate-spin" />
+                        Đang phát hành {bulkDraftIssueProgress.completed}/{bulkDraftIssueProgress.total}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={13} weight="bold" />
+                        Phát hành {selectedDraftOrderIds.size} hóa đơn nháp
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-outline-variant/30 bg-[#f1f5f9] dark:bg-surface-container-high/60 text-[11px] font-bold text-gray-700 dark:text-on-surface whitespace-nowrap">
+                    <th className="w-10 border-r border-outline-variant/20 px-2 py-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allDraftsOnPageSelected}
+                        disabled={draftOrdersOnPage.length === 0 || bulkDraftIssueProgress !== null}
+                        onChange={() => setSelectedDraftOrderIds((current) => {
+                          const next = new Set(current);
+                          if (allDraftsOnPageSelected) {
+                            draftOrdersOnPage.forEach((order) => next.delete(order.id));
+                          } else {
+                            draftOrdersOnPage.forEach((order) => next.add(order.id));
+                          }
+                          return next;
+                        })}
+                        aria-label="Chọn tất cả hóa đơn nháp trên trang"
+                        className="h-3.5 w-3.5 accent-emerald-600"
+                      />
+                    </th>
                     <th className="px-2.5 py-2.5 text-center w-12 border-r border-outline-variant/20">STT</th>
                     <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Mã đơn & Ngày tạo</th>
                     <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Học viên / Người mua</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Khóa học đăng ký</th>
+                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Ngày giao dịch</th>
                     <th className="px-2.5 py-2.5 text-right border-r border-outline-variant/20">Số tiền (VNĐ)</th>
                     <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Trạng thái đơn</th>
                     <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Hóa đơn điện tử CQT</th>
-                    <th className="px-2.5 py-2.5 text-center">Hành động</th>
+                    <th className="sticky right-0 z-20 min-w-[132px] border-l border-outline-variant/20 bg-[#f1f5f9] px-2.5 py-2.5 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] dark:bg-surface-container-high">
+                      Hành động
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/15 text-xs">
                   {ordersLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-on-surface-variant">
+                      <td colSpan={9} className="py-12 text-center text-on-surface-variant">
                         <SpinnerGap size={24} className="animate-spin text-primary mx-auto mb-2" />
                         <span>Đang truy xuất dữ liệu đơn hàng & hóa đơn điện tử...</span>
                       </td>
                     </tr>
                   ) : orders.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-on-surface-variant">
+                      <td colSpan={9} className="py-12 text-center text-on-surface-variant">
                         <Receipt size={36} className="mx-auto mb-2 text-outline/60" />
                         <div className="font-semibold text-on-surface text-sm">
                           Không tìm thấy đơn hàng hoặc hóa đơn nào phù hợp
@@ -2710,8 +2906,27 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                     orders.map((ord, idx) => (
                       <tr
                         key={ord.id}
-                        className="hover:bg-blue-50/40 dark:hover:bg-surface-container-high/40 transition"
+                        className="group hover:bg-blue-50/40 dark:hover:bg-surface-container-high/40 transition"
                       >
+                        <td className="border-r border-outline-variant/15 px-2 py-2.5 text-center">
+                          {ord.invoiceStatus === "DRAFT" ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedDraftOrderIds.has(ord.id)}
+                              disabled={bulkDraftIssueProgress !== null}
+                              onChange={() => setSelectedDraftOrderIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(ord.id)) next.delete(ord.id);
+                                else next.add(ord.id);
+                                return next;
+                              })}
+                              aria-label={`Chọn hóa đơn nháp ${ord.orderCode}`}
+                              className="h-3.5 w-3.5 accent-emerald-600"
+                            />
+                          ) : (
+                            <span className="inline-block h-3.5 w-3.5" />
+                          )}
+                        </td>
                         {/* 1. STT */}
                         <td className="px-2.5 py-2.5 text-center font-medium text-on-surface-variant tabular-nums border-r border-outline-variant/15">
                           {ordersPage * ordersPageSize + idx + 1}
@@ -2783,14 +2998,17 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                           )}
                         </td>
 
-                        {/* 4. Khóa học đăng ký */}
-                        <td className="px-2.5 py-2.5 min-w-[140px] max-w-[200px] border-r border-outline-variant/15">
-                          <div className="font-medium text-on-surface line-clamp-2" title={ord.courseTitle || "Khóa học IELTS"}>
-                            {ord.courseTitle || "Khóa học IELTS"}
+                        {/* 4. Ngày giao dịch */}
+                        <td className="px-2.5 py-2.5 whitespace-nowrap border-r border-outline-variant/15">
+                          <div className="font-medium text-on-surface tabular-nums">
+                            {formatDate(ord.paidAt)}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-on-surface-variant/70">
+                            {ord.paidAt ? "Ngày tiền vào" : "Chưa ghi nhận thanh toán"}
                           </div>
                         </td>
 
-                        {/* 5. Số tiền (VNĐ) */}
+                        {/* 6. Số tiền (VNĐ) */}
                         <td className="px-2.5 py-2.5 text-right whitespace-nowrap border-r border-outline-variant/15">
                           <div className="font-bold text-on-surface tabular-nums">
                             {formatVnd(ord.amount || 0)}
@@ -2807,11 +3025,6 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#10b981]/15 text-[#059669] border border-[#10b981]/30">
                                 Đã thanh toán
                               </span>
-                              {ord.paidAt && (
-                                <div className="text-[10px] text-on-surface-variant/70 mt-0.5">
-                                  {formatDate(ord.paidAt)}
-                                </div>
-                              )}
                               {ord.accountActivationStatus === "WAITING_ACTIVATION" && (
                                 <span className="mt-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                                   Chờ kích hoạt
@@ -2891,6 +3104,23 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               <span className="inline-block px-2 py-0.2 rounded-full text-[10px] font-bold bg-[#ef4444] text-white">
                                 {ord.invoiceErrorCategory === "REQUIRES_ACTION" ? "Cần xử lý" : "Lỗi cấp mã"}
                               </span>
+                              {(ord.invoiceProviderErrorCode || ord.invoiceProviderErrorMessage) && (
+                                <div
+                                  className="mt-1 max-w-[165px] text-[10px] leading-tight text-rose-700"
+                                  title={ord.invoiceProviderErrorMessage || ord.invoiceErrorLog}
+                                >
+                                  {ord.invoiceProviderErrorCode && <b>{ord.invoiceProviderErrorCode}: </b>}
+                                  <span className="line-clamp-2">{ord.invoiceProviderErrorMessage || ord.invoiceErrorLog}</span>
+                                </div>
+                              )}
+                              {ord.invoiceLastStatusCheckedAt && (
+                                <div className="mt-0.5 text-[9px] text-on-surface-variant">
+                                  Kiểm tra: {formatDate(ord.invoiceLastStatusCheckedAt)}
+                                </div>
+                              )}
+                              <div className="mt-0.5 text-[9px] leading-tight text-on-surface-variant">
+                                {invoiceRecoveryAction(ord.invoiceErrorCategory, ord.invoiceProviderErrorCode)}
+                              </div>
                               {ord.invoiceErrorCategory === "REQUIRES_ACTION" ? (
                                 <div className="text-[10px] text-rose-600 mt-0.5 font-medium" title="Vui lòng nạp thêm quota hoặc kiểm tra phê duyệt trên SePay">
                                   Cần xử lý nguyên nhân
@@ -2928,7 +3158,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               <button
                                 type="button"
                                 onClick={() => handleIssueDraftInvoice(ord.id)}
-                                disabled={issuingDraftId === ord.id}
+                                disabled={issuingDraftId === ord.id || bulkDraftIssueProgress !== null}
                                 className="block text-[10.5px] font-bold text-emerald-600 hover:underline mt-0.5 cursor-pointer disabled:opacity-50"
                               >
                                 {issuingDraftId === ord.id ? "Đang gửi CQT..." : "⚡ Phát hành CQT"}
@@ -2993,7 +3223,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 8. Hành động */}
-                        <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
+                        <td className="sticky right-0 z-10 min-w-[132px] border-l border-outline-variant/15 bg-surface px-2.5 py-2.5 text-center whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-blue-50 dark:bg-surface dark:group-hover:bg-surface-container-high">
                           <div className="inline-flex items-center justify-center gap-1">
                             {/* 👁 Xem chi tiết */}
                             <button
@@ -3104,26 +3334,37 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   </>
                                 )}
                                 {ord.invoiceStatus === "DRAFT" && (
-                                <button
-                                  type="button"
-                                  onClick={() => ord.invoiceId
-                                    ? handleRecheckInvoice(ord.invoiceId)
-                                    : handleRecheckInvoice(ord.id, true)}
-                                  disabled={retryingInvoiceId === (ord.invoiceId || ord.id)}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-primary hover:bg-primary/10 transition font-medium disabled:opacity-50"
-                                >
-                                  <MagnifyingGlass size={13} />
-                                  <span>{retryingInvoiceId === (ord.invoiceId || ord.id) ? "Đang tra cứu..." : "Kiểm tra lại trạng thái với SePay"}</span>
-                                </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleIssueDraftInvoice(ord.id)}
-                                    disabled={issuingDraftId === ord.id}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition font-medium disabled:opacity-50"
-                                  >
-                                    <CheckCircle size={13} />
-                                    <span>{issuingDraftId === ord.id ? "Đang phát hành..." : "Phát hành hóa đơn CQT"}</span>
-                                  </button>
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => ord.invoiceId
+                                        ? handleRecheckInvoice(ord.invoiceId)
+                                        : handleRecheckInvoice(ord.id, true)}
+                                      disabled={retryingInvoiceId === (ord.invoiceId || ord.id)}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-primary hover:bg-primary/10 transition font-medium disabled:opacity-50"
+                                    >
+                                      <MagnifyingGlass size={13} />
+                                      <span>{retryingInvoiceId === (ord.invoiceId || ord.id) ? "Đang tra cứu..." : "Kiểm tra lại trạng thái với SePay"}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleIssueDraftInvoice(ord.id)}
+                                      disabled={issuingDraftId === ord.id || deletingDraftId === ord.invoiceId || bulkDraftIssueProgress !== null}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition font-medium disabled:opacity-50"
+                                    >
+                                      <CheckCircle size={13} />
+                                      <span>{issuingDraftId === ord.id ? "Đang phát hành..." : "Phát hành hóa đơn CQT"}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDraftInvoice(ord)}
+                                      disabled={deletingDraftId === ord.invoiceId || issuingDraftId === ord.id || bulkDraftIssueProgress !== null}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition font-medium disabled:opacity-50"
+                                    >
+                                      <Trash size={13} />
+                                      <span>{deletingDraftId === ord.invoiceId ? "Đang xóa..." : "Xóa hóa đơn nháp"}</span>
+                                    </button>
+                                  </>
                                 )}
                                 {ord.invoiceStatus === "UNKNOWN" && (
                                   <button
@@ -3181,7 +3422,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   {!ordersLoading && orders.length > 0 && (
                     <tr className="border-t-2 border-outline-variant/30 bg-surface-container-low/60 font-bold text-xs">
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-3 py-2.5 text-right uppercase tracking-wider text-on-surface-variant font-bold"
                       >
                         Tổng cộng trang này:
@@ -3677,8 +3918,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                     </button>
                   </div>
                 )}
-                <div className="mt-1 text-[11px] text-on-surface-variant">
-                  Địa chỉ Webhook trên hệ thống: <code className="bg-surface-container-high px-1.5 py-0.5 rounded font-mono text-primary">https://your-domain.com/api/v1/webhooks/sepay</code>
+                <div className="mt-1 text-[11px] text-on-surface-variant space-y-1">
+                  <div>
+                    Webhook production: <code className="bg-surface-container-high px-1.5 py-0.5 rounded font-mono text-primary">/api/v1/webhooks/sepay</code>
+                  </div>
+                  <div>
+                    Webhook kiểm thử (không ghi giao dịch): <code className="bg-amber-500/10 px-1.5 py-0.5 rounded font-mono text-amber-700 dark:text-amber-300">/api/v1/webhooks/sepay/test</code>
+                  </div>
                 </div>
               </div>
 
@@ -4900,6 +5146,18 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                     {selectedInvoice.errorLog}
                   </pre>
                 )}
+                <div className="grid gap-1 sm:grid-cols-2 text-[11px] text-rose-900 dark:text-rose-100">
+                  <div><b>Mã lỗi SePay:</b> {selectedInvoice.providerErrorCode || "Không có"}</div>
+                  <div><b>Kiểm tra gần nhất:</b> {formatDate(selectedInvoice.lastStatusCheckedAt)}</div>
+                </div>
+                {selectedInvoice.providerErrorMessage && (
+                  <div className="text-[11px] text-rose-900 dark:text-rose-100">
+                    <b>Nội dung:</b> {selectedInvoice.providerErrorMessage}
+                  </div>
+                )}
+                <div className="rounded-lg bg-white/60 px-2 py-1.5 text-[11px] font-semibold text-rose-800 dark:bg-black/15 dark:text-rose-200">
+                  Đề xuất: {invoiceRecoveryAction(selectedInvoice.errorCategory, selectedInvoice.providerErrorCode)}
+                </div>
               </div>
             )}
 
@@ -6307,6 +6565,23 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
           </div>
         </div>
       )}
+      <LegacyTransactionImportDialog
+        open={isLegacyImportOpen}
+        onClose={() => setIsLegacyImportOpen(false)}
+        onImported={() => {
+          fetchOrders();
+          fetchInvoices();
+        }}
+      />
+      <ManualInvoiceDialog
+        open={isManualInvoiceOpen}
+        onClose={() => setIsManualInvoiceOpen(false)}
+        onCreated={() => {
+          fetchOrders();
+          fetchInvoices();
+          fetchInvoiceStats();
+        }}
+      />
     </section>
   );
 }

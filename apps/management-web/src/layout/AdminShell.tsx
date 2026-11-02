@@ -1,5 +1,5 @@
 import {
-  BookOpenText, Books, CaretLeft, CaretRight, ChalkboardTeacher, ChartDonut, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
+  BookOpenText, Books, Brain, CaretLeft, CaretRight, ChalkboardTeacher, ChartDonut, Heart, List, Megaphone, NotePencil, PaperPlaneTilt, Receipt, SignOut,
   SlidersHorizontal, Users, UsersThree, X,
 } from "@phosphor-icons/react";
 import type { UserRole } from "@ielts/contracts";
@@ -79,6 +79,12 @@ const navSections: Array<{ title: string; items: Array<{ to: string; label: stri
     items: [
       { to: "/library", label: "Kho học liệu", icon: Books, roles: ["admin", "teacher"] },
       { to: "/cms", label: "Nội dung truyền thông", icon: Megaphone, roles: ["admin", "social_media"] },
+    ],
+  },
+  {
+    title: "AI & CÁ NHÂN HÓA",
+    items: [
+      { to: "/adaptive-learning", label: "Học tập thích ứng", icon: Brain, roles: ["admin"] },
     ],
   },
   {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import StudentProgressTracker from "./StudentProgressTracker";
 import StudentPortfolio from "./StudentPortfolio";
 import {
@@ -12,6 +12,7 @@ import {
   Bell,
   BookOpen,
   CalendarBlank,
+  CaretDown,
   CaretLeft,
   CaretRight,
   ChartBar,
@@ -42,6 +43,8 @@ import {
 } from "@phosphor-icons/react";
 import type { CourseWorkspaceData } from "../studentPortalApi";
 import { apiMediaUrl } from "@/lib/api";
+import { useStudentPortal } from "../StudentPortalProvider";
+import { setActiveCourseId } from "../studentCourseNav";
 import styles from "./StudentCourseWorkspace.module.css";
 
 interface StudentCourseWorkspaceProps {
@@ -181,6 +184,43 @@ export function StudentCourseWorkspace({ data }: StudentCourseWorkspaceProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+  const { data: portalData } = useStudentPortal();
+  const enrollments = portalData?.enrollments ?? [];
+  const currentIndex = enrollments.findIndex((e) => e.courseId === course.id);
+  const hasMultiple = enrollments.length > 1;
+  const prevCourse = hasMultiple && currentIndex !== -1
+    ? enrollments[(currentIndex - 1 + enrollments.length) % enrollments.length]
+    : null;
+  const nextCourse = hasMultiple && currentIndex !== -1
+    ? enrollments[(currentIndex + 1) % enrollments.length]
+    : null;
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (course?.id) {
+      setActiveCourseId(course.id);
+    }
+  }, [course?.id]);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [dropdownOpen]);
   const requestedTab = searchParams.get("tab");
   const focusActivityId = searchParams.get("activityId");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(() => (
@@ -248,14 +288,140 @@ export function StudentCourseWorkspace({ data }: StudentCourseWorkspaceProps) {
   return (
     <div className={styles.workspace}>
       <header className={styles.courseToolbar} aria-labelledby="course-title">
-        <div className={styles.courseIdentity}>
-          <Link href="/student/courses" className={styles.courseBack} aria-label="Quay lại khóa học của tôi">
-            <ArrowLeft size={17} weight="bold" />
-          </Link>
-          <div>
-            <span>{course.code} · {course.skillPair === "SPEAKING_WRITING" ? "Speaking & Writing" : "Listening & Reading"}</span>
-            <strong id="course-title">{course.name}</strong>
+        <div className={styles.courseIdentity} ref={switcherRef}>
+          {hasMultiple && (
+            <div className={styles.courseNavGroup} aria-label="Chuyển đổi khóa học của tôi">
+              <Link
+                href={prevCourse ? `/student/courses/${prevCourse.courseId}` : "#"}
+                className={`${styles.courseNavBtn} ${!prevCourse ? styles.courseNavBtnDisabled : ""}`}
+                aria-label={prevCourse ? `Khóa học trước: ${prevCourse.courseName}` : "Không có khóa học trước"}
+                title={prevCourse ? `Khóa trước: ${prevCourse.courseCode} · ${prevCourse.courseName}` : undefined}
+                onClick={() => {
+                  if (prevCourse) setActiveCourseId(prevCourse.courseId);
+                }}
+              >
+                <CaretLeft size={18} weight="bold" />
+              </Link>
+              <Link
+                href={nextCourse ? `/student/courses/${nextCourse.courseId}` : "#"}
+                className={`${styles.courseNavBtn} ${!nextCourse ? styles.courseNavBtnDisabled : ""}`}
+                aria-label={nextCourse ? `Khóa học tiếp theo: ${nextCourse.courseName}` : "Không có khóa học tiếp theo"}
+                title={nextCourse ? `Khóa tiếp: ${nextCourse.courseCode} · ${nextCourse.courseName}` : undefined}
+                onClick={() => {
+                  if (nextCourse) setActiveCourseId(nextCourse.courseId);
+                }}
+              >
+                <CaretRight size={18} weight="bold" />
+              </Link>
+            </div>
+          )}
+
+          <div className={styles.courseHeaderMain}>
+            <div className={styles.courseMetaLine}>
+              <span className={styles.courseMetaCode}>
+                {course.code} · {course.skillPair === "SPEAKING_WRITING" ? "Speaking & Writing" : "Listening & Reading"}
+              </span>
+              {enrollments.length > 1 && (
+                <span className={styles.courseIndexBadge}>
+                  {currentIndex !== -1 ? `Khóa ${currentIndex + 1}/${enrollments.length}` : `${enrollments.length} khóa học`}
+                </span>
+              )}
+            </div>
+
+            <div className={styles.courseTitleWrapper}>
+              <button
+                type="button"
+                className={styles.courseTitleInteractive}
+                onClick={() => enrollments.length > 1 && setDropdownOpen((prev) => !prev)}
+                aria-expanded={dropdownOpen}
+                aria-haspopup="listbox"
+                title={enrollments.length > 1 ? "Bấm để chọn khóa học khác" : undefined}
+                disabled={enrollments.length <= 1}
+              >
+                <strong id="course-title" className={styles.courseTitleText}>{course.name}</strong>
+                {enrollments.length > 1 && (
+                  <span className={`${styles.courseCaret} ${dropdownOpen ? styles.courseCaretOpen : ""}`}>
+                    <CaretDown size={17} weight="bold" />
+                  </span>
+                )}
+              </button>
+
+              {enrollments.length > 1 && (
+                <button
+                  type="button"
+                  className={`${styles.courseSwitchPill} ${dropdownOpen ? styles.courseSwitchPillActive : ""}`}
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  aria-expanded={dropdownOpen}
+                  aria-label="Danh sách các khóa học của tôi"
+                >
+                  <GraduationCap size={15} weight="duotone" />
+                  <span>Khóa của tôi ({enrollments.length})</span>
+                  <CaretDown size={13} weight="bold" className={dropdownOpen ? styles.courseCaretOpen : ""} />
+                </button>
+              )}
+            </div>
           </div>
+
+          {dropdownOpen && enrollments.length > 0 && (
+            <div className={styles.courseDropdownMenu} role="listbox" aria-label="Danh sách các khóa học của tôi">
+              <div className={styles.dropdownHeader}>
+                <div className={styles.dropdownHeaderTitle}>
+                  <GraduationCap size={16} weight="fill" className={styles.dropdownHeaderIcon} />
+                  <span>Khóa học của tôi ({enrollments.length})</span>
+                </div>
+                <span className={styles.dropdownHeaderSub}>Chọn khóa học để chuyển đổi nhanh</span>
+              </div>
+              <div className={styles.dropdownList}>
+                {enrollments.map((item, idx) => {
+                  const isSelected = item.courseId === course.id;
+                  const sessionProgress = item.totalSessions > 0
+                    ? Math.min(100, Math.round((item.completedSessions / item.totalSessions) * 100))
+                    : 0;
+                  return (
+                    <button
+                      key={item.enrollmentId || item.courseId}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`${styles.dropdownItem} ${isSelected ? styles.dropdownItemActive : ""}`}
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        if (!isSelected) {
+                          setActiveCourseId(item.courseId);
+                          router.push(`/student/courses/${item.courseId}`);
+                        }
+                      }}
+                    >
+                      <div className={styles.dropdownItemLeft}>
+                        <div className={styles.dropdownItemBadges}>
+                          <span className={styles.dropdownItemCode}>{item.courseCode}</span>
+                          <span className={styles.dropdownItemSkill}>
+                            {item.skillPair === "SPEAKING_WRITING" ? "Speaking & Writing" : "Listening & Reading"}
+                          </span>
+                          {item.status === "ACTIVE" && (
+                            <span className={styles.dropdownItemStatusActive}>Đang học</span>
+                          )}
+                        </div>
+                        <div className={styles.dropdownItemName}>{item.courseName}</div>
+                        {item.totalSessions > 0 && (
+                          <div className={styles.dropdownItemSessions}>
+                            Tiến độ: {item.completedSessions}/{item.totalSessions} buổi ({sessionProgress}%)
+                          </div>
+                        )}
+                      </div>
+                      <div className={styles.dropdownItemRight}>
+                        {isSelected ? (
+                          <span className={styles.dropdownCheckBadge} title="Đang xem"><Check size={14} weight="bold" /></span>
+                        ) : (
+                          <span className={styles.dropdownIndexNum}>#{idx + 1}</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <nav className={styles.navTabsContainer} aria-label="Điều hướng khóa học">
           {visibleTabItems.map((item) => {

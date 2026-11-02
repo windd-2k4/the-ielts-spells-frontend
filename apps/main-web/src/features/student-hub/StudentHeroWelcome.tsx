@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpenText, PlayCircle, Target } from "@phosphor-icons/react";
 import type { StudentPortalOverview } from "./studentPortalApi";
+import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentOverview.module.css";
 
 interface StudentHeroWelcomeProps {
@@ -29,6 +30,8 @@ export function StudentHeroWelcome({ data, unsubmittedAttempt }: StudentHeroWelc
     action = { title: assignment.title, subtitle: assignment.closesAt ? `Hạn làm bài: ${new Date(assignment.closesAt).toLocaleString("vi-VN", {dateStyle:"short",timeStyle:"short"})}` : `Bài Reading từ khóa ${assignment.courseName}.`, label: "Mở bài được giao", href: "/student/assignments", tag: "Bài tập còn lượt làm", icon: <BookOpenText size={18} /> };
   }
 
+  const coursesHref = getStudentCoursesHref(data.enrollments);
+
   return (
     <section className={styles.focus} aria-labelledby="next-action-title">
       <div className={styles.eyebrow}>{action.icon}<span>{action.tag}</span></div>
@@ -36,7 +39,7 @@ export function StudentHeroWelcome({ data, unsubmittedAttempt }: StudentHeroWelc
       <p className={styles.muted}>{action.subtitle}</p>
       <div className={styles.focusFooter}>
         <Link href={action.href} className={styles.primary}>{action.label}<ArrowRight size={16} /></Link>
-        <Link href="/student/courses" className={styles.textLink}>Khóa học của tôi</Link>
+        <Link href={coursesHref} className={styles.textLink}>Khóa học của tôi</Link>
       </div>
     </section>
   );

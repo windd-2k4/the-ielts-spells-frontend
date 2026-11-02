@@ -24,6 +24,7 @@ import { useStudentSession } from "@/features/student-auth/StudentSessionProvide
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import { useStudentNotifications } from "@/features/student-hub/StudentNotificationProvider";
 import { NotificationDropdown } from "@/features/student-hub/NotificationDropdown";
+import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentTopbar.module.css";
 
 interface StudentTopbarProps { onToggleMobileMenu?: () => void; }
@@ -61,6 +62,8 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
     .filter(Boolean)
     .slice(-2)
     .join("") || "DV";
+
+  const coursesHref = getStudentCoursesHref(data?.enrollments);
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
@@ -130,12 +133,13 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
           <nav className={styles.nav} aria-label="Điều hướng chính của góc học tập">
             {NAV_ITEMS.map((item) => {
               const active = item.href === "/student" ? pathname === "/student" : pathname.startsWith(item.href);
+              const targetHref = item.href === "/student/courses" ? coursesHref : item.href;
               const Icon = item.icon;
               const count = item.href === "/student/assignments"
                 ? (data?.metrics.pendingTests ?? 0) + (data?.metrics.pendingCourseAssignments ?? 0)
                 : 0;
               return (
-                <Link key={item.href} href={item.href} className={styles.navLink} aria-current={active ? "page" : undefined}>
+                <Link key={item.href} href={targetHref} className={styles.navLink} aria-current={active ? "page" : undefined}>
                   <Icon size={15} weight={active ? "fill" : "bold"} />
                   <span>{item.label}</span>
                   {!!count && <span className={styles.count} aria-label={`${count} bài đang chờ`}>{count}</span>}

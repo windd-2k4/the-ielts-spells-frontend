@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SquaresFour, BookOpenText, PencilSimpleLine, GraduationCap, CalendarCheck, MapTrifold, ChartLineUp, ClockCounterClockwise, Robot, ArrowLeft, ChatCircle, Cards } from "@phosphor-icons/react";
 import { useStudentPortal } from "./StudentPortalProvider";
+import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentHubLayout.module.css";
 
 const groups = [
@@ -28,6 +29,8 @@ const groups = [
 export function StudentSidebar() {
   const pathname = usePathname();
   const { data } = useStudentPortal();
+  const coursesHref = getStudentCoursesHref(data?.enrollments);
+
   return (
     <aside className={styles.sidebar}>
       <Link href="/" className={styles.brand}>
@@ -40,11 +43,12 @@ export function StudentSidebar() {
             <h2>{group.title}</h2>
             {group.items.map((item) => {
               const active = item.href === "/student" ? pathname === "/student" || pathname === "/student/dashboard" : pathname.startsWith(item.href);
+              const targetHref = item.href === "/student/courses" ? coursesHref : item.href;
               const Icon = item.icon;
               const count = item.href === "/student/assignments"
                 ? (data?.metrics.pendingTests ?? 0) + (data?.metrics.pendingCourseAssignments ?? 0)
-                : item.href === "/student/courses" ? data?.enrollments.length : 0;
-              return <Link key={item.href} href={item.href} className={styles.navLink} aria-current={active ? "page" : undefined}>
+                : item.href === "/student/courses" ? (data?.enrollments.length ?? 0) : 0;
+              return <Link key={item.href} href={targetHref} className={styles.navLink} aria-current={active ? "page" : undefined}>
                 <Icon size={19} weight={active ? "fill" : "regular"} /><span>{item.label}</span>
                 {!!count && <span className={styles.badge}>{count}</span>}
                 {item.href === "/student/ai-tutor" && <span className={styles.badge}>Đang phát triển</span>}

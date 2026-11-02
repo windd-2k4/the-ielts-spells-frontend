@@ -184,6 +184,10 @@ export function getStudentPortalOverview() {
   return request;
 }
 
+export function getStudentAttemptHistory() {
+  return apiFetch<StudentPortalAttempt[]>("/student/portal/attempts");
+}
+
 export function getStudentPortalActivity(month: string, signal?: AbortSignal) {
   return apiFetch<StudentPortalDailyActivity[]>(
     `/student/portal/activity?month=${encodeURIComponent(month)}`,

@@ -1,0 +1,147 @@
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand-pink);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.copy {
+  min-width: 0;
+}
+
+.eyebrow,
+.meta,
+.action {
+  display: inline-flex;
+  align-items: center;
+}
+
+.eyebrow {
+  gap: 7px;
+  color: var(--brand-charcoal);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 8px 0 5px;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.25;
+}
+
+.reason {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.meta {
+  min-height: 30px;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--brand-charcoal);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.action {
+  min-height: 44px;
+  gap: 8px;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--brand-pink);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.action:hover {
+  background: #c97888;
+  transform: translateY(-1px);
+}
+
+.action:focus-visible,
+.retry:focus-visible {
+  outline: 3px solid var(--brand-pink-soft);
+  outline-offset: 2px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.errorMessage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retry {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--brand-charcoal);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .card {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .action {
+    width: 100%;
+  }
+
+  .error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action {
+    transition: none;
+  }
+
+  .action:hover {
+    transform: none;
+  }
+}
+
