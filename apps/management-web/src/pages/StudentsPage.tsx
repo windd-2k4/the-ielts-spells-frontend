@@ -96,6 +96,7 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("JOINED_DESC");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -182,14 +183,13 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
   const missingContact = processedStudents.filter(student => !student.email || !student.phone).length;
 
   // Active filters helper
-  const hasActiveFilters =
-    query.trim() !== "" ||
-    activityFilter !== "all" ||
-    lifecycleFilter !== "ALL" ||
-    datePreset !== "ALL" ||
-    fromDate !== "" ||
-    toDate !== "" ||
-    sortOption !== "JOINED_DESC";
+  const activeFilterCount =
+    (activityFilter !== "all" ? 1 : 0) +
+    (lifecycleFilter !== "ALL" ? 1 : 0) +
+    (datePreset !== "ALL" || Boolean(fromDate) || Boolean(toDate) ? 1 : 0) +
+    (sortOption !== "JOINED_DESC" ? 1 : 0);
+
+  const hasActiveFilters = Boolean(query.trim()) || activeFilterCount > 0;
 
   const resetAllFilters = () => {
     setQuery("");
@@ -218,28 +218,27 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Streamlined Filter & Search Toolbar */}
-      <section className="space-y-2 rounded-xl border border-outline-variant/35 bg-surface p-2">
-        {/* Row 1: Search + Dropdown Filters + Reset */}
-        <div className="flex flex-col gap-1.5 md:flex-row md:items-center">
-          {/* Search Box */}
-          <div className="relative flex-1 min-w-[220px]">
+      {/* Streamlined Filter & Search Toolbar (Search + Super Filter) */}
+      <section className="overflow-hidden rounded-xl border border-outline-variant/35 bg-surface shadow-xs">
+        {/* Main Toolbar Row: Search + Super Filter Button */}
+        <div className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md md:max-w-lg">
             <MagnifyingGlass
               size={16}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
             />
             <input
               value={query}
               onChange={event => setQuery(event.target.value)}
               aria-label="Tìm kiếm học viên"
               placeholder="Tìm theo tên học viên, mã HV, email, SĐT..."
-              className="h-8 w-full rounded-lg border border-outline-variant/60 bg-surface pl-8 pr-8 text-xs text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary/20"
+              className="h-9.5 w-full rounded-xl border border-outline-variant/70 bg-surface pl-9 pr-8 text-xs font-medium text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded-full text-on-surface-variant/60 hover:text-on-surface"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 grid size-5 place-items-center rounded-md text-on-surface-variant/60 hover:text-on-surface"
                 title="Xóa từ khóa"
               >
                 <X size={12} weight="bold" />
@@ -247,170 +246,217 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
             )}
           </div>
 
-          {/* Controls Group */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {/* Account Status */}
-            <div className="relative min-w-[126px]">
-              <select
-                value={activityFilter}
-                onChange={event => setActivityFilter(event.target.value as ActivityFilter)}
-                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
-              >
-                <option value="all">Tất cả tài khoản</option>
-                <option value="true">Đang hoạt động</option>
-                <option value="false">Đã khóa</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
-                <CaretDown size={13} weight="bold" />
-              </div>
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Super Filter Toggle Button */}
+            <button
+              type="button"
+              aria-expanded={isFilterOpen}
+              onClick={() => setIsFilterOpen(prev => !prev)}
+              className={`flex h-9.5 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition duration-150 ${
+                isFilterOpen || activeFilterCount > 0
+                  ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                  : "border-outline-variant/70 bg-surface text-on-surface-variant hover:border-primary/50 hover:bg-surface-container-low hover:text-on-surface"
+              }`}
+              title="Bộ lọc nâng cao (Super Filter)"
+            >
+              <FunnelSimple size={15} weight={isFilterOpen || activeFilterCount > 0 ? "fill" : "bold"} />
+              <span>Bộ lọc</span>
+              {activeFilterCount > 0 && (
+                <span className="flex size-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+              <CaretDown size={12} weight="bold" className={`transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`} />
+            </button>
 
-            {/* Date Preset */}
-            <div className="relative min-w-[132px]">
-              <select
-                value={datePreset}
-                onChange={event => {
-                  const val = event.target.value as DateRangePreset;
-                  setDatePreset(val);
-                  if (val !== "CUSTOM") {
-                    setFromDate("");
-                    setToDate("");
-                  }
-                }}
-                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
-              >
-                {datePresets.map(preset => (
-                  <option key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
-                <CaretDown size={13} weight="bold" />
-              </div>
-            </div>
-
-            {/* Sort Option */}
-            <div className="relative min-w-[144px]">
-              <select
-                value={sortOption}
-                onChange={event => setSortOption(event.target.value as SortOption)}
-                className="h-8 w-full appearance-none rounded-lg border border-outline-variant/60 bg-surface pl-2.5 pr-7 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
-              >
-                <option value="JOINED_DESC">Mới gia nhập trước</option>
-                <option value="JOINED_ASC">Gia nhập lâu trước</option>
-                <option value="NAME_ASC">Tên học viên (A-Z)</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-on-surface-variant/70">
-                <CaretDown size={13} weight="bold" />
-              </div>
-            </div>
-
-            {/* Reset Button */}
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-primary/25 bg-primary/5 px-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                className="inline-flex h-9.5 shrink-0 items-center gap-1 rounded-xl border border-primary/20 bg-primary/5 px-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
                 title="Khôi phục toàn bộ bộ lọc về mặc định"
               >
                 <ArrowCounterClockwise size={13} weight="bold" />
-                <span>Đặt lại</span>
+                <span className="hidden sm:inline">Đặt lại</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Custom Date Range if CUSTOM */}
-        {datePreset === "CUSTOM" && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant/20 pt-2 text-xs">
-            <span className="font-semibold text-on-surface-variant">Khoảng ngày:</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
-              className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
-            />
-            <span className="text-on-surface-variant">đến</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={e => setToDate(e.target.value)}
-              className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
-            />
-            {(fromDate || toDate) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFromDate("");
-                  setToDate("");
-                }}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:underline"
-              >
-                <X size={12} weight="bold" /> Xóa ngày
-              </button>
+        {/* Super Filter Panel (SePay style) */}
+        {isFilterOpen && (
+          <div className="border-t border-outline-variant/35 bg-surface-container-low/40 p-3.5 sm:p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Field 1: Trạng thái học vụ */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Trạng thái học vụ
+                </label>
+                <div className="relative">
+                  <select
+                    value={lifecycleFilter}
+                    onChange={event => setLifecycleFilter(event.target.value as LifecycleFilter)}
+                    className="h-9.5 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    {lifecycleOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+
+              {/* Field 2: Trạng thái tài khoản */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Tài khoản
+                </label>
+                <div className="relative">
+                  <select
+                    value={activityFilter}
+                    onChange={event => setActivityFilter(event.target.value as ActivityFilter)}
+                    className="h-9.5 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    <option value="all">Tất cả tài khoản</option>
+                    <option value="true">Đang hoạt động</option>
+                    <option value="false">Đã khóa</option>
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+
+              {/* Field 3: Thời gian gia nhập */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Thời gian gia nhập
+                </label>
+                <div className="relative">
+                  <select
+                    value={datePreset}
+                    onChange={event => {
+                      const val = event.target.value as DateRangePreset;
+                      setDatePreset(val);
+                      if (val !== "CUSTOM") {
+                        setFromDate("");
+                        setToDate("");
+                      }
+                    }}
+                    className="h-9.5 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    {datePresets.map(preset => (
+                      <option key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+
+              {/* Field 4: Sắp xếp theo */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Sắp xếp theo
+                </label>
+                <div className="relative">
+                  <select
+                    value={sortOption}
+                    onChange={event => setSortOption(event.target.value as SortOption)}
+                    className="h-9.5 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    <option value="JOINED_DESC">Mới gia nhập trước</option>
+                    <option value="JOINED_ASC">Gia nhập lâu trước</option>
+                    <option value="NAME_ASC">Tên học viên (A-Z)</option>
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Date Range if CUSTOM is selected */}
+            {datePreset === "CUSTOM" && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-outline-variant/40 bg-surface p-2.5 text-xs">
+                <span className="font-bold text-on-surface-variant text-[11px]">Khoảng ngày:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={e => setFromDate(e.target.value)}
+                  className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
+                />
+                <span className="text-on-surface-variant text-xs">đến</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={e => setToDate(e.target.value)}
+                  className="rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-1 text-xs text-on-surface outline-none focus:border-primary"
+                />
+                {(fromDate || toDate) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-error hover:underline ml-1"
+                  >
+                    <X size={12} weight="bold" /> Xóa khoảng ngày
+                  </button>
+                )}
+              </div>
             )}
+
+            {/* Panel Footer */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2.5">
+              <span className="text-xs font-semibold text-on-surface-variant">
+                Tìm thấy <strong className="font-bold text-primary">{processedStudents.length}</strong> / {total} hồ sơ học viên
+              </span>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                  >
+                    <ArrowCounterClockwise size={13} weight="bold" />
+                    <span>Đặt lại bộ lọc</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOpen(false)}
+                  className="rounded-lg px-2.5 py-1 text-xs font-bold text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface"
+                >
+                  Thu gọn
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Row 2: Lifecycle Status Filter Tabs */}
-        <div className="flex items-center gap-2 border-t border-outline-variant/20 pt-1.5">
-          <div
-            className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            role="tablist"
-            aria-label="Phân loại học viên theo học vụ"
-          >
-            {lifecycleOptions.map(option => {
-              const active = lifecycleFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  title={option.description}
-                  onClick={() => setLifecycleFilter(option.value)}
-                  className={`inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-bold transition-all ${
-                    active
-                      ? "border-primary bg-primary text-on-primary shadow-2xs"
-                      : "border-outline-variant/35 bg-surface text-on-surface-variant hover:border-primary/40 hover:bg-primary-container/10 hover:text-primary"
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      active ? "bg-white" : option.dotColor
-                    }`}
-                  />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-        </div>
-
         {/* Active Filter Chips */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant/20 pt-2">
-            <span className="text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant/30 bg-surface px-3.5 py-2 text-xs">
+            <span className="mr-1 text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
             {query.trim() && (
-              <FilterChip label={`"${query}"`} onClear={() => setQuery("")} />
-            )}
-            {activityFilter !== "all" && (
-              <FilterChip
-                label={activityFilter === "true" ? "Đang hoạt động" : "Đã khóa"}
-                onClear={() => setActivityFilter("all")}
-              />
+              <FilterChip label={`Từ khóa: "${query.trim()}"`} onClear={() => setQuery("")} />
             )}
             {lifecycleFilter !== "ALL" && (
               <FilterChip
-                label={currentLifecycleObj?.label || ""}
+                label={`Học vụ: ${currentLifecycleObj?.label || ""}`}
                 onClear={() => setLifecycleFilter("ALL")}
+              />
+            )}
+            {activityFilter !== "all" && (
+              <FilterChip
+                label={`Tài khoản: ${activityFilter === "true" ? "Đang hoạt động" : "Đã khóa"}`}
+                onClear={() => setActivityFilter("all")}
               />
             )}
             {datePreset !== "ALL" && (
               <FilterChip
-                label={datePresets.find(p => p.value === datePreset)?.label || ""}
+                label={`Thời gian: ${datePresets.find(p => p.value === datePreset)?.label || ""}`}
                 onClear={() => {
                   setDatePreset("ALL");
                   setFromDate("");
@@ -429,10 +475,17 @@ export function StudentsPage({ embedded = false }: { embedded?: boolean }) {
             )}
             {sortOption !== "JOINED_DESC" && (
               <FilterChip
-                label={sortOption === "JOINED_ASC" ? "Cũ nhất" : "A-Z"}
+                label={`Sắp xếp: ${sortOption === "JOINED_ASC" ? "Cũ nhất" : "A-Z"}`}
                 onClear={() => setSortOption("JOINED_DESC")}
               />
             )}
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="ml-1 text-[11px] font-bold text-on-surface-variant transition hover:text-error hover:underline"
+            >
+              Xóa tất cả
+            </button>
           </div>
         )}
       </section>

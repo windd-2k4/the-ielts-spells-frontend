@@ -865,7 +865,7 @@ export function BillingWorkspace() {
       cqtCode: order.cqtCode,
       lookupUrl: order.lookupUrl,
       pdfUrl: order.pdfUrl,
-      status: (order.invoiceStatus as any) || (order.invoiceNumber ? "ISSUED" : "PENDING_ISSUE"),
+      status: (order.invoiceStatus as any) || "PENDING_ISSUE",
       retryCount: 0,
       issuedAt: order.paidAt || order.createdAt,
       createdAt: order.createdAt,
@@ -1322,7 +1322,7 @@ export function BillingWorkspace() {
       return;
     }
 
-    const isIssued = ("status" in inv && inv.status === "ISSUED") || ("invoiceStatus" in inv && inv.invoiceStatus === "ISSUED") || Boolean("invoiceNumber" in inv && inv.invoiceNumber);
+    const isIssued = ("status" in inv && inv.status === "ISSUED") || ("invoiceStatus" in inv && inv.invoiceStatus === "ISSUED");
     const invNumber = ("invoiceNumber" in inv && inv.invoiceNumber) ? inv.invoiceNumber : "";
     const orderCode = inv.orderCode || "";
     const customerName = inv.customerName || "Bán cho người tiêu dùng";
@@ -3089,6 +3089,18 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   HĐ không mã CQT
                                 </div>
                               )}
+                              {!ord.cqtCode && (
+                                <button
+                                  type="button"
+                                  onClick={() => ord.invoiceId
+                                    ? handleRecheckInvoice(ord.invoiceId)
+                                    : handleRecheckInvoice(ord.id, true)}
+                                  disabled={retryingInvoiceId === (ord.invoiceId || ord.id)}
+                                  className="block text-[10.5px] font-bold text-primary hover:underline mt-0.5 cursor-pointer disabled:opacity-50"
+                                >
+                                  {retryingInvoiceId === (ord.invoiceId || ord.id) ? "Đang tra cứu..." : "Kiểm tra lại với SePay"}
+                                </button>
+                              )}
                             </div>
                           ) : (ord.reconciliationStatus === "PENDING" || ord.invoiceErrorCategory === "RECONCILABLE") ? (
                             <div>
@@ -3229,20 +3241,20 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                             <button
                               type="button"
                               onClick={() => {
-                                if (ord.invoiceStatus === "ISSUED" || ord.invoiceNumber) {
+                                if (ord.invoiceStatus === "ISSUED") {
                                   openInvoiceDetailFromOrder(ord);
                                 } else {
                                   setSelectedOrder(ord);
                                 }
                               }}
                               className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded transition cursor-pointer"
-                              title={ord.invoiceStatus === "ISSUED" || ord.invoiceNumber ? "Xem tờ Hóa đơn điện tử CQT" : "Xem chi tiết đơn hàng"}
+                              title={ord.invoiceStatus === "ISSUED" ? "Xem tờ Hóa đơn điện tử CQT" : "Xem chi tiết đơn hàng"}
                             >
                               <Eye size={16} weight="bold" />
                             </button>
 
                             {/* 📄 Tải PDF (nếu đã có HĐ) */}
-                            {(ord.invoiceStatus === "ISSUED" || ord.pdfUrl || ord.invoiceNumber) && (
+                            {(ord.invoiceStatus === "ISSUED" || ord.pdfUrl) && (
                               <button
                                 type="button"
                                 onClick={() => handleDownloadInvoicePdf(ord)}
@@ -3254,7 +3266,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                             )}
 
                             {/* ✉ Gửi email HĐ (nếu đã có HĐ) */}
-                            {(ord.invoiceStatus === "ISSUED" || ord.invoiceNumber) && (
+                            {ord.invoiceStatus === "ISSUED" && (
                               <button
                                 type="button"
                                 onClick={() => setEmailModalInvoice(ord)}
@@ -3283,7 +3295,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   <FileText size={13} className="text-primary" />
                                   <span>Xem chi tiết đơn hàng</span>
                                 </button>
-                                {(ord.invoiceStatus === "ISSUED" || ord.invoiceNumber) && (
+                                {ord.invoiceStatus === "ISSUED" && (
                                   <button
                                     type="button"
                                     onClick={() => openInvoiceDetailFromOrder(ord)}
@@ -4936,7 +4948,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                   </div>
                 )}
 
-                {(selectedOrder.invoiceStatus === "ISSUED" || selectedOrder.invoiceNumber) && (
+                {selectedOrder.invoiceStatus === "ISSUED" && (
                   <div className="pt-2">
                     <button
                       type="button"

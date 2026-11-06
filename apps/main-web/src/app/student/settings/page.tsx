@@ -440,7 +440,7 @@ export default function StudentSettingsPage() {
         {/* ---------------------------------------------------------------------
             LEFT COLUMN: IDENTITY SUMMARY & VERTICAL NAVIGATION
         --------------------------------------------------------------------- */}
-        <aside className="lg:col-span-4 xl:col-span-3.5 space-y-5 lg:sticky lg:top-5">
+        <aside className="lg:col-span-4 xl:col-span-4 space-y-5 lg:sticky lg:top-5">
           {/* Identity Mini Card */}
           <div className="rounded-2xl border border-[#EADBDE] bg-white p-5 shadow-xs relative overflow-hidden">
             <div className="flex items-center gap-4">
@@ -586,7 +586,7 @@ export default function StudentSettingsPage() {
         {/* ---------------------------------------------------------------------
             RIGHT COLUMN: TAB DETAILS & INTERACTIVE PANELS
         --------------------------------------------------------------------- */}
-        <main className="lg:col-span-8 xl:col-span-8.5 space-y-6">
+        <main className="lg:col-span-8 xl:col-span-8 space-y-6">
           {/* ===================================================================
               TAB 1: HỒ SƠ CÁ NHÂN
           =================================================================== */}

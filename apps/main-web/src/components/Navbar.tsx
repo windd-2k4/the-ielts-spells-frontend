@@ -13,9 +13,12 @@ import {
   CaretDown,
   ArrowRight,
   CheckCircle,
+  Sun,
+  Moon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useStudentSession } from "@/features/student-auth/StudentSessionProvider";
+import { useTheme } from "@/features/theme/ThemeContext";
 
 interface NavItem {
   id: string;
@@ -34,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function Navbar() {
   const { session, signOut } = useStudentSession();
+  const { theme, toggleTheme } = useTheme();
   const [activeSection, setActiveSection] = useState("hero");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

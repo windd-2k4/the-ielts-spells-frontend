@@ -59,14 +59,14 @@ const skillPairPresentation = {
   iconClass: string;
 }>;
 
-function SkillPairMark({ skillPair }: { skillPair: Course["skillPair"] }) {
+function SkillPairMark({ skillPair, compact = false }: { skillPair: Course["skillPair"]; compact?: boolean }) {
   const presentation = skillPairPresentation[skillPair];
   const Icon = presentation.icon;
 
   return (
-    <span className="inline-flex min-w-0 items-center gap-2">
-      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${presentation.iconClass}`}>
-        <Icon size={15} weight="duotone" />
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span className={`grid shrink-0 place-items-center rounded-lg ${compact ? "h-5 w-5" : "h-7 w-7"} ${presentation.iconClass}`}>
+        <Icon size={compact ? 12 : 15} weight="duotone" />
       </span>
       <span className="truncate">{skillPairLabel[skillPair]}</span>
     </span>
@@ -90,6 +90,8 @@ function CourseList() {
   const [status, setStatus] = useState<CourseStatusFilter>("all");
   const [skillPair, setSkillPair] = useState<CourseSkillFilter>("all");
   const [startMonth, setStartMonth] = useState("");
+  const [targetBand, setTargetBand] = useState<string>("all");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
     return (localStorage.getItem("course_view_mode") as "list" | "grid") || "grid";
   });
@@ -162,186 +164,293 @@ function CourseList() {
       const matchStatus = status === "all" || course.status === status;
       const matchSkill = skillPair === "all" || course.skillPair === skillPair;
       const matchStartMonth = !startMonth || course.startsOn?.slice(0, 7) === startMonth;
+      const matchBand = targetBand === "all" || (course.targetBand != null && String(course.targetBand) === targetBand);
 
-      return matchQuery && matchStatus && matchSkill && matchStartMonth;
+      return matchQuery && matchStatus && matchSkill && matchStartMonth && matchBand;
     });
 
     return filtered.sort((left, right) => (left.startsOn || "").localeCompare(right.startsOn || ""));
-  }, [courses, deferredQuery, skillPair, startMonth, status]);
+  }, [courses, deferredQuery, skillPair, startMonth, status, targetBand]);
 
   const listeningReadingCount = courses.filter(item => item.skillPair === "LISTENING_READING").length;
   const speakingWritingCount = courses.filter(item => item.skillPair === "SPEAKING_WRITING").length;
-  const hasActiveFilters =
-    Boolean(query.trim()) ||
-    status !== "all" ||
-    skillPair !== "all" ||
-    Boolean(startMonth);
+  const activeFilterCount =
+    (status !== "all" ? 1 : 0) +
+    (skillPair !== "all" ? 1 : 0) +
+    (Boolean(startMonth) ? 1 : 0) +
+    (targetBand !== "all" ? 1 : 0);
+  const hasActiveFilters = Boolean(query.trim()) || activeFilterCount > 0;
 
   const resetFilters = () => {
     setQuery("");
     setStatus("all");
     setSkillPair("all");
     setStartMonth("");
+    setTargetBand("all");
   };
 
   return (
     <section className="mx-auto max-w-[1500px] space-y-4 pb-8">
       <header className="overflow-hidden rounded-2xl border border-outline-variant/40 bg-surface shadow-xs">
+        {/* Top Header Row */}
         <div className="flex flex-col gap-3 px-4 py-3 md:px-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3 lg:w-[260px] lg:shrink-0 xl:w-[300px]">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
-              <BookOpen size={24} weight="duotone" />
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+              <BookOpen size={22} weight="duotone" />
             </span>
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-on-background md:text-[28px]">
-              Quản lý khóa học
-            </h1>
+            <div className="min-w-0">
+              <h1 className="font-display text-xl font-extrabold tracking-tight text-on-background md:text-2xl">
+                Quản lý khóa học
+              </h1>
+            </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:justify-end">
-            <div className="relative w-full sm:flex-1 lg:w-48 lg:shrink-0 lg:flex-none xl:w-64">
+
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+            {/* 1 thanh search nhỏ */}
+            <div className="relative w-full sm:w-56 md:w-64 lg:w-72">
               <label htmlFor="course-search" className="sr-only">Tìm khóa học</label>
-              <MagnifyingGlass className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/70" size={18} />
+              <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70" size={16} />
               <input
                 id="course-search"
                 value={query}
                 onChange={event => setQuery(event.target.value)}
-                placeholder="Tìm theo tên, mã, trình độ hoặc kỹ năng..."
-                className="min-h-11 w-full rounded-xl border border-outline-variant/60 bg-surface pl-10 pr-9 text-sm text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15"
+                placeholder="Tìm theo tên, mã, trình độ..."
+                className="h-10 w-full rounded-xl border border-outline-variant/70 bg-surface pl-9 pr-8 text-xs font-medium text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
                   aria-label="Xóa từ khóa"
-                  className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                  className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface"
                 >
-                  <X size={14} weight="bold" />
+                  <X size={12} weight="bold" />
                 </button>
               )}
             </div>
 
-          <label className="group flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface px-2 transition hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/8 text-primary">
-              <FunnelSimple size={16} weight="bold" />
-            </span>
-            <span className="hidden text-[11px] font-semibold text-on-surface-variant xl:inline">Trạng thái:</span>
-            <span className="relative">
-              <select
-                aria-label="Lọc theo trạng thái khóa học"
-                value={status}
-                onChange={event => setStatus(event.target.value as CourseStatusFilter)}
-                className="min-w-0 max-w-[180px] appearance-none border-0 bg-transparent bg-none py-2 pl-0 pr-7 text-sm font-bold text-on-surface outline-none focus:ring-0"
-              >
-                <option value="all">Tất cả</option>
-                <option value="OPEN">Đang tuyển sinh</option>
-                <option value="ACTIVE">Đang học</option>
-                <option value="COMPLETED">Đã hoàn thành</option>
-                <option value="CANCELLED">Đã hủy</option>
-              </select>
-              <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-on-surface-variant transition group-hover:text-primary" />
-            </span>
-          </label>
-
-          {hasActiveFilters && (
+            {/* Nút Bộ lọc SePay style (Super Search) */}
             <button
               type="button"
-              onClick={resetFilters}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+              aria-expanded={isFilterOpen}
+              onClick={() => setIsFilterOpen(prev => !prev)}
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition duration-150 ${
+                isFilterOpen || activeFilterCount > 0
+                  ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                  : "border-outline-variant/70 bg-surface text-on-surface-variant hover:border-primary/50 hover:bg-surface-container-low hover:text-on-surface"
+              }`}
+              title="Bộ lọc nâng cao (Super Search)"
             >
-              <ArrowCounterClockwise size={14} weight="bold" /> Đặt lại bộ lọc
+              <FunnelSimple size={16} weight={isFilterOpen || activeFilterCount > 0 ? "fill" : "bold"} />
+              <span>Bộ lọc</span>
+              {activeFilterCount > 0 && (
+                <span className="flex size-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+              <CaretDown size={12} weight="bold" className={`transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`} />
             </button>
-          )}
 
-          {canManageCourses && <button
-            type="button"
-            onClick={() => setDialogOpen(true)}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 text-sm font-bold text-on-primary shadow-xs transition duration-200 hover:opacity-90 active:scale-[0.98]"
-          >
-            <Plus size={18} weight="bold" /> Tạo khóa học mới
-          </button>}
+            {/* Tạo khóa học mới */}
+            {canManageCourses && (
+              <button
+                type="button"
+                onClick={() => setDialogOpen(true)}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-3.5 text-xs font-bold text-on-primary shadow-xs transition duration-200 hover:opacity-90 active:scale-[0.98]"
+              >
+                <Plus size={16} weight="bold" />
+                <span>Tạo khóa học mới</span>
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="border-t border-outline-variant/35 bg-surface px-3 py-2.5">
-          <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="hidden shrink-0 px-1 text-xs font-bold text-on-surface-variant md:inline">
-                Loại khóa
-              </span>
-              <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <div
-                  className="inline-flex min-w-max items-center gap-1.5"
-                  role="group"
-                  aria-label="Lọc theo loại khóa học"
-                >
-                  {[
-                    { value: "all" as CourseSkillFilter, label: "Tất cả", count: courses.length, icon: SquaresFour },
-                    { value: "LISTENING_READING" as CourseSkillFilter, label: "Listening & Reading", count: listeningReadingCount, icon: BookOpen },
-                    { value: "SPEAKING_WRITING" as CourseSkillFilter, label: "Speaking & Writing", count: speakingWritingCount, icon: Microphone },
-                  ].map(option => {
-                    const isActive = skillPair === option.value;
-                    const Icon = option.icon;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={isActive}
-                        onClick={() => setSkillPair(option.value)}
-                        className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-xs font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 active:scale-[0.98] ${
-                          isActive
-                            ? "border-primary bg-primary text-on-primary shadow-xs"
-                            : "border-outline-variant/45 bg-surface text-on-surface-variant hover:border-primary/35 hover:bg-primary-container/10 hover:text-primary"
-                        }`}
-                      >
-                        <Icon size={16} weight={isActive ? "fill" : "regular"} aria-hidden="true" />
-                        <span>{option.label}</span>
-                        <span className={`grid h-5 min-w-5 place-items-center rounded-md px-1.5 text-[10px] font-bold tabular-nums ${
-                          isActive ? "bg-surface/20 text-on-primary" : "bg-surface-container-low text-on-surface-variant"
-                        }`}>
-                          {option.count}
-                        </span>
-                      </button>
-                    );
-                  })}
+        {/* Super Filter Panel (SePay style) */}
+        {isFilterOpen && (
+          <div className="border-t border-outline-variant/40 bg-surface-container-low/40 px-4 py-3.5 md:px-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Field 1: Trạng thái */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Trạng thái
+                </label>
+                <div className="relative">
+                  <select
+                    value={status}
+                    onChange={event => setStatus(event.target.value as CourseStatusFilter)}
+                    className="h-10 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="OPEN">Đang tuyển sinh</option>
+                    <option value="ACTIVE">Đang học</option>
+                    <option value="COMPLETED">Đã hoàn thành</option>
+                    <option value="CANCELLED">Đã hủy</option>
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+
+              {/* Field 2: Nhóm kỹ năng */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Nhóm kỹ năng
+                </label>
+                <div className="relative">
+                  <select
+                    value={skillPair}
+                    onChange={event => setSkillPair(event.target.value as CourseSkillFilter)}
+                    className="h-10 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    <option value="all">Tất cả kỹ năng ({courses.length})</option>
+                    <option value="LISTENING_READING">Listening &amp; Reading ({listeningReadingCount})</option>
+                    <option value="SPEAKING_WRITING">Speaking &amp; Writing ({speakingWritingCount})</option>
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                </div>
+              </div>
+
+              {/* Field 3: Tháng khai giảng */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Tháng khai giảng
+                </label>
+                <div className="relative flex h-10 items-center rounded-xl border border-outline-variant/70 bg-surface px-3 transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                  <CalendarBlank size={16} weight="bold" className="mr-2 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-on-surface">
+                    {startMonth ? startMonthLabel(startMonth) : "Tất cả các tháng"}
+                  </span>
+                  <input
+                    type="month"
+                    value={startMonth}
+                    onChange={event => setStartMonth(event.target.value)}
+                    onClick={event => event.currentTarget.showPicker?.()}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    aria-label="Chọn tháng khai giảng"
+                  />
+                  {startMonth ? (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setStartMonth("");
+                      }}
+                      className="relative z-10 grid size-5 place-items-center rounded text-on-surface-variant hover:text-primary"
+                      title="Xóa tháng khai giảng"
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  ) : (
+                    <CaretDown size={14} weight="bold" className="pointer-events-none shrink-0 text-on-surface-variant" />
+                  )}
+                </div>
+              </div>
+
+              {/* Field 4: Mục tiêu Band */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                  Mục tiêu Band
+                </label>
+                <div className="relative">
+                  <select
+                    value={targetBand}
+                    onChange={event => setTargetBand(event.target.value)}
+                    className="h-10 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    <option value="all">Tất cả mục tiêu</option>
+                    <option value="5.0">Band 5.0</option>
+                    <option value="5.5">Band 5.5</option>
+                    <option value="6.0">Band 6.0</option>
+                    <option value="6.5">Band 6.5</option>
+                    <option value="7.0">Band 7.0</option>
+                    <option value="7.5">Band 7.5</option>
+                    <option value="8.0">Band 8.0+</option>
+                  </select>
+                  <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                 </div>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              <label
-                htmlFor="course-start-month"
-                className="group relative flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface px-3 transition hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 xl:flex-none"
-              >
-                <CalendarBlank size={17} weight="bold" className="shrink-0 text-primary" aria-hidden="true" />
-                <span className="hidden text-xs font-semibold text-on-surface-variant sm:inline">
-                  Tháng khai giảng
-                </span>
-                <span className="min-w-[118px] text-sm font-bold text-on-surface">
-                  {startMonth ? startMonthLabel(startMonth) : "Tất cả tháng"}
-                </span>
-                <CaretDown size={14} weight="bold" className="shrink-0 text-on-surface-variant transition group-hover:text-primary" aria-hidden="true" />
-                <input
-                  id="course-start-month"
-                  type="month"
-                  value={startMonth}
-                  onChange={event => setStartMonth(event.target.value)}
-                  onClick={event => event.currentTarget.showPicker?.()}
-                  aria-label="Chọn tháng khai giảng"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                />
-              </label>
-              {startMonth && (
+            {/* Panel Footer: Summary count + Reset & Close */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2.5">
+              <span className="text-xs font-semibold text-on-surface-variant">
+                Tìm thấy <strong className="font-bold text-primary">{visible.length}</strong> / {courses.length} khóa học phù hợp
+              </span>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                  >
+                    <ArrowCounterClockwise size={13} weight="bold" />
+                    <span>Đặt lại bộ lọc</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setStartMonth("")}
-                  aria-label="Xóa tháng khai giảng"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-outline-variant/45 bg-surface text-on-surface-variant transition hover:border-primary/35 hover:bg-primary-container/10 hover:text-primary"
+                  onClick={() => setIsFilterOpen(false)}
+                  className="rounded-lg px-2.5 py-1 text-xs font-bold text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface"
                 >
-                  <X size={16} weight="bold" />
+                  Thu gọn
                 </button>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Active Filter Chips */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant/30 bg-surface px-4 py-2 text-xs">
+            <span className="mr-1 text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
+            {query.trim() && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                <span>Từ khóa: "{query.trim()}"</span>
+                <button type="button" onClick={() => setQuery("")} className="hover:text-error" title="Bỏ từ khóa">
+                  <X size={11} weight="bold" />
+                </button>
+              </span>
+            )}
+            {status !== "all" && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                <span>Trạng thái: {classStatusLabel[status]}</span>
+                <button type="button" onClick={() => setStatus("all")} className="hover:text-error" title="Bỏ lọc trạng thái">
+                  <X size={11} weight="bold" />
+                </button>
+              </span>
+            )}
+            {skillPair !== "all" && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                <span>Kỹ năng: {skillPairLabel[skillPair]}</span>
+                <button type="button" onClick={() => setSkillPair("all")} className="hover:text-error" title="Bỏ lọc kỹ năng">
+                  <X size={11} weight="bold" />
+                </button>
+              </span>
+            )}
+            {startMonth && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                <span>Khai giảng: {startMonthLabel(startMonth)}</span>
+                <button type="button" onClick={() => setStartMonth("")} className="hover:text-error" title="Bỏ lọc tháng">
+                  <X size={11} weight="bold" />
+                </button>
+              </span>
+            )}
+            {targetBand !== "all" && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                <span>Band: {targetBand}</span>
+                <button type="button" onClick={() => setTargetBand("all")} className="hover:text-error" title="Bỏ lọc band">
+                  <X size={11} weight="bold" />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="ml-1 text-[11px] font-bold text-on-surface-variant transition hover:text-error hover:underline"
+            >
+              Xóa tất cả
+            </button>
+          </div>
+        )}
       </header>
 
       <LoadState loading={loading} error={error} empty={false} onRetry={() => void load()} />
@@ -565,10 +674,10 @@ function CourseList() {
             </div>
           )}
 
-          {/* DẠNG LƯỚI (GRID VIEW) */}
+          {/* DẠNG LƯỚI (GRID VIEW) - 4 thẻ 1 hàng, ảnh vuông vức chuẩn tỉ lệ */}
           {viewMode === "grid" && (
-            <div className="p-4 md:p-5">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="p-3.5 sm:p-4 md:p-5">
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
                 {visible.map(course => (
                   <article
                     key={course.id}
@@ -585,166 +694,170 @@ function CourseList() {
                         navigate(`/courses/${course.id}`);
                       }
                     }}
-                    className={`group relative flex cursor-pointer flex-col rounded-2xl border bg-surface shadow-xs transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${skillPairPresentation[course.skillPair].cardBorder}`}
+                    className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-surface shadow-xs transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${skillPairPresentation[course.skillPair].cardBorder}`}
                   >
-                    <div className={`relative h-36 overflow-hidden rounded-t-[15px] ${course.skillPair === "LISTENING_READING" ? "bg-primary-container/20" : "bg-violet-100/70"}`}>
+                    {/* Ảnh khóa học vuông vức tỉ lệ 4:3 đẹp và chuẩn hơn */}
+                    <div className={`relative aspect-[4/3] w-full overflow-hidden ${course.skillPair === "LISTENING_READING" ? "bg-primary-container/20" : "bg-violet-100/70"}`}>
                       {course.coverImageUrl ? (
                         <AuthenticatedMediaImage
                           fileUrl={course.coverImageUrl}
                           alt={course.coverImageAltText || `Ảnh minh họa khóa học ${course.name}`}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
                         <div className="relative flex h-full items-center justify-center overflow-hidden">
                           <span className={`absolute -right-8 -top-12 h-36 w-36 rounded-full border-[24px] opacity-35 ${course.skillPair === "LISTENING_READING" ? "border-primary/20" : "border-violet-400/20"}`} />
                           <span className={`absolute -bottom-12 -left-8 h-28 w-28 rounded-full opacity-50 ${course.skillPair === "LISTENING_READING" ? "bg-primary/10" : "bg-violet-300/20"}`} />
-                          <div className="relative flex flex-col items-center gap-2 text-center">
-                            <span className={`grid h-12 w-12 place-items-center rounded-2xl bg-surface/85 shadow-sm ${course.skillPair === "LISTENING_READING" ? "text-primary" : "text-violet-700"}`}>
+                          <div className="relative flex flex-col items-center gap-1.5 text-center">
+                            <span className={`grid h-10 w-10 place-items-center rounded-xl bg-surface/85 shadow-sm ${course.skillPair === "LISTENING_READING" ? "text-primary" : "text-violet-700"}`}>
                               {course.skillPair === "LISTENING_READING" ? (
-                                <BookOpen size={26} weight="duotone" aria-hidden="true" />
+                                <BookOpen size={22} weight="duotone" aria-hidden="true" />
                               ) : (
-                                <Microphone size={26} weight="duotone" aria-hidden="true" />
+                                <Microphone size={22} weight="duotone" aria-hidden="true" />
                               )}
                             </span>
-                            <span className="text-xs font-bold text-on-surface-variant">{skillPairLabel[course.skillPair]}</span>
+                            <span className="text-[11px] font-bold text-on-surface-variant">{skillPairLabel[course.skillPair]}</span>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <div className="flex flex-1 flex-col p-4">
-                    <div>
-                      {/* Top Badges & Actions */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-md bg-primary-container/20 px-2 py-0.5 font-mono text-xs font-bold text-primary">
-                            {course.code}
-                          </span>
-                          <StatusBadge value={course.status}>
-                            {classStatusLabel[course.status]}
-                          </StatusBadge>
-                          {!course.isActive && (
-                            <span className="rounded-md bg-error-container/20 px-2 py-0.5 text-xs font-bold text-error">
-                              Đã ngừng
+                    {/* Thân thẻ nhỏ gọn */}
+                    <div className="flex flex-1 flex-col p-3 sm:p-3.5">
+                      <div>
+                        {/* Top Badges & Actions */}
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="rounded-md bg-primary-container/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
+                              {course.code}
                             </span>
-                          )}
-                        </div>
+                            <StatusBadge value={course.status}>
+                              {classStatusLabel[course.status]}
+                            </StatusBadge>
+                            {!course.isActive && (
+                              <span className="rounded-md bg-error-container/20 px-1.5 py-0.5 text-[10px] font-bold text-error">
+                                Đã ngừng
+                              </span>
+                            )}
+                          </div>
 
-                        {/* Dropdown Menu */}
-                        {canManageCourses && <div className="relative shrink-0">
-                          <button
-                            type="button"
-                            onClick={event => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setOpenMenuCourseId(openMenuCourseId === course.id ? null : course.id);
-                            }}
-                            aria-label={`Thao tác với khóa học ${course.name}`}
-                            className="grid h-8 w-8 place-items-center rounded-lg border border-outline-variant/40 text-on-surface-variant hover:border-primary/40 hover:text-primary"
-                          >
-                            <DotsThreeVertical size={16} weight="bold" />
-                          </button>
-
-                          {openMenuCourseId === course.id && (
-                            <div
-                              onClick={event => event.stopPropagation()}
-                              className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-outline-variant/40 bg-surface p-1.5 shadow-xl"
-                            >
+                          {/* Dropdown Menu */}
+                          {canManageCourses && (
+                            <div className="relative shrink-0">
                               <button
                                 type="button"
                                 onClick={event => {
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  setOpenMenuCourseId(null);
-                                  setEditingCourse(course);
+                                  setOpenMenuCourseId(openMenuCourseId === course.id ? null : course.id);
                                 }}
-                                className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold text-on-surface transition-colors hover:bg-surface-container"
+                                aria-label={`Thao tác với khóa học ${course.name}`}
+                                className="grid h-7 w-7 place-items-center rounded-lg border border-outline-variant/40 text-on-surface-variant transition-colors hover:border-primary/40 hover:text-primary"
                               >
-                                <PencilSimple size={15} weight="bold" /> Chỉnh sửa thông tin
+                                <DotsThreeVertical size={15} weight="bold" />
                               </button>
-                              <div className="my-1 border-t border-outline-variant/30" />
-                              <button
-                                type="button"
-                                onClick={event => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setOpenMenuCourseId(null);
-                                  setDeletingCourse(course);
-                                }}
-                                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors ${
-                                  course.isActive
-                                    ? "text-error hover:bg-error-container/20"
-                                    : "text-primary hover:bg-primary-container/20"
-                                }`}
-                              >
-                                {course.isActive ? (
-                                  <Trash size={15} weight="bold" />
-                                ) : (
-                                  <ArrowCounterClockwise size={15} weight="bold" />
-                                )}
-                                {course.isActive ? "Ngừng hoạt động" : "Khôi phục khóa học"}
-                              </button>
+
+                              {openMenuCourseId === course.id && (
+                                <div
+                                  onClick={event => event.stopPropagation()}
+                                  className="absolute right-0 top-9 z-30 w-48 rounded-xl border border-outline-variant/40 bg-surface p-1.5 shadow-xl"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={event => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setOpenMenuCourseId(null);
+                                      setEditingCourse(course);
+                                    }}
+                                    className="flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 text-xs font-bold text-on-surface transition-colors hover:bg-surface-container"
+                                  >
+                                    <PencilSimple size={14} weight="bold" /> Chỉnh sửa thông tin
+                                  </button>
+                                  <div className="my-1 border-t border-outline-variant/30" />
+                                  <button
+                                    type="button"
+                                    onClick={event => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      setOpenMenuCourseId(null);
+                                      setDeletingCourse(course);
+                                    }}
+                                    className={`flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 text-xs font-bold transition-colors ${
+                                      course.isActive
+                                        ? "text-error hover:bg-error-container/20"
+                                        : "text-primary hover:bg-primary-container/20"
+                                    }`}
+                                  >
+                                    {course.isActive ? (
+                                      <Trash size={14} weight="bold" />
+                                    ) : (
+                                      <ArrowCounterClockwise size={14} weight="bold" />
+                                    )}
+                                    {course.isActive ? "Ngừng hoạt động" : "Khôi phục khóa học"}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>}
+                        </div>
+
+                        {/* Course Title & Description */}
+                        <Link
+                          to={`/courses/${course.id}`}
+                          className="mt-2 block font-display text-sm font-bold leading-snug text-on-surface transition-colors line-clamp-2 group-hover:text-primary"
+                        >
+                          {course.name}
+                        </Link>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-variant line-clamp-1">
+                          {course.description || "Chưa có mô tả khóa học."}
+                        </p>
+
+                        {/* Meta Information Grid */}
+                        <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-surface-container-low/55 p-2 text-[11px]">
+                          <div className="flex items-center gap-1 min-w-0 font-semibold text-on-surface">
+                            <SkillPairMark skillPair={course.skillPair} compact />
+                          </div>
+                          <div className="flex items-center gap-1 min-w-0 font-semibold text-on-surface">
+                            <CalendarBlank size={13} className="shrink-0 text-primary" />
+                            <span className="truncate">{date(course.startsOn)}</span>
+                          </div>
+                          <div className="flex items-center gap-1 min-w-0 font-semibold text-on-surface">
+                            <UsersThree size={13} className="shrink-0 text-primary" />
+                            <span className="tabular-nums truncate">{enrollmentCounts[course.id] ?? 0}/{course.capacity} HV</span>
+                          </div>
+                          <div className="flex items-center gap-1 min-w-0 font-semibold text-on-surface">
+                            {course.targetBand ? (
+                              <>
+                                <Target size={13} className="shrink-0 text-primary" />
+                                <span className="truncate">Band {course.targetBand}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={13} className="shrink-0 text-primary" />
+                                <span className="truncate">{course.totalSessions} buổi</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Course Title & Description */}
-                      <Link
-                        to={`/courses/${course.id}`}
-                        className="mt-3 block font-display text-base font-bold text-on-surface transition-colors group-hover:text-primary line-clamp-2"
-                      >
-                        {course.name}
-                      </Link>
-                      <p className="mt-1 text-xs text-on-surface-variant line-clamp-2">
-                        {course.description || "Chưa có mô tả khóa học."}
-                      </p>
+                      {/* Card Footer: Fee & Action */}
+                      <div className="mt-3 flex items-center justify-between border-t border-outline-variant/20 pt-2.5">
+                        <div>
+                          <span className="block text-[9px] font-bold uppercase text-on-surface-variant">Học phí</span>
+                          <strong className="text-xs font-bold text-on-surface">
+                            {money(course.tuitionAmount)}
+                          </strong>
+                        </div>
 
-                      {/* Meta Information Grid */}
-                      <div className="mt-4 grid grid-cols-2 gap-2.5 rounded-xl bg-surface-container-low/55 p-3 text-xs">
-                        <div className="flex items-center gap-1.5 text-on-surface font-semibold">
-                          <SkillPairMark skillPair={course.skillPair} />
-                        </div>
-                        <div className="flex items-center gap-1.5 text-on-surface font-semibold">
-                          <CalendarBlank size={14} className="text-primary shrink-0" />
-                          <span className="truncate">{date(course.startsOn)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-on-surface font-semibold">
-                          <UsersThree size={14} className="text-primary shrink-0" />
-                          <span className="tabular-nums">{enrollmentCounts[course.id] ?? 0}/{course.capacity} học viên</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-on-surface font-semibold">
-                          {course.targetBand ? (
-                            <>
-                              <Target size={14} className="text-primary shrink-0" />
-                              <span>Band {course.targetBand}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Clock size={14} className="text-primary shrink-0" />
-                              <span>{course.totalSessions} buổi</span>
-                            </>
-                          )}
-                        </div>
+                        <Link
+                          to={`/courses/${course.id}`}
+                          className="inline-flex h-8 items-center gap-1 rounded-xl bg-primary/10 px-2.5 text-[11px] font-bold text-primary transition-colors hover:bg-primary hover:text-on-primary"
+                        >
+                          Chi tiết <CaretRight size={13} weight="bold" />
+                        </Link>
                       </div>
-                    </div>
-
-                    {/* Card Footer: Fee & Action */}
-                    <div className="mt-4 flex items-center justify-between border-t border-outline-variant/20 pt-3">
-                      <div>
-                        <span className="block text-[10px] uppercase font-bold text-on-surface-variant">Học phí</span>
-                        <strong className="text-xs font-bold text-on-surface">
-                          {money(course.tuitionAmount)}
-                        </strong>
-                      </div>
-
-                      <Link
-                        to={`/courses/${course.id}`}
-                        className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-on-primary"
-                      >
-                        Chi tiết <CaretRight size={14} weight="bold" />
-                      </Link>
-                    </div>
                     </div>
                   </article>
                 ))}

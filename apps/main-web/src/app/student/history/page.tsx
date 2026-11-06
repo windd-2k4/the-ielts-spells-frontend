@@ -6,6 +6,7 @@ import {
   BookOpenText,
   CaretLeft,
   CaretRight,
+  ChartLineUp,
   ClockCounterClockwise,
   FileText,
   Headphones,
@@ -31,11 +32,11 @@ interface SkillTab {
 
 const SKILL_TABS: SkillTab[] = [
   { id: "ALL", label: "Tất cả", icon: SquaresFour, color: "text-[#64748B]" },
-  { id: "WRITING", label: "Writing", icon: PencilSimpleLine, color: "text-[#EF4444]" },
-  { id: "SPEAKING", label: "Speaking", icon: Microphone, color: "text-[#06B6D4]" },
-  { id: "READING", label: "Reading", icon: BookOpenText, color: "text-[#8B5CF6]" },
-  { id: "LISTENING", label: "Listening", icon: Headphones, color: "text-[#F59E0B]" },
-  { id: "MOCK_TEST", label: "Mock Test", icon: FileText, color: "text-[#3B82F6]" },
+  { id: "WRITING", label: "Writing", icon: PencilSimpleLine, color: "text-[#9A5B22]" },
+  { id: "SPEAKING", label: "Speaking", icon: Microphone, color: "text-[#7957A2]" },
+  { id: "READING", label: "Reading", icon: BookOpenText, color: "text-[#894C5B]" },
+  { id: "LISTENING", label: "Listening", icon: Headphones, color: "text-[#486AA9]" },
+  { id: "MOCK_TEST", label: "Mock Test", icon: FileText, color: "text-[#2563EB]" },
 ];
 
 const PAGE_SIZE = 10;
@@ -56,7 +57,7 @@ function formatAttemptDuration(startedAt: string | null, submittedAt: string | n
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-/** Format submission timestamp into 2 lines: DD/MM/YY and HH:mm:ss like YouPass */
+/** Format submission timestamp into 2 lines: DD/MM/YY and HH:mm:ss */
 function formatSubmitDate(submittedAt: string | null): { date: string; time: string } | null {
   if (!submittedAt) return null;
   const d = new Date(submittedAt);
@@ -234,18 +235,18 @@ export default function StudentHistoryPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with YouPass style icon & title */}
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#FFF2EB] border border-[#FFD9CC] flex items-center justify-center text-[#FF5B45] shrink-0">
-            <ClockCounterClockwise size={22} weight="bold" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#FDF0F4] border border-[#F0D5DD] flex items-center justify-center text-[#894C5B] shrink-0 shadow-2xs">
+            <ChartLineUp size={18} weight="bold" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#1E1B18] tracking-tight font-sans">
-              Lịch sử làm bài
+            <h1 className="text-lg sm:text-xl font-bold text-[#1E1B18] tracking-tight">
+              Lịch sử làm bài &amp; Tiến độ
             </h1>
-            <p className="text-xs text-[#6F676C] mt-0.5">
+            <p className="text-[11px] text-[#6F676C]">
               Theo dõi và xem lại kết quả các bài thi đã làm trong hệ thống
             </p>
           </div>
@@ -253,9 +254,9 @@ export default function StudentHistoryPage() {
       </div>
 
       {/* Main Content Card */}
-      <div className="bg-white rounded-2xl border border-[#E8E2D5] p-5 sm:p-6 shadow-2xs space-y-5">
+      <div className="bg-white rounded-xl border border-[#E8E2D5] p-4 sm:p-5 shadow-2xs space-y-4">
         {/* Skill Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
           {SKILL_TABS.map((tab) => {
             const IconComponent = tab.icon;
             const isActive = activeTab === tab.id;
@@ -266,22 +267,22 @@ export default function StudentHistoryPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all shrink-0 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                   isActive
-                    ? "bg-[#FFF2EB] text-[#FF5B45] border border-[#FFD9CC] shadow-2xs"
-                    : "bg-[#FAF7F2] text-[#64748B] hover:text-[#1E293B] hover:bg-[#F3EFE6] border border-transparent"
+                    ? "bg-[#894C5B] text-white shadow-xs font-bold"
+                    : "bg-[#F8F6F7] text-[#64748B] hover:text-[#1E1B18] hover:bg-[#EFECEF] border border-[#F0E8ED]"
                 }`}
               >
                 <IconComponent
-                  size={17}
+                  size={14}
                   weight={isActive ? "bold" : "regular"}
-                  className={isActive ? "text-[#FF5B45]" : tab.color}
+                  className={isActive ? "text-white" : tab.color}
                 />
                 <span>{tab.label}</span>
                 {count > 0 && (
                   <span
-                    className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
-                      isActive ? "bg-[#FF5B45] text-white" : "bg-[#E8E2D5] text-[#475569]"
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive ? "bg-white/20 text-white" : "bg-[#EAE4DC] text-[#475569]"
                     }`}
                   >
                     {count}
@@ -293,14 +294,14 @@ export default function StudentHistoryPage() {
         </div>
 
         {/* Sub-bar: Sub-tab + Search & Status Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8E2D5] pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-[#F0E8ED] pb-2.5">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-bold text-[#FF5B45] border-b-2 border-[#FF5B45] pb-3 px-1 -mb-[13px] cursor-default inline-block">
+            <span className="text-xs font-bold text-[#894C5B] border-b-2 border-[#894C5B] pb-2 px-1 -mb-[11px] cursor-default inline-block">
               Theo tên bài
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Status Filter */}
             <select
               value={statusFilter}
@@ -308,7 +309,7 @@ export default function StudentHistoryPage() {
                 setStatusFilter(e.target.value as "ALL" | "COMPLETED" | "IN_PROGRESS");
                 setCurrentPage(1);
               }}
-              className="text-xs bg-[#FAF7F2] border border-[#E8E2D5] rounded-lg px-3 py-1.5 text-[#1E1B18] font-medium outline-hidden hover:border-[#D4CDBC] transition-colors cursor-pointer"
+              className="text-xs bg-[#F8F6F7] border border-[#E8E2D5] rounded-lg px-2.5 py-1.5 text-[#1E1B18] font-medium outline-hidden hover:border-[#894C5B]/40 focus:border-[#894C5B] focus:bg-white transition-colors cursor-pointer"
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="COMPLETED">Đã hoàn thành</option>
@@ -325,10 +326,10 @@ export default function StudentHistoryPage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-48 sm:w-60 text-xs bg-[#FAF7F2] border border-[#E8E2D5] rounded-lg pl-8 pr-7 py-1.5 text-[#1E1B18] placeholder-[#94A3B8] outline-hidden focus:border-[#FF5B45] focus:bg-white transition-all"
+                className="w-44 sm:w-56 text-xs bg-[#F8F6F7] border border-[#E8E2D5] rounded-lg pl-7.5 pr-7 py-1.5 text-[#1E1B18] placeholder-[#94A3B8] outline-hidden focus:border-[#894C5B] focus:bg-white transition-all"
               />
               <MagnifyingGlass
-                size={14}
+                size={13}
                 weight="bold"
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
               />
@@ -336,9 +337,9 @@ export default function StudentHistoryPage() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E1B18]"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E1B18] cursor-pointer"
                 >
-                  <X size={12} weight="bold" />
+                  <X size={11} weight="bold" />
                 </button>
               )}
             </div>
@@ -346,35 +347,33 @@ export default function StudentHistoryPage() {
         </div>
 
         {/* Attempts Table */}
-        <div className="overflow-x-auto rounded-xl border border-[#E8E2D5]">
-          <table className="w-full text-left border-collapse min-w-[760px]">
+        <div className="overflow-x-auto rounded-lg border border-[#E8E2D5]">
+          <table className="w-full text-left border-collapse min-w-[740px]">
             <thead>
-              <tr className="border-b border-[#E8E2D5] bg-[#FAF7F2] text-xs font-bold text-[#475569]">
-                <th className="py-3 px-4 font-bold">Tên bài</th>
-                <th className="py-3 px-3 text-center font-bold w-[90px]">Task</th>
-                <th className="py-3 px-3 text-center font-bold w-[120px]">Dạng đề</th>
-                <th className="py-3 px-3 text-center font-bold w-[130px]">Thời gian nộp bài</th>
-                <th className="py-3 px-3 text-center font-bold w-[120px]">Thời gian làm bài</th>
-                <th className="py-3 px-3 text-center font-bold w-[130px] bg-[#16A34A] text-white">
-                  Kết quả
-                </th>
-                <th className="py-3 px-4 text-center font-bold w-[150px]">Thao tác</th>
+              <tr className="border-b border-[#E8E2D5] bg-[#FAF7F2] text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                <th className="py-2.5 px-3.5">Tên bài</th>
+                <th className="py-2.5 px-2 text-center w-[85px]">Task</th>
+                <th className="py-2.5 px-2 text-center w-[115px]">Dạng đề</th>
+                <th className="py-2.5 px-2 text-center w-[125px]">Thời gian nộp</th>
+                <th className="py-2.5 px-2 text-center w-[110px]">Thời lượng</th>
+                <th className="py-2.5 px-2 text-center w-[125px]">Kết quả</th>
+                <th className="py-2.5 px-3 text-center w-[130px]">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E8E2D5] text-sm">
+            <tbody className="divide-y divide-[#E8E2D5] text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#6F676C]">
+                  <td colSpan={7} className="py-10 text-center text-[#6F676C]">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-2 border-[#FF5B45] border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-[#894C5B] border-t-transparent rounded-full animate-spin" />
                       <span className="text-xs font-medium">Đang tải lịch sử làm bài...</span>
                     </div>
                   </td>
                 </tr>
               ) : pagedAttempts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center">
-                    <div className="max-w-xs mx-auto space-y-3">
+                  <td colSpan={7} className="py-10 text-center">
+                    <div className="max-w-xs mx-auto space-y-2.5">
                       <p className="text-sm font-semibold text-[#1E1B18]">
                         {loadError ? "Không tải được lịch sử làm bài" : "Không có lượt làm bài nào"}
                       </p>
@@ -385,18 +384,22 @@ export default function StudentHistoryPage() {
                           ? "Không tìm thấy bài thi phù hợp với từ khóa tìm kiếm."
                           : "Lượt làm bài sẽ tự động hiển thị tại đây sau khi bạn hoàn thành bài thi."}
                       </p>
-                      {loadError ? <button
-                        type="button"
-                        onClick={() => window.location.reload()}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#FF5B45] text-white text-xs font-bold hover:bg-[#E54833] transition-colors shadow-2xs"
-                      >
-                        Tải lại
-                      </button> : <Link
-                        href="/student/practice"
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#FF5B45] text-white text-xs font-bold hover:bg-[#E54833] transition-colors shadow-2xs"
-                      >
-                        Luyện đề ngay
-                      </Link>}
+                      {loadError ? (
+                        <button
+                          type="button"
+                          onClick={() => window.location.reload()}
+                          className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg bg-[#894C5B] text-white text-xs font-bold hover:bg-[#733E4C] transition-colors shadow-2xs cursor-pointer"
+                        >
+                          Tải lại
+                        </button>
+                      ) : (
+                        <Link
+                          href="/student/practice"
+                          className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg bg-[#894C5B] text-white text-xs font-bold hover:bg-[#733E4C] transition-colors shadow-2xs"
+                        >
+                          Luyện đề ngay
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -412,98 +415,110 @@ export default function StudentHistoryPage() {
                   return (
                     <tr
                       key={attempt.attemptId}
-                      className="hover:bg-[#FFFDF7] transition-colors"
+                      className="hover:bg-[#FAF8F9] transition-colors"
                     >
                       {/* Tên bài */}
-                      <td className="py-3.5 px-4 font-medium text-[#1E1B18]">
+                      <td className="py-2.5 px-3.5 font-medium text-[#1E1B18]">
                         <div className="space-y-1">
                           <Link
                             href={reviewUrl}
-                            className="font-semibold text-sm text-[#1E1B18] hover:text-[#FF5B45] transition-colors block line-clamp-2"
+                            className="font-semibold text-xs sm:text-[13px] text-[#1E1B18] hover:text-[#894C5B] transition-colors block line-clamp-1"
                             title={attempt.title}
                           >
                             {attempt.title}
                           </Link>
-                          {activeTab === "ALL" && attempt.skill && (
-                            <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-[#F3EFE6] text-[#64748B]">
-                              {attempt.skill}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {activeTab === "ALL" && attempt.skill && (
+                              <span className="inline-block text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#F4EFEA] text-[#64748B]">
+                                {attempt.skill}
+                              </span>
+                            )}
+                            <span
+                              className={`inline-block text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
+                                isAssignedAttempt(attempt)
+                                  ? "bg-[#FDF0F4] text-[#894C5B] border border-[#F0D5DD]"
+                                  : "bg-[#F8F6F7] text-[#554D50] border border-[#E8DFC9]"
+                              }`}
+                            >
+                              {isAssignedAttempt(attempt) ? "Bài được giao" : "Tự luyện"}
                             </span>
-                          )}
-                          <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${isAssignedAttempt(attempt) ? "bg-[#F7E5EA] text-[#894C5B]" : "bg-[#EAF7F0] text-[#18794E]"}`}>
-                            {isAssignedAttempt(attempt) ? "Bài được giao" : "Tự luyện"}
-                          </span>
+                          </div>
                         </div>
                       </td>
 
                       {/* Task */}
-                      <td className="py-3.5 px-3 text-center text-xs text-[#475569] font-medium">
-                        {task}
+                      <td className="py-2.5 px-2 text-center text-xs text-[#64748B]">
+                        {task === "-" ? <span className="text-[#CBD5E1] font-sans">—</span> : <span className="font-medium text-[#475569]">{task}</span>}
                       </td>
 
                       {/* Dạng đề */}
-                      <td className="py-3.5 px-3 text-center text-xs text-[#475569]">
-                        {format}
+                      <td className="py-2.5 px-2 text-center text-xs text-[#64748B]">
+                        {format === "-" ? <span className="text-[#CBD5E1] font-sans">—</span> : <span className="font-medium text-[#475569]">{format}</span>}
                       </td>
 
                       {/* Thời gian nộp bài */}
-                      <td className="py-3.5 px-3 text-center text-xs leading-tight">
+                      <td className="py-2.5 px-2 text-center text-xs leading-tight">
                         {submitDate ? (
                           <div className="space-y-0.5">
-                            <span className="font-medium text-[#1E1B18] block">{submitDate.date}</span>
-                            <span className="text-[11px] text-[#64748B] block">{submitDate.time}</span>
+                            <span className="font-semibold text-xs text-[#1E1B18] block">{submitDate.date}</span>
+                            <span className="text-[10px] text-[#94A3B8] font-mono block">{submitDate.time}</span>
                           </div>
                         ) : (
-                          <span className="inline-block text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#9A5B22] bg-[#FFF8EB] border border-[#F7E1B5] px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#9A5B22] animate-pulse" />
                             Đang làm
                           </span>
                         )}
                       </td>
 
                       {/* Thời gian làm bài */}
-                      <td className="py-3.5 px-3 text-center text-xs font-mono font-medium text-[#475569]">
+                      <td className="py-2.5 px-2 text-center text-xs font-mono font-medium text-[#64748B]">
                         {duration}
                       </td>
 
                       {/* Kết quả */}
-                      <td className="py-3.5 px-3 text-center">
+                      <td className="py-2.5 px-2 text-center">
                         {attempt.status === "IN_PROGRESS" || !attempt.submittedAt ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#FFF8EB] text-[#9A5B22] border border-[#F7E1B5]">
                             Đang làm dở
                           </span>
                         ) : attempt.score != null ? (
                           attempt.correctCount != null && attempt.totalQuestions > 0 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]">
-                              {attempt.correctCount}/{attempt.totalQuestions} ({Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%)
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-[#EAF7F0] text-[#18794E] border border-[#C5E8D4]">
+                              <span className="font-mono">{attempt.correctCount}/{attempt.totalQuestions}</span>
+                              <span className="text-[10px] font-medium opacity-80">
+                                ({Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%)
+                              </span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#FDF0F4] text-[#894C5B] border border-[#F0D5DD]">
                               Band {attempt.score.toFixed(1)}
                             </span>
                           )
                         ) : attempt.status === "SUBMITTED" ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#F1F5FC] text-[#486AA9] border border-[#CFDAED]">
                             Chờ chấm
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#F8F6F7] text-[#64748B] border border-[#E8E2D5]">
                             Đã nộp
                           </span>
                         )}
                       </td>
 
                       {/* Thao tác */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-3 text-xs font-semibold">
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="flex items-center justify-center gap-2.5 text-xs">
                           <Link
                             href={retryUrl}
-                            className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline"
+                            className="text-[#64748B] hover:text-[#1E1B18] hover:underline font-medium transition-colors"
                             title={isAssignedAttempt(attempt) ? "Mở danh sách bài được giao" : "Làm lại bài tự luyện này"}
                           >
                             {isAssignedAttempt(attempt) ? "Bài được giao" : "Làm lại"}
                           </Link>
                           <Link
                             href={reviewUrl}
-                            className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline"
+                            className="text-[#894C5B] hover:text-[#733E4C] hover:underline font-bold transition-colors"
                             title={attempt.submittedAt ? "Xem lại bài làm và đáp án" : "Tiếp tục làm bài"}
                           >
                             {attempt.submittedAt ? "Xem lại" : "Tiếp tục"}
@@ -518,9 +533,9 @@ export default function StudentHistoryPage() {
           </table>
         </div>
 
-        {/* Pagination & Summary matching YouPass */}
+        {/* Pagination & Summary */}
         {filteredAttempts.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs text-[#6F676C]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs text-[#6F676C]">
             <div>
               Hiển thị{" "}
               <span className="font-semibold text-[#1E1B18]">
@@ -535,7 +550,7 @@ export default function StudentHistoryPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage === 1}
-                className="w-7 h-7 rounded-md border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#FAF7F2] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 aria-label="Trang trước"
               >
                 <CaretLeft size={13} weight="bold" />
@@ -546,10 +561,10 @@ export default function StudentHistoryPage() {
                   key={pageNum}
                   type="button"
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-7 h-7 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                     safeCurrentPage === pageNum
-                      ? "bg-[#2563EB] text-white shadow-2xs"
-                      : "border border-[#E8E2D5] text-[#64748B] hover:bg-[#FAF7F2]"
+                      ? "bg-[#894C5B] text-white shadow-2xs"
+                      : "border border-[#E8E2D5] text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18]"
                   }`}
                 >
                   {pageNum}
@@ -560,7 +575,7 @@ export default function StudentHistoryPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage === totalPages}
-                className="w-7 h-7 rounded-md border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#FAF7F2] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 aria-label="Trang tiếp"
               >
                 <CaretRight size={13} weight="bold" />

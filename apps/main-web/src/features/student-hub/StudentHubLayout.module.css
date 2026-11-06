@@ -83,3 +83,15 @@
   .evaluationToast a { grid-column: 2; }
   .evaluationToast button { grid-column: 3; grid-row: 1 / span 2; }
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .shell {
+  background: #0B0F19;
+  color: #F8FAFC;
+}
+
+:global(.dark) .workspace {
+  background: #0B0F19;
+}

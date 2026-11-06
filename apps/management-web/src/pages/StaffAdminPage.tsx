@@ -1,8 +1,9 @@
 import {
-  ArrowClockwise, Briefcase, Calendar, Check, CheckCircle, Clock,
-  EnvelopeSimple, Funnel, Image as ImageIcon, Lock, MagnifyingGlass,
-  PencilSimple, Phone, Plus, Rows, SignOut, SpinnerGap,
-  SquaresFour, Trash, UploadSimple, UserPlus, UsersThree, X,
+  ArrowClockwise, ArrowCounterClockwise, Briefcase, Calendar, CaretDown, Check,
+  Clock, Copy, DotsThreeVertical, EnvelopeSimple, FunnelSimple, GraduationCap,
+  Image as ImageIcon, Lock, LockOpen, MagnifyingGlass, PencilSimple, Phone, Plus,
+  Rows, ShieldCheck, SignOut, SpinnerGap, SquaresFour, Trash, UploadSimple,
+  User, UserPlus, UsersThree, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
@@ -35,7 +36,7 @@ type Staff = {
 type Page<T> = { content: T[] };
 
 const roleLabels: Record<StaffRole, string> = {
-  ADMIN: "Chủ doanh nghiệp / Quản trị viên",
+  ADMIN: "Quản trị viên hệ thống",
   TEACHER: "Giáo viên",
   ADMISSIONS: "Tuyển sinh",
   SOCIAL_MEDIA: "Social Media",
@@ -47,77 +48,62 @@ const statusLabels: Record<StaffStatus, string> = {
   INVITED: "Chờ kích hoạt",
   ACTIVE: "Đang làm việc",
   SUSPENDED: "Tạm ngưng",
-  OFFBOARDED: "Đã nghỉ việc",
+  OFFBOARDED: "Đã thôi việc",
 };
 
-const roleBadges: Record<StaffRole, { label: string; bg: string; text: string; border: string }> = {
+const roleConfig: Record<StaffRole, { label: string; badgeClass: string; icon: ReactNode }> = {
   ADMIN: {
     label: "Quản trị viên",
-    bg: "bg-purple-50 dark:bg-purple-950/40",
-    text: "text-purple-700 dark:text-purple-300",
-    border: "border-purple-200 dark:border-purple-800",
+    badgeClass: "bg-purple-50 text-purple-700 border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50",
+    icon: <ShieldCheck size={13} weight="bold" className="shrink-0 text-purple-600 dark:text-purple-400" />,
   },
   TEACHER: {
     label: "Giáo viên",
-    bg: "bg-emerald-50 dark:bg-emerald-950/40",
-    text: "text-emerald-700 dark:text-emerald-300",
-    border: "border-emerald-200 dark:border-emerald-800",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50",
+    icon: <GraduationCap size={13} weight="bold" className="shrink-0 text-emerald-600 dark:text-emerald-400" />,
   },
   ADMISSIONS: {
     label: "Tuyển sinh",
-    bg: "bg-blue-50 dark:bg-blue-950/40",
-    text: "text-blue-700 dark:text-blue-300",
-    border: "border-blue-200 dark:border-blue-800",
+    badgeClass: "bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50",
+    icon: <UsersThree size={13} weight="bold" className="shrink-0 text-blue-600 dark:text-blue-400" />,
   },
   SOCIAL_MEDIA: {
     label: "Social Media",
-    bg: "bg-pink-50 dark:bg-pink-950/40",
-    text: "text-pink-700 dark:text-pink-300",
-    border: "border-pink-200 dark:border-pink-800",
+    badgeClass: "bg-pink-50 text-pink-700 border-pink-200/80 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-800/50",
+    icon: <Briefcase size={13} weight="bold" className="shrink-0 text-pink-600 dark:text-pink-400" />,
   },
   STUDENT_SUPPORT: {
     label: "Hỗ trợ học viên",
-    bg: "bg-amber-50 dark:bg-amber-950/40",
-    text: "text-amber-700 dark:text-amber-300",
-    border: "border-amber-200 dark:border-amber-800",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+    icon: <Clock size={13} weight="bold" className="shrink-0 text-amber-600 dark:text-amber-400" />,
   },
 };
 
-const statusBadges: Record<StaffStatus, { label: string; bg: string; text: string; border: string; icon: ReactNode }> = {
+const statusConfig: Record<StaffStatus, { label: string; dot: string; badgeClass: string }> = {
   ACTIVE: {
     label: "Đang làm việc",
-    bg: "bg-emerald-50 dark:bg-emerald-950/40",
-    text: "text-emerald-800 dark:text-emerald-300",
-    border: "border-emerald-200 dark:border-emerald-800",
-    icon: <Briefcase size={12} weight="bold" className="text-emerald-600 dark:text-emerald-400 shrink-0" />,
+    dot: "bg-emerald-500 ring-2 ring-emerald-500/20",
+    badgeClass: "bg-emerald-50/80 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/50",
   },
   INVITED: {
     label: "Chờ kích hoạt",
-    bg: "bg-blue-50 dark:bg-blue-950/40",
-    text: "text-blue-800 dark:text-blue-300",
-    border: "border-blue-200 dark:border-blue-800",
-    icon: <Clock size={12} weight="bold" className="text-blue-600 dark:text-blue-400 shrink-0" />,
+    dot: "bg-blue-500 ring-2 ring-blue-500/20",
+    badgeClass: "bg-blue-50/80 text-blue-800 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/50",
   },
   DRAFT: {
     label: "Bản nháp",
-    bg: "bg-slate-100 dark:bg-slate-800",
-    text: "text-slate-700 dark:text-slate-300",
-    border: "border-slate-200 dark:border-slate-700",
-    icon: <PencilSimple size={12} weight="bold" className="text-slate-500 shrink-0" />,
+    dot: "bg-slate-400 ring-2 ring-slate-400/20",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700/50",
   },
   SUSPENDED: {
     label: "Tạm ngưng",
-    bg: "bg-amber-50 dark:bg-amber-950/40",
-    text: "text-amber-800 dark:text-amber-300",
-    border: "border-amber-200 dark:border-amber-800",
-    icon: <Lock size={12} weight="bold" className="text-amber-600 dark:text-amber-400 shrink-0" />,
+    dot: "bg-amber-500 ring-2 ring-amber-500/20",
+    badgeClass: "bg-amber-50/80 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50",
   },
   OFFBOARDED: {
-    label: "Đã nghỉ việc",
-    bg: "bg-rose-50 dark:bg-rose-950/40",
-    text: "text-rose-800 dark:text-rose-300",
-    border: "border-rose-200 dark:border-rose-800",
-    icon: <SignOut size={12} weight="bold" className="text-rose-600 dark:text-rose-400 shrink-0" />,
+    label: "Đã thôi việc",
+    dot: "bg-rose-500 ring-2 ring-rose-500/20",
+    badgeClass: "bg-rose-50/80 text-rose-800 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/50",
   },
 };
 
@@ -146,7 +132,6 @@ function formatDate(value: string | null) {
 }
 
 export function StaffAdminPage() {
-  const { signOut } = useAuth();
   const [invite, setInvite] = useState(emptyInvite);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -156,12 +141,15 @@ export function StaffAdminPage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"ALL" | StaffRole>("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | StaffStatus>("ALL");
+  const [sortOption, setSortOption] = useState<"DEFAULT" | "NAME_ASC" | "DATE_DESC" | "DATE_ASC">("DEFAULT");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"staff" | "invitations">("staff");
   const [viewMode, setViewMode] = useState<"table" | "cards">(() => {
     if (typeof window === "undefined") return "table";
     return window.localStorage.getItem("staff_admin_view_mode") === "cards" ? "cards" : "table";
   });
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -183,6 +171,13 @@ export function StaffAdminPage() {
     }
   }, [viewMode]);
 
+  const copyToClipboard = (e: React.MouseEvent, text: string, key: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
+
   const load = useCallback(async () => {
     setError("");
     try {
@@ -202,16 +197,11 @@ export function StaffAdminPage() {
     void load();
   }, [load]);
 
-  // Statistics
   const activeCount = useMemo(() => staff.filter((s) => s.status === "ACTIVE").length, [staff]);
-  const suspendedCount = useMemo(
-    () => staff.filter((s) => s.status === "SUSPENDED" || s.status === "OFFBOARDED").length,
-    [staff]
-  );
 
   const visibleStaff = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    return staff.filter((item) => {
+    const result = staff.filter((item) => {
       const matchesQuery =
         !keyword ||
         `${item.fullName} ${item.email} ${item.phone ?? ""}`
@@ -221,13 +211,29 @@ export function StaffAdminPage() {
       const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
       return matchesQuery && matchesRole && matchesStatus;
     });
-  }, [staff, query, roleFilter, statusFilter]);
 
-  const hasActiveFilters = query.trim() !== "" || roleFilter !== "ALL" || statusFilter !== "ALL";
+    if (sortOption === "NAME_ASC") {
+      result.sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
+    } else if (sortOption === "DATE_DESC") {
+      result.sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+    } else if (sortOption === "DATE_ASC") {
+      result.sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+    }
+
+    return result;
+  }, [staff, query, roleFilter, statusFilter, sortOption]);
+
+  const activeFilterCount =
+    (roleFilter !== "ALL" ? 1 : 0) +
+    (statusFilter !== "ALL" ? 1 : 0) +
+    (sortOption !== "DEFAULT" ? 1 : 0);
+  const hasActiveFilters = Boolean(query.trim()) || activeFilterCount > 0;
+
   const resetFilters = () => {
     setQuery("");
     setRoleFilter("ALL");
     setStatusFilter("ALL");
+    setSortOption("DEFAULT");
   };
 
   async function createInvitation(event: FormEvent) {
@@ -281,9 +287,20 @@ export function StaffAdminPage() {
     await runAction(() => apiFetch(`/admin/staff/${selected.id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }), "Đã cập nhật vai trò.");
   }
 
+  async function toggleStaffStatus(item: Staff, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (item.status === "ACTIVE") {
+      if (!window.confirm(`Xác nhận tạm ngưng công tác nhân sự "${item.fullName}"?`)) return;
+      await runAction(() => apiFetch(`/admin/staff/${item.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "SUSPENDED" }) }), `Đã tạm ngưng tài khoản ${item.fullName}.`);
+    } else if (item.status === "SUSPENDED") {
+      if (!window.confirm(`Kích hoạt lại làm việc cho nhân sự "${item.fullName}"?`)) return;
+      await runAction(() => apiFetch(`/admin/staff/${item.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "ACTIVE" }) }), `Đã kích hoạt lại tài khoản ${item.fullName}.`);
+    }
+  }
+
   async function changeStatus(status: "ACTIVE" | "SUSPENDED" | "OFFBOARDED") {
     if (!selected) return;
-    const message = status === "ACTIVE" ? "mở khóa" : status === "SUSPENDED" ? "tạm khóa" : "cho nghỉ việc";
+    const message = status === "ACTIVE" ? "kích hoạt lại" : status === "SUSPENDED" ? "tạm ngưng" : "cho thôi việc";
     if (!window.confirm(`Xác nhận ${message} tài khoản ${selected.fullName}?`)) return;
     await runAction(() => apiFetch(`/admin/staff/${selected.id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }), `Đã ${message} tài khoản.`);
   }
@@ -351,56 +368,46 @@ export function StaffAdminPage() {
   }
 
   return (
-    <main className="space-y-4 sm:space-y-5 pb-12">
-      {/* Compact Page Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-3">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
-            <UsersThree size={20} weight="bold" />
+    <main className="space-y-4 pb-12">
+      {/* Workspace Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-outline-variant/30 pb-3.5">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/25 text-primary shadow-2xs ring-1 ring-primary/20 shrink-0">
+            <UsersThree size={22} weight="duotone" />
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-lg sm:text-xl font-extrabold text-on-background">
+              <h1 className="font-display text-xl sm:text-2xl font-extrabold text-on-background tracking-tight">
                 Quản lý nhân sự
               </h1>
-              <span className="rounded-full bg-primary-fixed/60 px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary">
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold tabular-nums text-primary">
                 {staff.length} nhân sự
               </span>
             </div>
-            <p className="text-[11px] text-on-surface-variant font-medium">
-              Phân quyền tài khoản &amp; quản lý nhân sự nội bộ
+            <p className="text-xs text-on-surface-variant font-medium mt-0.5">
+              Phân quyền tài khoản, vai trò nhiệm vụ và trạng thái làm việc nội bộ
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-bold text-on-surface shadow-2xs hover:bg-surface-container transition"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-outline-variant/70 bg-surface px-3.5 text-xs font-bold text-on-surface shadow-2xs hover:bg-surface-container hover:border-primary/40 transition active:scale-[0.98]"
             onClick={() => void load()}
-            title="Làm mới dữ liệu"
+            title="Làm mới dữ liệu nhân sự"
           >
-            <ArrowClockwise size={14} />
-            <span className="hidden sm:inline">Làm mới</span>
+            <ArrowClockwise size={15} weight="bold" />
+            <span>Làm mới</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsInviteOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary px-3.5 py-1.5 text-xs font-extrabold shadow-xs active:scale-[.98] transition"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary hover:bg-primary/90 text-on-primary px-4 text-xs font-bold shadow-xs active:scale-[0.98] transition"
           >
-            <UserPlus size={15} weight="bold" />
+            <UserPlus size={16} weight="bold" />
             <span>Mời nhân sự mới</span>
-          </button>
-
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-xl border border-error/20 bg-error-container/15 hover:bg-error-container/25 text-error px-2.5 py-1.5 text-xs font-bold transition"
-            onClick={() => void signOut()}
-            title="Đăng xuất khỏi tài khoản"
-          >
-            <SignOut size={14} />
-            <span className="hidden sm:inline">Đăng xuất</span>
           </button>
         </div>
       </header>
@@ -413,96 +420,9 @@ export function StaffAdminPage() {
         </div>
       )}
 
-      {/* Compact Interactive Stat Chips */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5" aria-label="Thống kê nhân sự">
-        <button
-          type="button"
-          onClick={() => { resetFilters(); setActiveTab("staff"); }}
-          className={`flex items-center justify-between rounded-xl border p-2 sm:px-3 sm:py-2 transition shadow-2xs ${
-            statusFilter === "ALL" && activeTab === "staff"
-              ? "border-primary bg-primary-fixed/25"
-              : "border-outline-variant/40 bg-surface hover:border-primary/40 hover:bg-surface-container-low"
-          }`}
-          title="Xem tất cả nhân sự"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid size-6 place-items-center rounded-md bg-primary/10 text-primary shrink-0">
-              <UsersThree size={14} weight="bold" />
-            </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Tổng nhân sự</span>
-          </div>
-          <strong className="font-display text-sm sm:text-base font-black tabular-nums text-on-surface shrink-0 ml-2">
-            {staff.length}
-          </strong>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setStatusFilter("ACTIVE"); setActiveTab("staff"); }}
-          className={`flex items-center justify-between rounded-xl border p-2 sm:px-3 sm:py-2 transition shadow-2xs ${
-            statusFilter === "ACTIVE" && activeTab === "staff"
-              ? "border-emerald-500 bg-emerald-500/10"
-              : "border-outline-variant/40 bg-surface hover:border-emerald-500/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20"
-          }`}
-          title="Lọc nhân sự đang làm việc"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid size-6 place-items-center rounded-md bg-emerald-500/10 text-emerald-600 shrink-0">
-              <Briefcase size={14} weight="bold" />
-            </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Đang làm việc</span>
-          </div>
-          <strong className="font-display text-sm sm:text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400 shrink-0 ml-2">
-            {activeCount}
-          </strong>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("invitations")}
-          className={`flex items-center justify-between rounded-xl border p-2 sm:px-3 sm:py-2 transition shadow-2xs ${
-            activeTab === "invitations"
-              ? "border-blue-500 bg-blue-500/10"
-              : "border-outline-variant/40 bg-surface hover:border-blue-500/40 hover:bg-blue-50/30 dark:hover:bg-blue-950/20"
-          }`}
-          title="Xem lời mời chờ kích hoạt"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid size-6 place-items-center rounded-md bg-blue-500/10 text-blue-600 shrink-0">
-              <Clock size={14} weight="bold" />
-            </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Chờ kích hoạt</span>
-          </div>
-          <strong className="font-display text-sm sm:text-base font-black tabular-nums text-blue-600 dark:text-blue-400 shrink-0 ml-2">
-            {invitations.length}
-          </strong>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setStatusFilter("SUSPENDED"); setActiveTab("staff"); }}
-          className={`flex items-center justify-between rounded-xl border p-2 sm:px-3 sm:py-2 transition shadow-2xs ${
-            (statusFilter === "SUSPENDED" || statusFilter === "OFFBOARDED") && activeTab === "staff"
-              ? "border-amber-500 bg-amber-500/10"
-              : "border-outline-variant/40 bg-surface hover:border-amber-500/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20"
-          }`}
-          title="Lọc nhân sự tạm ngưng hoặc đã nghỉ việc"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid size-6 place-items-center rounded-md bg-amber-500/10 text-amber-600 shrink-0">
-              <Lock size={14} weight="bold" />
-            </span>
-            <span className="truncate text-xs font-bold text-on-surface-variant">Tạm ngưng / Nghỉ</span>
-          </div>
-          <strong className="font-display text-sm sm:text-base font-black tabular-nums text-amber-600 dark:text-amber-400 shrink-0 ml-2">
-            {suspendedCount}
-          </strong>
-        </button>
-      </section>
-
-      {/* Main Content Area */}
+      {/* Main Container */}
       <section className="rounded-2xl border border-outline-variant/40 bg-surface shadow-xs overflow-hidden">
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs Bar */}
         <div className="flex flex-wrap items-center justify-between border-b border-outline-variant/40 px-4 sm:px-6 pt-3 gap-3 bg-surface-container-lowest">
           <div className="flex items-center gap-2">
             <button
@@ -559,7 +479,7 @@ export function StaffAdminPage() {
                   onClick={() => setViewMode("table")}
                   className={`flex size-7 items-center justify-center rounded-md transition ${
                     viewMode === "table"
-                      ? "bg-primary-fixed/50 text-primary shadow-2xs"
+                      ? "bg-primary-fixed/50 text-primary shadow-2xs font-bold"
                       : "text-on-surface-variant hover:text-on-surface"
                   }`}
                   title="Dạng bảng chi tiết"
@@ -571,7 +491,7 @@ export function StaffAdminPage() {
                   onClick={() => setViewMode("cards")}
                   className={`flex size-7 items-center justify-center rounded-md transition ${
                     viewMode === "cards"
-                      ? "bg-primary-fixed/50 text-primary shadow-2xs"
+                      ? "bg-primary-fixed/50 text-primary shadow-2xs font-bold"
                       : "text-on-surface-variant hover:text-on-surface"
                   }`}
                   title="Dạng thẻ lưới"
@@ -585,184 +505,403 @@ export function StaffAdminPage() {
 
         {/* Tab 1: Staff Directory */}
         {activeTab === "staff" && (
-          <div className="p-4 sm:p-6 space-y-4">
-            {/* Filter Toolbar (Bộ lọc nhân sự) */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-surface-container-low/40 p-3 rounded-xl border border-outline-variant/40">
-              {/* Search input */}
-              <div className="relative flex-1 min-w-[240px] max-w-md">
-                <MagnifyingGlass
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant"
-                />
-                <input
-                  type="text"
-                  placeholder="Tìm theo tên, email, số điện thoại..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full rounded-xl border border-outline-variant/60 bg-surface pl-10 pr-9 py-2 text-xs font-medium text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition"
-                />
-                {query && (
+          <div className="p-4 sm:p-5 space-y-3.5">
+            {/* Filter Toolbar */}
+            <div className="overflow-hidden rounded-xl border border-outline-variant/35 bg-surface shadow-xs">
+              {/* Main Toolbar Row */}
+              <div className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-md md:max-w-lg">
+                  <MagnifyingGlass
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên nhân sự, email, số điện thoại..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-outline-variant/70 bg-surface pl-9 pr-8 text-xs font-medium text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 grid size-5 place-items-center rounded-md text-on-surface-variant/60 hover:text-on-surface"
+                      title="Xóa tìm kiếm"
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Super Filter Toggle */}
                   <button
                     type="button"
-                    onClick={() => setQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
-                    title="Xóa tìm kiếm"
+                    aria-expanded={isFilterOpen}
+                    onClick={() => setIsFilterOpen((prev) => !prev)}
+                    className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition duration-150 ${
+                      isFilterOpen || activeFilterCount > 0
+                        ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                        : "border-outline-variant/70 bg-surface text-on-surface-variant hover:border-primary/50 hover:bg-surface-container-low hover:text-on-surface"
+                    }`}
+                    title="Bộ lọc nâng cao"
                   >
-                    <X size={14} />
+                    <FunnelSimple size={14} weight={isFilterOpen || activeFilterCount > 0 ? "fill" : "bold"} />
+                    <span>Bộ lọc</span>
+                    {activeFilterCount > 0 && (
+                      <span className="flex size-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-white">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                    <CaretDown size={11} weight="bold" className={`transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`} />
                   </button>
-                )}
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-primary/20 bg-primary/5 px-2.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                      title="Đặt lại toàn bộ bộ lọc"
+                    >
+                      <ArrowCounterClockwise size={13} weight="bold" />
+                      <span className="hidden sm:inline">Đặt lại</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Filters: Role & Status */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Role Filter */}
-                <div className="flex items-center gap-1.5 min-w-[170px]">
-                  <select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
-                    className="w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-xs font-bold text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition"
-                    aria-label="Lọc theo vai trò"
-                  >
-                    <option value="ALL">Tất cả vai trò ({staff.length})</option>
-                    {Object.entries(roleLabels).map(([role, label]) => {
-                      const count = staff.filter((s) => s.role === role).length;
-                      return (
-                        <option key={role} value={role}>
-                          {label} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+              {/* Collapsible Super Filter Panel */}
+              {isFilterOpen && (
+                <div className="border-t border-outline-variant/35 bg-surface-container-low/40 p-3 sm:p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {/* Role Filter */}
+                    <div>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        Vai trò / Phân quyền
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={roleFilter}
+                          onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
+                          className="h-9 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        >
+                          <option value="ALL">Tất cả vai trò ({staff.length})</option>
+                          {Object.entries(roleLabels).map(([role, label]) => {
+                            const count = staff.filter((s) => s.role === role).length;
+                            return (
+                              <option key={role} value={role}>
+                                {label} ({count})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                      </div>
+                    </div>
 
-                {/* Status Filter */}
-                <div className="flex items-center gap-1.5 min-w-[160px]">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                    className="w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-xs font-bold text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition"
-                    aria-label="Lọc theo trạng thái"
-                  >
-                    <option value="ALL">Tất cả trạng thái</option>
-                    {Object.entries(statusLabels).map(([status, label]) => {
-                      const count = staff.filter((s) => s.status === status).length;
-                      return (
-                        <option key={status} value={status}>
-                          {label} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                    {/* Status Filter */}
+                    <div>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        Trạng thái làm việc
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                          className="h-9 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        >
+                          <option value="ALL">Tất cả trạng thái</option>
+                          {Object.entries(statusLabels).map(([status, label]) => {
+                            const count = staff.filter((s) => s.status === status).length;
+                            return (
+                              <option key={status} value={status}>
+                                {label} ({count})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                      </div>
+                    </div>
 
-                {/* Reset Filters */}
-                {hasActiveFilters && (
+                    {/* Sort Option */}
+                    <div>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        Sắp xếp theo
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={sortOption}
+                          onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+                          className="h-9 w-full appearance-none rounded-xl border border-outline-variant/70 bg-surface pl-3 pr-8 text-xs font-semibold text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        >
+                          <option value="DEFAULT">Mặc định (Mới nhất)</option>
+                          <option value="NAME_ASC">Tên nhân sự (A-Z)</option>
+                          <option value="DATE_DESC">Ngày bắt đầu (Mới nhất)</option>
+                          <option value="DATE_ASC">Ngày bắt đầu (Cũ nhất)</option>
+                        </select>
+                        <CaretDown size={14} weight="bold" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel Footer */}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2">
+                    <span className="text-xs font-semibold text-on-surface-variant">
+                      Tìm thấy <strong className="font-bold text-primary">{visibleStaff.length}</strong> / {staff.length} nhân sự
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {hasActiveFilters && (
+                        <button
+                          type="button"
+                          onClick={resetFilters}
+                          className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-bold text-primary transition hover:bg-primary hover:text-on-primary"
+                        >
+                          <ArrowCounterClockwise size={12} weight="bold" />
+                          <span>Đặt lại bộ lọc</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsFilterOpen(false)}
+                        className="rounded-lg px-2.5 py-1 text-xs font-bold text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface"
+                      >
+                        Thu gọn
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Filter Chips */}
+              {hasActiveFilters && (
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant/30 bg-surface px-3 py-1.5 text-xs">
+                  <span className="mr-1 text-[11px] font-bold text-on-surface-variant">Đang lọc:</span>
+                  {query.trim() && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      <span>"{query.trim()}"</span>
+                      <button type="button" onClick={() => setQuery("")} className="hover:text-error" title="Xóa từ khóa">
+                        <X size={11} weight="bold" />
+                      </button>
+                    </span>
+                  )}
+                  {roleFilter !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      <span>{roleConfig[roleFilter]?.label || roleFilter}</span>
+                      <button type="button" onClick={() => setRoleFilter("ALL")} className="hover:text-error" title="Bỏ lọc vai trò">
+                        <X size={11} weight="bold" />
+                      </button>
+                    </span>
+                  )}
+                  {statusFilter !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      <span>{statusConfig[statusFilter]?.label || statusFilter}</span>
+                      <button type="button" onClick={() => setStatusFilter("ALL")} className="hover:text-error" title="Bỏ lọc trạng thái">
+                        <X size={11} weight="bold" />
+                      </button>
+                    </span>
+                  )}
+                  {sortOption !== "DEFAULT" && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      <span>{sortOption === "NAME_ASC" ? "Tên A-Z" : sortOption === "DATE_DESC" ? "Bắt đầu mới nhất" : "Bắt đầu cũ nhất"}</span>
+                      <button type="button" onClick={() => setSortOption("DEFAULT")} className="hover:text-error" title="Bỏ sắp xếp">
+                        <X size={11} weight="bold" />
+                      </button>
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="inline-flex items-center gap-1 rounded-xl border border-outline-variant/60 bg-surface px-2.5 py-2 text-xs font-bold text-on-surface-variant hover:border-error/50 hover:text-error transition"
-                    title="Đặt lại tất cả bộ lọc"
+                    className="ml-1 text-[11px] font-bold text-on-surface-variant transition hover:text-error hover:underline"
                   >
-                    <X size={13} />
-                    <span>Xóa bộ lọc</span>
+                    Xóa tất cả
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* View 1: Table View */}
+            {/* View Mode 1: Table View (Enterprise Standard) */}
             {viewMode === "table" ? (
               <div className="overflow-hidden rounded-xl border border-outline-variant/40 bg-surface shadow-2xs">
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs min-w-[760px]">
+                  <table className="w-full border-collapse text-left text-xs min-w-[820px]">
                     <thead>
                       <tr className="border-b border-outline-variant/40 bg-surface-container-low/70">
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
                           Nhân sự
                         </th>
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
-                          Liên hệ
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                          Vai trò &amp; Quyền hạn
                         </th>
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
-                          Vai trò
-                        </th>
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
                           Trạng thái
                         </th>
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
+                          Số điện thoại
+                        </th>
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px]">
                           Ngày bắt đầu
                         </th>
-                        <th className="px-5 py-3.5 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px] text-right">
+                        <th className="px-5 py-3 font-extrabold uppercase tracking-wider text-on-surface-variant text-[11px] text-right">
                           Thao tác
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-outline-variant/25">
+                    <tbody className="divide-y divide-outline-variant/20">
                       {visibleStaff.map((item) => {
-                        const role = roleBadges[item.role] || { label: item.role, bg: "bg-surface-container", text: "text-on-surface", border: "border-outline-variant" };
-                        const status = statusBadges[item.status] || { label: item.status, bg: "bg-surface-container", text: "text-on-surface", border: "border-outline-variant", dot: "bg-slate-400" };
+                        const role = roleConfig[item.role] || {
+                          label: item.role,
+                          badgeClass: "bg-surface-container text-on-surface border-outline-variant",
+                          icon: <User size={13} />,
+                        };
+                        const status = statusConfig[item.status] || {
+                          label: item.status,
+                          dot: "bg-slate-400",
+                          badgeClass: "bg-surface-container text-on-surface border-outline-variant",
+                        };
 
                         return (
                           <tr
                             key={item.id}
-                            className="hover:bg-primary-fixed/15 transition-colors group"
+                            onClick={() => setSelected(item)}
+                            className="hover:bg-primary-fixed/10 dark:hover:bg-primary/5 transition-colors cursor-pointer group"
                           >
+                            {/* Staff Member Info */}
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-3">
                                 <StaffAvatar name={item.fullName} src={item.avatarPath} status={item.status} size="md" />
                                 <div className="min-w-0">
-                                  <strong className="block truncate text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                                  <span className="block truncate text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
                                     {item.fullName}
-                                  </strong>
-                                  <span className="block truncate text-xs text-on-surface-variant">
-                                    {item.email}
                                   </span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="truncate text-xs text-on-surface-variant">
+                                      {item.email}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => copyToClipboard(e, item.email, `email-${item.id}`)}
+                                      className="grid size-4 place-items-center text-on-surface-variant/40 hover:text-primary transition"
+                                      title="Sao chép email"
+                                    >
+                                      {copiedKey === `email-${item.id}` ? (
+                                        <Check size={11} weight="bold" className="text-emerald-600" />
+                                      ) : (
+                                        <Copy size={11} />
+                                      )}
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-5 py-3.5 text-on-surface-variant">
-                              {item.phone ? (
-                                <span className="inline-flex items-center gap-1.5 font-medium tabular-nums">
-                                  <Phone size={13} className="shrink-0 text-primary/70" />
-                                  <span>{item.phone}</span>
-                                </span>
-                              ) : (
-                                <span className="italic text-on-surface-variant/50">Chưa có SĐT</span>
-                              )}
-                            </td>
+
+                            {/* Role */}
                             <td className="px-5 py-3.5">
                               <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${role.bg} ${role.text} ${role.border}`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${role.badgeClass}`}
                               >
-                                {role.label}
+                                {role.icon}
+                                <span>{role.label}</span>
                               </span>
                             </td>
+
+                            {/* Status */}
                             <td className="px-5 py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${status.bg} ${status.text} ${status.border}`}
+                                className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-bold border ${status.badgeClass}`}
                               >
-                                {status.icon}
+                                <span className={`size-2 rounded-full ${status.dot}`} />
                                 <span>{status.label}</span>
                               </span>
                             </td>
-                            <td className="px-5 py-3.5 text-on-surface-variant font-medium tabular-nums">
+
+                            {/* Contact Phone */}
+                            <td className="px-5 py-3.5">
+                              {item.phone ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold tabular-nums text-on-surface">
+                                    <Phone size={13} className="shrink-0 text-primary/70" />
+                                    <span>{item.phone}</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => copyToClipboard(e, item.phone ?? "", `phone-${item.id}`)}
+                                    className="grid size-4 place-items-center text-on-surface-variant/40 hover:text-primary transition"
+                                    title="Sao chép số điện thoại"
+                                  >
+                                    {copiedKey === `phone-${item.id}` ? (
+                                      <Check size={11} weight="bold" className="text-emerald-600" />
+                                    ) : (
+                                      <Copy size={11} />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-on-surface-variant/50">—</span>
+                              )}
+                            </td>
+
+                            {/* Start Date */}
+                            <td className="px-5 py-3.5 text-on-surface-variant font-medium tabular-nums text-xs">
                               {formatDate(item.startDate)}
                             </td>
+
+                            {/* Quick Actions */}
                             <td className="px-5 py-3.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => setSelected(item)}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-bold text-on-surface shadow-2xs hover:border-primary hover:text-primary hover:bg-primary-fixed/20 transition"
-                              >
-                                <PencilSimple size={14} />
-                                <span>Chi tiết</span>
-                              </button>
+                              <div className="inline-flex items-center gap-1.5 justify-end">
+                                {/* Quick lock/unlock toggle */}
+                                {item.status === "ACTIVE" && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => void toggleStaffStatus(item, e)}
+                                    className="grid size-8 place-items-center rounded-lg border border-outline-variant/60 bg-surface text-on-surface-variant hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition shadow-2xs"
+                                    title="Tạm ngưng công tác"
+                                  >
+                                    <Lock size={14} />
+                                  </button>
+                                )}
+                                {item.status === "SUSPENDED" && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => void toggleStaffStatus(item, e)}
+                                    className="grid size-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition shadow-2xs"
+                                    title="Kích hoạt lại làm việc"
+                                  >
+                                    <LockOpen size={14} />
+                                  </button>
+                                )}
+
+                                {/* Open drawer button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelected(item);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/70 bg-surface px-2.5 py-1.5 text-xs font-bold text-on-surface shadow-2xs hover:border-primary hover:text-primary hover:bg-primary-fixed/20 transition"
+                                >
+                                  <PencilSimple size={13} />
+                                  <span>Chi tiết</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Table Footer Summary */}
+                <div className="flex flex-wrap items-center justify-between border-t border-outline-variant/30 bg-surface-container-low/40 px-5 py-2.5 text-xs text-on-surface-variant font-medium">
+                  <span>
+                    Hiển thị <strong className="font-bold text-on-surface">{visibleStaff.length}</strong> / {staff.length} nhân sự
+                    {activeCount > 0 && ` (${activeCount} đang làm việc)`}
+                  </span>
+                  <span className="text-[11px] text-on-surface-variant/70 hidden sm:inline">
+                    Nhấp vào bất kỳ hàng nào để xem &amp; chỉnh sửa hồ sơ chi tiết
+                  </span>
                 </div>
 
                 {visibleStaff.length === 0 && (
@@ -788,54 +927,62 @@ export function StaffAdminPage() {
                 )}
               </div>
             ) : (
-              /* View 2: Grid Cards View */
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              /* View Mode 2: Grid Cards View */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3.5">
                 {visibleStaff.map((item) => {
-                  const role = roleBadges[item.role] || { label: item.role, bg: "bg-surface-container", text: "text-on-surface", border: "border-outline-variant" };
-                  const status = statusBadges[item.status] || { label: item.status, bg: "bg-surface-container", text: "text-on-surface", border: "border-outline-variant", dot: "bg-slate-400" };
+                  const role = roleConfig[item.role] || {
+                    label: item.role,
+                    badgeClass: "bg-surface-container text-on-surface border-outline-variant",
+                    icon: <User size={13} />,
+                  };
+                  const status = statusConfig[item.status] || {
+                    label: item.status,
+                    dot: "bg-slate-400",
+                    badgeClass: "bg-surface-container text-on-surface border-outline-variant",
+                  };
 
                   return (
                     <article
                       key={item.id}
-                      className="flex flex-col justify-between rounded-2xl border border-outline-variant/40 bg-surface p-5 shadow-2xs hover:border-primary/50 hover:shadow-xs transition group"
+                      onClick={() => setSelected(item)}
+                      className="flex flex-col justify-between rounded-2xl border border-outline-variant/40 bg-surface p-4 shadow-2xs hover:border-primary/50 hover:shadow-xs transition group cursor-pointer"
                     >
-                      <div className="space-y-4">
-                        {/* Top: Avatar & Name & Role */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <StaffAvatar name={item.fullName} src={item.avatarPath} status={item.status} size="lg" />
-                            <div className="min-w-0">
-                              <strong className="block truncate text-base font-extrabold text-on-surface group-hover:text-primary transition-colors">
-                                {item.fullName}
-                              </strong>
-                              <span className="block truncate text-xs text-on-surface-variant">
-                                {item.email}
-                              </span>
-                            </div>
+                      <div className="space-y-3">
+                        {/* Header: Avatar & Name */}
+                        <div className="flex items-center gap-3">
+                          <StaffAvatar name={item.fullName} src={item.avatarPath} status={item.status} size="lg" />
+                          <div className="min-w-0 flex-1">
+                            <strong className="block truncate text-sm font-extrabold text-on-surface group-hover:text-primary transition-colors">
+                              {item.fullName}
+                            </strong>
+                            <span className="block truncate text-xs text-on-surface-variant">
+                              {item.email}
+                            </span>
                           </div>
                         </div>
 
                         {/* Badges */}
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${role.bg} ${role.text} ${role.border}`}>
-                            {role.label}
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${role.badgeClass}`}>
+                            {role.icon}
+                            <span>{role.label}</span>
                           </span>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${status.bg} ${status.text} ${status.border}`}>
-                            {status.icon}
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${status.badgeClass}`}>
+                            <span className={`size-1.5 rounded-full ${status.dot}`} />
                             <span>{status.label}</span>
                           </span>
                         </div>
 
-                        {/* Info details */}
-                        <div className="space-y-1.5 pt-2 border-t border-outline-variant/25 text-xs text-on-surface-variant">
+                        {/* Details */}
+                        <div className="space-y-1 pt-2 border-t border-outline-variant/25 text-xs text-on-surface-variant">
                           <div className="flex items-center gap-2">
-                            <Phone size={14} className="shrink-0 text-primary/70" />
+                            <Phone size={13} className="shrink-0 text-primary/70" />
                             <span className="truncate tabular-nums font-medium">
-                              {item.phone || "Chưa cập nhật SĐT"}
+                              {item.phone || "Chưa có SĐT"}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Calendar size={14} className="shrink-0 text-primary/70" />
+                            <Calendar size={13} className="shrink-0 text-primary/70" />
                             <span className="truncate tabular-nums">
                               Bắt đầu: {formatDate(item.startDate)}
                             </span>
@@ -843,15 +990,18 @@ export function StaffAdminPage() {
                         </div>
                       </div>
 
-                      {/* Card Footer Action */}
-                      <div className="mt-5 pt-3 border-t border-outline-variant/30 flex justify-end">
+                      {/* Card Action */}
+                      <div className="mt-4 pt-2.5 border-t border-outline-variant/30 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => setSelected(item)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-2 text-xs font-bold text-on-surface shadow-2xs hover:border-primary hover:text-primary hover:bg-primary-fixed/20 transition"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelected(item);
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-outline-variant/60 bg-surface px-3 py-1.5 text-xs font-bold text-on-surface shadow-2xs hover:border-primary hover:text-primary hover:bg-primary-fixed/20 transition"
                         >
-                          <PencilSimple size={14} />
-                          <span>Xem hồ sơ &amp; Chỉnh sửa</span>
+                          <PencilSimple size={13} />
+                          <span>Chi tiết hồ sơ</span>
                         </button>
                       </div>
                     </article>
@@ -883,7 +1033,7 @@ export function StaffAdminPage() {
 
         {/* Tab 2: Pending Invitations */}
         {activeTab === "invitations" && (
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-extrabold text-on-surface">Danh sách lời mời chờ kích hoạt</h3>
@@ -921,7 +1071,11 @@ export function StaffAdminPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {invitations.map((item) => {
-                    const role = roleBadges[item.intendedRole] || { label: item.intendedRole, bg: "bg-surface-container", text: "text-on-surface", border: "border-outline-variant" };
+                    const role = roleConfig[item.intendedRole] || {
+                      label: item.intendedRole,
+                      badgeClass: "bg-surface-container text-on-surface border-outline-variant",
+                      icon: <User size={13} />,
+                    };
                     return (
                       <article
                         key={item.id}
@@ -939,8 +1093,9 @@ export function StaffAdminPage() {
                               {item.email}
                             </span>
                             <div className="mt-1 flex items-center gap-2">
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${role.bg} ${role.text} ${role.border}`}>
-                                {role.label}
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${role.badgeClass}`}>
+                                {role.icon}
+                                <span>{role.label}</span>
                               </span>
                               <span className="text-[10px] text-on-surface-variant/80 tabular-nums">
                                 Hết hạn: {formatDate(item.expiresAt)}
@@ -967,7 +1122,7 @@ export function StaffAdminPage() {
         )}
       </section>
 
-      {/* Modal: Mời nhân sự mới (Form đóng mở được) */}
+      {/* Modal: Mời nhân sự mới */}
       {isInviteOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs overflow-y-auto"
@@ -1187,11 +1342,12 @@ export function StaffAdminPage() {
                   <h2 className="font-display text-lg font-bold text-on-surface">{selected.fullName}</h2>
                   <p className="text-xs text-on-surface-variant">{selected.email}</p>
                   <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${roleBadges[selected.role]?.bg} ${roleBadges[selected.role]?.text} ${roleBadges[selected.role]?.border}`}>
-                      {roleLabels[selected.role]}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${roleConfig[selected.role]?.badgeClass}`}>
+                      {roleConfig[selected.role]?.icon}
+                      <span>{roleLabels[selected.role]}</span>
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${statusBadges[selected.status]?.bg} ${statusBadges[selected.status]?.text} ${statusBadges[selected.status]?.border}`}>
-                      {statusBadges[selected.status]?.icon}
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border ${statusConfig[selected.status]?.badgeClass}`}>
+                      <span className={`size-1.5 rounded-full ${statusConfig[selected.status]?.dot}`} />
                       <span>{statusLabels[selected.status]}</span>
                     </span>
                   </div>
@@ -1349,7 +1505,7 @@ function StaffAvatar({
   const sizeClasses = {
     sm: "h-8 w-8 text-xs",
     md: "h-10 w-10 text-sm",
-    lg: "h-14 w-14 text-base",
+    lg: "h-12 w-12 text-base",
   }[size];
 
   return (
@@ -1358,14 +1514,32 @@ function StaffAvatar({
         <img
           src={src}
           alt={name}
-          className={`${sizeClasses} rounded-xl object-cover ring-1 ring-outline-variant/30`}
+          className={`${sizeClasses} rounded-xl object-cover ring-1 ring-outline-variant/60 shadow-2xs`}
         />
       ) : (
         <span
-          className={`grid ${sizeClasses} place-items-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/30 font-extrabold text-primary shadow-2xs`}
+          className={`grid ${sizeClasses} place-items-center rounded-xl bg-primary/10 font-black text-primary ring-1 ring-primary/20 shadow-2xs`}
         >
           {initial}
         </span>
+      )}
+      {status && (
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface ${
+            size === "sm" ? "size-2.5" : size === "md" ? "size-3" : "size-3.5"
+          } ${
+            status === "ACTIVE"
+              ? "bg-emerald-500"
+              : status === "INVITED"
+              ? "bg-blue-500"
+              : status === "SUSPENDED"
+              ? "bg-amber-500"
+              : status === "OFFBOARDED"
+              ? "bg-rose-500"
+              : "bg-slate-400"
+          }`}
+          title={statusLabels[status]}
+        />
       )}
     </div>
   );

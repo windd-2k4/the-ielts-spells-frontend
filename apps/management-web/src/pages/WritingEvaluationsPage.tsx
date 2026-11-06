@@ -1,7 +1,7 @@
 import {
-  ArrowClockwise, Brain, CaretDown, CaretLeft, CaretRight, ChartBar, Check, CheckCircle, CircleNotch, ClipboardText, Copy,
-  DotsSixVertical, FileText, FloppyDisk, Infinity as InfinityIcon, MagnifyingGlass, Microphone, Minus, NotePencil,
-  PaperPlaneTilt, Plus, ShieldCheck, Sparkle, UsersThree, WarningCircle,
+  ArrowClockwise, ArrowCounterClockwise, Brain, CaretDown, CaretLeft, CaretRight, ChartBar, Check, CheckCircle, CircleNotch, ClipboardText, Copy,
+  DotsSixVertical, FileText, FloppyDisk, FunnelSimple, Infinity as InfinityIcon, MagnifyingGlass, Microphone, Minus, NotePencil,
+  PaperPlaneTilt, Plus, ShieldCheck, Sparkle, UsersThree, WarningCircle, X,
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
@@ -199,9 +199,63 @@ function WritingPanel() {
     } catch (reason) { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(message(reason, "Không tải được hàng chờ Writing.")); }
     finally { if (!signal?.aborted) setLoading(false); }
   }
+  function isWritingSpeakingCourse(c: { code?: string; name?: string; skillPair?: string }) {
+    const code = (c.code || "").toUpperCase();
+    const skillPair = (c.skillPair || "").toUpperCase();
+    if (skillPair === "LISTENING_READING") return false;
+    if (code.startsWith("LR-") || code.startsWith("SEED-LR") || code.startsWith("LR_")) return false;
+    if (skillPair === "SPEAKING_WRITING") return true;
+    if (code.startsWith("SW-") || code.startsWith("WS-")) return true;
+    const name = (c.name || "").toLowerCase();
+    if (name.includes("writing") || name.includes("speaking")) return true;
+    return false;
+  }
+
   async function loadFilterOptions() {
-    try { setFilterOptions(await apiFetch<WritingFilterOptions>("/admin/writing-evaluations/filter-options")); }
-    catch (reason) { setError(message(reason, "Không tải được danh sách lớp Writing & Speaking.")); }
+    try {
+      const [filterOptionsRes, coursesPageRes] = await Promise.allSettled([
+        apiFetch<WritingFilterOptions>("/admin/writing-evaluations/filter-options"),
+        apiFetch<PageResult<{ id: string; code: string; name: string; status: string; skillPair?: string; totalStudents?: number; activeStudents?: number }>>("/admin/courses?size=100"),
+      ]);
+
+      let baseOptions: WritingFilterOptions = {
+        totalCount: 0,
+        selfPracticeCount: 0,
+        courseCount: 0,
+        courses: [],
+      };
+
+      if (filterOptionsRes.status === "fulfilled" && filterOptionsRes.value) {
+        baseOptions = filterOptionsRes.value;
+      }
+
+      const validBaseCourses = (baseOptions.courses ?? []).filter(isWritingSpeakingCourse);
+      const existingCourseMap = new Map(validBaseCourses.map((c) => [c.id, c]));
+
+      if (coursesPageRes.status === "fulfilled" && coursesPageRes.value?.content) {
+        for (const c of coursesPageRes.value.content) {
+          if (isWritingSpeakingCourse(c) && !existingCourseMap.has(c.id)) {
+            existingCourseMap.set(c.id, {
+              id: c.id,
+              code: c.code,
+              name: c.name,
+              status: c.status,
+              studentCount: c.totalStudents ?? c.activeStudents ?? 0,
+              evaluationCount: 0,
+              awaitingTeacherCount: 0,
+            });
+          }
+        }
+      }
+
+      const allCourses = Array.from(existingCourseMap.values());
+      setFilterOptions({
+        ...baseOptions,
+        courses: allCourses,
+      });
+    } catch (reason) {
+      setError(message(reason, "Không tải được danh sách lớp học."));
+    }
   }
   useEffect(() => { const timer = window.setTimeout(() => { setDebouncedQuery(query.trim()); setPage(0); }, 300); return () => window.clearTimeout(timer); }, [query]);
   useEffect(() => { void loadFilterOptions(); }, []);
@@ -293,15 +347,77 @@ function WritingPanel() {
 
   return <EvaluationLayout loading={loading} error={error} query={query} setQuery={setQuery} onRefresh={refresh}
     queueTitle="Bài Writing" count={totalElements}
-    filters={<WritingFilters source={sourceFilter} onSourceChange={changeSource} courseId={courseId} onCourseChange={(value) => { setCourseId(value); setPage(0); }} teacherStatus={teacherFilter} onTeacherStatusChange={(value) => { setTeacherFilter(value); setPage(0); }} options={filterOptions}/>}
+    filters={<WritingFilters source={sourceFilter} onSourceChange={changeSource} courseId={courseId} onCourseChange={(value) => { setCourseId(value); if (value && sourceFilter !== "ASSIGNMENT") setSourceFilter("ASSIGNMENT"); setPage(0); }} teacherStatus={teacherFilter} onTeacherStatusChange={(value) => { setTeacherFilter(value); setPage(0); }} options={filterOptions}/>}
+    filterChips={
+      (sourceFilter !== "ALL" || teacherFilter !== "ALL" || Boolean(courseId)) ? (
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {sourceFilter !== "ALL" ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
+              <span>{sourceFilter === "SELF_PRACTICE" ? "Tự do" : "Theo lớp"}</span>
+              <button
+                type="button"
+                onClick={() => changeSource("ALL")}
+                className="text-primary hover:text-rose-600"
+                title="Bỏ lọc nguồn"
+              >
+                <X size={10} weight="bold" />
+              </button>
+            </span>
+          ) : null}
+          {courseId && filterOptions.courses.find((course) => course.id === courseId) ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
+              <span className="max-w-[120px] truncate">Lớp: {filterOptions.courses.find((course) => course.id === courseId)?.code}</span>
+              <button
+                type="button"
+                onClick={() => { setCourseId(""); setPage(0); }}
+                className="text-primary hover:text-rose-600"
+                title="Bỏ lọc lớp"
+              >
+                <X size={10} weight="bold" />
+              </button>
+            </span>
+          ) : null}
+          {teacherFilter !== "ALL" ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
+              <span>
+                {teacherFilter === "AVAILABLE"
+                  ? "Chưa chấm"
+                  : teacherFilter === "REVIEWED"
+                  ? "Đã lưu"
+                  : "Đã công bố"}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setTeacherFilter("ALL"); setPage(0); }}
+                className="text-primary hover:text-rose-600"
+                title="Bỏ lọc trạng thái"
+              >
+                <X size={10} weight="bold" />
+              </button>
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              changeSource("ALL");
+              setTeacherFilter("ALL");
+              setCourseId("");
+              setPage(0);
+            }}
+            className="ml-0.5 text-[10px] font-bold text-on-surface-variant transition hover:text-rose-600 hover:underline"
+          >
+            Xóa hết
+          </button>
+        </div>
+      ) : undefined
+    }
     pagination={totalPages > 1 ? <Pagination page={page} totalPages={totalPages} onChange={setPage}/> : undefined}
     list={items.map((item) => <QueueItem key={item.id} active={item.id === selectedId} onClick={() => setSelectedId(item.id)}
       ai={aiStatuses[item.status] ?? item.status} teacher={teacherStatuses[item.teacherStatus] ?? item.teacherStatus}
       title={item.studentName} subtitle={`${item.studentCode} · ${item.testTitle}`} source={writingSource(item)}
       meta={`${taskLabel(item.taskType)} · ${wordCount(item.essayText)} từ, ${shortDate(item.createdAt)}`}/>) }
     empty={!selected ? "Không có bài Writing phù hợp với bộ lọc." : undefined}>
-    {selected ? <div className="flex h-full min-h-0 flex-col gap-3">
-      <WritingEvaluationBar evaluation={selected} criteria={criterionKeys}/>
+    {selected ? <div className="flex h-full min-h-0 flex-col">
       <WritingWorkspaceSplitPane
         left={
           <div className="h-full min-h-0">
@@ -506,7 +622,7 @@ function EntitlementsPanel() {
   </section>;
 }
 
-function EvaluationLayout({ loading, error, query, setQuery, onRefresh, queueTitle = "Hàng chờ", count = 0, filters, pagination, list, empty, children }: { loading: boolean; error: string; query: string; setQuery: (value: string) => void; onRefresh: () => Promise<void>; queueTitle?: string; count?: number; filters?: React.ReactNode; pagination?: React.ReactNode; list: React.ReactNode; empty?: string; children: React.ReactNode }) {
+function EvaluationLayout({ loading, error, query, setQuery, onRefresh, queueTitle = "Hàng chờ", count = 0, filters, filterChips, pagination, list, empty, children }: { loading: boolean; error: string; query: string; setQuery: (value: string) => void; onRefresh: () => Promise<void>; queueTitle?: string; count?: number; filters?: React.ReactNode; filterChips?: React.ReactNode; pagination?: React.ReactNode; list: React.ReactNode; empty?: string; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("management-writing-queue-collapsed") === "1");
   useEffect(() => {
     window.localStorage.setItem("management-writing-queue-collapsed", collapsed ? "1" : "0");
@@ -518,8 +634,15 @@ function EvaluationLayout({ loading, error, query, setQuery, onRefresh, queueTit
         <span className="writing-queue-count rounded-full bg-primary-fixed/45 px-1.5 py-0.5 text-[10px] font-extrabold tabular-nums text-primary" title={`${count} bài phù hợp`}>{count}</span>
       </div> : <div className="border-b border-outline-variant/55 p-3">
         <div className="flex items-center justify-between gap-3 px-1"><div><h2 className="text-sm font-extrabold">{queueTitle}</h2><p className="mt-0.5 text-xs text-on-surface-variant">{count} bài phù hợp</p></div><div className="flex shrink-0 items-center gap-1"><button type="button" aria-label="Thu gọn bộ lọc và danh sách" aria-expanded={true} title="Thu gọn bộ lọc và danh sách" onClick={() => setCollapsed(true)} className="grid size-10 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:border-primary hover:text-primary"><CaretLeft size={17}/></button><button type="button" aria-label="Làm mới danh sách" title="Làm mới danh sách" disabled={loading} onClick={() => void onRefresh()} className="grid size-10 place-content-center rounded-xl border border-outline-variant bg-surface text-on-surface-variant transition hover:text-primary disabled:opacity-50"><ArrowClockwise className={loading ? "animate-spin" : ""}/></button></div></div>
-        <div className="mt-3"><Search value={query} onChange={setQuery} placeholder="Tìm học viên hoặc đề"/></div>
-        {filters ? <div className="mt-3">{filters}</div> : null}
+        <div className="mt-2.5 space-y-1.5">
+          <div className="relative flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <Search value={query} onChange={setQuery} placeholder="Tìm học viên hoặc đề"/>
+            </div>
+            {filters}
+          </div>
+          {filterChips}
+        </div>
       </div>}
       {!collapsed ? <><div className="custom-scrollbar min-h-[320px] flex-1 overflow-y-auto p-3 xl:min-h-0">{loading ? <Loading/> : list}</div>
       {pagination ? <div className="border-t border-outline-variant/55 p-3">{pagination}</div> : null}</> : null}
@@ -547,44 +670,198 @@ function InfoBlock({ title, text, serif = false }: { title: string; text: string
 }
 
 function WritingFilters({ source, onSourceChange, courseId, onCourseChange, teacherStatus, onTeacherStatusChange, options }: { source: "ALL" | "SELF_PRACTICE" | "ASSIGNMENT"; onSourceChange: (value: "ALL" | "SELF_PRACTICE" | "ASSIGNMENT") => void; courseId: string; onCourseChange: (value: string) => void; teacherStatus: "ALL" | "AVAILABLE" | "REVIEWED" | "PUBLISHED"; onTeacherStatusChange: (value: "ALL" | "AVAILABLE" | "REVIEWED" | "PUBLISHED") => void; options: WritingFilterOptions }) {
-  const sourceOptions = [
-    { value: "ALL" as const, label: "Tất cả", count: options.totalCount },
-    { value: "SELF_PRACTICE" as const, label: "Tự do", count: options.selfPracticeCount },
-    { value: "ASSIGNMENT" as const, label: "Theo lớp", count: options.courseCount },
-  ];
-  return <div className="space-y-2">
-    <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/80 p-1" aria-label="Lọc nguồn bài Writing">
-      {sourceOptions.map((option) => {
-        const isSelected = source === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={isSelected}
-            onClick={() => onSourceChange(option.value)}
-            className={`min-h-9 rounded-lg px-2 text-[11px] font-black transition-all ${
-              isSelected
-                ? "bg-gradient-to-r from-[#894c5b] to-[#713c4a] text-white shadow-sm scale-[1.02]"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-            }`}
-          >
-            <span>{option.label}</span>
-            <span
-              className={`ml-1.5 tabular-nums text-[10px] rounded-md px-1.5 py-0.5 ${
-                isSelected ? "bg-white/20 text-white font-bold" : "bg-white text-slate-500 shadow-xs"
-              }`}
-            >
-              {option.count}
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const hasActiveFilters = source !== "ALL" || teacherStatus !== "ALL" || Boolean(courseId);
+  const activeCount = (source !== "ALL" ? 1 : 0) + (teacherStatus !== "ALL" ? 1 : 0) + (courseId ? 1 : 0);
+
+  const resetAll = () => {
+    onSourceChange("ALL");
+    onTeacherStatusChange("ALL");
+    onCourseChange("");
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-bold transition ${
+          hasActiveFilters
+            ? "border-primary bg-primary/10 text-primary shadow-xs"
+            : "border-outline-variant/70 bg-surface text-on-surface-variant hover:border-primary/50 hover:text-primary"
+        }`}
+        title="Super Filter - Bộ lọc nâng cao"
+      >
+        <FunnelSimple size={15} weight={hasActiveFilters ? "fill" : "bold"} />
+        <span>Lọc</span>
+        {activeCount > 0 ? (
+          <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white">
+            {activeCount}
+          </span>
+        ) : null}
+        <CaretDown size={11} weight="bold" className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <div
+          ref={popoverRef}
+          role="dialog"
+          aria-label="Super Filter"
+          className="absolute right-0 top-full z-40 mt-1.5 w-[310px] max-w-[calc(100vw-3rem)] rounded-2xl border border-outline-variant/70 bg-surface p-3.5 shadow-2xl space-y-3.5"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-outline-variant/50 pb-2">
+            <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-on-surface">
+              <FunnelSimple size={14} weight="bold" className="text-primary" />
+              <span>Super Filter</span>
             </span>
-          </button>
-        );
-      })}
+            <div className="flex items-center gap-2">
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={resetAll}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                  title="Đặt lại bộ lọc"
+                >
+                  <ArrowCounterClockwise size={11} weight="bold" />
+                  <span>Đặt lại</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1 text-on-surface-variant transition hover:bg-surface-container hover:text-on-surface"
+                aria-label="Đóng bộ lọc"
+              >
+                <X size={14} weight="bold" />
+              </button>
+            </div>
+          </div>
+
+          {/* Section 1: Nguồn bài nộp */}
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">
+              Nguồn bài nộp
+            </label>
+            <div className="mt-1.5 grid grid-cols-3 gap-1 rounded-xl bg-surface-container-low/70 p-1">
+              {[
+                { value: "ALL" as const, label: "Tất cả", badge: `${options.totalCount} bài` },
+                { value: "SELF_PRACTICE" as const, label: "Tự do", badge: `${options.selfPracticeCount} bài` },
+                { value: "ASSIGNMENT" as const, label: "Theo lớp", badge: options.courses.length > 0 ? `${options.courses.length} lớp` : `${options.courseCount} bài` },
+              ].map((opt) => {
+                const isSelected = source === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onSourceChange(opt.value)}
+                    className={`flex flex-col items-center justify-center rounded-lg py-1.5 px-1 text-[11px] font-black transition ${
+                      isSelected
+                        ? "bg-primary text-white shadow-xs"
+                        : "text-on-surface-variant hover:bg-surface hover:text-on-surface"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <span
+                      className={`mt-0.5 text-[9px] font-bold tabular-nums rounded px-1 ${
+                        isSelected ? "bg-white/20 text-white" : "text-on-surface-variant/70"
+                      }`}
+                    >
+                      {opt.badge}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2: Chọn lớp (nếu là Theo lớp) */}
+          {source === "ASSIGNMENT" ? (
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">
+                Lớp học Writing & Speaking
+              </label>
+              <div className="mt-1.5">
+                <CoursePicker value={courseId} onChange={onCourseChange} options={options} />
+              </div>
+            </div>
+          ) : null}
+
+          {/* Section 3: Tiến độ chấm của giáo viên */}
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">
+              Tiến độ chấm giáo viên
+            </label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              {[
+                { value: "ALL" as const, label: "Tất cả trạng thái" },
+                { value: "AVAILABLE" as const, label: "Chưa chấm" },
+                { value: "REVIEWED" as const, label: "Đã lưu nháp" },
+                { value: "PUBLISHED" as const, label: "Đã công bố" },
+              ].map((statusOpt) => {
+                const isSelected = teacherStatus === statusOpt.value;
+                return (
+                  <button
+                    key={statusOpt.value}
+                    type="button"
+                    onClick={() => onTeacherStatusChange(statusOpt.value)}
+                    className={`flex items-center justify-center rounded-xl border px-2 py-1.5 text-xs font-bold transition ${
+                      isSelected
+                        ? "border-primary bg-primary-fixed/40 text-primary shadow-2xs font-extrabold"
+                        : "border-outline-variant/60 bg-surface text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
+                    }`}
+                  >
+                    {statusOpt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Footer Action */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="w-full rounded-xl bg-primary py-2 text-xs font-bold text-on-primary shadow-xs transition hover:bg-primary/90 active:scale-[.99]"
+            >
+              Áp dụng bộ lọc
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
-    <div className={`grid gap-2 ${source === "ASSIGNMENT" ? "grid-cols-[minmax(0,1.25fr)_minmax(0,.75fr)]" : "grid-cols-1"}`}>
-      {source === "ASSIGNMENT" ? <CoursePicker value={courseId} onChange={onCourseChange} options={options}/> : null}
-      <label className="block"><span className="sr-only">Tiến độ giáo viên</span><select aria-label="Tiến độ giáo viên" value={teacherStatus} onChange={(event) => onTeacherStatusChange(event.target.value as "ALL" | "AVAILABLE" | "REVIEWED" | "PUBLISHED")} className="min-h-9 w-full rounded-xl border-outline-variant bg-surface px-2 text-[11px] font-semibold"><option value="ALL">Tất cả trạng thái</option><option value="AVAILABLE">Chưa chấm</option><option value="REVIEWED">Đã lưu</option><option value="PUBLISHED">Đã công bố</option></select></label>
-    </div>
-  </div>;
+  );
 }
 
 function CoursePicker({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: WritingFilterOptions }) {
@@ -604,17 +881,17 @@ function CoursePicker({ value, onChange, options }: { value: string; onChange: (
   function choose(id: string) { onChange(id); setOpen(false); setQuery(""); }
   return <div ref={rootRef} className="relative min-w-0">
     <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className="flex min-h-9 w-full items-center gap-2 rounded-xl border border-outline-variant bg-surface px-2.5 text-left text-[11px] font-semibold">
-      <span className="min-w-0 flex-1 truncate">{selected ? `${selected.code} · ${selected.name}` : `Tất cả lớp (${options.courseCount})`}</span><CaretDown size={14} className={`shrink-0 transition ${open ? "rotate-180" : ""}`}/>
+      <span className="min-w-0 flex-1 truncate">{selected ? `${selected.code} · ${selected.name}` : `Tất cả lớp (${options.courses.length})`}</span><CaretDown size={14} className={`shrink-0 transition ${open ? "rotate-180" : ""}`}/>
     </button>
-    {open ? <div className="absolute left-0 z-30 mt-1 w-[310px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-xl border border-outline-variant bg-surface shadow-xl">
+    {open ? <div className="absolute left-0 right-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-outline-variant/70 bg-surface shadow-2xl">
       <label className="relative block border-b border-outline-variant/55 p-2"><span className="sr-only">Tìm lớp</span><MagnifyingGlass size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant"/><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã hoặc tên lớp" className="min-h-9 w-full rounded-lg border-outline-variant bg-surface-container-low pl-8 pr-2 text-xs"/></label>
-      <div role="listbox" aria-label="Chọn lớp Writing & Speaking" className="custom-scrollbar max-h-64 overflow-y-auto p-1.5">
-        <button type="button" role="option" aria-selected={!value} onClick={() => choose("")} className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs ${!value ? "bg-primary-fixed/45 text-primary" : "hover:bg-surface-container-low"}`}><strong>Tất cả lớp S&amp;W</strong><span className="tabular-nums opacity-70">{options.courseCount} bài</span></button>
+      <div role="listbox" aria-label="Chọn lớp Writing & Speaking" className="custom-scrollbar max-h-52 overflow-y-auto p-1.5">
+        <button type="button" role="option" aria-selected={!value} onClick={() => choose("")} className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs ${!value ? "bg-primary-fixed/45 text-primary" : "hover:bg-surface-container-low"}`}><strong>Tất cả lớp</strong><span className="tabular-nums opacity-70">{options.courses.length} lớp</span></button>
         {courses.map((course) => <button key={course.id} type="button" role="option" aria-selected={value === course.id} onClick={() => choose(course.id)} className={`mt-0.5 w-full rounded-lg px-2.5 py-2 text-left ${value === course.id ? "bg-primary-fixed/45" : "hover:bg-surface-container-low"}`}>
           <span className="flex items-center justify-between gap-3"><strong className="min-w-0 truncate text-xs">{course.code} · {course.name}</strong>{course.awaitingTeacherCount > 0 ? <span className="shrink-0 rounded-md bg-primary-fixed px-1.5 py-0.5 text-[9px] font-extrabold text-primary">{course.awaitingTeacherCount} chờ</span> : null}</span>
-          <span className="mt-0.5 block text-[10px] text-on-surface-variant">{course.evaluationCount} bài · {course.studentCount} học viên</span>
+          <span className="mt-0.5 block text-[10px] text-on-surface-variant">{course.studentCount} học viên{course.evaluationCount > 0 ? ` · ${course.evaluationCount} bài` : ""}</span>
         </button>)}
-        {courses.length === 0 ? <p className="px-3 py-5 text-center text-xs text-on-surface-variant">Không tìm thấy lớp phù hợp.</p> : null}
+        {courses.length === 0 ? <p className="px-3 py-4 text-center text-xs text-on-surface-variant">Không tìm thấy lớp phù hợp.</p> : null}
       </div>
     </div> : null}
   </div>;
@@ -899,14 +1176,29 @@ function WritingReviewEditor({
       {/* Ultra-compact Header (Single Row) */}
       <header className="sticky top-0 z-10 border-b border-outline-variant/55 bg-surface/95 backdrop-blur-xs">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2">
-          {/* Left: Title + word count badge + revision toggle */}
+          {/* Left: Student name + test title (no student code) + word count badge + revision toggle */}
           <div className="flex min-w-0 items-center gap-2">
             <ClipboardText size={17} className="shrink-0 text-primary" />
-            <h3 className="truncate text-xs font-extrabold text-on-surface">Bài viết học viên</h3>
+            <h3
+              className="flex min-w-0 items-center gap-1.5 truncate text-xs"
+              title={`${evaluation.studentName || "Bài viết học viên"}${evaluation.testTitle ? ` · ${evaluation.testTitle}` : ""}`}
+            >
+              <strong className="truncate font-extrabold text-on-surface">
+                {evaluation.studentName || "Bài viết học viên"}
+              </strong>
+              {evaluation.testTitle ? (
+                <>
+                  <span className="shrink-0 text-on-surface-variant/50">·</span>
+                  <span className="truncate font-semibold text-on-surface-variant">
+                    {evaluation.testTitle}
+                  </span>
+                </>
+              ) : null}
+            </h3>
 
             {/* Word count status pill */}
             <span
-              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                 meetsWordTarget
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   : "bg-amber-50 text-amber-700 border border-amber-200"
@@ -923,7 +1215,7 @@ function WritingReviewEditor({
 
             {/* Version switcher */}
             {hasRevision ? (
-              <div className="flex rounded-md bg-surface-container p-0.5 text-[10px] font-bold">
+              <div className="flex shrink-0 rounded-md bg-surface-container p-0.5 text-[10px] font-bold">
                 <button
                   type="button"
                   onClick={() => setView("submission")}
@@ -951,7 +1243,7 @@ function WritingReviewEditor({
           </div>
 
           {/* Right: Typography controls + Copy + Sửa bằng Word */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             {/* Font Size Stepper */}
             <div className="flex items-center rounded-lg border border-outline-variant/60 bg-surface p-0.5">
               <button
@@ -1029,39 +1321,30 @@ function WritingReviewEditor({
               </strong>
             </button>
 
-            {/* Copy Button */}
+            {/* Copy Button (Icon only) */}
             <button
               type="button"
               onClick={handleCopy}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition ${
+              className={`flex size-7 shrink-0 items-center justify-center rounded-lg border transition ${
                 copied
                   ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                   : "border-outline-variant/60 bg-surface text-on-surface-variant hover:border-primary/50 hover:text-primary"
               }`}
-              title="Sao chép bài viết"
+              title={copied ? "Đã sao chép" : "Sao chép bài viết"}
+              aria-label={copied ? "Đã sao chép" : "Sao chép bài viết"}
             >
-              {copied ? (
-                <>
-                  <Check size={11} weight="bold" />
-                  <span>Đã chép</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={11} />
-                  <span>Sao chép</span>
-                </>
-              )}
+              {copied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
             </button>
 
-            {/* Sửa bằng Word Button */}
+            {/* Sửa bằng Word Button (Icon only) */}
             <button
               type="button"
               onClick={onOpenWordEditor}
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-lg bg-[#185abd] px-2.5 text-[11px] font-bold text-white transition hover:bg-[#124996] active:scale-[.98]"
-              title="Mở trình sửa bài bằng Word"
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#185abd] text-white transition hover:bg-[#124996] active:scale-[.98]"
+              title="Sửa bằng Word"
+              aria-label="Sửa bằng Word"
             >
-              <NotePencil size={13} weight="fill" />
-              <span>Sửa bằng Word</span>
+              <NotePencil size={14} weight="fill" />
             </button>
           </div>
         </div>
@@ -1481,7 +1764,31 @@ function FeedbackLists({ strengths, improvements }: { strengths: string[]; impro
   return <div className="mt-4 grid gap-3 sm:grid-cols-2">{strengths.length ? <div><strong className="text-xs">Điểm mạnh</strong><ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">{strengths.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}{improvements.length ? <div><strong className="text-xs">Cần cải thiện</strong><ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5">{improvements.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}</div>;
 }
 
-function Search({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) { return <label className="relative block w-full max-w-md"><span className="sr-only">{placeholder}</span><MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"/><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 w-full rounded-xl border-outline-variant bg-surface pl-10 text-sm"/></label>; }
+function Search({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
+  return (
+    <label className="relative block w-full">
+      <span className="sr-only">{placeholder}</span>
+      <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={15}/>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="min-h-10 w-full rounded-xl border border-outline-variant/70 bg-surface pl-9 pr-7 text-xs font-medium placeholder:text-on-surface-variant/70 transition focus:border-primary focus:outline-none"
+      />
+      {value ? (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-on-surface-variant transition hover:text-on-surface"
+          title="Xóa tìm kiếm"
+          aria-label="Xóa tìm kiếm"
+        >
+          <X size={12} weight="bold" />
+        </button>
+      ) : null}
+    </label>
+  );
+}
 function ErrorNotice({ value }: { value: string }) { return <div role="alert" className="my-3 flex items-center gap-2 rounded-xl border border-error/25 bg-error-container/35 p-3 text-sm text-on-error-container"><WarningCircle size={18}/>{value}</div>; }
 function Loading() { return <p className="flex items-center justify-center gap-2 p-8 text-sm text-on-surface-variant"><CircleNotch className="animate-spin"/> Đang tải...</p>; }
 function Empty({ text }: { text: string }) { return <div className="grid min-h-52 place-content-center text-center text-sm text-on-surface-variant">{text}</div>; }

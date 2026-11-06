@@ -26,7 +26,7 @@ export function StudentProgressSnapshot({ data }: { data: StudentPortalOverview 
           <h2 className="mt-1 text-xl font-bold text-[#292528]">Tiến độ IELTS</h2>
           <p className="mt-1 text-xs text-[#6F676C]">Chỉ hiển thị kết quả đã được hệ thống ghi nhận.</p>
         </div>
-        <Link href="/student/progress" className="hidden items-center gap-1 text-xs font-bold text-[#894C5B] hover:underline sm:flex">Chi tiết <ArrowRight size={13} /></Link>
+        <Link href="/student/history" className="hidden items-center gap-1 text-xs font-bold text-[#894C5B] hover:underline sm:flex">Chi tiết <ArrowRight size={13} /></Link>
       </div>
 
       <div className="overflow-hidden rounded-[22px] border border-[#E8E2D5] bg-white">

@@ -10,6 +10,8 @@ import {
   CaretDown,
   ChartLineUp,
   ClipboardText,
+  Moon,
+  Sun,
   Gear,
   GraduationCap,
   List,
@@ -24,6 +26,7 @@ import { useStudentSession } from "@/features/student-auth/StudentSessionProvide
 import { useStudentPortal } from "@/features/student-hub/StudentPortalProvider";
 import { useStudentNotifications } from "@/features/student-hub/StudentNotificationProvider";
 import { NotificationDropdown } from "@/features/student-hub/NotificationDropdown";
+import { useTheme } from "@/features/theme/ThemeContext";
 import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentTopbar.module.css";
 
@@ -36,7 +39,7 @@ const NAV_ITEMS = [
   { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
   { href: "/student/flashcards", label: "Sổ từ", icon: Cards },
   { href: "/student/courses", label: "Khóa học", icon: GraduationCap },
-  { href: "/student/progress", label: "Tiến độ", icon: ChartLineUp },
+  { href: "/student/history", label: "Tiến độ", icon: ChartLineUp },
 ];
 
 export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
@@ -44,6 +47,7 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const { session, signOut } = useStudentSession();
   const { data } = useStudentPortal();
   const { unreadCount } = useStudentNotifications();
+  const { theme, toggleTheme } = useTheme();
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -206,6 +210,23 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                     <Link href="/student/learning-profile" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><User size={17} />Hồ sơ học tập</Link>
                     <Link href="/student/roadmap" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><Target size={17} />Mục tiêu &amp; lộ trình</Link>
                     <Link href="/student/settings" onClick={() => setDropdownOpen(false)} className={styles.menuItem}><Gear size={17} />Cài đặt tài khoản</Link>
+                    <button
+                      type="button"
+                      onClick={() => toggleTheme()}
+                      className={styles.menuItem}
+                    >
+                      {theme === "dark" ? (
+                        <>
+                          <Sun size={17} weight="bold" className="text-amber-400 shrink-0" />
+                          <span>Giao diện sáng</span>
+                        </>
+                      ) : (
+                        <>
+                          <Moon size={17} weight="bold" className="text-indigo-500 shrink-0" />
+                          <span>Giao diện tối</span>
+                        </>
+                      )}
+                    </button>
                     <button type="button" onClick={() => { setDropdownOpen(false); void signOut(); }} className={`${styles.menuItem} ${styles.signOut}`}><SignOut size={17} />Đăng xuất</button>
                   </div>
                 </div>

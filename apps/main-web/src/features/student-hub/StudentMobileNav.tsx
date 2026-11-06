@@ -30,7 +30,7 @@ const bottomItems = [
   { href: "/student", label: "Tổng quan", icon: SquaresFour },
   { href: "/student/assignments", label: "Bài tập", icon: BookOpenText },
   { href: "/student/practice", label: "Luyện đề", icon: PencilSimpleLine },
-  { href: "/student/progress", label: "Tiến độ", icon: ChartLineUp },
+  { href: "/student/history", label: "Tiến độ", icon: ChartLineUp },
   { href: "/student/schedule", label: "Lịch học", icon: CalendarCheck },
 ];
 
@@ -46,8 +46,7 @@ const groups = [
   ] },
   { title: "Hành trình", items: [
     { href: "/student/roadmap", label: "Mục tiêu & lộ trình", icon: MapTrifold },
-    { href: "/student/progress", label: "Tiến độ IELTS", icon: ChartLineUp },
-    { href: "/student/history", label: "Lịch sử làm bài", icon: ClockCounterClockwise },
+    { href: "/student/history", label: "Tiến độ & Lịch sử làm bài", icon: ChartLineUp },
   ] },
   { title: "Cá nhân", items: [
     { href: "/student/ai-tutor", label: "AI Tutor · đang phát triển", icon: Robot },

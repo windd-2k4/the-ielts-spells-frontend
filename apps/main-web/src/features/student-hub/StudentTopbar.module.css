@@ -466,3 +466,97 @@
     transition: none;
   }
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .bar {
+  background: #0F172A;
+  border-color: #1E293B;
+  color: #F8FAFC;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .brandCopy strong {
+  color: #F8FAFC;
+}
+
+:global(.dark) .brandCopy small {
+  color: #94A3B8;
+}
+
+:global(.dark) .brandDropdown {
+  background: #1E293B;
+  border-color: #334155;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+:global(.dark) .brandDropdownItem {
+  color: #E2E8F0;
+}
+
+:global(.dark) .brandDropdownItem:hover {
+  background: #334155;
+  color: #FFFFFF;
+}
+
+:global(.dark) .navLink {
+  color: #94A3B8;
+}
+
+:global(.dark) .navLink:hover {
+  color: #F8FAFC;
+  background: #1E293B;
+}
+
+:global(.dark) .navLink[aria-current="page"] {
+  color: #F472B6;
+  background: rgba(244, 114, 182, 0.12);
+}
+
+:global(.dark) .iconActionBtn {
+  background: #1E293B;
+  border-color: #334155;
+  color: #E2E8F0;
+}
+
+:global(.dark) .iconActionBtn:hover {
+  background: #334155;
+  color: #FFFFFF;
+  border-color: #475569;
+}
+
+:global(.dark) .name {
+  color: #F8FAFC;
+}
+
+:global(.dark) .accountButton:hover {
+  background: #1E293B;
+}
+
+:global(.dark) .dropdown {
+  background: #1E293B;
+  border-color: #334155;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+:global(.dark) .accountIdentity {
+  border-bottom-color: #334155;
+}
+
+:global(.dark) .accountIdentity strong {
+  color: #F8FAFC;
+}
+
+:global(.dark) .accountIdentity span {
+  color: #94A3B8;
+}
+
+:global(.dark) .menuItem {
+  color: #E2E8F0;
+}
+
+:global(.dark) .menuItem:hover {
+  background: #334155;
+  color: #FFFFFF;
+}

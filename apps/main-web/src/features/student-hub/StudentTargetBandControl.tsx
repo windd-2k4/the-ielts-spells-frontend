@@ -75,15 +75,15 @@ export function StudentTargetBandControl({ compact = false, id }: StudentTargetB
   }
 
   return (
-    <div className={compact ? "space-y-2" : "rounded-xl border border-[#E8E2D5] bg-white p-4 shadow-2xs space-y-3"}>
+    <div className={compact ? "space-y-2" : "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4"}>
       {!compact && (
         <div className="flex items-start gap-2.5">
           <span className="p-1.5 rounded-lg bg-[#F7E5EA] text-[#894C5B]">
             <Target size={18} weight="bold" />
           </span>
           <div>
-            <h3 className="text-sm font-bold text-[#1E1B18] font-sans">Band mục tiêu mong muốn</h3>
-            <p className="text-[11px] text-[#6F676C] leading-snug">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-sans">Band mục tiêu mong muốn</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
               Thiết lập Band mục tiêu để hệ thống cập nhật danh sách khóa học và lộ trình phù hợp.
             </p>
           </div>
@@ -102,7 +102,7 @@ export function StudentTargetBandControl({ compact = false, id }: StudentTargetB
             setSelected(event.target.value);
             setNotice(null);
           }}
-          className="h-11 min-w-0 rounded-lg border border-[#E8E2D5] bg-white px-3 text-sm text-[#1E1B18] transition focus:border-[#894C5B]"
+          className="h-10 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-xs font-semibold text-slate-900 dark:text-slate-100 transition focus:border-blue-500 focus:outline-none"
         >
           <option value="">Chọn band mục tiêu</option>
           {options.map((value) => <option key={value} value={value.toFixed(1)}>IELTS Band {value.toFixed(1)}</option>)}
@@ -118,7 +118,7 @@ export function StudentTargetBandControl({ compact = false, id }: StudentTargetB
                   setSkillTargets((current) => ({ ...current, [skill.key]: event.target.value }));
                   setNotice(null);
                 }}
-                className="h-10 min-w-0 rounded-lg border border-[#E8E2D5] bg-white px-2 text-sm text-[#1E1B18] focus:border-[#894C5B]"
+                className="h-9 min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Chọn band</option>
                 {BAND_OPTIONS.map((value) => <option key={value} value={value.toFixed(1)}>{value.toFixed(1)}</option>)}
@@ -130,7 +130,7 @@ export function StudentTargetBandControl({ compact = false, id }: StudentTargetB
           type="button"
           disabled={saving || !selected || !hasChanges}
           onClick={() => void handleSave()}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E8CFD5] bg-white px-3.5 text-sm font-semibold text-[#894C5B] transition hover:bg-[#F7E5EA] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 text-xs font-bold transition shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? <SpinnerGap size={15} className="animate-spin" /> : <FloppyDisk size={15} weight="bold" />}
           <span>{saving ? "Lưu..." : "Lưu mục tiêu"}</span>

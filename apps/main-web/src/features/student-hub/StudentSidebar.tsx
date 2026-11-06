@@ -18,8 +18,7 @@ const groups = [
   ] },
   { title: "Hành trình của bạn", items: [
     { href: "/student/roadmap", label: "Mục tiêu & lộ trình", icon: MapTrifold },
-    { href: "/student/progress", label: "Tiến độ IELTS", icon: ChartLineUp },
-    { href: "/student/history", label: "Lịch sử làm bài", icon: ClockCounterClockwise },
+    { href: "/student/history", label: "Tiến độ & Lịch sử làm bài", icon: ChartLineUp },
   ] },
   { title: "Công cụ hỗ trợ", items: [
     { href: "/student/ai-tutor", label: "AI Tutor", icon: Robot },
