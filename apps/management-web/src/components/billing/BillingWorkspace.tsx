@@ -646,10 +646,57 @@ export function BillingWorkspace() {
   const [selectedDraftOrderIds, setSelectedDraftOrderIds] = useState<Set<string>>(new Set());
   const [bulkDraftIssueProgress, setBulkDraftIssueProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isManualProviderOverride, setIsManualProviderOverride] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   // Global Feedback banner
   const [feedback, setFeedback] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openActionMenuId) return undefined;
+
+    const closeActionMenu = () => {
+      setOpenActionMenuId(null);
+      setActionMenuPosition(null);
+    };
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest("[data-billing-action-menu]")) closeActionMenu();
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("scroll", closeActionMenu, true);
+    window.addEventListener("resize", closeActionMenu);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("scroll", closeActionMenu, true);
+      window.removeEventListener("resize", closeActionMenu);
+    };
+  }, [openActionMenuId]);
+
+  const toggleActionMenu = (event: React.MouseEvent<HTMLButtonElement>, orderId: string) => {
+    if (openActionMenuId === orderId) {
+      setOpenActionMenuId(null);
+      setActionMenuPosition(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = 360;
+    const gutter = 8;
+    const left = Math.min(
+      Math.max(gutter, rect.right - menuWidth),
+      Math.max(gutter, window.innerWidth - menuWidth - gutter),
+    );
+    const top = rect.bottom + menuHeight + gutter > window.innerHeight
+      ? Math.max(gutter, rect.top - menuHeight - 4)
+      : Math.min(window.innerHeight - menuHeight - gutter, rect.bottom + 4);
+
+    setActionMenuPosition({ top, left });
+    setOpenActionMenuId(orderId);
+  };
 
   const formatVnd = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -2849,7 +2896,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[1460px] table-fixed text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-outline-variant/30 bg-[#f1f5f9] dark:bg-surface-container-high/60 text-[11px] font-bold text-gray-700 dark:text-on-surface whitespace-nowrap">
                     <th className="w-10 border-r border-outline-variant/20 px-2 py-2.5 text-center">
@@ -2871,13 +2918,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                       />
                     </th>
                     <th className="px-2.5 py-2.5 text-center w-12 border-r border-outline-variant/20">STT</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Mã đơn & Ngày tạo</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Học viên / Người mua</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Ngày giao dịch</th>
-                    <th className="px-2.5 py-2.5 text-right border-r border-outline-variant/20">Số tiền (VNĐ)</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Trạng thái đơn</th>
-                    <th className="px-2.5 py-2.5 border-r border-outline-variant/20">Hóa đơn điện tử CQT</th>
-                    <th className="sticky right-0 z-20 min-w-[132px] border-l border-outline-variant/20 bg-[#f1f5f9] px-2.5 py-2.5 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] dark:bg-surface-container-high">
+                    <th className="w-[230px] px-2.5 py-2.5 border-r border-outline-variant/20">Mã đơn & Ngày tạo</th>
+                    <th className="w-[300px] px-2.5 py-2.5 border-r border-outline-variant/20">Học viên / Người mua</th>
+                    <th className="w-[150px] px-2.5 py-2.5 border-r border-outline-variant/20">Ngày giao dịch</th>
+                    <th className="w-[145px] px-2.5 py-2.5 text-right border-r border-outline-variant/20">Số tiền (VNĐ)</th>
+                    <th className="w-[160px] px-2.5 py-2.5 border-r border-outline-variant/20">Trạng thái đơn</th>
+                    <th className="w-[235px] px-2.5 py-2.5 border-r border-outline-variant/20">Hóa đơn điện tử CQT</th>
+                    <th className="sticky right-0 z-20 w-[150px] min-w-[150px] border-l border-outline-variant/20 bg-[#f1f5f9] px-2.5 py-2.5 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] dark:bg-surface-container-high">
                       Hành động
                     </th>
                   </tr>
@@ -2933,12 +2980,12 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 2. Mã đơn & Ngày tạo */}
-                        <td className="px-2.5 py-2.5 whitespace-nowrap border-r border-outline-variant/15">
+                        <td className="px-2.5 py-2.5 min-w-0 border-r border-outline-variant/15">
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => ord.standalonePayment ? openInvoiceDetailFromOrder(ord) : setSelectedOrder(ord)}
-                              className="font-mono font-bold text-primary hover:underline cursor-pointer text-left"
+                              className="inline-block max-w-[165px] truncate align-bottom font-mono font-bold text-primary hover:underline cursor-pointer text-left"
                               title="Xem chi tiết đơn hàng"
                             >
                               {ord.orderCode}
@@ -2976,8 +3023,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 3. Học viên / Người mua */}
-                        <td className="px-2.5 py-2.5 min-w-[150px] border-r border-outline-variant/15">
-                          <div className="font-semibold text-on-surface">{ord.customerName}</div>
+                        <td className="px-2.5 py-2.5 min-w-0 max-w-[300px] border-r border-outline-variant/15">
+                          <div
+                            className="font-semibold text-on-surface break-words [overflow-wrap:anywhere] line-clamp-2"
+                            title={ord.customerName}
+                          >
+                            {ord.customerName}
+                          </div>
                           <div className="text-[11px] text-on-surface-variant truncate max-w-[180px]">
                             {ord.customerEmail}
                           </div>
@@ -3050,7 +3102,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 7. Hóa đơn điện tử CQT */}
-                        <td className="px-2.5 py-2.5 min-w-[170px] border-r border-outline-variant/15">
+                        <td className="px-2.5 py-2.5 min-w-0 max-w-[235px] border-r border-outline-variant/15">
                           {ord.invoiceStatus === "ISSUED" ? (
                             <div>
                               <div className="flex items-center gap-1.5">
@@ -3235,7 +3287,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 8. Hành động */}
-                        <td className="sticky right-0 z-10 min-w-[132px] border-l border-outline-variant/15 bg-surface px-2.5 py-2.5 text-center whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-blue-50 dark:bg-surface dark:group-hover:bg-surface-container-high">
+                        <td className="sticky right-0 z-10 w-[150px] min-w-[150px] border-l border-outline-variant/15 bg-surface px-2.5 py-2.5 text-center whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-blue-50 dark:bg-surface dark:group-hover:bg-surface-container-high">
                           <div className="inline-flex items-center justify-center gap-1">
                             {/* 👁 Xem chi tiết */}
                             <button
@@ -3278,15 +3330,28 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                             )}
 
                             {/* ... Dropdown Menu */}
-                            <div className="relative group inline-block">
+                            <div className="inline-block" data-billing-action-menu>
                               <button
                                 type="button"
-                                className="p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition cursor-pointer"
+                                onClick={(event) => toggleActionMenu(event, ord.id)}
+                                aria-expanded={openActionMenuId === ord.id}
+                                aria-haspopup="menu"
+                                className={`p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition cursor-pointer ${openActionMenuId === ord.id ? "bg-gray-100 dark:bg-gray-800" : ""}`}
                                 title="Thao tác khác"
                               >
                                 &bull;&bull;&bull;
                               </button>
-                              <div className="absolute right-0 mt-1 hidden group-hover:block z-50 w-52 rounded-xl border border-outline-variant/30 bg-surface p-1.5 shadow-xl text-left text-xs animate-in fade-in duration-100">
+                              {openActionMenuId === ord.id && actionMenuPosition && (
+                                <div
+                                  data-billing-action-menu
+                                  role="menu"
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    setActionMenuPosition(null);
+                                  }}
+                                  className="fixed z-[100] w-52 max-h-[min(70vh,360px)] overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface p-1.5 shadow-xl text-left text-xs animate-in fade-in duration-100"
+                                  style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                                >
                                 <button
                                   type="button"
                                   onClick={() => ord.standalonePayment ? openInvoiceDetailFromOrder(ord) : setSelectedOrder(ord)}
@@ -3422,7 +3487,8 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   <Copy size={13} />
                                   <span>Sao chép mã đơn</span>
                                 </button>
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
