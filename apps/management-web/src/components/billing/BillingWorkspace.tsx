@@ -36,6 +36,7 @@ import {
   UploadSimple,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../AdminUi";
 import { apiBlob, apiFetch } from "../../lib/api";
@@ -683,7 +684,7 @@ export function BillingWorkspace() {
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 208;
+    const menuWidth = 224;
     const menuHeight = 360;
     const gutter = 8;
     const left = Math.min(
@@ -3341,7 +3342,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                               >
                                 &bull;&bull;&bull;
                               </button>
-                              {openActionMenuId === ord.id && actionMenuPosition && (
+                              {openActionMenuId === ord.id && actionMenuPosition && createPortal(
                                 <div
                                   data-billing-action-menu
                                   role="menu"
@@ -3349,7 +3350,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                     setOpenActionMenuId(null);
                                     setActionMenuPosition(null);
                                   }}
-                                  className="fixed z-[100] w-52 max-h-[min(70vh,360px)] overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface p-1.5 shadow-xl text-left text-xs animate-in fade-in duration-100"
+                                  className="fixed z-[1000] w-56 max-h-[min(70vh,360px)] overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface p-1.5 shadow-xl text-left text-xs animate-in fade-in duration-100"
                                   style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
                                 >
                                 <button
@@ -3487,7 +3488,8 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                                   <Copy size={13} />
                                   <span>Sao chép mã đơn</span>
                                 </button>
-                                </div>
+                                </div>,
+                                document.body,
                               )}
                             </div>
                           </div>
