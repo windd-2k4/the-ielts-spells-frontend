@@ -2896,8 +2896,8 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                 </div>
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1460px] table-fixed text-left text-xs border-collapse">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[1335px] table-fixed text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-outline-variant/30 bg-[#f1f5f9] dark:bg-surface-container-high/60 text-[11px] font-bold text-gray-700 dark:text-on-surface whitespace-nowrap">
                     <th className="w-10 border-r border-outline-variant/20 px-2 py-2.5 text-center">
@@ -2919,13 +2919,13 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                       />
                     </th>
                     <th className="px-2.5 py-2.5 text-center w-12 border-r border-outline-variant/20">STT</th>
-                    <th className="w-[230px] px-2.5 py-2.5 border-r border-outline-variant/20">Mã đơn & Ngày tạo</th>
-                    <th className="w-[300px] px-2.5 py-2.5 border-r border-outline-variant/20">Học viên / Người mua</th>
-                    <th className="w-[150px] px-2.5 py-2.5 border-r border-outline-variant/20">Ngày giao dịch</th>
-                    <th className="w-[145px] px-2.5 py-2.5 text-right border-r border-outline-variant/20">Số tiền (VNĐ)</th>
-                    <th className="w-[160px] px-2.5 py-2.5 border-r border-outline-variant/20">Trạng thái đơn</th>
-                    <th className="w-[235px] px-2.5 py-2.5 border-r border-outline-variant/20">Hóa đơn điện tử CQT</th>
-                    <th className="sticky right-0 z-20 w-[150px] min-w-[150px] border-l border-outline-variant/20 bg-[#f1f5f9] px-2.5 py-2.5 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] dark:bg-surface-container-high">
+                    <th className="w-[210px] px-2.5 py-2.5 border-r border-outline-variant/20">Mã đơn & Ngày tạo</th>
+                    <th className="w-[250px] px-2.5 py-2.5 border-r border-outline-variant/20">Học viên / Người mua</th>
+                    <th className="w-[145px] px-2.5 py-2.5 border-r border-outline-variant/20">Ngày giao dịch</th>
+                    <th className="w-[135px] px-2.5 py-2.5 text-right border-r border-outline-variant/20">Số tiền (VNĐ)</th>
+                    <th className="w-[150px] px-2.5 py-2.5 border-r border-outline-variant/20">Trạng thái đơn</th>
+                    <th className="w-[220px] px-2.5 py-2.5 border-r border-outline-variant/20">Hóa đơn điện tử CQT</th>
+                    <th className="sticky right-0 z-20 w-[140px] min-w-[140px] border-l border-outline-variant/20 bg-[#f1f5f9] px-2.5 py-2.5 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] dark:bg-surface-container-high">
                       Hành động
                     </th>
                   </tr>
@@ -3024,14 +3024,14 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 3. Học viên / Người mua */}
-                        <td className="px-2.5 py-2.5 min-w-0 max-w-[300px] border-r border-outline-variant/15">
+                        <td className="px-2.5 py-2.5 min-w-0 max-w-[250px] overflow-hidden border-r border-outline-variant/15">
                           <div
-                            className="font-semibold text-on-surface break-words [overflow-wrap:anywhere] line-clamp-2"
+                            className="max-w-[230px] font-semibold text-on-surface break-words [overflow-wrap:anywhere] line-clamp-2"
                             title={ord.customerName}
                           >
                             {ord.customerName}
                           </div>
-                          <div className="text-[11px] text-on-surface-variant truncate max-w-[180px]">
+                          <div className="text-[11px] text-on-surface-variant truncate max-w-[190px]">
                             {ord.customerEmail}
                           </div>
                           {ord.customerPhone && (
@@ -3052,8 +3052,8 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 4. Ngày giao dịch */}
-                        <td className="px-2.5 py-2.5 whitespace-nowrap border-r border-outline-variant/15">
-                          <div className="font-medium text-on-surface tabular-nums">
+                        <td className="px-2.5 py-2.5 whitespace-nowrap overflow-hidden border-r border-outline-variant/15">
+                          <div className="font-medium text-on-surface tabular-nums truncate">
                             {formatDate(ord.paidAt)}
                           </div>
                           <div className="mt-0.5 text-[10px] text-on-surface-variant/70">
@@ -3103,7 +3103,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 7. Hóa đơn điện tử CQT */}
-                        <td className="px-2.5 py-2.5 min-w-0 max-w-[235px] border-r border-outline-variant/15">
+                        <td className="px-2.5 py-2.5 min-w-0 max-w-[220px] overflow-hidden border-r border-outline-variant/15">
                           {ord.invoiceStatus === "ISSUED" ? (
                             <div>
                               <div className="flex items-center gap-1.5">
@@ -3288,7 +3288,7 @@ Khi hệ thống nhận đủ học phí, tài khoản và quyền vào khóa h�
                         </td>
 
                         {/* 8. Hành động */}
-                        <td className="sticky right-0 z-10 w-[150px] min-w-[150px] border-l border-outline-variant/15 bg-surface px-2.5 py-2.5 text-center whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-blue-50 dark:bg-surface dark:group-hover:bg-surface-container-high">
+                        <td className="sticky right-0 z-10 w-[140px] min-w-[140px] border-l border-outline-variant/15 bg-surface px-2.5 py-2.5 text-center whitespace-nowrap shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-blue-50 dark:bg-surface dark:group-hover:bg-surface-container-high">
                           <div className="inline-flex items-center justify-center gap-1">
                             {/* 👁 Xem chi tiết */}
                             <button
