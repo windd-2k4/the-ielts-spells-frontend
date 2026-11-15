@@ -3921,3 +3921,141 @@
   .footer { align-items: stretch; flex-direction: column; }
   .resultLink { justify-content: center; }
 }
+
+
+
+/* Dark Mode System for ReadingExplanationPage (Aligned with 11-token system) */
+:global(.dark) .shell {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .header {
+  background: #221E24;
+  border-bottom-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .backButton,
+:global(.dark) .headerButton {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .backButton:hover,
+:global(.dark) .headerButton:hover {
+  background: #342B35;
+  color: #E17A9B;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .title {
+  color: #F5F0F3;
+}
+
+:global(.dark) .fontScalePill,
+:global(.dark) .controlPill {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .fontScaleButton,
+:global(.dark) .controlButton {
+  color: #91858F;
+}
+
+:global(.dark) .fontScaleButton:hover,
+:global(.dark) .controlButton:hover {
+  color: #F5F0F3;
+}
+
+:global(.dark) .fontScaleButtonActive,
+:global(.dark) .controlButtonActive {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .sectionBar {
+  background: #28212A;
+  border-bottom-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .sectionLabel {
+  color: #E17A9B;
+}
+
+:global(.dark) .passagePane {
+  background: #221E24;
+  border-right-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .passageTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .passageContent {
+  color: #BEB2BC;
+}
+
+:global(.dark) .answersPane {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .groupHeading {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .groupTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .groupInstructions {
+  color: #BEB2BC;
+}
+
+:global(.dark) .radioRowReview {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .radioRowReview:hover {
+  background: #2C2630;
+}
+
+:global(.dark) .gapFillReviewCard,
+:global(.dark) .tableReviewWrapper,
+:global(.dark) .flowStepReviewCard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .userAnswerRow {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .correctAnswerRow {
+  background: #182C22;
+  border-color: #23543A;
+  color: #34D399;
+}
+
+:global(.dark) .footer {
+  background: #221E24;
+  border-top-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .reviewSidebar {
+  background: #221E24;
+  border-left-color: #403640;
+  color: #F5F0F3;
+}

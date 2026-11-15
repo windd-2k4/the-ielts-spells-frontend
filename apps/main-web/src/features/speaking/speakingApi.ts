@@ -1,13 +1,19 @@
 import type {
   SaveSpeakingResponseItem,
+  SpeakingAudioUpload,
   SpeakingAttemptResult,
+  SpeakingExaminerSession,
+  SpeakingExaminerTurnSubmission,
+  SpeakingExamPartTwoReadyRequest,
+  AbortSpeakingExamSessionRequest,
+  SubmitSpeakingExaminerTurnRequest,
   SpeakingVocabLookupRequest,
   SpeakingVocabLookupResponse,
   StudentSpeakingAttempt,
   StudentWritingAssignment,
 } from "@ielts/contracts";
 import { ApiClientError } from "@ielts/api-client";
-import { apiFetch, apiKeepalivePost } from "@/lib/api";
+import { apiFetch, apiKeepalivePost, apiUpload } from "@/lib/api";
 
 const speakingPath = "/student/speaking";
 let timerControlAvailable = true;
@@ -67,6 +73,42 @@ export function saveSpeakingResponses(attemptId: string, responses: SaveSpeaking
   return apiFetch<StudentSpeakingAttempt>(`${speakingPath}/attempts/${attemptId}/responses`, {
     method: "PUT",
     body: JSON.stringify({ responses }),
+  });
+}
+
+export function uploadSpeakingAudio(attemptId: string, questionKey: string, blob: Blob) {
+  const body = new FormData();
+  body.append("questionKey", questionKey);
+  body.append("file", blob, "speaking-response.webm");
+  return apiUpload<SpeakingAudioUpload>(`${speakingPath}/attempts/${attemptId}/audio`, body);
+}
+
+export function createOrResumeSpeakingExaminerSession(attemptId: string) {
+  return apiFetch<SpeakingExaminerSession>(`${speakingPath}/attempts/${attemptId}/exam-session`, { method: "POST" });
+}
+
+export function getSpeakingExaminerSession(sessionId: string) {
+  return apiFetch<SpeakingExaminerSession>(`${speakingPath}/exam-sessions/${sessionId}`);
+}
+
+export function submitSpeakingExaminerTurn(sessionId: string, request: SubmitSpeakingExaminerTurnRequest) {
+  return apiFetch<SpeakingExaminerTurnSubmission>(`${speakingPath}/exam-sessions/${sessionId}/turns`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export function markSpeakingExamPartTwoReady(sessionId: string, request: SpeakingExamPartTwoReadyRequest) {
+  return apiFetch<SpeakingExaminerSession>(`${speakingPath}/exam-sessions/${sessionId}/part-2/ready`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export function abortSpeakingExamSession(sessionId: string, request: AbortSpeakingExamSessionRequest) {
+  return apiFetch<SpeakingExaminerSession>(`${speakingPath}/exam-sessions/${sessionId}/abort`, {
+    method: "POST",
+    body: JSON.stringify(request),
   });
 }
 

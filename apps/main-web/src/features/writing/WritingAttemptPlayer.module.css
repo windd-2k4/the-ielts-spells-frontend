@@ -303,3 +303,95 @@
   .brand > a, .submit, .sectionEditor textarea, .freeformEditor, .dialogActions button { transition: none; }
   .submitDialog { animation: none; }
 }
+
+
+
+/* Dark Mode System for WritingAttemptPlayer */
+:global(.dark) .examShell {
+  --ink: #F5F0F3;
+  --muted: #BEB2BC;
+  --line: #403640;
+  --accent: #E17A9B;
+  --accent-hover: #F492B1;
+  --accent-wash: #392630;
+  background: #171418;
+  color: var(--ink);
+}
+
+:global(.dark) .header {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .timer {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .timer.urgent {
+  background: #391E24;
+  border-color: #5C2D35;
+  color: #F87171;
+}
+
+:global(.dark) .taskTabs button {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .taskTabs button[aria-selected="true"] {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .promptPane {
+  background: #221E24;
+  border-right-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .answerPane {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .editorScroll {
+  background: #171418;
+}
+
+:global(.dark) .sectionEditor,
+:global(.dark) .freeformEditor,
+:global(.dark) .bodyEditor {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .outlineDock {
+  background: #221E24;
+  border-top-color: #403640;
+}
+
+:global(.dark) .submit {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .submit:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .submitDialog {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .submissionSummary {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}

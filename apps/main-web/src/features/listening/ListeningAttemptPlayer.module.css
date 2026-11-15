@@ -1537,3 +1537,52 @@
   background: #1e293b;
 }
 
+
+
+
+/* Dark Mode System for ListeningAttemptPlayer */
+:global(.dark) .examShell {
+  --exam-ink: #F5F0F3;
+  --exam-muted: #BEB2BC;
+  --exam-line: #403640;
+  --exam-soft: #221E24;
+  --exam-accent: #93C5FD;
+  --exam-accent-dark: #60A5FA;
+  --exam-accent-soft: #1C2331;
+  --exam-accent-border: #2D3D54;
+  --exam-navy: #171418;
+  --exam-gold: #F59E0B;
+  --exam-gold-soft: #3A2E1C;
+
+  --exam-bg-main: #171418;
+  --exam-bg-pane: #221E24;
+  --exam-bg-questions: #1B171C;
+  --exam-card-bg: #221E24;
+  --exam-header-bg: #221E24;
+  --exam-bar-bg: #28212A;
+  --exam-footer-bg: #221E24;
+}
+
+:global(.dark) .paletteSquare {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .paletteSquare[data-state="active"] {
+  border-color: #93C5FD;
+  background: #1C2331;
+  color: #93C5FD;
+}
+
+:global(.dark) .paletteSquare[data-state="answered"] {
+  background: #263328;
+  border-color: #2F613A;
+  color: #34D399;
+}
+
+:global(.dark) .submitDialog {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

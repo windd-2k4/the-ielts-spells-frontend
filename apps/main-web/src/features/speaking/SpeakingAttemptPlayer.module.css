@@ -1605,3 +1605,44 @@
   border-radius: 6px;
   letter-spacing: 0.05em;
 }
+
+
+
+/* Dark Mode System for SpeakingAttemptPlayer */
+:global(.dark) .container {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .topHeader {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .brandTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .brandEyebrow {
+  color: #E17A9B;
+}
+
+:global(.dark) .backBtn,
+:global(.dark) .closeButton,
+:global(.dark) .noteToggleButton {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .noteToggleActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .workspace {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

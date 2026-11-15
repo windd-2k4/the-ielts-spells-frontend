@@ -9,3 +9,175 @@
 .sectionHeading{display:flex;align-items:end;justify-content:space-between;gap:24px;padding-block:4px}.sectionHeading h2{margin-top:5px;font-size:26px;font-weight:680;letter-spacing:-.04em}.sectionHeading>p{max-width:430px;color:var(--muted);font-size:11px;line-height:1.6;text-align:right}.assignmentGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.assignmentCard{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;min-height:150px;padding:19px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.8);transition:transform 220ms ease,box-shadow 220ms ease,border-color 220ms ease}.assignmentCard:hover{border-color:#cba9b2;box-shadow:0 16px 34px rgba(55,37,43,.08);transform:translateY(-3px)}.assignmentIcon{display:grid;width:46px;height:46px;place-items:center;border-radius:13px;background:#f5e4e8;color:var(--wine)}.assignmentCopy{min-width:0}.assignmentCopy>div{display:flex;align-items:center;gap:8px}.assignmentCopy>div span{overflow:hidden;color:var(--wine);font-size:9px;font-weight:800;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}.assignmentCopy>div small{padding:3px 6px;border-radius:999px;background:#f3eeee;color:var(--muted);font-size:8px;font-weight:750}.assignmentCopy h2{overflow:hidden;margin-top:7px;font-size:16px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.assignmentCopy dl{display:flex;flex-wrap:wrap;gap:9px 14px;margin-top:12px;color:var(--muted);font-size:9px}.assignmentCopy dl div{display:flex;align-items:center;gap:5px}.assignmentCopy dl svg{color:var(--wine)}.assignmentCard>button{--accent:145,74,92;white-space:nowrap}.skeleton{min-height:410px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(100deg,#f5f0f1 20%,#fbf8f8 40%,#f5f0f1 60%);background-size:200% 100%;animation:shimmer 1.4s ease infinite}.assignmentGrid .skeleton{min-height:150px;border-radius:18px}.spin{animation:spin 900ms linear infinite}
 @keyframes orbit-a{to{transform:translate(-50%,-50%) rotate(383deg)}}@keyframes orbit-b{to{transform:translate(-50%,-50%) rotate(-387deg)}}@keyframes orbit-c{to{transform:translate(-50%,-50%) rotate(368deg)}}@keyframes shimmer{to{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:1100px){.catalogGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.assignmentGrid{grid-template-columns:1fr}}@media(max-width:760px){.hero{grid-template-columns:1fr}.heroMetric{display:none}.toolbar{align-items:stretch;flex-direction:column}.filters{overflow-x:auto}.catalogGrid{grid-template-columns:1fr}.sectionHeading{align-items:start;flex-direction:column}.sectionHeading>p{text-align:left}}@media(max-width:520px){.hero h1{font-size:42px}.tabs{display:grid;width:100%;grid-template-columns:1fr}.tabs button{justify-content:center}.assignmentCard{grid-template-columns:auto 1fr}.assignmentCard>button{grid-column:1/-1;width:100%}.testCard{min-height:400px}}@media(prefers-reduced-motion:reduce){.testCard,.testCard::after,.art>svg,.tabs button,.assignmentCard{transition:none}.testCard:hover,.testCard:focus-within,.assignmentCard:hover{transform:none}.testCard:hover .art>i,.testCard:focus-within .art>i,.skeleton{animation:none!important}}
+
+
+/* ==========================================================================
+   ReadingLibraryPage.module.css — Professional Dark Mode System
+   ========================================================================== */
+:global(.dark) .page {
+  --ink: #F5F0F3;
+  --muted: #BEB2BC;
+  --wine: #E17A9B;
+  --line: #403640;
+  color: var(--ink);
+}
+
+:global(.dark) .hero h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .lead {
+  color: #BEB2BC;
+}
+
+:global(.dark) .heroMetric {
+  border-left-color: #403640;
+}
+
+:global(.dark) .heroMetric strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .tabs {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .tabs button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .tabs button[aria-selected=true] {
+  background: #2C2630;
+  color: #E17A9B;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .toolbar {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .search {
+  background: #2C2630;
+  color: #91858F;
+}
+
+:global(.dark) .search input {
+  color: #F5F0F3;
+}
+
+:global(.dark) .search input::placeholder {
+  color: #91858F;
+}
+
+:global(.dark) .filters button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .filters button:hover,
+:global(.dark) .filters button[aria-pressed=true] {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .error {
+  border-color: #5C2D35;
+  background: #2E1B20;
+  color: #F87171;
+}
+
+:global(.dark) .testCard {
+  --accent: 225, 122, 155;
+  border-color: #403640;
+  background: #221E24;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .variant1 {
+  --accent: 147, 197, 253;
+  background: #1C2331;
+}
+
+:global(.dark) .variant2 {
+  --accent: 253, 186, 116;
+  background: #2B231A;
+}
+
+:global(.dark) .variant3 {
+  --accent: 216, 180, 254;
+  background: #261D32;
+}
+
+:global(.dark) .testType,
+:global(.dark) .ready,
+:global(.dark) .inProgress {
+  background: #2C2630;
+  border-color: #403640;
+  color: rgb(var(--accent));
+}
+
+:global(.dark) .cardStats {
+  border-color: #403640;
+  background: #403640;
+}
+
+:global(.dark) .cardStats div {
+  background: #2C2630;
+}
+
+:global(.dark) .cardStats dd {
+  color: #F5F0F3;
+}
+
+:global(.dark) .cardFooter {
+  border-top-color: #403640;
+}
+
+:global(.dark) .cardFooter button {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .cardFooter button:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .assignmentCard {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .assignmentCard:hover {
+  border-color: #E17A9B;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
+}
+
+:global(.dark) .assignmentIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .assignmentCopy > div span {
+  color: #E17A9B;
+}
+
+:global(.dark) .assignmentCopy > div small {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .assignmentCopy h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .assignmentCard > button {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .skeleton {
+  border-color: #403640;
+  background: linear-gradient(100deg, #221E24 20%, #2C2630 40%, #221E24 60%);
+  background-size: 200% 100%;
+}

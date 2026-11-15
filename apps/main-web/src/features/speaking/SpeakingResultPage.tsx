@@ -20,6 +20,7 @@ import {
 } from "@phosphor-icons/react";
 import type { SpeakingAttemptResult } from "@ielts/contracts";
 import { StudentSessionGate } from "@/features/student-auth/StudentSessionGate";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import { getSpeakingAttemptResult, requestSpeakingAiEvaluation } from "./speakingApi";
 import styles from "./SpeakingResultPage.module.css";
 
@@ -43,6 +44,7 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
   // Audio Playback
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlsRef = useRef(new Map<string, string>());
 
   // Accordion open/close state for Parts
   const [openParts, setOpenParts] = useState<Record<number, boolean>>({
@@ -70,6 +72,8 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
     return () => {
       active = false;
       if (audioRef.current) audioRef.current.pause();
+      audioUrlsRef.current.forEach(revokeMediaUrl);
+      audioUrlsRef.current.clear();
     };
   }, [attemptId]);
 
@@ -100,7 +104,7 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
     } finally { setRequesting(false); }
   }
 
-  function toggleAudio(key: string, url: string) {
+  async function toggleAudio(key: string, url: string) {
     if (playingKey === key && audioRef.current) {
       audioRef.current.pause();
       setPlayingKey(null);
@@ -109,7 +113,12 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    const audio = new Audio(url);
+    let playableUrl = url;
+    if (!url.startsWith("data:")) {
+      playableUrl = audioUrlsRef.current.get(url) ?? await apiMediaUrl(url);
+      audioUrlsRef.current.set(url, playableUrl);
+    }
+    const audio = new Audio(playableUrl);
     audioRef.current = audio;
     setPlayingKey(key);
     audio.onended = () => setPlayingKey(null);
@@ -312,7 +321,8 @@ function SpeakingResultContent({ attemptId }: { attemptId: string }) {
                               {saved?.audioUrl && (
                                 <button
                                   type="button"
-                                  onClick={() => toggleAudio(q.questionKey, saved.audioUrl!)}
+                                  onClick={() => void toggleAudio(q.questionKey, saved.audioUrl!)
+                                    .catch(() => setActionError("Không thể tải bản ghi âm."))}
                                   className={styles.audioPillBtn}
                                   title="Nghe lại bài nói"
                                 >

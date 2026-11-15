@@ -11,6 +11,7 @@ import {
   ArrowCounterClockwise,
   ArrowRight,
   BookOpenText,
+  Broadcast,
   CaretDown,
   ChartBar,
   ChartLineUp,
@@ -26,8 +27,11 @@ import {
   PencilCircle,
   PencilSimpleLine,
   Play,
+  Robot,
+  SpeakerHigh,
   Sparkle,
   WarningCircle,
+  Waves,
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -48,6 +52,10 @@ const skills = [
   { id: "WRITING", label: "Writing", icon: PencilSimpleLine },
   { id: "SPEAKING", label: "Speaking", icon: Microphone },
 ] as const;
+
+type PracticePlayerMode = "PRACTICE" | "EXAM" | "AI_EXAMINER";
+
+const AI_EXAMINER_ENABLED = process.env.NEXT_PUBLIC_AI_SPEAKING_EXAMINER_ENABLED === "true";
 
 const statusOptions: Array<{ value: PracticeProgressFilter; label: string }> = [
   { value: "ALL", label: "Tất cả" },
@@ -139,7 +147,7 @@ const landingDetails = {
     code: "02",
     status: "SẴN SÀNG",
     label: "Listening",
-    description: "Luyện nghe theo Part 1–4 bám sát định dạng bài thi thật.",
+    description: "Luyện nghe theo Part 1-4 bám sát định dạng bài thi thật.",
     eyebrow: "LISTEN · FOLLOW · COMPREHEND",
     features: [],
   },
@@ -284,8 +292,13 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   const searchParams = useSearchParams();
   const progressParam = searchParams.get("status");
   const progress: PracticeProgressFilter = isProgress(progressParam) ? progressParam : "ALL";
+  const aiExaminerCatalog = AI_EXAMINER_ENABLED
+    && skill === "SPEAKING"
+    && searchParams.get("experience") === "AI_EXAMINER";
   const typeParam = searchParams.get("type");
-  const testType: "ALL" | "FULL_TEST" | "SINGLE_SKILL" = typeParam === "FULL_TEST" || typeParam === "SINGLE_SKILL" ? typeParam : "ALL";
+  const testType: "ALL" | "FULL_TEST" | "SINGLE_SKILL" = aiExaminerCatalog
+    ? "FULL_TEST"
+    : typeParam === "FULL_TEST" || typeParam === "SINGLE_SKILL" ? typeParam : "ALL";
   const format = searchParams.get("format") ?? "ALL";
   const availableQuestionTypes = questionTypesBySkill[skill];
   const selectedQuestionTypes = (searchParams.get("questionTypes") ?? "")
@@ -302,7 +315,7 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
   const [resumePrompt, setResumePrompt] = useState<ResumePrompt | null>(null);
   const [resumeError, setResumeError] = useState("");
   const [modePrompt, setModePrompt] = useState<{ item: StudentPracticeCatalogItem } | null>(null);
-  const [selectedMode, setSelectedMode] = useState<"PRACTICE" | "EXAM">("PRACTICE");
+  const [selectedMode, setSelectedMode] = useState<PracticePlayerMode>("PRACTICE");
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   function updateParams(updates: Record<string, string | null>, resetPage = true) {
@@ -358,7 +371,7 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
     updateParams({ questionTypes: next.length ? next.join(",") : null });
   }
 
-  async function start(item: StudentPracticeCatalogItem, mode: "PRACTICE" | "EXAM" = "PRACTICE") {
+  async function start(item: StudentPracticeCatalogItem, mode: PracticePlayerMode = "PRACTICE") {
     const isReady = item.deliveryReady || item.skill === "SPEAKING";
     if (!isReady) return;
     const skillPath = item.skill.toLowerCase();
@@ -366,6 +379,11 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
     setError("");
     try {
       if (item.activeAttemptId) {
+        if (item.skill === "SPEAKING" && mode === "AI_EXAMINER") {
+          localStorage.setItem(`ielts_speaking_mode_${item.activeAttemptId}`, "ai_examiner");
+          router.push(`/student/speaking/attempts/${item.activeAttemptId}/examiner`);
+          return;
+        }
         const attempt = item.skill === "WRITING"
           ? await getWritingAttempt(item.activeAttemptId)
           : item.skill === "SPEAKING"
@@ -391,7 +409,12 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
         router.push(`/student/writing/attempts/${attempt.attemptId}${querySuffix}`);
       } else if (item.skill === "SPEAKING") {
         const attempt = await startOrResumeSpeakingSelfPractice(item.testVersionId);
-        router.push(`/student/speaking/attempts/${attempt.attemptId}`);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`ielts_speaking_mode_${attempt.attemptId}`, mode === "AI_EXAMINER" ? "ai_examiner" : "fixed_practice");
+        }
+        router.push(mode === "AI_EXAMINER"
+          ? `/student/speaking/attempts/${attempt.attemptId}/examiner`
+          : `/student/speaking/attempts/${attempt.attemptId}`);
       } else {
         const attempt = await startOrResumeSelfPractice(item.testVersionId, item.skill);
         if (typeof window !== "undefined") {
@@ -417,6 +440,9 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
       const savedMode = typeof window !== "undefined"
         ? (localStorage.getItem(`ielts_attempt_mode_${resumePrompt.attemptId}`) || localStorage.getItem(`ielts_test_mode_${item.testVersionId}`))
         : null;
+      const speakingMode = typeof window !== "undefined"
+        ? localStorage.getItem(`ielts_speaking_mode_${resumePrompt.attemptId}`)
+        : null;
       const isExam = savedMode === "exam";
       const attempt = item.skill === "WRITING"
         ? await startOrResumeWritingSelfPractice(item.testVersionId, true)
@@ -428,9 +454,14 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
         localStorage.setItem(`ielts_attempt_mode_${attempt.attemptId}`, isExam ? "exam" : "practice");
         localStorage.setItem(`ielts_test_mode_${item.testVersionId}`, isExam ? "exam" : "practice");
         if (isExam) querySuffix = "?mode=exam";
+        if (item.skill === "SPEAKING") {
+          localStorage.setItem(`ielts_speaking_mode_${attempt.attemptId}`, speakingMode === "ai_examiner" ? "ai_examiner" : "fixed_practice");
+        }
       }
       setResumePrompt(null);
-      router.push(`/student/${skillPath}/attempts/${attempt.attemptId}${querySuffix}`);
+      router.push(item.skill === "SPEAKING" && speakingMode === "ai_examiner"
+        ? `/student/speaking/attempts/${attempt.attemptId}/examiner`
+        : `/student/${skillPath}/attempts/${attempt.attemptId}${querySuffix}`);
     } catch (failure) {
       setResumeError(failure instanceof Error ? failure.message : "Không thể làm lại đề này.");
     } finally {
@@ -444,24 +475,31 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
 
   return (
     <main className={`${styles.page} ${styles[skill.toLowerCase()]}`}>
-      <header className={styles.hero}>
+      <header className={`${styles.hero} ${aiExaminerCatalog ? styles.aiHero : ""}`}>
         <div className={styles.heroMain}>
           <div className={styles.heroKicker}>
             <Link href="/student/practice" className={styles.backToSkills}><ArrowLeft size={15} /> Tất cả kỹ năng</Link>
             <span aria-hidden="true" />
-            <p className={styles.eyebrow}><Sparkle size={14} weight="fill" /> Thư viện tự luyện</p>
+            <p className={styles.eyebrow}>
+              <Sparkle size={14} weight="fill" />
+              {aiExaminerCatalog ? "Phòng thi Giám khảo AI · 1-on-1 Simulation" : "Thư viện tự luyện"}
+            </p>
           </div>
           <div className={styles.heroCopy}>
-            <h1>Luyện đề <em>IELTS</em></h1>
-            <p>Select a skill and practice published tests at your own pace.</p>
+            <h1>{aiExaminerCatalog ? "AI Speaking Examiner" : <>Luyện đề <em>IELTS</em></>}</h1>
+            <p>{aiExaminerCatalog
+              ? "Mô phỏng phòng thi thật 1-on-1 với giám khảo AI bản xứ. Đối thoại giọng nói trực tiếp trọn vẹn 3 Parts."
+              : "Select a skill and practice published tests at your own pace."}</p>
           </div>
         </div>
         <div className={styles.metric} aria-label={`${result.totalElements} đề phù hợp`}>
-          <span>Đang hiển thị</span><strong>{loading ? "-" : result.totalElements}</strong><small>đề {currentSkill.label}</small>
+          <span>{aiExaminerCatalog ? "Đang sẵn sàng" : "Đang hiển thị"}</span>
+          <strong>{loading ? "-" : result.totalElements}</strong>
+          <small>{aiExaminerCatalog ? "đề phỏng vấn AI" : `đề ${currentSkill.label}`}</small>
         </div>
       </header>
 
-      <div className={styles.catalogNav}>
+            <div className={styles.catalogNav}>
         <nav className={styles.skillTabs} aria-label="Chọn kỹ năng IELTS">
           {skills.map((item) => {
             const Icon = item.icon;
@@ -485,7 +523,7 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
 
       <div className={styles.workspace}>
         <aside className={styles.filters} aria-label={`Bộ lọc ${currentSkill.label}`}>
-          <button type="button" className={styles.filterHeading} aria-expanded={filtersOpen}
+                    <button type="button" className={styles.filterHeading} aria-expanded={filtersOpen}
             aria-controls="practice-filter-options" onClick={() => setFiltersOpen((open) => !open)}>
             <FunnelSimple size={19} /><span><strong>Bộ lọc</strong><small>{currentSkill.label}{hasFilters ? " · đang áp dụng" : ""}</small></span>
             <CaretDown size={17} weight="bold" />
@@ -493,7 +531,10 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           <div id="practice-filter-options" className={`${styles.filterBody} ${filtersOpen ? styles.filterBodyOpen : ""}`}>
             <fieldset>
               <legend>Cấu trúc đề</legend>
-              {[{ value: "ALL", label: "Tất cả" }, { value: "SINGLE_SKILL", label: "Bài lẻ" }, { value: "FULL_TEST", label: "Full đề" }].map((option) => (
+              {(aiExaminerCatalog
+                ? [{ value: "FULL_TEST", label: "Full đề" }]
+                : [{ value: "ALL", label: "Tất cả" }, { value: "SINGLE_SKILL", label: "Bài lẻ" }, { value: "FULL_TEST", label: "Full đề" }]
+              ).map((option) => (
                 <label key={option.value}><input type="radio" name="test-type" checked={testType === option.value}
                   onChange={() => updateParams({ type: option.value })} /><span>{option.label}</span></label>
               ))}
@@ -555,10 +596,16 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
                   key={item.testVersionId}
                   item={item}
                   starting={startingId === item.testVersionId}
+                  examinerMode={aiExaminerCatalog}
                   onStart={(clickedItem) => {
-                    if (clickedItem.activeAttemptId) {
+                    if (aiExaminerCatalog) {
+                      void start(clickedItem, "AI_EXAMINER");
+                      return;
+                    }
+                    if (clickedItem.activeAttemptId && clickedItem.skill !== "SPEAKING") {
                       void start(clickedItem, "PRACTICE");
                     } else {
+                      setSelectedMode("PRACTICE");
                       setModePrompt({ item: clickedItem });
                     }
                   }}
@@ -583,6 +630,13 @@ function PracticeCatalog({ skill }: { skill: IeltsSkill }) {
           error={resumeError}
           onClose={() => { setResumePrompt(null); setResumeError(""); }}
           onContinue={() => {
+            const speakingMode = typeof window !== "undefined"
+              ? localStorage.getItem(`ielts_speaking_mode_${resumePrompt.attemptId}`)
+              : null;
+            if (resumePrompt.item.skill === "SPEAKING" && speakingMode === "ai_examiner") {
+              router.push(`/student/speaking/attempts/${resumePrompt.attemptId}/examiner`);
+              return;
+            }
             let modeSuffix = "";
             if (typeof window !== "undefined") {
               const savedMode = localStorage.getItem(`ielts_attempt_mode_${resumePrompt.attemptId}`) || localStorage.getItem(`ielts_test_mode_${resumePrompt.item.testVersionId}`);
@@ -734,6 +788,30 @@ function ExamPreviewMockup() {
   );
 }
 
+function AiExaminerPreviewMockup() {
+  return (
+    <svg viewBox="0 0 280 140" role="img" aria-label="Xem trước phòng AI Speaking Examiner" width="100%" height="100%">
+      <rect width="280" height="140" fill="#f7f5f4" />
+      <rect width="280" height="24" fill="#ffffff" />
+      <circle cx="17" cy="12" r="5" fill="#c85f78" />
+      <rect x="30" y="8" width="56" height="7" rx="3.5" fill="#433c40" />
+      <g fill="#ded7da">
+        <rect x="124" y="9" width="22" height="5" rx="2.5" />
+        <rect x="151" y="9" width="22" height="5" rx="2.5" />
+        <rect x="178" y="9" width="22" height="5" rx="2.5" />
+      </g>
+      <rect x="35" y="38" width="210" height="48" rx="10" fill="#ffffff" stroke="#ded7da" />
+      <rect x="54" y="49" width="48" height="5" rx="2.5" fill="#c85f78" opacity=".82" />
+      <rect x="54" y="61" width="156" height="7" rx="3.5" fill="#292528" />
+      <rect x="54" y="73" width="112" height="4" rx="2" fill="#b6acb1" />
+      <rect x="75" y="97" width="130" height="29" rx="14.5" fill="#f7e5ea" stroke="#c85f78" />
+      <circle cx="96" cy="111.5" r="8" fill="#c85f78" />
+      <path d="M94 107.5v5a2 2 0 0 0 4 0v-5a2 2 0 0 0-4 0Zm-2 4.5a4 4 0 0 0 8 0M96 116v3" fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="110" y="108.5" width="71" height="6" rx="3" fill="#814153" />
+    </svg>
+  );
+}
+
 function ModeSelectionDialog({
   prompt,
   selectedMode,
@@ -743,8 +821,8 @@ function ModeSelectionDialog({
   busy,
 }: {
   prompt: { item: StudentPracticeCatalogItem };
-  selectedMode: "PRACTICE" | "EXAM";
-  onSelectMode: (mode: "PRACTICE" | "EXAM") => void;
+  selectedMode: PracticePlayerMode;
+  onSelectMode: (mode: PracticePlayerMode) => void;
   onClose: () => void;
   onSubmit: () => void;
   busy: boolean;
@@ -781,7 +859,7 @@ function ModeSelectionDialog({
       </div>
 
       <h3 id="mode-selection-title" className={styles.modeHeading}>
-        Chọn giao diện làm bài
+        Chọn cách luyện
       </h3>
 
       <div className={styles.modeGrid}>
@@ -797,10 +875,10 @@ function ModeSelectionDialog({
             <PracticePreviewMockup />
           </div>
           <h4 className={styles.modeCardTitle}>
-            Giao diện Luyện tập
+            Luyện tập có hướng dẫn
           </h4>
           <p className={styles.modeCardDesc}>
-            Hỗ trợ tối đa các chức năng: Tra từ vựng, gợi ý viết bài,... Phù hợp để luyện tập
+            Công cụ hỗ trợ để bạn tự luyện theo từng câu.
           </p>
         </div>
 
@@ -812,17 +890,32 @@ function ModeSelectionDialog({
           onClick={() => onSelectMode("EXAM")}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelectMode("EXAM"); }}
         >
-          <span className={styles.modeBadgeExam}>Giống 100%</span>
+          <span className={styles.modeBadgeExam}>Tập trung</span>
           <div className={styles.modeCardPreview}>
             <ExamPreviewMockup />
           </div>
           <h4 className={styles.modeCardTitle}>
-            Giao diện Thi thật
+            Mô phỏng bài thi
           </h4>
           <p className={styles.modeCardDesc}>
-            Mô phỏng 100% giao diện thi máy, giúp các bạn quen với chức năng khi thi thật
+            Giao diện tối giản để làm bài liền mạch.
           </p>
         </div>
+
+        {prompt.item.skill === "SPEAKING" && prompt.item.testType === "FULL_TEST" && AI_EXAMINER_ENABLED ? <div
+          role="button"
+          tabIndex={0}
+          className={`${styles.modeCard} ${selectedMode === "AI_EXAMINER" ? styles.modeCardSelected : ""}`}
+          onClick={() => onSelectMode("AI_EXAMINER")}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelectMode("AI_EXAMINER"); }}
+        >
+          <span className={styles.modeBadgeAi}>AI mới</span>
+          <div className={styles.modeCardPreview}>
+            <AiExaminerPreviewMockup />
+          </div>
+          <h4 className={styles.modeCardTitle}>AI Speaking Examiner</h4>
+          <p className={styles.modeCardDesc}>Phỏng vấn ba phần bằng giọng nói, tự lưu tiến trình.</p>
+        </div> : null}
       </div>
 
       <button
@@ -844,46 +937,93 @@ function remainingTime(seconds: number) {
   return `${minutes} phút`;
 }
 
-function PracticeCard({ item, starting, onStart }: { item: StudentPracticeCatalogItem; starting: boolean; onStart: (item: StudentPracticeCatalogItem) => void }) {
+function PracticeCard({ item, starting, examinerMode, onStart }: { item: StudentPracticeCatalogItem; starting: boolean; examinerMode?: boolean; onStart: (item: StudentPracticeCatalogItem) => void }) {
   const Icon = item.skill === "READING" ? BookOpenText : item.skill === "LISTENING" ? Headphones : item.skill === "WRITING" ? PencilSimpleLine : Microphone;
   const resume = Boolean(item.activeAttemptId);
   const coverUrl = typeof item.coverImage?.fileUrl === "string" ? item.coverImage.fileUrl : "";
   const visibleQuestionTypes = (item.questionTypes ?? []).slice(0, 3);
   return (
-    <article className={`${styles.card} ${styles[item.skill.toLowerCase()]}`}>
-      <div className={styles.cover}>
-        <div className={styles.coverFallback} aria-hidden="true"><ChartBar size={76} weight="duotone" /><Icon size={34} weight="fill" /></div>
-        {coverUrl ? <PracticeCoverImage fileUrl={coverUrl} alt={item.coverImage.altText || ""} className={styles.coverImage} /> : null}
-        <span className={styles.format}>{formatLabel(item)}</span>
+    <article className={`${styles.card} ${styles[item.skill.toLowerCase()]} ${examinerMode ? styles.examinerCard : ""}`}>
+      <div className={`${styles.cover} ${examinerMode ? styles.examinerCover : ""}`}>
+        {examinerMode ? (
+          <div className={styles.aiCoverGraphic} aria-hidden="true">
+            <div className={styles.aiCoverGlow} />
+            <div className={styles.aiCoverVoiceRings}>
+              <span className={styles.aiCoverRing1} />
+              <span className={styles.aiCoverRing2} />
+            </div>
+            <div className={styles.aiCoverAvatar}>
+              <Robot size={38} weight="fill" className={styles.aiAvatarBot} />
+              <div className={styles.aiWaveBars}>
+                <i /><i /><i /><i /><i /><i /><i />
+              </div>
+            </div>
+            <span className={styles.aiFormatBadge}>
+              <Sparkle size={11} weight="fill" /> AI EXAMINER · 3 PARTS
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className={styles.coverFallback} aria-hidden="true"><ChartBar size={76} weight="duotone" /><Icon size={34} weight="fill" /></div>
+            {coverUrl ? <PracticeCoverImage fileUrl={coverUrl} alt={item.coverImage.altText || ""} className={styles.coverImage} /> : null}
+            <span className={styles.format}>{formatLabel(item)}</span>
+          </>
+        )}
       </div>
       <div className={styles.cardContent}>
-        <div className={styles.cardMeta}><span className={resume ? styles.doing : item.attemptsCount > 0 ? styles.done : styles.ready}>{resume ? "Đang làm" : item.attemptsCount > 0 ? "Đã làm" : "Chưa làm"}</span></div>
+        <div className={styles.cardMeta}>
+          <span className={resume ? styles.doing : item.attemptsCount > 0 ? styles.done : styles.ready}>
+            {resume ? (examinerMode ? "Đang phỏng vấn AI" : "Đang làm") : item.attemptsCount > 0 ? (examinerMode ? "Đã thi xong" : "Đã làm") : (examinerMode ? "Chưa thi" : "Chưa làm")}
+          </span>
+        </div>
         <h2>{item.title}</h2>
         <p>{item.description}</p>
-        {visibleQuestionTypes.length ? <div className={styles.cardQuestionTypes} aria-label="Dạng câu hỏi trong đề">
-          {visibleQuestionTypes.map((type) => {
-            const option = questionTypeOption(item.skill, type);
-            if (!option) return null;
-            const TypeIcon = option.icon;
-            return <span key={type}><TypeIcon size={12} weight="fill" />{option.label}</span>;
-          })}
-          {(item.questionTypes?.length ?? 0) > 3 ? <span>+{item.questionTypes.length - 3}</span> : null}
-        </div> : null}
-        <dl><div><Clock size={16} /><dt className="sr-only">Thời lượng</dt><dd>{item.durationMinutes} phút</dd></div><div><CheckCircle size={16} /><dt className="sr-only">Số câu hoặc task</dt><dd>{item.totalItems} {item.skill === "WRITING" ? "task" : "câu"}</dd></div></dl>
+        {visibleQuestionTypes.length ? (
+          <div className={styles.cardQuestionTypes} aria-label="Dạng câu hỏi trong đề">
+            {visibleQuestionTypes.map((type) => {
+              const option = questionTypeOption(item.skill, type);
+              if (!option) return null;
+              const TypeIcon = option.icon;
+              return <span key={type}><TypeIcon size={12} weight="fill" />{option.label}</span>;
+            })}
+            {(item.questionTypes?.length ?? 0) > 3 ? <span>+{item.questionTypes.length - 3}</span> : null}
+          </div>
+        ) : examinerMode ? (
+          <div className={styles.cardQuestionTypes} aria-label="Các phần thi trong đề">
+            <span>Part 1: Interview</span>
+            <span>Part 2: Cue Card</span>
+            <span>Part 3: Discussion</span>
+          </div>
+        ) : null}
+        <dl>
+          <div><Clock size={16} /><dt className="sr-only">Thời lượng</dt><dd>{examinerMode ? "~15 phút" : `${item.durationMinutes} phút`}</dd></div>
+          <div><CheckCircle size={16} /><dt className="sr-only">Số câu hoặc task</dt><dd>{examinerMode ? "3 Parts đầy đủ" : `${item.totalItems} ${item.skill === "WRITING" ? "task" : "câu"}`}</dd></div>
+        </dl>
       </div>
       <footer className={styles.cardFooter}>
-        <span>{item.lastScore == null ? `${item.attemptsCount} lượt đã làm` : `Điểm gần nhất: ${item.lastScore}`}</span>
+        <span>{item.lastScore == null ? (item.attemptsCount > 0 ? `${item.attemptsCount} lượt đã thi` : examinerMode ? "Chưa có lượt thi" : "0 lượt đã làm") : `Điểm gần nhất: ${item.lastScore}`}</span>
         {(() => {
           const isReady = item.deliveryReady || item.skill === "SPEAKING";
           return (
             <button
               type="button"
+              className={examinerMode ? styles.aiCardButton : undefined}
               disabled={starting || !isReady}
               onClick={() => onStart(item)}
               title={!isReady ? "Trình làm bài cho kỹ năng này đang được hoàn thiện" : undefined}
             >
-              {starting ? <CircleNotch size={17} className={styles.spin} /> : isReady ? <Play size={16} weight="fill" /> : <Sparkle size={16} />}
-              {starting ? "Đang mở" : !isReady ? "Sắp mở" : resume ? "Tiếp tục" : "Bắt đầu"}{isReady ? <ArrowRight size={15} weight="bold" /> : null}
+              {starting ? (
+                <>
+                  <CircleNotch size={17} className={styles.spin} />
+                  <span>{examinerMode ? "Đang chuẩn bị..." : "Đang mở"}</span>
+                </>
+              ) : (
+                <>
+                  {examinerMode ? <Microphone size={15} weight="fill" /> : isReady ? <Play size={16} weight="fill" /> : <Sparkle size={16} />}
+                  <span>{examinerMode ? (resume ? "Tiếp tục phỏng vấn" : "Vào phỏng vấn AI") : (resume ? "Tiếp tục" : isReady ? "Bắt đầu" : "Sắp mở")}</span>
+                  {isReady ? <ArrowRight size={14} weight="bold" /> : null}
+                </>
+              )}
             </button>
           );
         })()}
@@ -891,7 +1031,6 @@ function PracticeCard({ item, starting, onStart }: { item: StudentPracticeCatalo
     </article>
   );
 }
-
 function formatLabel(item: StudentPracticeCatalogItem) {
   if (item.format && item.format !== item.testType) return item.format.replaceAll("_", " ");
   return item.testType === "FULL_TEST" ? `Full ${item.skill.toLowerCase()}` : "Bài lẻ";

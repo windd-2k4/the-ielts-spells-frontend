@@ -307,3 +307,24 @@
 @keyframes toolbarIn { from { opacity: 0; transform: translate(-50%, calc(-100% + 6px)); } }
 @keyframes drawerIn { from { opacity: 0; transform: translateX(18px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+
+
+/* Dark Mode System for ReadingAnnotations */
+:global(.dark) .annotationToolbar {
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
+
+:global(.dark) .noteInput {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .noteCard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

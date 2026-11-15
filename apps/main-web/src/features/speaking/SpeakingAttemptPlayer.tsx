@@ -31,11 +31,14 @@ import type {
   SpeakingQuestion,
   StudentSpeakingAttempt,
 } from "@ielts/contracts";
+import type { MicVAD as MicVadInstance } from "@ricky0123/vad-web";
 import {
   getSpeakingAttempt,
   saveSpeakingResponses,
   submitSpeakingAttempt,
+  uploadSpeakingAudio,
 } from "./speakingApi";
+import { apiMediaUrl, revokeMediaUrl } from "@/lib/api";
 import styles from "./SpeakingAttemptPlayer.module.css";
 
 interface SpeakingAttemptPlayerProps {
@@ -52,6 +55,22 @@ type Stage =
   | "QUESTION_READING"
   | "QUESTION_RECORDING"
   | "SUMMARY";
+
+type VadStatus = "IDLE" | "INITIALIZING" | "LISTENING" | "UNAVAILABLE";
+type VadActivity = "SILENT" | "SPEAKING";
+
+const BROWSER_VAD_ASSET_BASE_PATH = (
+  process.env.NEXT_PUBLIC_VAD_ASSET_BASE_PATH ||
+  "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.31/dist/"
+).replace(/\/?$/, "/");
+const BROWSER_VAD_ONNX_WASM_BASE_PATH = (
+  process.env.NEXT_PUBLIC_VAD_ONNX_WASM_BASE_PATH ||
+  "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/"
+).replace(/\/?$/, "/");
+const BROWSER_VAD_PART13_SILENCE_MS = Math.max(
+  1_500,
+  Number(process.env.NEXT_PUBLIC_SPEAKING_VAD_SILENCE_MS || 1_800) || 1_800
+);
 
 export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps) {
   const router = useRouter();
@@ -104,6 +123,12 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   const audioChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechRecognitionRef = useRef<any>(null);
+  const browserVadRef = useRef<MicVadInstance | null>(null);
+  const browserVadSessionRef = useRef(0);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const [vadStatus, setVadStatus] = useState<VadStatus>("IDLE");
+  const [vadActivity, setVadActivity] = useState<VadActivity>("SILENT");
+  const [vadNotice, setVadNotice] = useState<string | null>(null);
 
   // Part 2 Thinking timer
   const [thinkingSecondsRemaining, setThinkingSecondsRemaining] = useState(60);
@@ -133,8 +158,9 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   // Load Attempt from backend
   useEffect(() => {
     let active = true;
+    const objectUrls: string[] = [];
     void getSpeakingAttempt(attemptId)
-      .then((data) => {
+      .then(async (data) => {
         if (!active) return;
         setAttempt(data);
 
@@ -142,26 +168,30 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
         const audios: Record<string, { url: string; durationSeconds: number }> = {};
         const texts: Record<string, string> = {};
 
-        data.responses.forEach((res) => {
+        await Promise.all(data.responses.map(async (res) => {
           if (res.audioUrl) {
             let playUrl = res.audioUrl;
-            if (playUrl.startsWith("data:")) {
+            if (!playUrl.startsWith("data:")) {
               try {
-                const blob = dataUrlToBlob(playUrl);
-                playUrl = URL.createObjectURL(blob);
-              } catch (e) {
-                console.warn("Failed to create object URL from data URL:", e);
+                playUrl = await apiMediaUrl(playUrl);
+                if (active) objectUrls.push(playUrl);
+                else revokeMediaUrl(playUrl);
+              } catch (reason) {
+                console.warn("Không thể tải bản ghi âm đã lưu", reason);
+                playUrl = "";
               }
             }
-            audios[res.questionKey] = { url: playUrl, durationSeconds: 10 };
+            if (playUrl) audios[res.questionKey] = { url: playUrl, durationSeconds: 10 };
           }
           if (res.transcript) {
             texts[res.questionKey] = res.transcript;
           }
-        });
+        }));
 
-        setRecordedAudios(audios);
-        setTranscripts(texts);
+        if (active) {
+          setRecordedAudios(audios);
+          setTranscripts(texts);
+        }
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : "Không thể tải đề Speaking");
@@ -172,6 +202,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
 
     return () => {
       active = false;
+      objectUrls.forEach(revokeMediaUrl);
     };
   }, [attemptId]);
 
@@ -211,8 +242,130 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     activeQuestionIndexRef.current = activeQuestionIndex;
   }, [activeQuestionIndex]);
 
+  // STOP RECORDING
+  const stopQuestionRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  const stopBrowserVad = useCallback(() => {
+    browserVadSessionRef.current += 1;
+    const vad = browserVadRef.current;
+    browserVadRef.current = null;
+    recordingStartedAtRef.current = null;
+    setVadStatus("IDLE");
+    setVadActivity("SILENT");
+    if (vad) {
+      void vad.destroy().catch((reason) => {
+        console.warn("[speaking-vad] destroy failed", reason);
+      });
+    }
+  }, []);
+
+  const startBrowserVad = useCallback(
+    async (stream: MediaStream, sessionId: number, isPart2: boolean) => {
+      if (typeof window === "undefined") return;
+      setVadStatus("INITIALIZING");
+      setVadNotice(null);
+
+      try {
+        const { MicVAD } = await import("@ricky0123/vad-web");
+        if (
+          browserVadSessionRef.current !== sessionId ||
+          !mediaRecorderRef.current
+        ) {
+          return;
+        }
+
+        const vad = await MicVAD.new({
+          model: "legacy",
+          baseAssetPath: BROWSER_VAD_ASSET_BASE_PATH,
+          onnxWASMBasePath: BROWSER_VAD_ONNX_WASM_BASE_PATH,
+          getStream: async () => stream,
+          pauseStream: async () => {
+            // MediaRecorder owns this stream. VAD must never stop it.
+          },
+          resumeStream: async () => stream,
+          startOnLoad: false,
+          processorType: "auto",
+          positiveSpeechThreshold: 0.65,
+          negativeSpeechThreshold: 0.5,
+          redemptionMs: BROWSER_VAD_PART13_SILENCE_MS,
+          preSpeechPadMs: 300,
+          minSpeechMs: 500,
+          submitUserSpeechOnPause: false,
+          onSpeechStart: () => {
+            setVadActivity("SPEAKING");
+            setVadNotice(null);
+          },
+          onSpeechRealStart: () => {
+            setVadActivity("SPEAKING");
+          },
+          onVADMisfire: () => {
+            setVadActivity("SILENT");
+          },
+          onSpeechEnd: () => {
+            setVadActivity("SILENT");
+
+            // Part 2 is intentionally timer/manual-stop driven. VAD remains
+            // observational there so a pause cannot cut off the long turn.
+            if (isPart2) return;
+
+            const startedAt = recordingStartedAtRef.current;
+            const elapsedSeconds = startedAt
+              ? Math.floor((Date.now() - startedAt) / 1000)
+              : 0;
+            const minimumSeconds = 10;
+            if (elapsedSeconds < minimumSeconds) {
+              console.warn("[speaking-vad] auto-stop-too-early", {
+                elapsedSeconds,
+                minimumSeconds,
+                redemptionMs: BROWSER_VAD_PART13_SILENCE_MS,
+              });
+              setVadNotice(
+                "Đã phát hiện im lặng quá sớm; hệ thống tiếp tục ghi âm để tránh cắt câu trả lời."
+              );
+              return;
+            }
+
+            setVadNotice("Đã phát hiện bạn kết thúc câu trả lời.");
+            stopQuestionRecording();
+          },
+        });
+
+        if (
+          browserVadSessionRef.current !== sessionId ||
+          !mediaRecorderRef.current
+        ) {
+          await vad.destroy();
+          return;
+        }
+
+        browserVadRef.current = vad;
+        await vad.start();
+        setVadStatus("LISTENING");
+      } catch (reason) {
+        console.warn("[speaking-vad] unavailable; manual stop remains enabled", reason);
+        const vad = browserVadRef.current;
+        browserVadRef.current = null;
+        if (vad) {
+          void vad.destroy().catch((destroyReason) => {
+            console.warn("[speaking-vad] cleanup after init failure failed", destroyReason);
+          });
+        }
+        if (browserVadSessionRef.current === sessionId) {
+          setVadStatus("UNAVAILABLE");
+          setVadNotice("Tự động nhận biết lúc bạn dừng nói chưa khả dụng; bạn vẫn có thể bấm Dừng trả lời.");
+        }
+      }
+    },
+    [stopQuestionRecording]
+  );
+
   // STOP RECORDING HARDWARE & TIMERS ONLY (does not cancel question reading)
   const stopRecordingHardwareAndTimers = useCallback(() => {
+    stopBrowserVad();
     if (recordTimerRef.current) {
       clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
@@ -231,7 +384,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       void audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
-  }, []);
+  }, [stopBrowserVad]);
 
   // STOP QUESTION READING AUDIO & TIMERS
   const stopReadingQuestionAudio = useCallback(() => {
@@ -254,44 +407,22 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
     stopReadingQuestionAudio();
   }, [stopRecordingHardwareAndTimers, stopReadingQuestionAudio]);
 
-  // Convert Data URL to Blob for reliable playback in Chrome/Blink
-  const dataUrlToBlob = useCallback((dataUrl: string): Blob => {
-    const parts = dataUrl.split(",");
-    const mime = parts[0]?.match(/:(.*?);/)?.[1] || "audio/webm";
-    const bstr = atob(parts[1] || "");
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-  }, []);
+  useEffect(() => {
+    return () => cleanupAll();
+  }, [cleanupAll]);
 
-  // Convert Blob to Base64 Data URL for persistent saving
-  const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }, []);
-
-  // Save response to backend
+  // Upload the raw WebM/Opus Blob, then persist only its private storage key.
   const persistResponse = useCallback(
-    async (qKey: string, audioUrl: string, transcriptText: string) => {
-      if (!attempt) return;
-      try {
-        const item: SaveSpeakingResponseItem = {
-          questionKey: qKey,
-          audioUrl,
-          transcript: transcriptText,
-          clientRevision: 1,
-        };
-        await saveSpeakingResponses(attemptId, [item]);
-      } catch (err) {
-        console.warn("Autosave response non-fatal warning:", err);
-      }
+    async (qKey: string, blob: Blob, transcriptText: string) => {
+      if (!attempt) throw new Error("Lượt làm bài chưa sẵn sàng");
+      const uploaded = await uploadSpeakingAudio(attemptId, qKey, blob);
+      const item: SaveSpeakingResponseItem = {
+        questionKey: qKey,
+        storageKey: uploaded.storageKey,
+        transcript: transcriptText,
+        clientRevision: 1,
+      };
+      await saveSpeakingResponses(attemptId, [item]);
     },
     [attempt, attemptId]
   );
@@ -300,13 +431,6 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
   const advanceAfterRecordingRef = useRef<() => void>(() => {});
   const startReadingQuestionRef = useRef<(pIdx: number, qIdx: number) => void>(() => {});
   const startQuestionRecordingRef = useRef<(isRetake?: boolean, customKey?: string, isPart2?: boolean) => Promise<void>>(() => Promise.resolve());
-
-  // STOP RECORDING
-  const stopQuestionRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-  }, []);
 
   // START RECORDING QUESTION
   const startQuestionRecording = useCallback(
@@ -406,18 +530,21 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
               [targetKey]: { url, durationSeconds: Math.max(1, duration), blob },
             }));
 
-            // Convert to base64 & persist
-            void blobToBase64(blob).then((base64) => {
-              void persistResponse(targetKey, base64, recognizedText);
-            });
-
-            // Advance to next question or next part
-            advanceAfterRecordingRef.current();
+            try {
+              await persistResponse(targetKey, blob, recognizedText);
+              advanceAfterRecordingRef.current();
+            } catch (reason) {
+              alert("Không thể tải bản ghi âm: " + (reason instanceof Error ? reason.message : "Vui lòng thử lại"));
+            }
           }
         };
 
         recorder.start(250);
         mediaRecorderRef.current = recorder;
+        recordingStartedAtRef.current = Date.now();
+        const vadSessionId = browserVadSessionRef.current + 1;
+        browserVadSessionRef.current = vadSessionId;
+        void startBrowserVad(stream, vadSessionId, isPart2);
 
         if (isRetake) {
           setRetakeRecordState("RECORDING");
@@ -456,11 +583,11 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       }
     },
     [
-      blobToBase64,
       cleanupAll,
       currentKey,
       persistResponse,
       retakeTimeRemaining,
+      startBrowserVad,
       stopQuestionRecording,
       timeRemaining,
     ]
@@ -697,18 +824,8 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
       currentPlaybackAudioRef.current = null;
     }
 
-    let playableUrl = rawUrl;
-    if (playableUrl.startsWith("data:")) {
-      try {
-        const blob = dataUrlToBlob(playableUrl);
-        playableUrl = URL.createObjectURL(blob);
-      } catch (err) {
-        console.warn("Could not convert dataUrl to blob for playback", err);
-      }
-    }
-
     try {
-      const audio = new Audio(playableUrl);
+      const audio = new Audio(rawUrl);
       audio.preload = "auto";
       currentPlaybackAudioRef.current = audio;
       setPlayingKey(key);
@@ -1224,6 +1341,17 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                     ))}
                   </div>
 
+                  <div className="mt-3 flex flex-col items-center gap-1 text-xs text-[#6F676C]" aria-live="polite">
+                    <span>
+                      {vadStatus === "INITIALIZING" && "Đang khởi tạo nhận biết giọng nói…"}
+                      {vadStatus === "LISTENING" &&
+                        (vadActivity === "SPEAKING" ? "Đang phát hiện bạn nói" : "Đang chờ bạn nói")}
+                      {vadStatus === "UNAVAILABLE" && "VAD tạm thời không khả dụng · dùng nút Dừng trả lời"}
+                      {vadStatus === "IDLE" && "Nhận biết kết thúc câu trả lời đang tắt"}
+                    </span>
+                    {vadNotice && <span className="text-[#9A5B00]">{vadNotice}</span>}
+                  </div>
+
                   <div className={styles.timeLimitButtonWrapper}>
                     {/* Tooltip Popup (Ảnh 7) */}
                     {showLockTooltip && isTimeLocked && (
@@ -1252,7 +1380,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                       }`}
                     >
                       <div className={styles.stopSquareIcon} />
-                      <span>Time limit {formatTime(timeRemaining)}</span>
+                      <span>Dừng trả lời · {formatTime(timeRemaining)}</span>
                     </button>
                   </div>
                 </div>
@@ -1337,6 +1465,17 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                   ))}
                 </div>
 
+                <div className="mt-3 flex flex-col items-center gap-1 text-xs text-[#6F676C]" aria-live="polite">
+                  <span>
+                    {vadStatus === "INITIALIZING" && "Đang khởi tạo nhận biết giọng nói…"}
+                    {vadStatus === "LISTENING" &&
+                      (vadActivity === "SPEAKING" ? "Đang phát hiện bạn nói" : "VAD chỉ theo dõi · Part 2 không tự dừng")}
+                    {vadStatus === "UNAVAILABLE" && "VAD tạm thời không khả dụng · dùng nút Dừng trả lời"}
+                    {vadStatus === "IDLE" && "Nhận biết kết thúc câu trả lời đang tắt"}
+                  </span>
+                  {vadNotice && <span className="text-[#9A5B00]">{vadNotice}</span>}
+                </div>
+
                 <div className={styles.timeLimitButtonWrapper}>
                   {/* Tooltip Popup */}
                   {showLockTooltip && isTimeLocked && (
@@ -1365,7 +1504,7 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                     }`}
                   >
                     <div className={styles.stopSquareIcon} />
-                    <span>Time limit {formatTime(timeRemaining)}</span>
+                    <span>Dừng trả lời · {formatTime(timeRemaining)}</span>
                   </button>
                 </div>
               </div>
@@ -1749,23 +1888,22 @@ export function SpeakingAttemptPlayer({ attemptId }: SpeakingAttemptPlayerProps)
                     <button
                       type="button"
                       onClick={async () => {
-                        // Apply retake result
-                        setRecordedAudios((prev) => ({
-                          ...prev,
-                          [retakeTargetKey]: retakeAudioData,
-                        }));
-                        setTranscripts((prev) => ({
-                          ...prev,
-                          [retakeTargetKey]: retakeTranscript,
-                        }));
-
-                        if (retakeAudioData.blob) {
-                          const base64 = await blobToBase64(retakeAudioData.blob);
-                          void persistResponse(retakeTargetKey, base64, retakeTranscript);
+                        if (!retakeAudioData.blob) return;
+                        try {
+                          await persistResponse(retakeTargetKey, retakeAudioData.blob, retakeTranscript);
+                          setRecordedAudios((prev) => ({
+                            ...prev,
+                            [retakeTargetKey]: retakeAudioData,
+                          }));
+                          setTranscripts((prev) => ({
+                            ...prev,
+                            [retakeTargetKey]: retakeTranscript,
+                          }));
+                          setShowRetakeWorkspace(false);
+                          setRetakeTargetKey(null);
+                        } catch (reason) {
+                          alert("Không thể tải bản ghi âm: " + (reason instanceof Error ? reason.message : "Vui lòng thử lại"));
                         }
-
-                        setShowRetakeWorkspace(false);
-                        setRetakeTargetKey(null);
                       }}
                       className={styles.primaryOrangeBtn}
                     >

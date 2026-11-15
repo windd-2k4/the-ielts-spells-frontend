@@ -2257,3 +2257,72 @@
     transition: none;
   }
 }
+
+
+
+/* Dark Mode System for WritingResultPage */
+:global(.dark) .page {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .topbar {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .topbarTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .backLink,
+:global(.dark) .homeLink {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .primaryLink {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .hero {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .scoreCard {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .fullScore {
+  background: #28212A;
+  border-color: #403640;
+}
+
+:global(.dark) .promptPanel {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .essayScrollArea {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .tabButton {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .tabButtonActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}

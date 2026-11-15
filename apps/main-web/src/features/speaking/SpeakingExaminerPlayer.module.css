@@ -1,0 +1,252 @@
+.examShell,
+.welcomePage,
+.completionPage,
+.statePage {
+  --exam-canvas: #f7f5f4;
+  --exam-surface: #ffffff;
+  --exam-soft: #f2ecee;
+  --exam-ink: #292528;
+  --exam-muted: #6f676c;
+  --exam-line: #ded7da;
+  --exam-accent: #c85f78;
+  --exam-accent-dark: #ad4c64;
+  --exam-accent-wash: #f7e5ea;
+  --exam-danger: #b42335;
+  --exam-success: #247052;
+  color: var(--exam-ink);
+  font-family: var(--font-display), "Outfit", "Segoe UI", sans-serif;
+}
+
+.examShell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(200, 95, 120, 0.08), transparent 28rem),
+    var(--exam-canvas);
+}
+
+.header {
+  min-height: 72px;
+  padding: 0 2rem;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(210px, 1fr);
+  align-items: center;
+  gap: 1.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--exam-line);
+  backdrop-filter: blur(16px);
+}
+
+.brandBlock { display: flex; align-items: center; gap: 0.75rem; }
+.brandBlock > div { display: grid; gap: 0.05rem; }
+.brandBlock strong { font-size: 0.92rem; font-weight: 750; }
+.brandBlock small { color: var(--exam-muted); font-size: 0.72rem; }
+.brandMark {
+  width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px;
+  background: var(--exam-accent-wash); color: var(--exam-accent-dark); font-size: 0.76rem; font-weight: 850;
+}
+
+.stepper { display: flex; align-items: center; list-style: none; padding: 0; margin: 0; }
+.stepper li { display: flex; align-items: center; color: #9a9297; font-style: normal; font-size: 0.75rem; font-weight: 650; }
+.stepper li:not(:last-child)::after { content: ""; width: clamp(18px, 3vw, 48px); height: 1px; background: var(--exam-line); margin: 0 0.45rem; }
+.stepper span { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid var(--exam-line); border-radius: 50%; margin-right: 0.35rem; font-size: 0.68rem; }
+.stepper em { font-style: normal; white-space: nowrap; }
+.stepper .activeStep { color: var(--exam-accent-dark); }
+.stepper .activeStep span { color: #fff; background: var(--exam-accent); border-color: var(--exam-accent); }
+.stepper .doneStep { color: var(--exam-success); }
+.stepper .doneStep span { background: #e6f2ec; border-color: #c8e0d3; }
+
+.abortButton { justify-self: end; min-height: 42px; padding: 0 1rem; border: 1px solid var(--exam-line); border-radius: 10px; background: transparent; color: var(--exam-muted); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+.abortButton:hover { color: var(--exam-danger); border-color: #e7b7c0; background: #fff7f8; }
+
+.workspace { width: min(1160px, calc(100% - 3rem)); margin: 0 auto; padding: 1.25rem 0 3rem; }
+.stageBar { min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: var(--exam-muted); font-size: 0.76rem; }
+.stageBar > div { display: flex; align-items: center; gap: 0.45rem; }
+.stageBar strong { color: var(--exam-ink); font-size: 0.78rem; }
+.liveDot { width: 7px; height: 7px; border-radius: 50%; background: var(--exam-success); box-shadow: 0 0 0 4px rgba(36, 112, 82, 0.1); }
+
+.errorBanner { display: flex; align-items: center; gap: 0.6rem; margin: 0.75rem 0; padding: 0.75rem 0.9rem; border: 1px solid #ecc8cf; border-radius: 12px; background: #fff7f8; color: #8f304a; font-size: 0.82rem; }
+.errorBanner span { flex: 1; }
+.errorBanner button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+
+.turnLayout { min-height: calc(100dvh - 150px); display: grid; place-items: center; }
+.longTurnLayout { grid-template-columns: minmax(0, 0.88fr) minmax(390px, 1.12fr); gap: 2rem; align-items: center; }
+.turnColumn { width: min(720px, 100%); display: grid; gap: 1.1rem; }
+.questionBlock { text-align: center; padding: 1rem 2rem 0.5rem; }
+.eyebrow { margin: 0 0 0.55rem; color: var(--exam-accent-dark); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.questionBlock h1 { max-width: 760px; margin: 0 auto; color: var(--exam-ink); font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.22; letter-spacing: -0.025em; font-weight: 700; text-wrap: balance; }
+.promptControls { margin-top: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 0.8rem; }
+.promptControls button { min-height: 42px; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0 0.9rem; border: 1px solid var(--exam-line); border-radius: 10px; background: #fff; color: var(--exam-accent-dark); font: inherit; font-size: 0.78rem; font-weight: 750; cursor: pointer; }
+.promptControls button:disabled { opacity: 0.45; cursor: wait; }
+.promptControls span { color: var(--exam-muted); font-size: 0.75rem; }
+.questionBlock audio { display: none; }
+
+.recorderPanel { padding: 1.2rem 1.35rem; border: 1px solid var(--exam-line); border-radius: 18px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 14px 38px rgba(70, 49, 58, 0.07); }
+.recordingPanel { border-color: #e8b6c2; box-shadow: 0 16px 42px rgba(200, 95, 120, 0.11); }
+.recorderHeading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.recorderHeading > div { display: grid; gap: 0.15rem; }
+.recorderHeading span { color: var(--exam-muted); font-size: 0.74rem; font-weight: 700; }
+.recorderHeading strong { font-size: 1.45rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.recorderHeading strong small { color: var(--exam-muted); font-size: 0.75rem; font-weight: 550; }
+.micBadge { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; background: var(--exam-accent-wash); color: var(--exam-accent-dark) !important; }
+.waveform { min-height: 66px; display: flex; align-items: center; justify-content: center; gap: 5px; margin: 0.35rem 0; overflow: hidden; }
+.waveform i { width: 4px; min-height: 8px; max-height: 56px; border-radius: 99px; background: var(--exam-accent); opacity: 0.58; transition: height 80ms ease; }
+.captureHint { margin: -0.15rem 0 0.65rem; text-align: center; color: var(--exam-muted); font-size: 0.75rem; }
+.recordActions { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 0.65rem; flex-wrap: wrap; }
+
+.primaryButton, .stopButton, .secondaryButton, .textButton, .dangerButton, .completionPage > button, .statePage > button, .welcomeActions button {
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0 1.1rem; border-radius: 11px; font: inherit; font-size: 0.82rem; font-weight: 750; cursor: pointer; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.primaryButton, .completionPage > button, .statePage > button, .welcomeActions button { border: 1px solid var(--exam-accent); background: var(--exam-accent); color: #fff; }
+.primaryButton:hover, .completionPage > button:hover, .statePage > button:hover, .welcomeActions button:hover { background: var(--exam-accent-dark); border-color: var(--exam-accent-dark); transform: translateY(-1px); }
+.primaryButton:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.secondaryButton { border: 1px solid var(--exam-line); background: #fff; color: var(--exam-ink); }
+.secondaryButton:hover { border-color: #c9b8bf; background: var(--exam-soft); }
+.textButton { border: 0; background: transparent; color: var(--exam-accent-dark); }
+.textButton:hover { background: var(--exam-accent-wash); }
+.stopButton, .dangerButton { border: 1px solid var(--exam-danger); background: var(--exam-danger); color: #fff; }
+.stopButton:hover, .dangerButton:hover { background: #941c2c; transform: translateY(-1px); }
+.processing { display: flex; align-items: center; gap: 0.6rem; color: var(--exam-muted); font-size: 0.8rem; font-weight: 650; }
+.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.cueCard { position: relative; padding: clamp(1.6rem, 4vw, 2.6rem); border: 1px solid #d5cccf; border-radius: 18px; background: #fffdfc; box-shadow: 0 18px 48px rgba(69, 48, 57, 0.08); }
+.cueCard::before { content: ""; position: absolute; inset: 9px; border: 1px solid #eee6e8; border-radius: 12px; pointer-events: none; }
+.cueCard > * { position: relative; }
+.cueCard > p { margin: 0 0 1rem; color: var(--exam-accent-dark); font-size: 0.68rem; font-weight: 850; letter-spacing: 0.12em; text-transform: uppercase; }
+.cueCard h2 { margin: 0 0 1.6rem; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.28; letter-spacing: -0.02em; text-wrap: balance; }
+.cueCard > span { color: var(--exam-muted); font-size: 0.78rem; font-weight: 700; }
+.cueCard ul { margin: 0.65rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.55rem; color: #494146; font-size: 0.92rem; line-height: 1.5; }
+.cueCard li::marker { color: var(--exam-accent); }
+
+.preparationLayout { min-height: calc(100dvh - 150px); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr); align-items: center; gap: clamp(2rem, 5vw, 5rem); }
+.preparationPanel h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.35rem); letter-spacing: -0.025em; }
+.prepTimer { margin: 1.8rem 0; display: grid; gap: 0.3rem; }
+.prepTimer strong { color: var(--exam-accent-dark); font-size: clamp(3.5rem, 7vw, 5.4rem); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.05em; }
+.prepTimer span, .helper { color: var(--exam-muted); font-size: 0.8rem; }
+.helper { margin: 0 0 1.2rem; }
+.recoveryNote { display: flex; gap: 0.75rem; margin: 1.5rem 0; padding: 1rem; border: 1px solid #e8c8cf; border-radius: 13px; background: #fff8f9; color: #884254; }
+.recoveryNote p { display: grid; gap: 0.2rem; margin: 0; }
+.recoveryNote strong { font-size: 0.82rem; }
+.recoveryNote span { color: var(--exam-muted); font-size: 0.77rem; }
+
+.welcomePage, .completionPage, .statePage { min-height: 100dvh; background: radial-gradient(circle at 12% 20%, rgba(200, 95, 120, 0.12), transparent 32rem), var(--exam-canvas); }
+.welcomePage { display: grid; grid-template-rows: auto 1fr auto; padding: clamp(1.25rem, 4vw, 3rem); }
+.backLink { width: max-content; display: inline-flex; align-items: center; gap: 0.4rem; color: var(--exam-muted); font-size: 0.8rem; font-weight: 700; text-decoration: none; }
+.welcomePanel { width: min(920px, 100%); margin: auto; }
+.welcomePanel h1 { max-width: 720px; margin: 0; font-size: clamp(2.35rem, 6vw, 4.7rem); line-height: 1.02; letter-spacing: -0.05em; font-weight: 700; text-wrap: balance; }
+.welcomeLead { max-width: 610px; margin: 1.1rem 0 2rem; color: var(--exam-muted); font-size: clamp(1rem, 2vw, 1.18rem); line-height: 1.65; }
+.partPreview { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--exam-line); border-bottom: 1px solid var(--exam-line); }
+.partPreview > div { display: grid; grid-template-columns: auto 1fr; column-gap: 0.75rem; padding: 1rem 1.25rem; }
+.partPreview > div + div { border-left: 1px solid var(--exam-line); }
+.partPreview span { grid-row: 1 / 3; color: var(--exam-accent); font-size: 0.72rem; font-weight: 850; }
+.partPreview strong { font-size: 0.9rem; }
+.partPreview small { color: var(--exam-muted); font-size: 0.73rem; }
+.welcomeActions { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+.welcomeActions span { display: flex; align-items: center; gap: 0.4rem; color: var(--exam-muted); font-size: 0.76rem; }
+.quietNote { margin: 0; color: var(--exam-muted); font-size: 0.72rem; }
+
+.completionPage, .statePage { display: grid; place-content: center; justify-items: center; padding: 2rem; text-align: center; }
+.completionIcon { width: 64px; height: 64px; display: grid; place-items: center; margin-bottom: 1.2rem; border-radius: 20px; background: var(--exam-accent-wash); color: var(--exam-accent-dark); }
+.completionPage h1, .statePage h1 { max-width: 680px; margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.04em; }
+.completionPage > p:not(.eyebrow), .statePage > p { max-width: 520px; margin: 1rem 0; color: var(--exam-muted); line-height: 1.6; }
+.resultNotice { max-width: 560px; display: grid; gap: 0.25rem; margin: 1.3rem 0; padding: 1rem 1.2rem; border: 1px solid var(--exam-line); border-radius: 14px; background: #fff; text-align: left; }
+.resultNotice strong { color: var(--exam-accent-dark); font-size: 0.82rem; }
+.resultNotice span { color: var(--exam-muted); font-size: 0.78rem; line-height: 1.5; }
+.statePage > a { margin-top: 0.75rem; color: var(--exam-accent-dark); font-size: 0.8rem; font-weight: 700; }
+
+.dialogBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1.25rem; background: rgba(41, 37, 40, 0.48); backdrop-filter: blur(8px); }
+.dialog { position: relative; width: min(430px, 100%); padding: 2rem; border: 1px solid var(--exam-line); border-radius: 20px; background: #fff; box-shadow: 0 24px 80px rgba(45, 30, 37, 0.24); text-align: center; }
+.dialogClose { position: absolute; top: 0.75rem; right: 0.75rem; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--exam-muted); cursor: pointer; }
+.dialogIcon { width: 52px; height: 52px; display: grid; place-items: center; margin: 0 auto 1rem; border-radius: 16px; background: #fff0f2; color: var(--exam-danger); }
+.dialog h2 { margin: 0; font-size: 1.35rem; }
+.dialog > p { margin: 0.65rem auto 1.5rem; color: var(--exam-muted); font-size: 0.84rem; line-height: 1.55; }
+.dialog > div { display: flex; justify-content: center; gap: 0.7rem; }
+
+@media (max-width: 900px) {
+  .header { grid-template-columns: 1fr auto; padding: 0.75rem 1rem; }
+  .stepper { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
+  .brandBlock small { display: none; }
+  .longTurnLayout, .preparationLayout { grid-template-columns: 1fr; align-content: start; padding-top: 1rem; }
+  .cueCard { width: min(650px, 100%); margin: 0 auto; }
+  .preparationPanel { text-align: center; }
+  .recoveryNote { text-align: left; }
+}
+
+@media (max-width: 620px) {
+  .header { min-height: 62px; }
+  .brandBlock strong { font-size: 0.8rem; }
+  .brandMark { width: 34px; height: 34px; border-radius: 10px; }
+  .abortButton { min-height: 38px; padding: 0 0.7rem; }
+  .stepper { width: 100%; overflow: hidden; }
+  .stepper li:not(:last-child)::after { width: 10px; margin: 0 0.2rem; }
+  .stepper em { display: none; }
+  .stepper span { margin: 0; }
+  .workspace { width: min(100% - 1.25rem, 1160px); padding-top: 0.65rem; }
+  .turnLayout { min-height: auto; padding: 1rem 0 2rem; align-content: start; }
+  .questionBlock { padding: 0.65rem 0.35rem 0.25rem; }
+  .questionBlock h1 { font-size: 1.55rem; }
+  .promptControls { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
+  .promptControls button { width: 100%; }
+  .recorderPanel { padding: 1rem; border-radius: 15px; }
+  .recordActions { display: grid; grid-template-columns: 1fr 1fr; }
+  .recordActions .primaryButton, .recordActions .stopButton, .recordActions .processing { grid-column: 1 / -1; width: 100%; }
+  .cueCard { padding: 1.5rem; }
+  .preparationLayout { gap: 1.35rem; }
+  .prepTimer { margin: 1.2rem 0; }
+  .welcomePage { padding: 1.25rem; }
+  .welcomePanel h1 { font-size: 2.45rem; }
+  .partPreview { grid-template-columns: 1fr; }
+  .partPreview > div + div { border-left: 0; border-top: 1px solid var(--exam-line); }
+  .welcomeActions { align-items: stretch; flex-direction: column; }
+  .welcomeActions button { width: 100%; }
+  .welcomeActions span { justify-content: center; text-align: center; }
+  .dialog > div { flex-direction: column-reverse; }
+  .dialog > div button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+  .waveform i, .primaryButton, .stopButton, .secondaryButton, .textButton { transition: none; }
+}
+
+
+
+/* Dark Mode System for SpeakingExaminerPlayer */
+:global(.dark) .examShell {
+  background: #171418;
+  color: #F5F0F3;
+}
+
+:global(.dark) .header {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .workspace {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .welcomePage,
+:global(.dark) .completionPage,
+:global(.dark) .statePage {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .stepper {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .activeStep {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .doneStep {
+  background: #182C22;
+  color: #34D399;
+}
