@@ -488,22 +488,22 @@ export default function StudentSettingsPage() {
   if (loading || !data) {
     return (
       <div className="mx-auto w-full max-w-[1180px] px-4 pt-1 pb-8 sm:px-6 sm:pt-2 sm:pb-10 animate-pulse" role="status" aria-label="Đang tải cài đặt tài khoản">
-        <div className="h-10 w-64 bg-gray-200 rounded-none mb-6" />
-        <div className="border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#221E24] rounded-none flex flex-col md:flex-row min-h-[580px]">
+        <div className="h-10 w-64 bg-gray-200 rounded-2xl mb-6" />
+        <div className="border border-[#F0E6E8] dark:border-[#403640] bg-white dark:bg-[#221E24] rounded-3xl shadow-[0_12px_40px_rgba(190,79,116,0.06)] dark:shadow-[0_16px_50px_rgba(0,0,0,0.5)] flex flex-col md:flex-row min-h-[580px] overflow-hidden">
           <div className="w-full md:w-[260px] border-r border-[#D1D7DC] dark:border-[#403640] p-6 space-y-4">
             <div className="w-28 h-28 rounded-full bg-gray-200 mx-auto" />
-            <div className="h-4 bg-gray-200 rounded-none w-3/4 mx-auto" />
+            <div className="h-4 bg-gray-200 rounded-xl w-3/4 mx-auto" />
             <div className="space-y-2 pt-6">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-8 bg-gray-100 rounded-none" />
+                <div key={i} className="h-8 bg-gray-100 rounded-xl" />
               ))}
             </div>
           </div>
           <div className="flex-1 p-8 space-y-4">
-            <div className="h-6 bg-gray-200 rounded-none w-1/3" />
-            <div className="h-4 bg-gray-100 rounded-none w-1/2" />
-            <div className="h-12 bg-gray-100 rounded-none mt-6" />
-            <div className="h-12 bg-gray-100 rounded-none" />
+            <div className="h-6 bg-gray-200 rounded-xl w-1/3" />
+            <div className="h-4 bg-gray-100 rounded-xl w-1/2" />
+            <div className="h-12 bg-gray-100 rounded-xl mt-6" />
+            <div className="h-12 bg-gray-100 rounded-xl" />
           </div>
         </div>
       </div>
@@ -526,16 +526,16 @@ export default function StudentSettingsPage() {
     <div className="w-full font-sans text-[#1C1D1F] dark:text-[#F5F0F3] pt-0.5 pb-10 sm:pt-1 sm:pb-12">
       <div className="mx-auto w-full max-w-[1180px] px-4 sm:px-6">
         {/* Main Udemy-style 2-Column Settings Box */}
-        <div className="border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#221E24] rounded-none shadow-none flex flex-col md:flex-row overflow-hidden min-h-[640px]">
+        <div className="border border-[#F0E6E8] dark:border-[#403640] bg-white dark:bg-[#221E24] rounded-3xl shadow-[0_12px_40px_rgba(190,79,116,0.06)] dark:shadow-[0_16px_50px_rgba(0,0,0,0.5)] flex flex-col md:flex-row overflow-hidden min-h-[660px]">
           
           {/* ===================================================================
               LEFT SIDEBAR COLUMN (UDEMY STYLE)
           =================================================================== */}
-          <aside className="w-full md:w-[260px] shrink-0 border-b md:border-b-0 md:border-r border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#221E24] flex flex-col justify-between">
+          <aside className="w-full md:w-[260px] shrink-0 border-b md:border-b-0 md:border-r border-[#F0E6E8] dark:border-[#403640] bg-[#FDFBFB] dark:bg-[#1E1921] flex flex-col justify-between">
             <div>
               {/* User Avatar & Name Section */}
-              <div className="pt-8 pb-5 px-6 text-center border-b border-[#D1D7DC] dark:border-[#403640]">
-                <div className="relative mx-auto w-28 h-28 rounded-full overflow-hidden bg-[#1C1D1F] dark:bg-[#2C2630] text-white flex items-center justify-center shadow-none">
+              <div className="pt-8 pb-5 px-6 text-center border-b border-[#F0E6E8] dark:border-[#403640]">
+                <div className="relative mx-auto w-28 h-28 rounded-full overflow-hidden bg-gradient-to-tr from-[#BE4F74] to-[#E17A9B] text-white flex items-center justify-center ring-4 ring-rose-100 dark:ring-[#392630] shadow-md">
                   {profile?.avatarPath ? (
                     <img
                       src={profile.avatarPath}
@@ -562,15 +562,15 @@ export default function StudentSettingsPage() {
 
                 <Link
                   href="/student/learning-profile"
-                  className="mt-1 inline-block text-xs font-bold text-[#6D55A8] hover:text-[#523E84] dark:text-[#C4B5FD] dark:hover:text-[#DDD3FA] hover:underline transition-colors"
+                  className="mt-1 inline-block text-xs font-bold text-[#BE4F74] hover:text-[#933652] dark:text-[#E17A9B] dark:hover:text-[#F492B1] font-semibold hover:underline transition-colors"
                 >
                   Xem hồ sơ công khai
                 </Link>
               </div>
 
               {/* Navigation Menu Links */}
-              <nav className="py-2" aria-label="Danh mục cài đặt">
-                <ul className="space-y-0.5">
+              <nav className="p-3" aria-label="Danh mục cài đặt">
+                <ul className="space-y-1.5">
                   {SIDEBAR_TABS.map((item) => {
                     const isActive = activeTab === item.id;
                     const IconComp = item.icon;
@@ -579,13 +579,13 @@ export default function StudentSettingsPage() {
                         <button
                           type="button"
                           onClick={() => switchTab(item.id)}
-                          className={`w-full flex items-center gap-3 px-6 py-3 text-sm rounded-none transition-colors text-left ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-2xl transition-all text-left ${
                             isActive
-                              ? "bg-[#6D55A8] text-white font-bold dark:bg-[#735BA2] dark:text-white"
-                              : "text-[#1C1D1F] dark:text-[#BEB2BC] hover:bg-[#F7F9FA] dark:hover:bg-[#2C2630] hover:text-[#1C1D1F] dark:hover:text-[#F5F0F3] font-medium"
+                              ? "bg-gradient-to-r from-[#BE4F74] to-[#C95B80] text-white font-bold shadow-[0_4px_14px_rgba(190,79,116,0.25)] scale-[1.01]"
+                              : "text-[#695B65] dark:text-[#BEB2BC] hover:bg-[#F9EFF2] dark:hover:bg-[#2C2630] hover:text-[#BE4F74] dark:hover:text-[#F5F0F3] font-medium"
                           }`}
                         >
-                          <IconComp size={17} weight={isActive ? "bold" : "regular"} className="shrink-0" />
+                          <IconComp size={18} weight={isActive ? "fill" : "regular"} className="shrink-0" />
                           <span className="truncate">{item.label}</span>
                         </button>
                       </li>
@@ -596,9 +596,9 @@ export default function StudentSettingsPage() {
             </div>
 
             {/* Quick Support Tag */}
-            <div className="p-5 border-t border-[#D1D7DC] dark:border-[#403640] text-center text-xs text-[#6A6F73] dark:text-[#BEB2BC]">
+            <div className="p-5 border-t border-[#F0E6E8] dark:border-[#403640] text-center text-xs text-[#8A7B84] dark:text-[#91858F]">
               <span>Cần trợ giúp? </span>
-              <a href="mailto:support@theieltssspells.vn" className="font-bold text-[#6D55A8] dark:text-[#C4B5FD] hover:underline">
+              <a href="mailto:support@theieltssspells.vn" className="font-bold text-[#BE4F74] dark:text-[#E17A9B] hover:underline">
                 Liên hệ hỗ trợ
               </a>
             </div>
@@ -614,7 +614,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "profile" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Hồ sơ cá nhân
                   </h1>
@@ -624,14 +624,14 @@ export default function StudentSettingsPage() {
                 </header>
 
                 {profileSuccessMsg && (
-                  <div className="mb-6 flex items-center gap-3 border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-700 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                  <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/40 dark:border-emerald-800 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300 shadow-sm">
                     <CheckCircle size={20} weight="fill" className="text-emerald-600 shrink-0" />
                     <span>{profileSuccessMsg}</span>
                   </div>
                 )}
 
                 {profileErrorMsg && (
-                  <div className="mb-6 flex items-center gap-3 border border-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-700 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300">
+                  <div className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300 shadow-sm">
                     <WarningCircle size={20} weight="fill" className="text-rose-600 shrink-0" />
                     <span>{profileErrorMsg}</span>
                   </div>
@@ -655,7 +655,7 @@ export default function StudentSettingsPage() {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Nguyễn Văn"
-                          className="w-full h-11 border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] text-[#1C1D1F] dark:text-[#F5F0F3] px-3.5 text-sm rounded-none outline-none focus:border-[#1C1D1F] dark:focus:border-[#BEADEC] focus:ring-1 focus:ring-[#1C1D1F] dark:focus:ring-[#BEADEC] transition-all"
+                          className="w-full h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] text-[#2D222A] dark:text-[#F5F0F3] px-4 text-sm rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 focus:bg-white dark:focus:bg-[#221E24] transition-all"
                         />
                       </div>
 
@@ -670,7 +670,7 @@ export default function StudentSettingsPage() {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="Phong"
-                          className="w-full h-11 border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] text-[#1C1D1F] dark:text-[#F5F0F3] px-3.5 text-sm rounded-none outline-none focus:border-[#1C1D1F] dark:focus:border-[#BEADEC] focus:ring-1 focus:ring-[#1C1D1F] dark:focus:ring-[#BEADEC] transition-all"
+                          className="w-full h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] text-[#2D222A] dark:text-[#F5F0F3] px-4 text-sm rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 focus:bg-white dark:focus:bg-[#221E24] transition-all"
                         />
                       </div>
                     </div>
@@ -693,7 +693,7 @@ export default function StudentSettingsPage() {
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
                       placeholder="IELTS Scholar - Target Band 7.5+ | Dedicated Learner"
-                      className="w-full h-11 border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] text-[#1C1D1F] dark:text-[#F5F0F3] px-3.5 text-sm rounded-none outline-none focus:border-[#1C1D1F] dark:focus:border-[#BEADEC] focus:ring-1 focus:ring-[#1C1D1F] dark:focus:ring-[#BEADEC] transition-all"
+                      className="w-full h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] text-[#2D222A] dark:text-[#F5F0F3] px-4 text-sm rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 focus:bg-white dark:focus:bg-[#221E24] transition-all"
                     />
                     <p className="mt-1 text-xs text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3]">
                       Thêm một tiêu đề chuyên môn, ví dụ: &quot;IELTS Scholar - Target Band 7.5+&quot; hoặc &quot;Học viên The IELTS Spells&quot;.
@@ -707,13 +707,13 @@ export default function StudentSettingsPage() {
                     </label>
 
                     {/* Simple formatting toolbar */}
-                    <div className="border border-[#D1D7DC] dark:border-[#403640] rounded-none bg-white dark:bg-[#2C2630] overflow-hidden">
-                      <div className="flex items-center gap-1 border-b border-[#D1D7DC] dark:border-[#403640] bg-[#FAF8F7] dark:bg-[#221E24] px-2 py-1.5">
+                    <div className="border border-[#E5D7DC] dark:border-[#403640] rounded-2xl bg-[#FCFAFB] dark:bg-[#1A161C] overflow-hidden focus-within:border-[#BE4F74] focus-within:ring-4 focus-within:ring-rose-100/60 dark:focus-within:ring-rose-950/40 transition-all">
+                      <div className="flex items-center gap-1 border-b border-[#F0E6E8] dark:border-[#403640] bg-[#F7EEF1] dark:bg-[#221E24] px-3 py-1.5">
                         <button
                           type="button"
                           onClick={() => setBiography((prev) => prev ? `**${prev}**` : "**Văn bản in đậm**")}
                           title="In đậm (Bold)"
-                          className="w-7 h-7 flex items-center justify-center font-bold text-sm text-[#1C1D1F] dark:text-[#F5F0F3] hover:bg-gray-200 dark:hover:bg-gray-700 rounded-none"
+                          className="w-7 h-7 flex items-center justify-center font-bold text-sm text-[#BE4F74] dark:text-[#E17A9B] hover:bg-white dark:hover:bg-[#2C2630] rounded-lg"
                         >
                           B
                         </button>
@@ -721,7 +721,7 @@ export default function StudentSettingsPage() {
                           type="button"
                           onClick={() => setBiography((prev) => prev ? `*${prev}*` : "*Văn bản in nghiêng*")}
                           title="In nghiêng (Italic)"
-                          className="w-7 h-7 flex items-center justify-center italic text-sm text-[#1C1D1F] dark:text-[#F5F0F3] hover:bg-gray-200 dark:hover:bg-gray-700 rounded-none"
+                          className="w-7 h-7 flex items-center justify-center italic text-sm text-[#BE4F74] dark:text-[#E17A9B] hover:bg-white dark:hover:bg-[#2C2630] rounded-lg"
                         >
                           I
                         </button>
@@ -750,7 +750,7 @@ export default function StudentSettingsPage() {
                       id="student-language"
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full max-w-sm h-11 border border-[#6A6F73] dark:border-[#5C5056] bg-white dark:bg-[#221E24] px-3.5 text-sm text-[#1C1D1F] dark:text-[#F5F0F3] rounded-none outline-none focus:border-[#1C1D1F] focus:ring-1 focus:ring-[#1C1D1F]"
+                      className="w-full max-w-sm h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] px-4 text-sm text-[#2D222A] dark:text-[#F5F0F3] rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 transition-all"
                     >
                       <option value="vi">Tiếng Việt (Vietnamese)</option>
                       <option value="en">English (US)</option>
@@ -758,12 +758,12 @@ export default function StudentSettingsPage() {
                   </div>
 
                   {/* IELTS Spells Academic Profile Card (Integrated neatly) */}
-                  <div className="pt-4 border-t border-[#D1D7DC] dark:border-[#403640]">
+                  <div className="pt-4 border-t border-[#F0E6E8] dark:border-[#403640]">
                     <h3 className="text-base font-bold text-[#1C1D1F] dark:text-[#F5F0F3] mb-3">
                       Hồ sơ học viên The IELTS Spells:
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F7F9FA] dark:bg-[#140F13] p-5 border border-[#D1D7DC] dark:border-[#403640]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#FFF9FA] dark:bg-[#1E1821] p-5 rounded-2xl border border-[#F2E5E9] dark:border-[#403640] shadow-sm">
                       <div>
                         <label htmlFor="student-phone" className="block text-xs font-bold text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3] uppercase tracking-wider mb-1">
                           Số điện thoại liên hệ
@@ -774,7 +774,7 @@ export default function StudentSettingsPage() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Ví dụ: 0912 345 678"
-                          className="w-full h-10 border border-[#D1D7DC] dark:border-[#403640] dark:border-[#4B3E45] bg-white dark:bg-[#221E24] px-3 text-sm text-[#1C1D1F] dark:text-[#F5F0F3] outline-none focus:border-[#6D55A8] dark:focus:border-[#BEADEC]"
+                          className="w-full h-10 border border-[#E8D8DE] dark:border-[#403640] bg-white dark:bg-[#221E24] px-3.5 text-sm text-[#2D222A] dark:text-[#F5F0F3] rounded-xl outline-none focus:border-[#BE4F74] focus:ring-2 focus:ring-rose-100"
                         />
                       </div>
 
@@ -782,7 +782,7 @@ export default function StudentSettingsPage() {
                         <span className="block text-xs font-bold text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3] uppercase tracking-wider mb-1">
                           Mã định danh học viên
                         </span>
-                        <div className="h-10 border border-[#D1D7DC] dark:border-[#403640] dark:border-[#4B3E45] bg-gray-100 dark:bg-[#20181D] px-3 flex items-center justify-between font-mono text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3] dark:text-[#E17A9B]">
+                        <div className="h-10 border border-[#E8D8DE] dark:border-[#403640] bg-[#FAF5F7] dark:bg-[#20181D] px-3.5 flex items-center justify-between font-mono text-sm font-bold text-[#BE4F74] dark:text-[#E17A9B] rounded-xl">
                           <span>{profile?.studentCode || "Chưa cấp mã"}</span>
                           <span className="text-[10px] text-gray-500 uppercase tracking-widest font-sans">Định danh</span>
                         </div>
@@ -792,7 +792,7 @@ export default function StudentSettingsPage() {
                         <span className="block text-xs font-bold text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3] uppercase tracking-wider mb-1">
                           Khóa học đang học
                         </span>
-                        <div className="h-10 border border-[#D1D7DC] dark:border-[#403640] dark:border-[#4B3E45] bg-gray-100 dark:bg-[#20181D] px-3 flex items-center text-sm font-semibold text-[#1C1D1F] dark:text-[#F5F0F3] truncate">
+                        <div className="h-10 border border-[#E8D8DE] dark:border-[#403640] bg-[#FAF5F7] dark:bg-[#20181D] px-3.5 flex items-center text-sm font-semibold text-[#2D222A] dark:text-[#F5F0F3] rounded-xl truncate">
                           {activeCourse ? `${activeCourse.courseCode} · ${activeCourse.courseName}` : "Chưa đăng ký khóa"}
                         </div>
                       </div>
@@ -801,9 +801,9 @@ export default function StudentSettingsPage() {
                         <span className="block text-xs font-bold text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3] uppercase tracking-wider mb-1">
                           Mục tiêu Band IELTS
                         </span>
-                        <div className="h-10 border border-[#D1D7DC] dark:border-[#403640] dark:border-[#4B3E45] bg-gray-100 dark:bg-[#20181D] px-3 flex items-center justify-between text-sm font-bold text-[#594389] dark:text-[#C4B5FD]">
+                        <div className="h-10 border border-[#E8D8DE] dark:border-[#403640] bg-[#FAF5F7] dark:bg-[#20181D] px-3.5 flex items-center justify-between text-sm font-bold text-[#BE4F74] dark:text-[#E17A9B] rounded-xl">
                           <span>{profile?.targetBand ? `Band ${profile.targetBand.toFixed(1)}` : "Chưa đặt"}</span>
-                          <Link href="/student/learning-profile" className="text-xs font-bold text-[#6D55A8] dark:text-[#C4B5FD] hover:underline">
+                          <Link href="/student/learning-profile" className="text-xs font-bold text-[#BE4F74] dark:text-[#E17A9B] hover:underline">
                             Đổi mục tiêu
                           </Link>
                         </div>
@@ -816,7 +816,7 @@ export default function StudentSettingsPage() {
                     <button
                       type="submit"
                       disabled={isSavingProfile}
-                      className="min-w-28 h-11 bg-[#6D55A8] hover:bg-[#594389] dark:bg-[#735BA2] dark:hover:bg-[#8369B5] text-white font-bold px-7 text-sm rounded-none shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="min-w-28 h-11 bg-gradient-to-r from-[#BE4F74] to-[#A83E5E] hover:from-[#A83E5E] hover:to-[#933652] text-white font-bold px-8 text-sm rounded-xl shadow-[0_4px_14px_rgba(190,79,116,0.28)] hover:shadow-[0_6px_20px_rgba(190,79,116,0.38)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSavingProfile ? "Đang lưu..." : "Lưu thay đổi"}
                     </button>
@@ -830,7 +830,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "photo" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Ảnh hồ sơ
                   </h1>
@@ -840,14 +840,14 @@ export default function StudentSettingsPage() {
                 </header>
 
                 {avatarSuccessMsg && (
-                  <div className="mb-6 flex items-center gap-3 border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-700 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                  <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/40 dark:border-emerald-800 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300 shadow-sm">
                     <CheckCircle size={20} weight="fill" className="text-emerald-600 shrink-0" />
                     <span>{avatarSuccessMsg}</span>
                   </div>
                 )}
 
                 {avatarErrorMsg && (
-                  <div className="mb-6 flex items-center gap-3 border border-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-700 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300">
+                  <div className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300 shadow-sm">
                     <WarningCircle size={20} weight="fill" className="text-rose-600 shrink-0" />
                     <span>{avatarErrorMsg}</span>
                   </div>
@@ -859,8 +859,8 @@ export default function StudentSettingsPage() {
                     <span className="block text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3] mb-2">
                       Xem trước ảnh (Image preview)
                     </span>
-                    <div className="w-full max-w-2xl bg-[#F7F9FA] dark:bg-[#221E24] border border-[#D1D7DC] dark:border-[#403640] p-10 flex items-center justify-center">
-                      <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-[#D1D7DC] dark:border-[#403640] bg-[#1C1D1F] flex items-center justify-center text-white text-5xl font-bold">
+                    <div className="w-full max-w-2xl bg-[#FCF8F9] dark:bg-[#1E1821] border-2 border-dashed border-[#E5D7DC] dark:border-[#403640] rounded-3xl p-10 flex items-center justify-center">
+                      <div className="w-48 h-48 rounded-full overflow-hidden ring-8 ring-white dark:ring-[#2C2630] border-2 border-rose-200 dark:border-[#554050] bg-gradient-to-tr from-[#BE4F74] to-[#E17A9B] flex items-center justify-center text-white text-5xl font-bold shadow-lg">
                         {avatarPreview || profile?.avatarPath ? (
                           <img
                             src={avatarPreview || profile?.avatarPath || ""}
@@ -881,13 +881,13 @@ export default function StudentSettingsPage() {
                     </span>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center max-w-2xl gap-3">
-                      <div className="flex-1 h-11 border border-[#6A6F73] dark:border-[#5C5056] dark:bg-[#221E24] px-3.5 flex items-center text-sm text-[#1C1D1F] dark:text-[#F5F0F3] truncate">
+                      <div className="flex-1 h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] px-4 flex items-center text-sm text-[#2D222A] dark:text-[#F5F0F3] rounded-xl truncate">
                         {avatarFile ? avatarFile.name : "Chưa chọn tệp (No file selected)"}
                       </div>
 
                       <label
                         htmlFor="photo-file-input"
-                        className="h-11 px-6 border border-[#6D55A8] dark:border-[#BEADEC] text-[#6D55A8] dark:text-[#C4B5FD] font-bold text-sm flex items-center justify-center cursor-pointer hover:bg-[#F5F2FA] dark:hover:bg-[#292137] transition-colors shrink-0"
+                        className="h-11 px-6 border border-[#BE4F74] text-[#BE4F74] dark:border-[#E17A9B] dark:text-[#E17A9B] font-bold text-sm flex items-center justify-center cursor-pointer hover:bg-[#FFF0F3] dark:hover:bg-[#34242E] rounded-xl transition-all shrink-0"
                       >
                         <span>Tải ảnh lên</span>
                       </label>
@@ -913,7 +913,7 @@ export default function StudentSettingsPage() {
                       type="button"
                       onClick={handleSaveAvatar}
                       disabled={!avatarFile || isSavingAvatar}
-                      className="min-w-28 h-11 bg-[#6D55A8] hover:bg-[#594389] dark:bg-[#735BA2] dark:hover:bg-[#8369B5] text-white font-bold px-7 text-sm rounded-none shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="min-w-28 h-11 bg-gradient-to-r from-[#BE4F74] to-[#A83E5E] hover:from-[#A83E5E] hover:to-[#933652] text-white font-bold px-8 text-sm rounded-xl shadow-[0_4px_14px_rgba(190,79,116,0.28)] hover:shadow-[0_6px_20px_rgba(190,79,116,0.38)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSavingAvatar ? "Đang lưu ảnh..." : "Lưu ảnh"}
                     </button>
@@ -927,7 +927,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "security" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Tài khoản &amp; Bảo mật
                   </h1>
@@ -943,7 +943,7 @@ export default function StudentSettingsPage() {
                       Email đăng nhập:
                     </label>
 
-                    <div className="flex items-center justify-between border border-[#D1D7DC] dark:border-[#403640] bg-[#F7F9FA] dark:bg-[#221E24] p-3.5 max-w-2xl">
+                    <div className="flex items-center justify-between border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1E1821] p-4 rounded-2xl max-w-2xl">
                       <span className="text-sm text-[#554D50] dark:text-[#BEB2BC] dark:text-[#F5F0F3]">
                         Địa chỉ email của bạn là <strong className="text-[#1C1D1F] dark:text-[#F5F0F3] font-bold">{profile?.email || session?.user?.email}</strong>
                       </span>
@@ -951,7 +951,7 @@ export default function StudentSettingsPage() {
                       <button
                         type="button"
                         onClick={() => setShowEmailEditNotice(!showEmailEditNotice)}
-                        className="p-2 border border-[#D1D7DC] dark:border-[#403640] dark:border-[#4B3E45] bg-white dark:bg-[#221E24] hover:bg-gray-100 text-[#6D55A8] dark:text-[#C4B5FD] transition-colors"
+                        className="p-2.5 border border-[#E5D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] hover:bg-rose-50 text-[#BE4F74] dark:text-[#E17A9B] rounded-xl transition-colors"
                         title="Đổi địa chỉ email"
                       >
                         <Pencil size={16} weight="bold" />
@@ -959,7 +959,7 @@ export default function StudentSettingsPage() {
                     </div>
 
                     {showEmailEditNotice && (
-                      <div className="mt-3 max-w-2xl p-3.5 border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/40 dark:border-indigo-800 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
+                      <div className="mt-3 max-w-2xl p-4 border border-rose-200 bg-rose-50/60 dark:bg-rose-950/30 dark:border-rose-900 text-xs text-rose-950 dark:text-rose-200 rounded-2xl flex items-start gap-3 shadow-sm">
                         <Info size={18} weight="fill" className="text-indigo-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold">Thay đổi địa chỉ email tài khoản học tập:</p>
@@ -974,14 +974,14 @@ export default function StudentSettingsPage() {
                   {/* Password Change Section (Udemy style) */}
                   <form onSubmit={handleChangePassword} className="space-y-4 max-w-2xl">
                     {passwordSuccessMsg && (
-                      <div className="flex items-center gap-3 border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-700 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300">
+                      <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/40 dark:border-emerald-800 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-300 shadow-sm">
                         <CheckCircle size={20} weight="fill" className="text-emerald-600 shrink-0" />
                         <span>{passwordSuccessMsg}</span>
                       </div>
                     )}
 
                     {passwordErrorMsg && (
-                      <div className="flex items-center gap-3 border border-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-700 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300">
+                      <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-900 dark:text-rose-300 shadow-sm">
                         <WarningCircle size={20} weight="fill" className="text-rose-600 shrink-0" />
                         <span>{passwordErrorMsg}</span>
                       </div>
@@ -1000,7 +1000,7 @@ export default function StudentSettingsPage() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Nhập mật khẩu mới"
-                          className="w-full h-11 border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] text-[#1C1D1F] dark:text-[#F5F0F3] px-3.5 pr-10 text-sm rounded-none outline-none focus:border-[#1C1D1F] dark:focus:border-[#BEADEC] focus:ring-1 focus:ring-[#1C1D1F] dark:focus:ring-[#BEADEC]"
+                          className="w-full h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] text-[#2D222A] dark:text-[#F5F0F3] px-4 pr-11 text-sm rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 focus:bg-white dark:focus:bg-[#221E24] transition-all"
                         />
                         <button
                           type="button"
@@ -1014,7 +1014,7 @@ export default function StudentSettingsPage() {
 
                       {/* Password strength checklist */}
                       {newPassword && (
-                        <div className="mt-2.5 p-3 bg-[#F7F9FA] dark:bg-[#140F13] border border-[#D1D7DC] dark:border-[#403640] text-xs space-y-1.5">
+                        <div className="mt-2.5 p-3.5 bg-[#FCFAFB] dark:bg-[#1E1821] border border-[#E5D7DC] dark:border-[#403640] rounded-xl text-xs space-y-1.5">
                           <div className="flex items-center justify-between font-bold text-[11px]">
                             <span className="text-gray-600 dark:text-gray-400">Độ mạnh mật khẩu:</span>
                             <span className={passwordStrengthScore <= 1 ? "text-rose-600" : passwordStrengthScore <= 3 ? "text-amber-600" : "text-emerald-600"}>
@@ -1022,10 +1022,10 @@ export default function StudentSettingsPage() {
                             </span>
                           </div>
                           <div className="grid grid-cols-4 gap-1 h-1.5">
-                            <div className={`rounded-none ${passwordStrengthScore >= 1 ? (passwordStrengthScore <= 1 ? "bg-rose-500" : "bg-amber-500") : "bg-gray-200"}`} />
-                            <div className={`rounded-none ${passwordStrengthScore >= 2 ? (passwordStrengthScore <= 3 ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-200"}`} />
-                            <div className={`rounded-none ${passwordStrengthScore >= 3 ? "bg-emerald-500" : "bg-gray-200"}`} />
-                            <div className={`rounded-none ${passwordStrengthScore >= 4 ? "bg-emerald-500" : "bg-gray-200"}`} />
+                            <div className={`rounded-xl ${passwordStrengthScore >= 1 ? (passwordStrengthScore <= 1 ? "bg-rose-500" : "bg-amber-500") : "bg-gray-200"}`} />
+                            <div className={`rounded-xl ${passwordStrengthScore >= 2 ? (passwordStrengthScore <= 3 ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-200"}`} />
+                            <div className={`rounded-xl ${passwordStrengthScore >= 3 ? "bg-emerald-500" : "bg-gray-200"}`} />
+                            <div className={`rounded-xl ${passwordStrengthScore >= 4 ? "bg-emerald-500" : "bg-gray-200"}`} />
                           </div>
                         </div>
                       )}
@@ -1044,7 +1044,7 @@ export default function StudentSettingsPage() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="Nhập lại mật khẩu mới"
-                          className="w-full h-11 border border-[#D1D7DC] dark:border-[#403640] bg-white dark:bg-[#2C2630] text-[#1C1D1F] dark:text-[#F5F0F3] px-3.5 pr-10 text-sm rounded-none outline-none focus:border-[#1C1D1F] dark:focus:border-[#BEADEC] focus:ring-1 focus:ring-[#1C1D1F] dark:focus:ring-[#BEADEC]"
+                          className="w-full h-11 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] text-[#2D222A] dark:text-[#F5F0F3] px-4 pr-11 text-sm rounded-xl outline-none focus:border-[#BE4F74] focus:ring-4 focus:ring-rose-100/60 dark:focus:ring-rose-950/40 focus:bg-white dark:focus:bg-[#221E24] transition-all"
                         />
                         <button
                           type="button"
@@ -1062,7 +1062,7 @@ export default function StudentSettingsPage() {
                       <button
                         type="submit"
                         disabled={isChangingPassword}
-                        className="h-11 bg-[#6D55A8] hover:bg-[#594389] dark:bg-[#735BA2] dark:hover:bg-[#8369B5] text-white font-bold px-7 text-sm rounded-none shadow-none transition-colors disabled:opacity-50"
+                        className="h-11 bg-gradient-to-r from-[#BE4F74] to-[#A83E5E] hover:from-[#A83E5E] hover:to-[#933652] text-white font-bold px-8 text-sm rounded-xl shadow-[0_4px_14px_rgba(190,79,116,0.28)] hover:shadow-[0_6px_20px_rgba(190,79,116,0.38)] active:scale-[0.98] transition-all disabled:opacity-50"
                       >
                         {isChangingPassword ? "Đang đổi mật khẩu..." : "Đổi mật khẩu"}
                       </button>
@@ -1071,12 +1071,12 @@ export default function StudentSettingsPage() {
 
                   {/* Multi-factor Authentication (MFA) Section */}
                   <div className="pt-6 border-t border-[#D1D7DC] dark:border-[#403640]">
-                    <div className="border border-[#D1D7DC] dark:border-[#403640] bg-[#F7F9FA] dark:bg-[#221E24] p-5 max-w-2xl space-y-2">
+                    <div className="border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1E1821] p-5 rounded-2xl max-w-2xl space-y-2">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3]">
                           Xác thực đa yếu tố (Multi-factor Authentication)
                         </h4>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-none">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full">
                           <Check size={12} weight="bold" /> Đang bảo vệ
                         </span>
                       </div>
@@ -1088,9 +1088,9 @@ export default function StudentSettingsPage() {
 
                   {/* Active Sessions & Forgot Password */}
                   <div className="pt-2 max-w-2xl space-y-4">
-                    <div className="border border-[#D1D7DC] dark:border-[#403640] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="border border-[#E5D7DC] dark:border-[#403640] p-4.5 rounded-2xl bg-white dark:bg-[#221E24] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-300">
+                        <div className="w-10 h-10 bg-rose-50 dark:bg-[#2C2430] rounded-xl flex items-center justify-center text-[#BE4F74] dark:text-[#E17A9B]">
                           <Laptop size={20} weight="bold" />
                         </div>
                         <div>
@@ -1101,13 +1101,13 @@ export default function StudentSettingsPage() {
                       <button
                         type="button"
                         onClick={() => void signOut()}
-                        className="px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-colors"
+                        className="px-4 py-2 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors"
                       >
                         Đăng xuất phiên này
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border border-[#D1D7DC] dark:border-[#403640] bg-gray-50 dark:bg-[#161014]">
+                    <div className="flex items-center justify-between p-4.5 border border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1A161C] rounded-2xl">
                       <div className="text-xs text-[#6A6F73] dark:text-[#BEB2BC] dark:text-[#A89FA3]">
                         <span className="font-bold text-[#1C1D1F] dark:text-[#F5F0F3] block">Quên mật khẩu cũ?</span>
                         Nhận liên kết khôi phục gửi tới hộp thư của bạn.
@@ -1116,7 +1116,7 @@ export default function StudentSettingsPage() {
                         type="button"
                         onClick={handleSendForgotPassword}
                         disabled={forgotSending}
-                        className="px-4 py-2 bg-white dark:bg-[#221E24] border border-[#6D55A8] dark:border-[#BEADEC] text-[#6D55A8] dark:text-[#C4B5FD] text-xs font-bold hover:bg-[#F5F2FA] dark:hover:bg-[#292137] transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-white dark:bg-[#221E24] border border-[#BE4F74] text-[#BE4F74] dark:border-[#E17A9B] dark:text-[#E17A9B] rounded-xl text-xs font-bold hover:bg-rose-50 dark:hover:bg-[#292137] transition-colors disabled:opacity-50"
                       >
                         {forgotSending ? "Đang gửi..." : "Gửi email khôi phục"}
                       </button>
@@ -1137,7 +1137,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "subscriptions" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Khóa học &amp; Gói học
                   </h1>
@@ -1149,17 +1149,17 @@ export default function StudentSettingsPage() {
                 <div className="space-y-4 max-w-2xl">
                   {data.enrollments && data.enrollments.length > 0 ? (
                     data.enrollments.map((enr) => (
-                      <div key={enr.enrollmentId} className="border border-[#D1D7DC] dark:border-[#403640] p-5 bg-white dark:bg-[#140F13] space-y-3">
+                      <div key={enr.enrollmentId} className="border border-[#F0E6E8] dark:border-[#403640] p-5 bg-[#FCFAFB] dark:bg-[#1E1821] rounded-2xl space-y-3 shadow-sm">
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="inline-block px-2 py-0.5 bg-[#F5F2FA] text-[#594389] dark:bg-[#292137] dark:text-[#C4B5FD] text-[10px] font-bold uppercase tracking-wider mb-1">
+                            <span className="inline-block px-2.5 py-0.5 bg-rose-100 text-[#BE4F74] dark:bg-[#34242C] dark:text-[#E17A9B] text-[10px] font-bold uppercase tracking-wider rounded-full mb-1">
                               {enr.status === "ACTIVE" ? "Đang theo học" : enr.status}
                             </span>
                             <h3 className="text-base font-bold text-[#1C1D1F] dark:text-[#F5F0F3]">
                               {enr.courseCode} · {enr.courseName}
                             </h3>
                           </div>
-                          <span className="text-xs font-bold text-[#594389] dark:text-[#C4B5FD] px-2.5 py-1 bg-[#EAE3F7] dark:bg-[#342749]">
+                          <span className="text-xs font-bold text-[#7957A2] dark:text-[#C4B5FD] px-3 py-1 bg-[#F5EEF9] dark:bg-[#342749] rounded-full">
                             Target {enr.courseTargetBand ? `Band ${enr.courseTargetBand}` : "IELTS"}
                           </span>
                         </div>
@@ -1178,7 +1178,7 @@ export default function StudentSettingsPage() {
                         <div className="pt-2 flex justify-end">
                           <Link
                             href={`/student/courses/${enr.courseId}`}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#6D55A8] hover:bg-[#594389] dark:bg-[#735BA2] dark:hover:bg-[#8369B5] text-white text-xs font-bold transition-colors"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#BE4F74] to-[#A83E5E] text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all"
                           >
                             <span>Vào lớp học</span>
                             <ArrowRight size={14} weight="bold" />
@@ -1200,7 +1200,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "privacy" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Quyền riêng tư
                   </h1>
@@ -1231,7 +1231,7 @@ export default function StudentSettingsPage() {
                         setShowProfileToClass(e.target.checked);
                         savePrivacyPref("student_priv_class", e.target.checked);
                       }}
-                      className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                      className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                     />
                   </div>
 
@@ -1249,7 +1249,7 @@ export default function StudentSettingsPage() {
                         setShowLeaderboardScore(e.target.checked);
                         savePrivacyPref("student_priv_lead", e.target.checked);
                       }}
-                      className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                      className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                     />
                   </div>
 
@@ -1267,7 +1267,7 @@ export default function StudentSettingsPage() {
                         setAllowTeacherFeedbackShare(e.target.checked);
                         savePrivacyPref("student_priv_feedback", e.target.checked);
                       }}
-                      className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                      className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                     />
                   </div>
                 </div>
@@ -1279,7 +1279,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "notifications" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Tùy chọn thông báo
                   </h1>
@@ -1301,7 +1301,7 @@ export default function StudentSettingsPage() {
                     <h3 className="text-base font-bold text-[#1C1D1F] dark:text-[#F5F0F3] mb-3">
                       Sự kiện học tập:
                     </h3>
-                    <div className="border border-[#D1D7DC] dark:border-[#403640] divide-y divide-[#D1D7DC] dark:divide-[#3D3338]">
+                    <div className="border border-[#F0E6E8] dark:border-[#403640] rounded-2xl overflow-hidden divide-y divide-[#F0E6E8] dark:divide-[#3D3338]">
                       <div className="p-4 flex items-center justify-between">
                         <div>
                           <p className="text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3]">Bài tập và hạn nộp bài</p>
@@ -1311,7 +1311,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.assignmentDeadlineReminder}
                           onChange={() => handleToggleNotif("assignmentDeadlineReminder")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
 
@@ -1324,7 +1324,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.gradingCompletedAlert}
                           onChange={() => handleToggleNotif("gradingCompletedAlert")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
 
@@ -1337,7 +1337,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.upcomingClassReminder}
                           onChange={() => handleToggleNotif("upcomingClassReminder")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
 
@@ -1350,7 +1350,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.weeklyProgressDigest}
                           onChange={() => handleToggleNotif("weeklyProgressDigest")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
                     </div>
@@ -1361,14 +1361,14 @@ export default function StudentSettingsPage() {
                     <h3 className="text-base font-bold text-[#1C1D1F] dark:text-[#F5F0F3] mb-3">
                       Phương thức nhận:
                     </h3>
-                    <div className="border border-[#D1D7DC] dark:border-[#403640] divide-y divide-[#D1D7DC] dark:divide-[#3D3338]">
+                    <div className="border border-[#F0E6E8] dark:border-[#403640] rounded-2xl overflow-hidden divide-y divide-[#F0E6E8] dark:divide-[#3D3338]">
                       <div className="p-4 flex items-center justify-between">
                         <span className="text-sm font-medium text-[#1C1D1F] dark:text-[#F5F0F3]">Thông báo trong hệ thống (In-app Bell)</span>
                         <input
                           type="checkbox"
                           checked={notifications.inAppNotification}
                           onChange={() => handleToggleNotif("inAppNotification")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
                       <div className="p-4 flex items-center justify-between">
@@ -1377,7 +1377,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.emailNotification}
                           onChange={() => handleToggleNotif("emailNotification")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
                       <div className="p-4 flex items-center justify-between">
@@ -1386,7 +1386,7 @@ export default function StudentSettingsPage() {
                           type="checkbox"
                           checked={notifications.browserSoundAlert}
                           onChange={() => handleToggleNotif("browserSoundAlert")}
-                          className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                          className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                         />
                       </div>
                     </div>
@@ -1400,7 +1400,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "preferences" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Tùy chọn luyện thi
                   </h1>
@@ -1439,10 +1439,10 @@ export default function StudentSettingsPage() {
                               setDefaultPracticeSkill(item.id as "READING" | "LISTENING" | "WRITING" | "SPEAKING");
                               savePracticePref("student_default_practice_skill", item.id);
                             }}
-                            className={`p-3 border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                            className={`p-3 border text-xs font-bold flex items-center justify-center gap-2 rounded-xl transition-all ${
                               isSel
-                                ? "border-[#6D55A8] bg-[#6D55A8] text-white font-bold dark:border-[#BEADEC] dark:bg-[#735BA2] dark:text-white"
-                                : "border-[#D1D7DC] dark:border-[#403640] dark:border-[#3D3338] bg-white dark:bg-[#221E24] text-[#554D50] dark:text-[#BEB2BC] dark:text-[#F5F0F3] hover:bg-gray-50"
+                                ? "border-[#BE4F74] bg-[#BE4F74] text-white font-bold shadow-sm"
+                                : "border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1E1821] text-[#695B65] dark:text-[#BEB2BC] hover:border-[#BE4F74] hover:text-[#BE4F74]"
                             }`}
                           >
                             <IconComp size={16} weight={isSel ? "bold" : "regular"} />
@@ -1454,7 +1454,7 @@ export default function StudentSettingsPage() {
                   </div>
 
                   {/* Reading Font Size */}
-                  <div className="pt-4 border-t border-[#D1D7DC] dark:border-[#403640]">
+                  <div className="pt-4 border-t border-[#F0E6E8] dark:border-[#403640]">
                     <label className="block text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3] mb-2">
                       Cỡ chữ bài đọc (Reading) &amp; đề thi:
                     </label>
@@ -1472,10 +1472,10 @@ export default function StudentSettingsPage() {
                             setExamFontSize(item.size);
                             savePracticePref("student_exam_font_size", item.size);
                           }}
-                          className={`p-2.5 border text-xs font-bold text-center transition-all ${
+                          className={`p-2.5 border text-xs font-bold text-center rounded-xl transition-all ${
                             examFontSize === item.size
-                              ? "border-[#6D55A8] bg-[#6D55A8] text-white font-bold dark:border-[#BEADEC] dark:bg-[#735BA2] dark:text-white"
-                              : "border-[#D1D7DC] dark:border-[#403640] dark:border-[#3D3338] bg-white dark:bg-[#221E24] text-[#554D50] dark:text-[#BEB2BC] dark:text-[#F5F0F3] hover:bg-gray-50"
+                              ? "border-[#BE4F74] bg-[#BE4F74] text-white font-bold shadow-sm"
+                              : "border-[#E5D7DC] dark:border-[#403640] bg-[#FCFAFB] dark:bg-[#1E1821] text-[#695B65] dark:text-[#BEB2BC] hover:border-[#BE4F74] hover:text-[#BE4F74]"
                           }`}
                         >
                           {item.label}
@@ -1484,7 +1484,7 @@ export default function StudentSettingsPage() {
                     </div>
 
                     {/* Live Preview Box */}
-                    <div className="mt-3.5 p-4 bg-[#F7F9FA] dark:bg-[#221E24] border border-[#D1D7DC] dark:border-[#403640]">
+                    <div className="mt-3.5 p-4.5 bg-[#FCFAFB] dark:bg-[#1E1821] border border-[#E5D7DC] dark:border-[#403640] rounded-2xl">
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
                         Xem trước văn bản bài đọc:
                       </span>
@@ -1499,7 +1499,7 @@ export default function StudentSettingsPage() {
                   </div>
 
                   {/* Toggles */}
-                  <div className="pt-4 border-t border-[#D1D7DC] dark:border-[#403640] space-y-4">
+                  <div className="pt-4 border-t border-[#F0E6E8] dark:border-[#403640] space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="pr-4">
                         <p className="text-sm font-bold text-[#1C1D1F] dark:text-[#F5F0F3]">Tự động lưu câu trả lời (Auto-save)</p>
@@ -1512,7 +1512,7 @@ export default function StudentSettingsPage() {
                           setAutoSaveAnswers(e.target.checked);
                           savePracticePref("student_exam_auto_save", String(e.target.checked));
                         }}
-                        className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                        className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                       />
                     </div>
 
@@ -1528,7 +1528,7 @@ export default function StudentSettingsPage() {
                           setCountdownWarning(e.target.checked);
                           savePracticePref("student_exam_countdown_warn", String(e.target.checked));
                         }}
-                        className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                        className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                       />
                     </div>
 
@@ -1544,7 +1544,7 @@ export default function StudentSettingsPage() {
                           setFocusMode(e.target.checked);
                           savePracticePref("student_exam_focus_mode", String(e.target.checked));
                         }}
-                        className="w-4 h-4 rounded-none accent-[#6D55A8] dark:accent-[#C4B5FD] cursor-pointer"
+                        className="w-4 h-4 rounded-xl accent-[#BE4F74] dark:accent-[#E17A9B] cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1557,7 +1557,7 @@ export default function StudentSettingsPage() {
             =================================================================== */}
             {activeTab === "close" && (
               <div className="max-w-3xl animate-in fade-in duration-150">
-                <header className="border-b border-[#D1D7DC] dark:border-[#403640] pb-6 mb-7">
+                <header className="border-b border-[#F0E6E8] dark:border-[#403640] pb-6 mb-7">
                   <h1 className="text-2xl font-bold tracking-tight text-[#1C1D1F] dark:text-[#F5F0F3]">
                     Đăng xuất tài khoản
                   </h1>
@@ -1567,7 +1567,7 @@ export default function StudentSettingsPage() {
                 </header>
 
                 <div className="space-y-6 max-w-2xl">
-                  <div className="rounded-none border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 p-5 text-sm text-amber-900 dark:text-amber-200">
+                  <div className="rounded-2xl border border-amber-200/90 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 p-5 text-sm text-amber-900 dark:text-amber-200 shadow-sm">
                     <p className="font-bold flex items-center gap-2 mb-1.5 text-amber-800 dark:text-amber-300">
                       <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-400 shrink-0" />
                       Lưu ý trước khi đăng xuất:
@@ -1581,7 +1581,7 @@ export default function StudentSettingsPage() {
                     <button
                       type="button"
                       onClick={() => void signOut()}
-                      className="h-11 bg-[#BD4F70] hover:bg-[#A83E5E] dark:bg-[#BE4F74] dark:hover:bg-[#D65D86] text-white font-bold px-7 text-sm rounded-none shadow-none active:translate-y-px transition-all"
+                      className="h-11 bg-gradient-to-r from-[#BE4F74] to-[#A83E5E] hover:from-[#A83E5E] hover:to-[#933652] text-white font-bold px-8 text-sm rounded-xl shadow-[0_4px_14px_rgba(190,79,116,0.28)] hover:shadow-[0_6px_20px_rgba(190,79,116,0.38)] active:scale-[0.98] transition-all"
                     >
                       Xác nhận đăng xuất
                     </button>
