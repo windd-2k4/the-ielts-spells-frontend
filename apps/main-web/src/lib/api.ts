@@ -55,7 +55,7 @@ export async function apiUpload<T = void>(path: string, body: FormData): Promise
   if (response.status === 401) response = await send(await refreshedAccessToken());
   if (response.ok) return response.status === 204 ? undefined as T : await response.json() as T;
   const payload = await response.json().catch(() => undefined) as { message?: string } | undefined;
-  throw new ApiClientError(response.status, payload?.message ?? "Không thể tải ảnh minh chứng.");
+  throw new ApiClientError(response.status, payload?.message ?? "Không thể tải tệp lên.");
 }
 
 export async function apiBlob(path: string): Promise<Blob> {

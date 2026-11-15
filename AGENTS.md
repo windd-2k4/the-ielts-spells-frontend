@@ -83,6 +83,7 @@ If only this repository is in scope and the backend is missing, implement an hon
 ## 5. Design and UX standards
 
 - `DESIGN.md` is authoritative for brand direction. Preserve the calm, professional IELTS mentor aesthetic, pink/gray palette, Outfit typography, and current information hierarchy.
+- Treat the primary task area as first-viewport content. On authenticated workspace pages at 1366x768, the page-local title, summary, and filters together should stay within a 240px vertical budget, and the first actionable card/table row or empty state must be visible without scrolling. Prefer compact inline metrics, one-line supporting copy, and collapsible mobile filters; do not give decorative headers or overview cards more space than the work itself.
 - Reuse `@ielts/design-tokens/theme.css` variables and existing Tailwind/CSS conventions. Do not add random hex values when an equivalent semantic token exists.
 - Preserve good existing layouts while wiring real data. “Replace fake data” does not authorize replacing the design.
 - Use Phosphor icons consistently; do not mix icon families or emoji as functional icons.
@@ -148,6 +149,8 @@ Minimum verification:
 | Main/student test flow | Main build + browser smoke test for start, answer persistence, submit, and result |
 | API contract change | Backend `mvn verify` + frontend typecheck/build + real endpoint smoke test |
 | Visual redesign | Above checks + responsive and keyboard review + before/after screenshots |
+
+For workspace visual changes, include a 1366x768 first-viewport check and a 390x844 mobile check. A screenshot that shows only the page header, overview, or filters does not pass; it must also show the start of the primary content.
 
 ## 8. Definition of done and handoff
 

@@ -38,6 +38,56 @@
   /* Fonts */
   --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-body: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+
+  /* Student workspace semantic surfaces. These are shared by the student hub
+     so theme changes keep the same visual hierarchy instead of inverting
+     individual screens ad hoc. */
+  --student-canvas: #F8F6F7;
+  --student-surface: #FFFFFF;
+  --student-surface-raised: #FDFBFB;
+  --student-surface-soft: #F4EFEA;
+  --student-border: #E8E2D5;
+  --student-border-subtle: #F4EAEF;
+  --student-text: #1E1B18;
+  --student-text-muted: #6F676C;
+  --student-text-soft: #857F7A;
+  --student-accent: #894C5B;
+  --student-accent-strong: #723C4A;
+  --student-accent-soft: #F7E5EA;
+  --student-gold-soft: #FEF9C3;
+}
+
+html.dark {
+  color-scheme: dark;
+  --lp-bg: #171418;
+  --lp-surface: #221E24;
+  --lp-surface-elevated: #2C2630;
+  --lp-surface-dark: #171418;
+  --lp-surface-dark-soft: #221E24;
+  --lp-text: #F5F0F3;
+  --lp-text-muted: #BEB2BC;
+  --lp-text-light: #91858F;
+  --lp-border: #403640;
+  --lp-border-subtle: #2C2630;
+  --lp-border-rose: #523440;
+  --lp-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --lp-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --lp-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.45);
+
+  /* The IELTS Spells Dark System tokens (Linear / Vercel Soft Charcoal + Rose) */
+  --student-canvas: #171418;
+  --student-surface: #221E24;
+  --student-surface-raised: #2C2630;
+  --student-surface-soft: #342B35;
+  --student-border: #403640;
+  --student-border-subtle: #2C2630;
+  --student-text: #F5F0F3;
+  --student-text-muted: #BEB2BC;
+  --student-text-soft: #91858F;
+  --student-accent: #E17A9B;
+  --student-accent-strong: #BE4F74;
+  --student-accent-soft: #392630;
+  --student-gold-soft: #3A3222;
 }
 
 * {
@@ -57,6 +107,279 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+html.dark body {
+  background-color: var(--lp-bg);
+  color: var(--lp-text);
+}
+
+/*
+ * Student workspace semantic surfaces. These are shared by the student hub
+ * so theme changes keep the same visual hierarchy instead of inverting
+ * individual screens ad hoc.
+ */
+html.dark [data-student-shell] :is(
+  [class~="bg-white"],
+  [class~="bg-[#FFFFFF]"],
+  [class~="bg-[#F8F6F7]"],
+  [class~="bg-[#FDFBFB]"],
+  [class~="bg-[#FAF8F8]"],
+  [class~="bg-[#FDF9FA]"],
+  [class~="bg-[#FCFAF9]"],
+  [class~="bg-[#F7F5F4]"],
+  [class~="bg-[#F7F4F2]"],
+  [class~="bg-[#FCFBFA]"],
+  [class~="bg-[#FCFBF9]"],
+  [class~="bg-[#FAF8F5]"],
+  [class~="bg-[#FAFAF9]"]
+) {
+  background-color: var(--student-surface) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-[#F4EFEA]"],
+  [class~="bg-[#EFE8E2]"],
+  [class~="bg-[#F4EFF1]"],
+  [class~="bg-[#FAF7F5]"],
+  [class~="bg-[#FAF6F7]"],
+  [class~="bg-[#FAF5F6]"],
+  [class~="bg-[#FAF5F7]"],
+  [class~="bg-[#FBF3F5]"],
+  [class~="bg-[#FCF8F9]"],
+  [class~="bg-[#FAF7F9]"],
+  [class~="bg-[#F6EFF2]"],
+  [class~="bg-[#F7F0F3]"],
+  [class~="bg-[#F4EDF0]"]
+) {
+  background-color: var(--student-surface-raised) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-[#F7E5EA]"],
+  [class~="bg-[#FDF2F4]"],
+  [class~="bg-[#FDF2F5]"],
+  [class~="bg-[#FDF0F4]"],
+  [class~="bg-[#FDF0F3]"],
+  [class~="bg-[#FAEEF2]"],
+  [class~="bg-[#FFF8FA]"],
+  [class~="bg-[#FCEEF2]"]
+) {
+  background-color: var(--student-accent-soft) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-[#FEF9C3]"],
+  [class~="bg-[#FFF8E6]"],
+  [class~="bg-[#FFF8EB]"]
+) {
+  background-color: var(--student-gold-soft) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-[#894C5B]"],
+  [class~="bg-[#9B465D]"],
+  [class~="bg-[#723C4A]"],
+  [class~="bg-[#733E4C]"],
+  [class~="bg-[#84384D]"],
+  [class~="bg-[#BD4F70]"],
+  [class~="bg-[#A83E5E]"],
+  [class~="bg-[#A53C58]"]
+) {
+  background-color: var(--student-accent-strong) !important;
+}
+
+html.dark [data-student-shell] [class~="bg-[#1E1B18]"] {
+  background-color: var(--student-surface-raised) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="border-[#E8E2D5]"],
+  [class~="border-[#EADBDE]"],
+  [class~="border-[#EADBDF]"],
+  [class~="border-[#F0D5DD]"],
+  [class~="border-[#F4EAEF]"],
+  [class~="border-[#F3E8C4]"],
+  [class~="border-[#E8DFC9]"],
+  [class~="border-[#D8BCC5]"],
+  [class~="border-[#E6DDDF]"],
+  [class~="border-[#E8E0E2]"],
+  [class~="border-[#F2ECEE]"],
+  [class~="border-[#ECE4E7]"],
+  [class~="border-[#DCCFD3]"],
+  [class~="border-[#F0E8ED]"],
+  [class~="border-[#F8F1F4]"],
+  [class~="border-[#F5E3EB]"],
+  [class~="border-[#F5D3DE]"],
+  [class~="border-[#E8DFE3]"],
+  [class~="border-[#E8CFD5]"]
+) {
+  border-color: var(--student-border) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="divide-[#E8E2D5]"],
+  [class~="divide-[#F4EAEF]"],
+  [class~="divide-[#F0E8ED]"],
+  [class~="divide-[#F8F1F4]"]
+) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--student-border-subtle) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-[#1E1B18]"],
+  [class~="text-[#292528]"],
+  [class~="text-[#292326]"],
+  [class~="text-[#251F21]"],
+  [class~="text-[#211C1E]"],
+  [class~="text-[#3E3436]"],
+  [class~="text-[#1F2937]"],
+  [class~="text-[#1E293B]"],
+  [class~="text-[#211A1D]"]
+) {
+  color: var(--student-text) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-[#6F676C]"],
+  [class~="text-[#857F7A]"],
+  [class~="text-[#8C827A]"],
+  [class~="text-[#78726A]"],
+  [class~="text-[#6B635F]"],
+  [class~="text-[#756B70]"],
+  [class~="text-[#847A7E]"],
+  [class~="text-[#625B55]"],
+  [class~="text-[#594E4B]"],
+  [class~="text-[#554D50]"],
+  [class~="text-[#A8A29E]"],
+  [class~="text-[#A39B91]"],
+  [class~="text-[#8A7D81]"],
+  [class~="text-[#64748B]"],
+  [class~="text-[#5C5752]"],
+  [class~="text-[#73818C]"],
+  [class~="text-[#6E7B87]"]
+) {
+  color: var(--student-text-muted) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-[#94A3B8]"],
+  [class~="text-[#9CA3AF]"],
+  [class~="text-[#A0949D]"],
+  [class~="text-[#B0A4AD]"],
+  [class~="text-[#CBD5E1]"]
+) {
+  color: var(--student-text-soft) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-[#894C5B]"],
+  [class~="text-[#9B465D]"],
+  [class~="text-[#8F304A]"],
+  [class~="text-[#723C4A]"],
+  [class~="text-[#733E4C]"],
+  [class~="text-[#BD4F70]"],
+  [class~="text-[#A83E5E]"],
+  [class~="text-[#A53C58]"]
+) {
+  color: var(--student-accent) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-rose-50"],
+  [class~="bg-red-50"]
+) {
+  background-color: #40212D !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="border-rose-200"],
+  [class~="border-red-200"]
+) {
+  border-color: #713B4D !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-rose-700"],
+  [class~="text-rose-800"],
+  [class~="text-red-600"]
+) {
+  color: #F6A6BB !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-emerald-50"],
+  [class~="bg-[#EAF7F0]"],
+  [class~="bg-[#F2FAF6]"],
+  [class~="bg-[#F4FAF6]"]
+) {
+  background-color: #173B31 !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="border-emerald-200"],
+  [class~="border-[#C5E8D4]"],
+  [class~="border-[#D5EFE2]"],
+  [class~="border-[#E8F3EC]"]
+) {
+  border-color: #2D725B !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-emerald-700"],
+  [class~="text-emerald-800"],
+  [class~="text-[#167A42]"],
+  [class~="text-[#175C36]"],
+  [class~="text-[#1A4F32]"],
+  [class~="text-[#247052]"],
+  [class~="text-[#28804D]"],
+  [class~="text-[#4E735D]"]
+) {
+  color: #8BE2BC !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="bg-amber-500"],
+  [class~="bg-[#9A5B22]"]
+) {
+  background-color: #A66B20 !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="text-amber-700"],
+  [class~="text-[#9A5B22]"],
+  [class~="text-[#8C6212]"]
+) {
+  color: #F6C96B !important;
+}
+
+html.dark [data-student-shell] [class~="bg-emerald-300"] {
+  background-color: #55D29B !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="dark:bg-slate-900"],
+  [class~="dark:bg-slate-800"]
+) {
+  background-color: var(--student-surface) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="dark:border-slate-800"],
+  [class~="dark:border-slate-700"]
+) {
+  border-color: var(--student-border) !important;
+}
+
+html.dark [data-student-shell] :is(
+  [class~="dark:text-slate-100"],
+  [class~="dark:text-slate-200"]
+) {
+  color: var(--student-text) !important;
+}
+
+html.dark [data-student-shell] [class~="dark:text-slate-400"] {
+  color: var(--student-text-muted) !important;
 }
 
 a {
@@ -81,6 +404,16 @@ button, input, select, textarea {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--lp-primary);
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: var(--student-canvas);
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: var(--student-border);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #523440;
 }
 
 /* Layout Utilities */

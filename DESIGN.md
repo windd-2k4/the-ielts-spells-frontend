@@ -50,7 +50,19 @@ Use `Outfit`, falling back to `Avenir Next`, `Segoe UI`, and sans-serif. Heading
 
 Do not use full pill controls except compact status indicators. Avoid nested cards.
 
-## 5. Authentication layout
+## 5. First-viewport density for workspaces
+
+Authenticated student and management screens are workspaces, not landing pages. The primary list, table, form, or work canvas must begin in the first viewport.
+
+- At 1366x768, keep the page-local title, summary, and filters within a combined 240px vertical budget, excluding the global application navigation.
+- The first actionable card/table row or the task-specific empty state must be visible before the user scrolls.
+- Use one compact title row: a concise `h1`, at most one line of supporting copy, and inline summary metrics where they add operational value.
+- Do not use decorative eyebrow text, oversized welcome blocks, standalone overview cards, or excessive section padding on operational pages.
+- Keep desktop filters on one compact row where practical. On mobile, show the active state and make secondary filters collapsible by default.
+- Overview information must support a decision or action. Move secondary analytics below the primary work area or into a dedicated report page.
+- Verify this rule at 1366x768 and 390x844. A first-viewport screenshot containing only headers, summaries, and filters is a failed layout review.
+
+## 6. Authentication layout
 
 Desktop uses a 42/58 asymmetric split. The brand panel provides context and reassurance; the form panel owns the task. The form column is 440px maximum and remains left aligned inside its region. Mobile collapses to one column, retains a compact wordmark, and removes nonessential brand-panel copy.
 
@@ -65,7 +77,7 @@ Form order is stable:
 
 Labels always appear above fields. Errors appear below the field or as a form notice. Never rely on placeholder text as a label.
 
-## 6. Interaction states
+## 7. Interaction states
 
 - Hover: subtle color change or `translateY(-1px)` only
 - Focus: visible 3px accent wash plus 1px accent outline
@@ -76,7 +88,7 @@ Labels always appear above fields. Errors appear below the field or as a form no
 
 Transitions use opacity and transform, 160ms to 240ms. Respect `prefers-reduced-motion` and remove nonessential transforms and animation.
 
-## 7. Accessibility and content
+## 8. Accessibility and content
 
 - Minimum interactive target: 44px
 - Text and controls meet WCAG AA contrast
@@ -86,11 +98,11 @@ Transitions use opacity and transform, 160ms to 240ms. Respect `prefers-reduced-
 - Use Vietnamese copy that is direct and reassuring
 - Do not expose raw Supabase error messages to users
 
-## 8. Component vocabulary
+## 9. Component vocabulary
 
 `AuthShell`, `BrandPanel`, `AuthForm`, `SocialAuthButtons`, `FormField`, `PasswordField`, `FormNotice`, `SubmitButton`, and `AuthCallback` are the canonical authentication components. Use Phosphor icons only. Reuse this system for reset password and email verification screens later.
 
-## 9. Anti-patterns
+## 10. Anti-patterns
 
 - No generic centered card floating over a gradient
 - No glassmorphism or heavy glow
