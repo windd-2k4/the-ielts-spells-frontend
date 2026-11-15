@@ -29,6 +29,8 @@ import {
 } from "@/features/student-hub/studentPortalApi";
 import { formatBand, formatDateTime } from "@/features/student-hub/studentPortalViewModel";
 import { PlacementTestBanner } from "@/features/placement-test/PlacementTestBanner";
+import { fetchCurrentPlacementTest } from "@/features/placement-test/placementTestApi";
+import { HeroBookArtwork } from "@/features/student-hub/HeroBookArtwork";
 import styles from "@/features/student-hub/StudentLearningOverview.module.css";
 
 const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -90,6 +92,23 @@ export default function StudentDashboardPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   const [activity, setActivity] = useState<StudentPortalDailyActivity[]>([]);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [placementTargetBand, setPlacementTargetBand] = useState<number | null>(null);
+
+  useEffect(() => {
+    const studentId = session?.user?.id;
+    if (!studentId) return;
+    let isMounted = true;
+    void fetchCurrentPlacementTest(studentId)
+      .then((rec) => {
+        if (isMounted && rec?.targetBand) {
+          setPlacementTargetBand(rec.targetBand);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user?.id]);
 
   // Sync initial activity data from portal overview
   useEffect(() => {
@@ -142,6 +161,11 @@ export default function StudentDashboardPage() {
   const listeningTarget = data.profile.listeningTarget;
   const writingTarget = data.profile.writingTarget;
   const speakingTarget = data.profile.speakingTarget;
+  const effectiveTargetBand =
+    targetBand ??
+    placementTargetBand ??
+    activeEnrollment?.courseTargetBand ??
+    (readingTarget && listeningTarget ? (readingTarget + listeningTarget) / 2 : null);
 
   // Calendar dates
   const activityByDate = new Map(activity.map((item) => [item.activityDate, item]));
@@ -228,13 +252,9 @@ export default function StudentDashboardPage() {
               </Link>
             </div>
 
-            {/* Design Book Artwork - Matching Image 3 Directly */}
+            {/* Design Book Artwork - High-res Vector SVG (The IELTS Spells Magic Book) */}
             <div className={styles.heroIllustration} aria-hidden="true">
-              <img
-                src="/images/hero-book-design.png"
-                alt=""
-                className={styles.heroBookImg}
-              />
+              <HeroBookArtwork className={styles.heroBookSvg} />
             </div>
           </section>
 
@@ -603,7 +623,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {showGoalModal && (
-              <div style={{ marginBottom: "14px", padding: "10px", background: "#FAF7F9", borderRadius: "10px" }}>
+              <div className={styles.goalModalBox}>
                 <StudentTargetBandControl compact id="sidebar-target-control" />
               </div>
             )}
@@ -639,7 +659,7 @@ export default function StudentDashboardPage() {
 
               <div className={styles.goalTextGroup}>
                 <p className={styles.goalTextTitle}>
-                  {targetBand != null ? `Đạt band ${formatBand(targetBand)} IELTS` : "Chưa đặt band mục tiêu"}
+                  {effectiveTargetBand != null ? `Đạt band ${formatBand(effectiveTargetBand)} IELTS` : "Chưa đặt band mục tiêu"}
                 </p>
                 <p className={styles.goalTextDesc}>
                   {courseProgress > 0 ? `Còn ${100 - courseProgress}% để chạm đích` : "Bắt đầu học để ghi nhận tiến độ"}
@@ -684,7 +704,7 @@ export default function StudentDashboardPage() {
           <Link
             href="/student/roadmap"
             className={styles.roadmapPromoWidget}
-            aria-label="Cùng nhau chinh phục Band 7.0! - Xem lộ trình học tập"
+            aria-label={effectiveTargetBand != null ? `Cùng nhau chinh phục Band ${formatBand(effectiveTargetBand)}! - Xem lộ trình học tập` : "Cùng nhau chinh phục mục tiêu IELTS! - Xem lộ trình học tập"}
           >
             {/* Left Content */}
             <div className={styles.roadmapPromoContent}>
@@ -724,7 +744,7 @@ export default function StudentDashboardPage() {
 
               <div className={styles.promoTextGroup}>
                 <span className={styles.promoTitleLine1}>Cùng nhau chinh phục</span>
-                <span className={styles.promoTitleLine2}>Band 7.0!</span>
+                <span className={styles.promoTitleLine2}>{effectiveTargetBand != null ? `Band ${formatBand(effectiveTargetBand)}!` : "Mục tiêu IELTS!"}</span>
                 <p className={styles.promoSubtitle}>
                   Mỗi ngày học một chút,<br />bạn sẽ thấy sự thay đổi lớn!
                 </p>

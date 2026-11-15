@@ -34,12 +34,12 @@ export function StudentRoadmapMilestones({
       {/* Section Title */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#F7E5EA] text-[#894C5B] flex items-center justify-center font-bold">
+          <div className="w-8 h-8 rounded-xl bg-[#F7E5EA] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] flex items-center justify-center font-bold">
             <MapTrifold size={20} weight="fill" />
           </div>
           <div>
-            <h3 className="text-lg font-extrabold text-[#1E1B18]">Lộ Trình Học Tập</h3>
-            <p className="text-xs text-[#857F7A]">Các cột mốc chuyển giao năng lực cá nhân</p>
+            <h3 className="text-lg font-extrabold text-[#1E1B18] dark:text-[#F5F0F3]">Lộ Trình Học Tập</h3>
+            <p className="text-xs text-[#857F7A] dark:text-[#BEB2BC]">Các cột mốc chuyển giao năng lực cá nhân</p>
           </div>
         </div>
 
@@ -68,7 +68,7 @@ export function StudentRoadmapMilestones({
         />
       ) : (
         /* Timeline / Milestone Horizontal View */
-        <div className="bg-white rounded-2xl p-6 border border-[#F3E8C4] shadow-xs overflow-x-auto">
+        <div className="bg-white dark:bg-[#221E24] rounded-2xl p-6 border border-[#F3E8C4] dark:border-[#403640] shadow-xs overflow-x-auto">
           <div className="min-w-[600px] flex items-start justify-between relative">
             {/* Connecting Progress Line */}
             <div className="absolute top-5 left-8 right-8 h-1 bg-[#E5DFD3] z-0" />
@@ -92,7 +92,7 @@ export function StudentRoadmapMilestones({
                         ? "bg-[#F5C842] text-[#1E1B18] ring-4 ring-[#FEF9C3]"
                         : isLast
                         ? "bg-[#1E1B18] text-white"
-                        : "bg-white text-[#A39B91] border-2 border-[#E5DFD3]"
+                        : "bg-white dark:bg-[#2C2630] text-[#A39B91] dark:text-[#91858F] border-2 border-[#E5DFD3] dark:border-[#403640]"
                     }`}
                   >
                     {isCompleted && <CheckCircle size={22} weight="fill" />}

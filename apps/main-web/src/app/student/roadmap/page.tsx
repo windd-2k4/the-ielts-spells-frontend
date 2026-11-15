@@ -12,13 +12,13 @@ export default function StudentRoadmapPage() {
   return (
     <div className="space-y-8">
       <header className="max-w-2xl">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#894C5B]">Kế hoạch cá nhân</p>
-        <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#292528]">Lộ trình học tập</h2>
-        <p className="mt-2 text-sm leading-6 text-[#6F676C]">Lộ trình được tạo từ Band, kết quả bài làm và trạng thái ghi danh thật của bạn.</p>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#894C5B] dark:text-[#E17A9B]">Kế hoạch cá nhân</p>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#292528] dark:text-[#F5F0F3]">Lộ trình học tập</h2>
+        <p className="mt-2 text-sm leading-6 text-[#6F676C] dark:text-[#BEB2BC]">Lộ trình được tạo từ Band, kết quả bài làm và trạng thái ghi danh thật của bạn.</p>
       </header>
       <StudentTargetBandControl />
       {loading || !data ? (
-        <div className="h-44 animate-pulse rounded-[22px] border border-[#E8E2D5] bg-white" />
+        <div className="h-44 animate-pulse rounded-[22px] border border-[#E8E2D5] dark:border-[#403640] bg-white dark:bg-[#221E24]" />
       ) : (
         <>
           <StudentRoadmapMilestones milestones={buildStudentRoadmap(data)} />

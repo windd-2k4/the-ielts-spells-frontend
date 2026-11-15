@@ -55,3 +55,16 @@ a.skill:hover { background: var(--lp-rose-soft); }
 @media (max-width: 1199px) { .workspace { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; } .skill { flex-direction: column; align-items: flex-start; gap: 8px; } }
 @media (max-width: 767px) { .workspace { grid-template-columns: 1fr; } .welcome { align-items: flex-start; } .date { display: none; } .panel, .focus, .goal { padding: 18px; } .focus h3 { font-size: 21px; } .sectionHead { align-items: flex-start; gap: 8px; } .sectionHead .textLink { font-size: 12px; } .task { align-items: flex-start; flex-direction: column; gap: 4px; } .skillStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .skill { flex-direction: row; align-items: center; } .skill:nth-child(3) { border-left: 0; } .skill:nth-child(n+3) { border-top: 1px solid var(--lp-border-rose); } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+
+
+/* Dark Mode System for StudentOverview */
+:global(.dark) .overview {
+  color: #F5F0F3;
+}
+
+:global(.dark) .panel {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

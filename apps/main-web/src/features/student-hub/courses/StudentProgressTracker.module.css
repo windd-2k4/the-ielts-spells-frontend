@@ -108,6 +108,18 @@
 .evidenceButton:hover, .saveButton:hover { background: #faeef2; }
 .evidenceButton:disabled, .saveButton:disabled { cursor: wait; opacity: .55; }
 .assignmentForm { display: grid; gap: 10px; margin-top: 12px; }
+.assignmentDescription { margin: 0; white-space: pre-wrap; color: #66565c; font-size: 12px; line-height: 1.55; }
+.assignmentDescription a { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere; color: #8f4458; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.resourceAssignment { display: grid; gap: 10px; margin-top: 12px; border: 1px solid #dfd0d5; border-radius: 12px; background: #fffafb; padding: 12px; }
+.resourceAssignmentHeading { display: flex; align-items: center; gap: 7px; color: #8f4458; font-size: 12px; }
+.completionOptions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.completionCheck { display: flex; min-height: 50px; flex: 1 1 260px; align-items: center; gap: 10px; border: 1px solid #d8bcc5; border-radius: 10px; background: #fff; padding: 8px 11px; cursor: pointer; }
+.completionCheck input { width: 17px; height: 17px; flex: 0 0 auto; accent-color: #994b62; }
+.completionCheck span { display: grid; gap: 2px; font-size: 12px; }
+.completionCheck small { color: #79666e; font-size: 10px; font-weight: 600; }
+.completionCheck:has(input:checked) { border-color: #89bfae; background: #f0faf6; }
+.completionOptions .evidenceButton { min-height: 50px; margin-top: 0; }
+.completionHint { color: #79666e; font-size: 10px; line-height: 1.45; }
 .audioSubmission { display: grid; gap: 8px; border: 1px solid #eadde1; border-radius: 11px; background: #fffafb; padding: 10px; }
 .audioGroup { display: grid; gap: 8px; }
 .audioItem { display: grid; gap: 6px; border: 1px solid #eadde1; border-radius: 9px; background: white; padding: 9px; }
@@ -207,4 +219,277 @@
   .hint { margin-left: 0; }
   .activity { grid-template-columns: 1fr; }
   .summary { grid-column: auto; grid-template-columns: 1fr; }
+}
+
+
+/* ==========================================================================
+   StudentProgressTracker.module.css — Professional Dark Mode System
+   ========================================================================== */
+:global(.dark) .tracker {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .toolbar {
+  border-bottom-color: #403640;
+  background: #28212A;
+}
+
+:global(.dark) .toolbar label {
+  color: #BEB2BC;
+}
+
+:global(.dark) .toolbar select {
+  background: #2C2630;
+  border: 1px solid #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .hint {
+  color: #91858F;
+}
+
+:global(.dark) .activity {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .activity:hover {
+  background: #2C2630;
+}
+
+:global(.dark) .eyebrow {
+  color: #E17A9B;
+}
+
+:global(.dark) .activity h3,
+:global(.dark) .activity h4 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .meta {
+  color: #BEB2BC;
+}
+
+:global(.dark) .evidenceButton,
+:global(.dark) .assignmentLink,
+:global(.dark) .reviewLink {
+  border-color: #403640;
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .evidenceButton:hover,
+:global(.dark) .assignmentLink:hover,
+:global(.dark) .reviewLink:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .saveButton {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .saveButton:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .reviewReminder {
+  background: #332616;
+  border-color: #6E5325;
+  color: #FDE047;
+}
+
+:global(.dark) .assignmentForm {
+  border-top-color: #403640;
+  background: #28212A;
+}
+
+:global(.dark) .assignmentDescription {
+  color: #BEB2BC;
+}
+
+:global(.dark) .assignmentDescription a {
+  color: #E17A9B;
+}
+
+:global(.dark) .resourceAssignment {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .resourceAssignmentHeading {
+  color: #E17A9B;
+}
+
+:global(.dark) .completionCheck {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .completionCheck small {
+  color: #91858F;
+}
+
+:global(.dark) .completionCheck:has(input:checked) {
+  border-color: #10B981;
+  background: #1B2E26;
+}
+
+:global(.dark) .completionHint {
+  color: #91858F;
+}
+
+:global(.dark) .audioSubmission {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .audioItem {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .audioItemHeader button {
+  background: #392630;
+  border-color: #5C3240;
+  color: #E17A9B;
+}
+
+:global(.dark) .audioItem small {
+  color: #91858F;
+}
+
+:global(.dark) .field label {
+  color: #BEB2BC;
+}
+
+:global(.dark) .field input,
+:global(.dark) .field textarea,
+:global(.dark) .assignmentForm textarea {
+  border-color: #403640;
+  background: #221E24;
+  color: #F5F0F3;
+}
+
+:global(.dark) .feedback {
+  background: #2C2630;
+  border-color: #403640;
+  border-left-color: #E17A9B;
+  color: #BEB2BC;
+}
+
+:global(.dark) .annotatedSubmission {
+  background: #332616;
+  border-color: #6E5325;
+  color: #FDE047;
+}
+
+:global(.dark) .rubricFeedback > div {
+  border-top-color: #403640;
+}
+
+:global(.dark) .rubricFeedback b {
+  color: #E17A9B;
+}
+
+:global(.dark) .rubricFeedback small {
+  color: #91858F;
+}
+
+:global(.dark) .annotationFeedback > div {
+  background: #221E24;
+  border: 1px solid #403640;
+}
+
+:global(.dark) .annotationFeedback blockquote {
+  color: #F5F0F3;
+}
+
+:global(.dark) .historyButton {
+  color: #E17A9B;
+}
+
+:global(.dark) .revisionHistory {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .revisionRow {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .revisionHeader span {
+  color: #91858F;
+}
+
+:global(.dark) .revisionHeader em {
+  color: #E17A9B;
+}
+
+:global(.dark) .revisionRow small {
+  color: #91858F;
+}
+
+:global(.dark) .compareButton {
+  background: #2C2630;
+  border-color: #403640;
+  color: #E17A9B;
+}
+
+:global(.dark) .compareButton:hover {
+  background: #342B35;
+}
+
+:global(.dark) .revisionCompare {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .revisionCompareHeader {
+  color: #F5F0F3;
+}
+
+:global(.dark) .revisionCompareHeader button {
+  color: #E17A9B;
+}
+
+:global(.dark) .revisionCompareGrid section {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .revisionDelta {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .checklist {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .checklistTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .checkItem {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .notice {
+  background: #391E24;
+  border-bottom-color: #5C2D35;
+  color: #F87171;
+}
+
+:global(.dark) .empty {
+  color: #91858F;
 }

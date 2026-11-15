@@ -12,6 +12,7 @@ import {
   ClockCounterClockwise,
   GraduationCap,
   MapTrifold,
+  Microphone,
   PencilSimpleLine,
   Robot,
   Sparkle,
@@ -25,6 +26,8 @@ import { getStudentCoursesHref } from "./studentCourseNav";
 import styles from "./StudentMobileNav.module.css";
 
 interface StudentMobileNavProps { isOpen: boolean; onClose: () => void; }
+
+const AI_EXAMINER_ENABLED = process.env.NEXT_PUBLIC_AI_SPEAKING_EXAMINER_ENABLED === "true";
 
 const bottomItems = [
   { href: "/student", label: "Tổng quan", icon: SquaresFour },
@@ -40,6 +43,7 @@ const groups = [
     { href: "/student/placement-test", label: "Test đầu vào FREE", icon: Sparkle },
     { href: "/student/assignments", label: "Bài tập được giao", icon: BookOpenText },
     { href: "/student/practice", label: "Phòng luyện 4 kỹ năng", icon: PencilSimpleLine },
+    ...(AI_EXAMINER_ENABLED ? [{ href: "/student/practice?skill=SPEAKING&type=FULL_TEST&experience=AI_EXAMINER", label: "AI Speaking Examiner", icon: Microphone }] : []),
     { href: "/student/flashcards", label: "Sổ từ vựng & Flashcards", icon: Cards },
     { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },
     { href: "/student/schedule", label: "Lịch học", icon: CalendarCheck },

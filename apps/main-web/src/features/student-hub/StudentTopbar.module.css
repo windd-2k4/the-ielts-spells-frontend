@@ -15,12 +15,12 @@
 }
 
 .bar {
-  min-height: 68px;
+  min-height: 64px;
   display: grid;
-  grid-template-columns: minmax(224px, auto) 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 8px 16px 8px 18px;
+  gap: 12px;
+  padding: 6px 14px;
   border: 1px solid #F0E8ED;
   border-radius: 20px;
   color: #1F2937;
@@ -32,6 +32,7 @@
 .brandMenu {
   position: relative;
   width: max-content;
+  flex-shrink: 0;
 }
 
 .brand {
@@ -143,28 +144,117 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.navMenu {
+  position: relative;
 }
 
 .navLink {
-  min-height: 40px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
+  gap: 6px;
+  padding: 6px 9px;
   border-radius: 10px;
   color: #64748B;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   text-decoration: none;
   transition: all 160ms ease;
 }
 
-.navLink svg {
-  width: 17px;
-  height: 17px;
+button.navLink {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.navCaret {
+  width: 11px !important;
+  height: 11px !important;
+  transition: transform 160ms ease;
+}
+
+.navMenuOpen .navCaret {
+  transform: rotate(180deg);
+}
+
+.practiceDropdown {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  z-index: 50;
+  display: grid;
+  gap: 3px;
+  width: 276px;
+  padding: 6px;
+  border: 1px solid #F0E8ED;
+  border-radius: 14px;
+  background: #FFFFFF;
+  box-shadow: 0 12px 32px rgba(30, 27, 24, 0.1);
+  transform: translateX(-50%);
+}
+
+.practiceDropdown::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 8px;
+  content: "";
+}
+
+.practiceDropdownItem {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: #64748B;
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.practiceDropdownItem > svg {
+  color: #BD4F70;
+}
+
+.practiceDropdownItem span {
+  display: grid;
+  gap: 2px;
+}
+
+.practiceDropdownItem strong {
+  color: #1E2530;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.practiceDropdownItem small {
   color: #94A3B8;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.practiceDropdownItem:hover,
+.practiceDropdownItem:focus-visible {
+  background: #FDF2F5;
+  color: #BD4F70;
+  outline: none;
+}
+
+.navLink svg {
+  width: 16px;
+  height: 16px;
+  color: #94A3B8;
+  flex-shrink: 0;
   transition: color 160ms ease;
 }
 
@@ -205,7 +295,8 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .notificationWrapper {
@@ -264,19 +355,21 @@
 
 .account {
   position: relative;
+  flex-shrink: 0;
 }
 
 .accountButton {
-  min-height: 42px;
+  min-height: 40px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 4px 9px 4px 4px;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
   border: none;
   border-radius: 999px;
   color: #1F2937;
   background: transparent;
   cursor: pointer;
+  flex-shrink: 0;
   transition: background-color 160ms ease;
 }
 
@@ -296,6 +389,14 @@
   display: grid;
   place-items: center;
   letter-spacing: 0.02em;
+  overflow: hidden;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .name {
@@ -303,10 +404,14 @@
   font-weight: 550;
   color: #1E2530;
   white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .caret {
   color: #94A3B8;
+  flex-shrink: 0;
   transition: transform 160ms ease;
 }
 
@@ -320,6 +425,7 @@
   right: 0;
   z-index: 50;
   min-width: 220px;
+  max-width: min(calc(100vw - 32px), 280px);
   padding: 6px;
   border: 1px solid #F0E8ED;
   border-radius: 16px;
@@ -352,6 +458,9 @@
   font-size: 11px;
   color: #64748B;
   margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menuList {
@@ -383,6 +492,18 @@
 .menuItem:hover {
   background: #FDF2F5;
   color: #BD4F70;
+}
+
+.themeIcon {
+  flex-shrink: 0;
+}
+
+.themeIconDark {
+  color: #8A4D68;
+}
+
+.themeIconLight {
+  color: #C58D20;
 }
 
 .signOut {
@@ -451,7 +572,7 @@
   height: 30px;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1160px) {
   .nav {
     display: none;
   }
@@ -471,92 +592,140 @@
    DARK MODE STYLES
    ========================================================================= */
 :global(.dark) .bar {
-  background: #0F172A;
-  border-color: #1E293B;
-  color: #F8FAFC;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 :global(.dark) .brandCopy strong {
-  color: #F8FAFC;
+  color: #F5F0F3;
 }
 
 :global(.dark) .brandCopy small {
-  color: #94A3B8;
+  color: #BEB2BC;
 }
 
 :global(.dark) .brandDropdown {
-  background: #1E293B;
-  border-color: #334155;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
 }
 
 :global(.dark) .brandDropdownItem {
-  color: #E2E8F0;
+  color: #F5F0F3;
 }
 
-:global(.dark) .brandDropdownItem:hover {
-  background: #334155;
-  color: #FFFFFF;
+:global(.dark) .brandDropdownItem:hover,
+:global(.dark) .brandDropdownItem:focus-visible {
+  background: #342B35;
+  color: #E17A9B;
 }
 
 :global(.dark) .navLink {
-  color: #94A3B8;
+  color: #BEB2BC;
+}
+
+:global(.dark) .navLink svg {
+  color: #91858F;
 }
 
 :global(.dark) .navLink:hover {
-  color: #F8FAFC;
-  background: #1E293B;
+  color: #F5F0F3;
+  background: #342B35;
 }
 
 :global(.dark) .navLink[aria-current="page"] {
-  color: #F472B6;
-  background: rgba(244, 114, 182, 0.12);
+  color: #E17A9B;
+  background: #392630;
+}
+
+:global(.dark) .navLink[aria-current="page"] svg {
+  color: #E17A9B;
+}
+
+:global(.dark) .practiceDropdown {
+  border-color: #403640;
+  background: #2C2630;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+:global(.dark) .practiceDropdownItem {
+  color: #BEB2BC;
+}
+
+:global(.dark) .practiceDropdownItem strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .practiceDropdownItem small {
+  color: #91858F;
+}
+
+:global(.dark) .practiceDropdownItem:hover,
+:global(.dark) .practiceDropdownItem:focus-visible {
+  background: #342B35;
+  color: #E17A9B;
+}
+
+:global(.dark) .navBadge {
+  background: #BE4F74;
+  color: #FFFFFF;
 }
 
 :global(.dark) .iconActionBtn {
-  background: #1E293B;
-  border-color: #334155;
-  color: #E2E8F0;
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
 }
 
 :global(.dark) .iconActionBtn:hover {
-  background: #334155;
-  color: #FFFFFF;
-  border-color: #475569;
+  background: #342B35;
+  color: #F5F0F3;
+  border-color: #523440;
 }
 
 :global(.dark) .name {
-  color: #F8FAFC;
+  color: #F5F0F3;
 }
 
 :global(.dark) .accountButton:hover {
-  background: #1E293B;
+  background: #342B35;
 }
 
 :global(.dark) .dropdown {
-  background: #1E293B;
-  border-color: #334155;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
 }
 
 :global(.dark) .accountIdentity {
-  border-bottom-color: #334155;
+  border-bottom-color: #403640;
 }
 
 :global(.dark) .accountIdentity strong {
-  color: #F8FAFC;
+  color: #F5F0F3;
 }
 
 :global(.dark) .accountIdentity span {
-  color: #94A3B8;
+  color: #BEB2BC;
 }
 
 :global(.dark) .menuItem {
-  color: #E2E8F0;
+  color: #BEB2BC;
 }
 
 :global(.dark) .menuItem:hover {
-  background: #334155;
-  color: #FFFFFF;
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .headerCompact .bar {
+  border-color: #403640;
+  background: rgba(34, 30, 36, 0.94);
+}
+
+:global(.dark) .headerCompact .menuButton {
+  background: #392630;
+  color: #E17A9B;
 }

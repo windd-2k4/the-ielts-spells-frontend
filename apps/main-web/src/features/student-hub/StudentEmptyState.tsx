@@ -31,23 +31,23 @@ export function StudentEmptyState({
 }: StudentEmptyStateProps) {
   return (
     <div
-      className={`relative flex flex-col items-center justify-center text-center rounded-2xl border border-dashed border-[#E5DFD3] bg-gradient-to-b from-[#FFFDF9] to-[#FEFBF2] ${
+      className={`relative flex flex-col items-center justify-center text-center rounded-2xl border border-dashed border-[#E5DFD3] dark:border-[#403640] bg-gradient-to-b from-[#FFFDF9] to-[#FEFBF2] dark:from-[#221E24] dark:to-[#1B171C] ${
         compact ? "p-5 sm:p-6" : "p-8 sm:p-12"
       } shadow-2xs transition-all hover:border-[#D0C5B0]`}
     >
       {badgeTag && (
-        <span className="absolute top-3.5 right-3.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#F7E5EA] text-[#894C5B] border border-[#F0C4CE]/50">
+        <span className="absolute top-3.5 right-3.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#F7E5EA] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] border border-[#F0C4CE]/50 dark:border-[#5C3240]">
           {badgeTag}
         </span>
       )}
 
-      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#FEF9C3] text-[#894C5B] border border-[#F3E8C4] flex items-center justify-center mb-3.5 shadow-xs relative group">
+      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#FEF9C3] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] border border-[#F3E8C4] dark:border-[#5C3240] flex items-center justify-center mb-3.5 shadow-xs relative group">
         <div className="absolute inset-0 rounded-2xl bg-[#F5C842]/20 blur-sm group-hover:blur-md transition-all -z-10" />
         {icon || <FolderOpen size={28} weight="duotone" className="text-[#894C5B]" />}
       </div>
 
-      <h4 className="text-base sm:text-lg font-bold text-[#1E1B18] mb-1 font-sans">{title}</h4>
-      <p className="text-xs sm:text-sm text-[#78726A] max-w-md leading-relaxed mb-5">
+      <h4 className="text-base sm:text-lg font-bold text-[#1E1B18] dark:text-[#F5F0F3] mb-1 font-sans">{title}</h4>
+      <p className="text-xs sm:text-sm text-[#78726A] dark:text-[#BEB2BC] max-w-md leading-relaxed mb-5">
         {description}
       </p>
 
@@ -75,7 +75,7 @@ export function StudentEmptyState({
         {secondaryActionLabel && secondaryActionHref && (
           <Link
             href={secondaryActionHref}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white text-[#5C5752] hover:text-[#1E1B18] border border-[#E8E2D5] hover:bg-[#FEF9C3] transition-all"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-[#2C2630] text-[#5C5752] dark:text-[#BEB2BC] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3] border border-[#E8E2D5] dark:border-[#403640] hover:bg-[#FEF9C3] dark:hover:bg-[#342B35] transition-all"
           >
             <span>{secondaryActionLabel}</span>
           </Link>

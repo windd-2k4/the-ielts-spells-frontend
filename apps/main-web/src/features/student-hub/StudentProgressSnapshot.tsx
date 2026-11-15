@@ -22,17 +22,17 @@ export function StudentProgressSnapshot({ data }: { data: StudentPortalOverview 
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#894C5B]">Dữ liệu năng lực</p>
-          <h2 className="mt-1 text-xl font-bold text-[#292528]">Tiến độ IELTS</h2>
-          <p className="mt-1 text-xs text-[#6F676C]">Chỉ hiển thị kết quả đã được hệ thống ghi nhận.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#894C5B] dark:text-[#E17A9B]">Dữ liệu năng lực</p>
+          <h2 className="mt-1 text-xl font-bold text-[#292528] dark:text-[#F5F0F3]">Tiến độ IELTS</h2>
+          <p className="mt-1 text-xs text-[#6F676C] dark:text-[#BEB2BC]">Chỉ hiển thị kết quả đã được hệ thống ghi nhận.</p>
         </div>
         <Link href="/student/history" className="hidden items-center gap-1 text-xs font-bold text-[#894C5B] hover:underline sm:flex">Chi tiết <ArrowRight size={13} /></Link>
       </div>
 
-      <div className="overflow-hidden rounded-[22px] border border-[#E8E2D5] bg-white">
+      <div className="overflow-hidden rounded-[22px] border border-[#E8E2D5] dark:border-[#403640] bg-white dark:bg-[#221E24]">
         <div className="grid gap-px bg-[#E8E2D5] sm:grid-cols-2 lg:grid-cols-4">
           {skills.map((skill) => (
-            <div key={skill.id} className="bg-white p-4">
+            <div key={skill.id} className="bg-white dark:bg-[#221E24] p-4">
               <div className="flex items-center justify-between text-[#894C5B]">
                 {skill.icon}
                 <span className="text-lg font-bold text-[#292528]">{skill.value ?? "—"}</span>

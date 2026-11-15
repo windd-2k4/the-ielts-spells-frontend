@@ -152,9 +152,11 @@
 }
 
 .heroBookSvg {
-  width: 100%;
-  height: auto;
-  max-height: 135px;
+  width: auto;
+  height: 114px;
+  max-width: 250px;
+  filter: drop-shadow(0 4px 12px rgba(189, 79, 112, 0.1));
+  display: block;
 }
 
 /* ==========================================================================
@@ -1526,6 +1528,14 @@
   cursor: pointer;
 }
 
+.goalModalBox {
+  margin-bottom: 14px;
+  padding: 10px;
+  background: #FAF7F9;
+  border-radius: 10px;
+  border: 1px solid #F0E8ED;
+}
+
 @media (max-width: 1120px) {
   .dashboardGrid {
     grid-template-columns: 1fr;
@@ -1560,4 +1570,602 @@
   .heroIllustration {
     display: none;
   }
+}
+
+/* =========================================================================
+   DARK MODE SYSTEM (Soft Charcoal + Rose SaaS Dashboard)
+   App Background: #171418 | Surface: #221E24 | Elevated: #2C2630
+   Hover: #342B35 | Border: #403640 | Text: #F5F0F3 | Muted: #BEB2BC
+   Accent: #E17A9B | Primary Button: #BE4F74 | Soft Accent BG: #392630
+   ========================================================================= */
+:global(.dark) .overview {
+  --ink: #F5F0F3;
+  --muted: #BEB2BC;
+  --muted-light: #91858F;
+  --line: #403640;
+  --line-soft: #2C2630;
+  --rose: #E17A9B;
+  --rose-hover: #BE4F74;
+  --rose-light: #392630;
+  --rose-soft: #2E222B;
+  --rose-dark: #BE4F74;
+  --white: #221E24;
+}
+
+/* A. Hero Banner & Welcome Section */
+:global(.dark) .heroBanner {
+  background: linear-gradient(90deg, #221E24 0%, #291F28 45%, #30212E 85%, #382434 100%);
+  border-color: #403640;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .heroGreetingIcon {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .heroTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .heroSubtitle {
+  color: #BEB2BC;
+}
+
+:global(.dark) .heroActionBtn {
+  background: linear-gradient(135deg, #BE4F74 0%, #9C395B 100%);
+  color: #FFFFFF;
+  box-shadow: 0 3px 12px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .heroActionBtn:hover {
+  background: linear-gradient(135deg, #D46287 0%, #BE4F74 100%);
+  box-shadow: 0 5px 18px rgba(190, 79, 116, 0.45);
+}
+
+:global(.dark) .heroBookImg,
+:global(.dark) .heroBookSvg {
+  filter: drop-shadow(0 4px 20px rgba(225, 122, 155, 0.35));
+}
+
+/* B. 5 Score Cards Row */
+:global(.dark) .scoreCardOverview {
+  background: linear-gradient(135deg, #BE4F74 0%, #852F4B 100%);
+  box-shadow: 0 4px 16px rgba(190, 79, 116, 0.25);
+}
+
+:global(.dark) .scoreCardSkill {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+:global(.dark) .scoreCardSkill:hover {
+  border-color: #E17A9B;
+  background: #262028;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+:global(.dark) .scoreCardTitleSkill {
+  color: #BEB2BC;
+}
+
+:global(.dark) .scoreCardValueSkill {
+  color: #F5F0F3;
+}
+
+:global(.dark) .scoreCardIconSkill {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .scoreCardTrendSub {
+  color: #91858F;
+}
+
+/* C. Calendar & Diligence Chart */
+:global(.dark) .calendarCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+:global(.dark) .calendarHeaderTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .calendarHeaderCopy small {
+  color: #91858F;
+}
+
+:global(.dark) .calendarIconBox {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .submissionLegend {
+  color: #BEB2BC;
+}
+
+:global(.dark) .submissionLegend i {
+  background: #E17A9B;
+}
+
+:global(.dark) .monthNavBtn {
+  color: #BEB2BC;
+}
+
+:global(.dark) .monthNavBtn:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .monthNavText {
+  color: #F5F0F3;
+}
+
+:global(.dark) .calendarWeekdays {
+  color: #91858F;
+}
+
+:global(.dark) .calendarDaysGrid {
+  background: #221E24;
+  border-top-color: #403640;
+  border-left-color: #403640;
+}
+
+:global(.dark) .calDayCell {
+  background: #221E24;
+  border-right-color: #403640;
+  border-bottom-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .calDayCell:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .calDayCellOutside {
+  background: #1B181D;
+  color: #605560;
+}
+
+:global(.dark) .calDayCellSelected {
+  box-shadow: inset 0 0 0 2px #E17A9B;
+}
+
+:global(.dark) .calDayNumberActive {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .calDotToday {
+  background: #E17A9B;
+}
+
+:global(.dark) .calDotSession {
+  background: #BEB2BC;
+}
+
+/* D. Weekly Activity Table */
+:global(.dark) .activityCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+:global(.dark) .activityCardTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .activityCardSubtitle {
+  color: #91858F;
+}
+
+:global(.dark) .activityCardLink {
+  color: #E17A9B;
+}
+
+:global(.dark) .activityCardLink:hover {
+  color: #BE4F74;
+}
+
+:global(.dark) .activityTable th {
+  color: #91858F;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .activitySkillIcon {
+  color: #E17A9B;
+}
+
+:global(.dark) .activityTable td {
+  color: #F5F0F3;
+  border-bottom-color: #2C2630;
+}
+
+:global(.dark) .activityTable tbody tr:hover td:not(.activityCellLight):not(.activityCellMedium):not(.activityCellStrong) {
+  background: #2C2630;
+}
+
+:global(.dark) .activityCellLight {
+  background: #392630;
+  color: #E17A9B !important;
+}
+
+:global(.dark) .activityCellMedium {
+  background: #5A2D40;
+  color: #F5F0F3 !important;
+}
+
+:global(.dark) .activityCellStrong {
+  background: #BE4F74;
+  color: #FFFFFF !important;
+}
+
+:global(.dark) .activityDuration {
+  color: #BEB2BC !important;
+}
+
+:global(.dark) .activityEmptyDash {
+  color: #605560;
+}
+
+:global(.dark) .activityTotalRow td {
+  background: #28212A;
+  color: #F5F0F3;
+  border-top-color: #403640;
+}
+
+/* E. Today's Focus Priority Tasks */
+:global(.dark) .sectionHeadIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .sectionHeadTitles h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .sectionHeadTitles p {
+  color: #91858F;
+}
+
+:global(.dark) .textLink {
+  color: #E17A9B;
+}
+
+:global(.dark) .textLink:hover {
+  color: #BE4F74;
+}
+
+:global(.dark) .panel {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .panelHeader h3 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .panelHeader span {
+  color: #91858F;
+}
+
+:global(.dark) .taskRow {
+  border-top-color: #2C2630;
+}
+
+:global(.dark) .taskRow:hover {
+  background: #2C2630;
+}
+
+:global(.dark) .taskIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .taskCopy strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .taskCopy span {
+  color: #91858F;
+}
+
+:global(.dark) .rowAction {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .rowAction:hover {
+  background: #BE4F74;
+  border-color: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .empty {
+  border-top-color: #2C2630;
+}
+
+:global(.dark) .emptyIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .empty strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .empty p {
+  color: #91858F;
+}
+
+:global(.dark) .sessionCard {
+  background: #221E24;
+  border-color: #403640;
+  border-top-color: #BE4F74;
+}
+
+:global(.dark) .sessionTop {
+  color: #E17A9B;
+}
+
+:global(.dark) .sessionTop > span {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .trackBadge {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .trackBadge b {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .sessionCard strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .sessionCard p {
+  color: #91858F;
+}
+
+:global(.dark) .sessionCard > a {
+  color: #E17A9B;
+}
+
+/* F. Right Sidebar Widgets */
+/* Widget 1: Target Goal */
+:global(.dark) .goalWidget {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .goalHeaderTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .goalHeaderTitle svg {
+  color: #E17A9B;
+}
+
+:global(.dark) .goalPillBtn {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(190, 79, 116, 0.25);
+}
+
+:global(.dark) .goalPillBtn:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .goalModalBox {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .gaugeSvg circle:first-child {
+  stroke: #2C2630;
+}
+
+:global(.dark) .gaugeSvg circle:last-child {
+  stroke: #BE4F74;
+}
+
+:global(.dark) .gaugePercent {
+  color: #F5F0F3;
+}
+
+:global(.dark) .gaugeLabel {
+  color: #91858F;
+}
+
+:global(.dark) .goalTextTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .goalTextDesc {
+  color: #BEB2BC;
+}
+
+:global(.dark) .goalProgressBar {
+  background: #2C2630;
+}
+
+:global(.dark) .goalProgressFill {
+  background: linear-gradient(90deg, #BE4F74 0%, #E17A9B 100%);
+}
+
+/* Widget 2: Nearest Exam */
+:global(.dark) .examWidget {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .examIconBox {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .examHeaderTitle {
+  color: #91858F;
+}
+
+:global(.dark) .examDateText {
+  color: #F5F0F3;
+}
+
+:global(.dark) .examDaysText {
+  color: #BEB2BC;
+}
+
+:global(.dark) .examPlanBtn {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .examPlanBtn:hover {
+  background: #BE4F74;
+  color: #FFFFFF;
+  border-color: #BE4F74;
+}
+
+:global(.dark) .examSparkles {
+  color: #E17A9B;
+}
+
+/* Widget 3: Roadmap Banner Promo */
+:global(.dark) .roadmapPromoWidget {
+  background: linear-gradient(135deg, #221E24 0%, #2A1F29 50%, #352330 100%);
+  border-color: #403640;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .roadmapPromoWidget:hover {
+  border-color: #E17A9B;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .promoTitleLine1 {
+  color: #BEB2BC;
+}
+
+:global(.dark) .promoTitleLine2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .promoSubtitle {
+  color: #91858F;
+}
+
+:global(.dark) .promoActionBtn {
+  background: linear-gradient(135deg, #BE4F74 0%, #9C395B 100%);
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .promoMountainImg {
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.45)) brightness(0.9) contrast(1.05);
+}
+
+/* Widget 4: Featured Materials */
+:global(.dark) .materialsWidget {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .materialsHeaderTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .materialHeaderIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .materialsHeaderLink {
+  color: #E17A9B;
+}
+
+:global(.dark) .materialsHeaderLink:hover {
+  color: #BE4F74;
+}
+
+:global(.dark) .materialItem {
+  background: #28212A;
+  border-color: #342B35;
+}
+
+:global(.dark) .materialItem:hover {
+  background: #342B35;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .materialIconBox {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .materialTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .materialMeta {
+  color: #91858F;
+}
+
+:global(.dark) .materialArrow {
+  color: #605560;
+}
+
+/* Widget 5: Continue Lesson */
+:global(.dark) .continueLessonWidget {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .continueLessonWidget:hover {
+  background: #2C2630;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .continueBadge {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .continueTitle {
+  color: #F5F0F3;
+}
+
+/* Notice & Skeleton & Error */
+:global(.dark) .notice {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .skeleton {
+  background: linear-gradient(90deg, #221E24 25%, #2C2630 50%, #221E24 75%);
+  background-size: 200% 100%;
+}
+
+:global(.dark) .errorState {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .retry {
+  background: #BE4F74;
+  color: #FFFFFF;
 }

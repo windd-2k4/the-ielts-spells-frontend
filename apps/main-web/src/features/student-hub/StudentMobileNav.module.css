@@ -28,3 +28,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }
+
+
+
+/* Dark Mode System for StudentMobileNav */
+:global(.dark) .mobileBar {
+  background: #221E24;
+  border-top-color: #403640;
+}
+
+:global(.dark) .mobileItem {
+  color: #BEB2BC;
+}
+
+:global(.dark) .mobileItemActive {
+  color: #E17A9B;
+}

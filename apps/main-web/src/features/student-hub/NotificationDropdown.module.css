@@ -333,3 +333,120 @@
 .footerLink:hover {
   text-decoration: underline;
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .dropdown {
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+:global(.dark) .header {
+  background: #2C2630;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .headerTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .headerBadge {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .markAllBtn {
+  color: #BEB2BC;
+}
+
+:global(.dark) .markAllBtn:hover:not(:disabled) {
+  color: #E17A9B;
+  background: #342B35;
+}
+
+:global(.dark) .settingsLink {
+  color: #BEB2BC;
+}
+
+:global(.dark) .settingsLink:hover {
+  color: #E17A9B;
+  background: #342B35;
+}
+
+:global(.dark) .tabs {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .tabBtn {
+  color: #BEB2BC;
+}
+
+:global(.dark) .tabBtn:hover {
+  color: #F5F0F3;
+  background: #2C2630;
+}
+
+:global(.dark) .tabBtnActive {
+  background: #392630;
+  color: #E17A9B;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+:global(.dark) .item {
+  background: #2C2630;
+  border-bottom-color: #342B35;
+}
+
+:global(.dark) .item:hover {
+  background: #342B35;
+}
+
+:global(.dark) .itemUnread {
+  background: #302632;
+}
+
+:global(.dark) .itemTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .itemTime {
+  color: #91858F;
+}
+
+:global(.dark) .itemBody {
+  color: #BEB2BC;
+}
+
+:global(.dark) .unreadDot {
+  background: #E17A9B;
+  box-shadow: 0 0 0 2px #2C2630;
+}
+
+:global(.dark) .footer {
+  background: #221E24;
+  border-top-color: #403640;
+}
+
+:global(.dark) .footerLink {
+  color: #E17A9B;
+}
+
+:global(.dark) .emptyState {
+  color: #91858F;
+}
+
+:global(.dark) .emptyIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .emptyTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .emptyText {
+  color: #BEB2BC;
+}

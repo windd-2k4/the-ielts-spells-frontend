@@ -1,8 +1,8 @@
 .shell {
   min-height: 100dvh;
   padding: 12px 16px 24px;
-  color: #1E1B18;
-  background: #F8F6F7;
+  color: var(--student-text);
+  background: var(--student-canvas);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
@@ -15,9 +15,8 @@
   width: min(100%, 1280px);
   min-height: calc(100dvh - 24px);
   margin: 0 auto;
-  overflow: clip;
   border-radius: 20px;
-  background: #F8F6F7;
+  background: var(--student-canvas);
 }
 
 .main {
@@ -88,10 +87,45 @@
    DARK MODE STYLES
    ========================================================================= */
 :global(.dark) .shell {
-  background: #0B0F19;
-  color: #F8FAFC;
+  background: var(--student-canvas);
+  color: var(--student-text);
 }
 
 :global(.dark) .workspace {
-  background: #0B0F19;
+  background: var(--student-canvas);
+}
+
+:global(.dark) .skip {
+  background: var(--student-surface);
+  color: var(--student-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .34);
+}
+
+:global(.dark) .evaluationToast {
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  color: #F5F0F3;
+}
+
+:global(.dark) .evaluationToast strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .evaluationToast span {
+  color: #BEB2BC;
+}
+
+:global(.dark) .evaluationToast a {
+  color: #E17A9B;
+}
+
+:global(.dark) .evaluationToast button {
+  background: #392630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .evaluationToast button:hover {
+  background: #403640;
+  color: #F5F0F3;
 }

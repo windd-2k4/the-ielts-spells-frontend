@@ -55,3 +55,191 @@
 .stateError { color: #a33d4b; }
 @media (max-width: 760px) { .portfolioHeader, .sectionHeading { align-items: stretch; flex-direction: column; } .summaryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summaryGrid > div:last-child { grid-column: span 2; } .criteriaGrid { grid-template-columns: 1fr; } .timelineEntry summary { align-items: flex-start; } .timelineMeta { display: none; } }
 @media print { .portfolio { color: #111; } .portfolioActions, .notice { display: none; } .portfolioHeader, .section, .summaryGrid > div, .timelineEntry { break-inside: avoid; box-shadow: none; } .timelineEntry[open] { break-inside: auto; } :global(body.print-student-portfolio *) { visibility: hidden; } :global(body.print-student-portfolio #student-sw-portfolio), :global(body.print-student-portfolio #student-sw-portfolio *) { visibility: visible; } :global(body.print-student-portfolio #student-sw-portfolio) { position: absolute; top: 0; left: 0; width: 100%; } }
+
+
+/* ==========================================================================
+   StudentPortfolio.module.css — Professional Dark Mode System
+   ========================================================================== */
+:global(.dark) .portfolio {
+  color: #F5F0F3;
+}
+
+:global(.dark) .portfolioHeader {
+  border-color: #403640;
+  background: linear-gradient(135deg, #28212A, #221E24);
+}
+
+:global(.dark) .portfolioHeader h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .portfolioHeader p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .eyebrow {
+  color: #E17A9B;
+}
+
+:global(.dark) .portfolioActions button {
+  background: #2C2630;
+  border-color: #403640;
+  color: #E17A9B;
+}
+
+:global(.dark) .portfolioActions button:hover {
+  background: #392630;
+  color: #F492B1;
+}
+
+:global(.dark) .summaryGrid > div {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .summaryGrid strong {
+  color: #E17A9B;
+}
+
+:global(.dark) .summaryGrid span {
+  color: #91858F;
+}
+
+:global(.dark) .section {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .sectionHeading h3 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .sectionHeading p,
+:global(.dark) .muted {
+  color: #91858F;
+}
+
+:global(.dark) .criterionCard {
+  border-color: #403640;
+  background: #2C2630;
+}
+
+:global(.dark) .criterionHeading strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .criterionHeading h4 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .criterionHeading span {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .scoreLine b {
+  color: #E17A9B;
+}
+
+:global(.dark) .scoreLine small {
+  color: #91858F;
+}
+
+:global(.dark) .scoreLine em {
+  color: #BEB2BC;
+}
+
+:global(.dark) .progressTrack {
+  background: #342B35;
+}
+
+:global(.dark) .progressTrack span {
+  background: #BE4F74;
+}
+
+:global(.dark) .timelineEntry {
+  border-color: #403640;
+  background: #221E24;
+}
+
+:global(.dark) .timelineMarker {
+  box-shadow: 0 0 0 4px #392630;
+  background: #E17A9B;
+}
+
+:global(.dark) .timelineTitle strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .timelineTitle small,
+:global(.dark) .timelineMeta small {
+  color: #91858F;
+}
+
+:global(.dark) .timelineMeta b {
+  color: #E17A9B;
+}
+
+:global(.dark) .timelineBody {
+  background: #2C2630;
+  border-top-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .entryTags span {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .entrySection {
+  border-top-color: #403640;
+}
+
+:global(.dark) .entrySection h4 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .entrySection h4 small,
+:global(.dark) .entrySection > small {
+  color: #91858F;
+}
+
+:global(.dark) .entrySection > p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .rubricList > div {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .rubricList b {
+  color: #E17A9B;
+}
+
+:global(.dark) .rubricList small {
+  color: #91858F;
+}
+
+:global(.dark) .annotationList > div {
+  background: #221E24;
+  border: 1px solid #403640;
+}
+
+:global(.dark) .annotationList blockquote {
+  color: #F5F0F3;
+}
+
+:global(.dark) .annotationList p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .empty {
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .notice {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}

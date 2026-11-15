@@ -97,3 +97,16 @@
   .cardHeader { align-items: flex-start; }
   .scoreGrid { grid-template-columns: 1fr 1fr; }
 }
+
+
+
+/* Dark Mode System for StudentStudyPulse */
+:global(.dark) .pulse {
+  color: #F5F0F3;
+}
+
+:global(.dark) .card {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

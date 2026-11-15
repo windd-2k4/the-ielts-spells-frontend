@@ -15,6 +15,7 @@ import {
   Gear,
   GraduationCap,
   List,
+  Microphone,
   PencilSimpleLine,
   SignOut,
   Sparkle,
@@ -42,6 +43,8 @@ const NAV_ITEMS = [
   { href: "/student/history", label: "Tiến độ", icon: ChartLineUp },
 ];
 
+const AI_EXAMINER_ENABLED = process.env.NEXT_PUBLIC_AI_SPEAKING_EXAMINER_ENABLED === "true";
+
 export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const pathname = usePathname();
   const { session, signOut } = useStudentSession();
@@ -49,12 +52,15 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const { unreadCount } = useStudentNotifications();
   const { theme, toggleTheme } = useTheme();
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
+  const [practiceMenuOpen, setPracticeMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const scrollSentinelRef = useRef<HTMLDivElement>(null);
   const brandMenuRef = useRef<HTMLDivElement>(null);
   const brandButtonRef = useRef<HTMLButtonElement>(null);
+  const practiceMenuRef = useRef<HTMLDivElement>(null);
+  const practiceButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -72,6 +78,7 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
       if (brandMenuRef.current && !brandMenuRef.current.contains(event.target as Node)) setBrandMenuOpen(false);
+      if (practiceMenuRef.current && !practiceMenuRef.current.contains(event.target as Node)) setPracticeMenuOpen(false);
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setDropdownOpen(false);
     };
     document.addEventListener("mousedown", closeOutside);
@@ -142,6 +149,50 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
               const count = item.href === "/student/assignments"
                 ? (data?.metrics.pendingTests ?? 0) + (data?.metrics.pendingCourseAssignments ?? 0)
                 : 0;
+              if (item.href === "/student/practice" && AI_EXAMINER_ENABLED) {
+                return (
+                  <div
+                    key={item.href}
+                    ref={practiceMenuRef}
+                    className={`${styles.navMenu} ${practiceMenuOpen ? styles.navMenuOpen : ""}`}
+                    onMouseEnter={() => setPracticeMenuOpen(true)}
+                    onMouseLeave={() => setPracticeMenuOpen(false)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") { setPracticeMenuOpen(false); practiceButtonRef.current?.focus(); }
+                    }}
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node)) setPracticeMenuOpen(false);
+                    }}
+                  >
+                    <button
+                      ref={practiceButtonRef}
+                      type="button"
+                      className={styles.navLink}
+                      aria-current={active ? "page" : undefined}
+                      aria-haspopup="menu"
+                      aria-expanded={practiceMenuOpen}
+                      aria-controls="student-practice-menu"
+                      onClick={() => setPracticeMenuOpen((open) => !open)}
+                    >
+                      <Icon size={15} weight={active ? "fill" : "bold"} />
+                      <span>{item.label}</span>
+                      <CaretDown className={styles.navCaret} size={11} weight="bold" />
+                    </button>
+                    {practiceMenuOpen ? (
+                      <div id="student-practice-menu" className={styles.practiceDropdown} role="menu">
+                        <Link href="/student/practice" className={styles.practiceDropdownItem} role="menuitem" onClick={() => setPracticeMenuOpen(false)}>
+                          <PencilSimpleLine size={18} weight="duotone" />
+                          <span><strong>Thư viện luyện đề</strong><small>Reading, Listening, Writing và Speaking</small></span>
+                        </Link>
+                        <Link href="/student/practice?skill=SPEAKING&type=FULL_TEST&experience=AI_EXAMINER" className={styles.practiceDropdownItem} role="menuitem" onClick={() => setPracticeMenuOpen(false)}>
+                          <Microphone size={18} weight="duotone" />
+                          <span><strong>AI Speaking Examiner</strong><small>Phỏng vấn IELTS bằng giọng nói</small></span>
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
               return (
                 <Link key={item.href} href={targetHref} className={styles.navLink} aria-current={active ? "page" : undefined}>
                   <Icon size={15} weight={active ? "fill" : "bold"} />
@@ -194,7 +245,15 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                 aria-label={`Tài khoản của ${studentName}`}
                 onClick={() => setDropdownOpen((value) => !value)}
               >
-                <span className={styles.avatar}>{avatarInitials}</span>
+                <span className={styles.avatar}>
+                  {data?.profile.avatarPath ? (
+                    <img
+                      src={data.profile.avatarPath}
+                      alt={`Ảnh đại diện của ${studentName}`}
+                      className={styles.avatarImage}
+                    />
+                  ) : avatarInitials}
+                </span>
                 <span className={styles.name}>{studentName}</span>
                 <CaretDown className={styles.caret} size={12} weight="bold" />
               </button>
@@ -214,15 +273,16 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                       type="button"
                       onClick={() => toggleTheme()}
                       className={styles.menuItem}
+                      aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
                     >
                       {theme === "dark" ? (
                         <>
-                          <Sun size={17} weight="bold" className="text-amber-400 shrink-0" />
+                          <Sun size={17} weight="bold" className={`${styles.themeIcon} ${styles.themeIconLight}`} />
                           <span>Giao diện sáng</span>
                         </>
                       ) : (
                         <>
-                          <Moon size={17} weight="bold" className="text-indigo-500 shrink-0" />
+                          <Moon size={17} weight="bold" className={`${styles.themeIcon} ${styles.themeIconDark}`} />
                           <span>Giao diện tối</span>
                         </>
                       )}

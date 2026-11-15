@@ -215,6 +215,25 @@ export function updateStudentExamPlan(noExamPlan: boolean, plannedExamDate: stri
   );
 }
 
+export function updateStudentProfile(fullName: string, phone: string) {
+  return apiFetch<Pick<StudentPortalProfile, "fullName" | "phone" | "avatarPath">>(
+    "/student/portal/profile",
+    {
+      method: "PATCH",
+      body: JSON.stringify({ fullName, phone }),
+    },
+  );
+}
+
+export function uploadStudentAvatar(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return apiUpload<Pick<StudentPortalProfile, "fullName" | "phone" | "avatarPath">>(
+    "/student/portal/profile/avatar",
+    body,
+  );
+}
+
 export function fetchStudentCourses() {
   return apiFetch<StudentCourseItem[]>("/student/portal/courses");
 }
@@ -458,6 +477,7 @@ export interface StudentProgressTask {
   assignmentId: string | null;
   assignmentTitle: string | null;
   assignmentDescription: string | null;
+  assignmentType: string | null;
   assignmentDueAt: string | null;
   latePolicy: "ALLOW" | "MARK_LATE" | "BLOCK" | null;
   lateGraceMinutes: number;

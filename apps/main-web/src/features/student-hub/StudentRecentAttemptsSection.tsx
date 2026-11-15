@@ -30,19 +30,19 @@ export function StudentRecentAttemptsSection({
       {/* Section Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="p-1 rounded-md bg-[#FEF9C3] text-[#894C5B]">
+          <span className="p-1 rounded-md bg-[#FEF9C3] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B]">
             <ClockCounterClockwise size={16} weight="bold" />
           </span>
           <div>
-            <h3 className="text-sm font-bold text-[#1E1B18] font-sans">Hoạt động gần đây</h3>
-            <p className="text-[11px] text-[#6F676C]">Lịch sử nộp bài &amp; kết quả thi gần nhất</p>
+            <h3 className="text-sm font-bold text-[#1E1B18] dark:text-[#F5F0F3] font-sans">Hoạt động gần đây</h3>
+            <p className="text-[11px] text-[#6F676C] dark:text-[#BEB2BC]">Lịch sử nộp bài &amp; kết quả thi gần nhất</p>
           </div>
         </div>
 
         {hasAttempts && (
           <Link
             href="/student/history"
-            className="text-xs font-semibold text-[#894C5B] hover:underline flex items-center gap-1 shrink-0"
+            className="text-xs font-semibold text-[#894C5B] dark:text-[#E17A9B] hover:underline flex items-center gap-1 shrink-0"
           >
             <span>Toàn bộ lịch sử</span>
             <ArrowRight size={12} weight="bold" />
@@ -66,7 +66,7 @@ export function StudentRecentAttemptsSection({
           compact
         />
       ) : (
-        <div className="bg-white rounded-xl border border-[#E8E2D5] shadow-2xs divide-y divide-[#E8E2D5] overflow-hidden">
+        <div className="bg-white dark:bg-[#221E24] rounded-xl border border-[#E8E2D5] dark:border-[#403640] shadow-2xs divide-y divide-[#E8E2D5] dark:divide-[#403640] overflow-hidden">
           {attempts.slice(0, 4).map((attempt) => (
             <div
               key={attempt.id}
@@ -74,7 +74,7 @@ export function StudentRecentAttemptsSection({
             >
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full bg-[#F7E5EA] text-[#894C5B] text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded-full bg-[#F7E5EA] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] text-[10px] font-bold">
                     {attempt.skill}
                   </span>
                   <span className="text-[11px] text-[#6F676C]">{attempt.completedDate}</span>
@@ -92,7 +92,7 @@ export function StudentRecentAttemptsSection({
 
                 <Link
                   href={attempt.reviewUrl}
-                  className="px-3 py-1.5 rounded-lg bg-[#FEF9C3] text-[#1E1B18] font-bold text-xs hover:bg-[#F5C842] transition-colors flex items-center gap-1 shadow-2xs"
+                  className="px-3 py-1.5 rounded-lg bg-[#FEF9C3] dark:bg-[#392630] text-[#1E1B18] dark:text-[#E17A9B] font-bold text-xs hover:bg-[#F5C842] dark:hover:bg-[#4D323E] transition-colors flex items-center gap-1 shadow-2xs"
                 >
                   <Eye size={13} weight="bold" />
                   <span>Xem lại</span>

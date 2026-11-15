@@ -68,11 +68,11 @@ export function StudentMyCoursesSection({
 
   if (courses.length === 0) {
     return (
-      <div className="rounded-[22px] border border-dashed border-[#DCCFD3] bg-[#FCFAF9] px-6 py-10 text-center">
+      <div className="rounded-[22px] border border-dashed border-[#DCCFD3] dark:border-[#403640] bg-[#FCFAF9] dark:bg-[#221E24] px-6 py-10 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#F3E4E8] text-[#894C5B]">
           <GraduationCap size={26} weight="duotone" />
         </div>
-        <h3 className="mt-4 text-base font-bold text-[#292326]">Bạn chưa có khóa học đang theo học</h3>
+        <h3 className="mt-4 text-base font-bold text-[#292326] dark:text-[#F5F0F3]">Bạn chưa có khóa học đang theo học</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6F676C]">
           Chọn một chương trình phù hợp ở bên dưới để bắt đầu lộ trình IELTS của bạn.
         </p>
@@ -94,7 +94,7 @@ export function StudentMyCoursesSection({
           <article
             key={course.id}
             id={`course-${course.courseId}`}
-            className="group flex flex-col overflow-hidden rounded-[22px] border border-[#E6CDD4] bg-white shadow-[0_8px_24px_rgba(82,49,59,.06)] transition-all duration-200 hover:border-[#D4B0BA] hover:shadow-[0_14px_32px_rgba(94,56,67,.1)] sm:flex-row"
+            className="group flex flex-col overflow-hidden rounded-[22px] border border-[#E6CDD4] dark:border-[#403640] bg-white dark:bg-[#221E24] shadow-[0_8px_24px_rgba(82,49,59,.06)] transition-all duration-200 hover:border-[#D4B0BA] hover:shadow-[0_14px_32px_rgba(94,56,67,.1)] sm:flex-row"
           >
             {/* Visual Cover Panel */}
             <div className={`relative shrink-0 overflow-hidden bg-[#FDF2F4] ${compact ? "h-44 sm:h-auto sm:w-[210px] md:w-[230px]" : "h-52 sm:h-auto sm:w-[260px] md:w-[280px]"}`}>
@@ -177,8 +177,8 @@ export function StudentMyCoursesSection({
 
                 {/* 3 Stats Grid */}
                 <div className="mt-3 grid grid-cols-3 gap-2">
-                  <div className="flex flex-col justify-between rounded-xl border border-[#EFE7E9] bg-[#FAF5F6] p-2.5">
-                    <span className="flex items-center gap-1 text-[10px] font-semibold text-[#7A6F73]">
+                  <div className="flex flex-col justify-between rounded-xl border border-[#EFE7E9] dark:border-[#403640] bg-[#FAF5F6] dark:bg-[#2C2630] p-2.5">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-[#7A6F73] dark:text-[#BEB2BC]">
                       <Clock size={13} className="shrink-0 text-[#9B465D]" /> Buổi học
                     </span>
                     <strong className="mt-1 text-xs font-extrabold text-[#292326] sm:text-[13px]">

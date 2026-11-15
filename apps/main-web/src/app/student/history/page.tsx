@@ -239,14 +239,14 @@ export default function StudentHistoryPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#FDF0F4] border border-[#F0D5DD] flex items-center justify-center text-[#894C5B] shrink-0 shadow-2xs">
+          <div className="w-8 h-8 rounded-lg bg-[#FDF0F4] dark:bg-[#392630] border border-[#F0D5DD] dark:border-[#5C3240] flex items-center justify-center text-[#894C5B] dark:text-[#E17A9B] shrink-0 shadow-2xs">
             <ChartLineUp size={18} weight="bold" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold text-[#1E1B18] tracking-tight">
+            <h1 className="text-lg sm:text-xl font-bold text-[#1E1B18] dark:text-[#F5F0F3] tracking-tight">
               Lịch sử làm bài &amp; Tiến độ
             </h1>
-            <p className="text-[11px] text-[#6F676C]">
+            <p className="text-[11px] text-[#6F676C] dark:text-[#BEB2BC]">
               Theo dõi và xem lại kết quả các bài thi đã làm trong hệ thống
             </p>
           </div>
@@ -254,7 +254,7 @@ export default function StudentHistoryPage() {
       </div>
 
       {/* Main Content Card */}
-      <div className="bg-white rounded-xl border border-[#E8E2D5] p-4 sm:p-5 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-[#221E24] rounded-xl border border-[#E8E2D5] dark:border-[#403640] p-4 sm:p-5 shadow-2xs space-y-4">
         {/* Skill Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
           {SKILL_TABS.map((tab) => {
@@ -269,8 +269,8 @@ export default function StudentHistoryPage() {
                 onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                   isActive
-                    ? "bg-[#894C5B] text-white shadow-xs font-bold"
-                    : "bg-[#F8F6F7] text-[#64748B] hover:text-[#1E1B18] hover:bg-[#EFECEF] border border-[#F0E8ED]"
+                    ? "bg-[#894C5B] dark:bg-[#BE4F74] text-white shadow-xs font-bold"
+                    : "bg-[#F8F6F7] dark:bg-[#2C2630] text-[#64748B] dark:text-[#BEB2BC] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3] hover:bg-[#EFECEF] dark:hover:bg-[#342B35] border border-[#F0E8ED] dark:border-[#403640]"
                 }`}
               >
                 <IconComponent
@@ -282,7 +282,7 @@ export default function StudentHistoryPage() {
                 {count > 0 && (
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      isActive ? "bg-white/20 text-white" : "bg-[#EAE4DC] text-[#475569]"
+                      isActive ? "bg-white/20 text-white" : "bg-[#EAE4DC] dark:bg-[#392630] text-[#475569] dark:text-[#E17A9B]"
                     }`}
                   >
                     {count}
@@ -294,9 +294,9 @@ export default function StudentHistoryPage() {
         </div>
 
         {/* Sub-bar: Sub-tab + Search & Status Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-[#F0E8ED] pb-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-[#F0E8ED] dark:border-[#403640] pb-2.5">
           <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-[#894C5B] border-b-2 border-[#894C5B] pb-2 px-1 -mb-[11px] cursor-default inline-block">
+            <span className="text-xs font-bold text-[#894C5B] dark:text-[#E17A9B] border-b-2 border-[#894C5B] dark:border-[#E17A9B] pb-2 px-1 -mb-[11px] cursor-default inline-block">
               Theo tên bài
             </span>
           </div>
@@ -309,7 +309,7 @@ export default function StudentHistoryPage() {
                 setStatusFilter(e.target.value as "ALL" | "COMPLETED" | "IN_PROGRESS");
                 setCurrentPage(1);
               }}
-              className="text-xs bg-[#F8F6F7] border border-[#E8E2D5] rounded-lg px-2.5 py-1.5 text-[#1E1B18] font-medium outline-hidden hover:border-[#894C5B]/40 focus:border-[#894C5B] focus:bg-white transition-colors cursor-pointer"
+              className="text-xs bg-[#F8F6F7] dark:bg-[#2C2630] border border-[#E8E2D5] dark:border-[#403640] rounded-lg px-2.5 py-1.5 text-[#1E1B18] dark:text-[#F5F0F3] font-medium outline-hidden hover:border-[#894C5B]/40 focus:border-[#894C5B] focus:bg-white dark:focus:bg-[#342B35] transition-colors cursor-pointer"
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="COMPLETED">Đã hoàn thành</option>
@@ -326,7 +326,7 @@ export default function StudentHistoryPage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-44 sm:w-56 text-xs bg-[#F8F6F7] border border-[#E8E2D5] rounded-lg pl-7.5 pr-7 py-1.5 text-[#1E1B18] placeholder-[#94A3B8] outline-hidden focus:border-[#894C5B] focus:bg-white transition-all"
+                className="w-44 sm:w-56 text-xs bg-[#F8F6F7] dark:bg-[#2C2630] border border-[#E8E2D5] dark:border-[#403640] rounded-lg pl-7.5 pr-7 py-1.5 text-[#1E1B18] dark:text-[#F5F0F3] placeholder-[#94A3B8] dark:placeholder-[#91858F] outline-hidden focus:border-[#894C5B] focus:bg-white dark:focus:bg-[#342B35] transition-all"
               />
               <MagnifyingGlass
                 size={13}
@@ -347,10 +347,10 @@ export default function StudentHistoryPage() {
         </div>
 
         {/* Attempts Table */}
-        <div className="overflow-x-auto rounded-lg border border-[#E8E2D5]">
+        <div className="overflow-x-auto rounded-lg border border-[#E8E2D5] dark:border-[#403640]">
           <table className="w-full text-left border-collapse min-w-[740px]">
             <thead>
-              <tr className="border-b border-[#E8E2D5] bg-[#FAF7F2] text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+              <tr className="border-b border-[#E8E2D5] dark:border-[#403640] bg-[#FAF7F2] dark:bg-[#28212A] text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#BEB2BC]">
                 <th className="py-2.5 px-3.5">Tên bài</th>
                 <th className="py-2.5 px-2 text-center w-[85px]">Task</th>
                 <th className="py-2.5 px-2 text-center w-[115px]">Dạng đề</th>
@@ -360,7 +360,7 @@ export default function StudentHistoryPage() {
                 <th className="py-2.5 px-3 text-center w-[130px]">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E8E2D5] text-xs">
+            <tbody className="divide-y divide-[#E8E2D5] dark:divide-[#403640] text-xs">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-[#6F676C]">
@@ -374,7 +374,7 @@ export default function StudentHistoryPage() {
                 <tr>
                   <td colSpan={7} className="py-10 text-center">
                     <div className="max-w-xs mx-auto space-y-2.5">
-                      <p className="text-sm font-semibold text-[#1E1B18]">
+                      <p className="text-sm font-semibold text-[#1E1B18] dark:text-[#F5F0F3]">
                         {loadError ? "Không tải được lịch sử làm bài" : "Không có lượt làm bài nào"}
                       </p>
                       <p className="text-xs text-[#6F676C]">
@@ -415,29 +415,29 @@ export default function StudentHistoryPage() {
                   return (
                     <tr
                       key={attempt.attemptId}
-                      className="hover:bg-[#FAF8F9] transition-colors"
+                      className="hover:bg-[#FAF8F9] dark:hover:bg-[#2C2630] transition-colors"
                     >
                       {/* Tên bài */}
                       <td className="py-2.5 px-3.5 font-medium text-[#1E1B18]">
                         <div className="space-y-1">
                           <Link
                             href={reviewUrl}
-                            className="font-semibold text-xs sm:text-[13px] text-[#1E1B18] hover:text-[#894C5B] transition-colors block line-clamp-1"
+                            className="font-semibold text-xs sm:text-[13px] text-[#1E1B18] dark:text-[#F5F0F3] hover:text-[#894C5B] dark:hover:text-[#E17A9B] transition-colors block line-clamp-1"
                             title={attempt.title}
                           >
                             {attempt.title}
                           </Link>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {activeTab === "ALL" && attempt.skill && (
-                              <span className="inline-block text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#F4EFEA] text-[#64748B]">
+                              <span className="inline-block text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-[#F4EFEA] dark:bg-[#2C2630] text-[#64748B] dark:text-[#BEB2BC]">
                                 {attempt.skill}
                               </span>
                             )}
                             <span
                               className={`inline-block text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
                                 isAssignedAttempt(attempt)
-                                  ? "bg-[#FDF0F4] text-[#894C5B] border border-[#F0D5DD]"
-                                  : "bg-[#F8F6F7] text-[#554D50] border border-[#E8DFC9]"
+                                  ? "bg-[#FDF0F4] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] border border-[#F0D5DD] dark:border-[#5C3240]"
+                                  : "bg-[#F8F6F7] dark:bg-[#2C2630] text-[#554D50] dark:text-[#BEB2BC] border border-[#E8DFC9] dark:border-[#403640]"
                               }`}
                             >
                               {isAssignedAttempt(attempt) ? "Bài được giao" : "Tự luyện"}
@@ -460,8 +460,8 @@ export default function StudentHistoryPage() {
                       <td className="py-2.5 px-2 text-center text-xs leading-tight">
                         {submitDate ? (
                           <div className="space-y-0.5">
-                            <span className="font-semibold text-xs text-[#1E1B18] block">{submitDate.date}</span>
-                            <span className="text-[10px] text-[#94A3B8] font-mono block">{submitDate.time}</span>
+                            <span className="font-semibold text-xs text-[#1E1B18] dark:text-[#F5F0F3] block">{submitDate.date}</span>
+                            <span className="text-[10px] text-[#94A3B8] dark:text-[#91858F] font-mono block">{submitDate.time}</span>
                           </div>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#9A5B22] bg-[#FFF8EB] border border-[#F7E1B5] px-2 py-0.5 rounded-full">
@@ -479,24 +479,24 @@ export default function StudentHistoryPage() {
                       {/* Kết quả */}
                       <td className="py-2.5 px-2 text-center">
                         {attempt.status === "IN_PROGRESS" || !attempt.submittedAt ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#FFF8EB] text-[#9A5B22] border border-[#F7E1B5]">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#FFF8EB] dark:bg-[#34241B] text-[#9A5B22] dark:text-[#FB923C] border border-[#F7E1B5] dark:border-[#5C3D2B]">
                             Đang làm dở
                           </span>
                         ) : attempt.score != null ? (
                           attempt.correctCount != null && attempt.totalQuestions > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-[#EAF7F0] text-[#18794E] border border-[#C5E8D4]">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-[#EAF7F0] dark:bg-[#182C22] text-[#18794E] dark:text-[#34D399] border border-[#C5E8D4] dark:border-[#23543A]">
                               <span className="font-mono">{attempt.correctCount}/{attempt.totalQuestions}</span>
                               <span className="text-[10px] font-medium opacity-80">
                                 ({Math.round((attempt.score / Math.max(attempt.maxScore, 1)) * 100)}%)
                               </span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#FDF0F4] text-[#894C5B] border border-[#F0D5DD]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#FDF0F4] dark:bg-[#392630] text-[#894C5B] dark:text-[#E17A9B] border border-[#F0D5DD] dark:border-[#5C3240]">
                               Band {attempt.score.toFixed(1)}
                             </span>
                           )
                         ) : attempt.status === "SUBMITTED" ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#F1F5FC] text-[#486AA9] border border-[#CFDAED]">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#F1F5FC] dark:bg-[#1C2331] text-[#486AA9] dark:text-[#93C5FD] border border-[#CFDAED] dark:border-[#2D3D54]">
                             Chờ chấm
                           </span>
                         ) : (
@@ -511,14 +511,14 @@ export default function StudentHistoryPage() {
                         <div className="flex items-center justify-center gap-2.5 text-xs">
                           <Link
                             href={retryUrl}
-                            className="text-[#64748B] hover:text-[#1E1B18] hover:underline font-medium transition-colors"
+                            className="text-[#64748B] dark:text-[#BEB2BC] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3] hover:underline font-medium transition-colors"
                             title={isAssignedAttempt(attempt) ? "Mở danh sách bài được giao" : "Làm lại bài tự luyện này"}
                           >
                             {isAssignedAttempt(attempt) ? "Bài được giao" : "Làm lại"}
                           </Link>
                           <Link
                             href={reviewUrl}
-                            className="text-[#894C5B] hover:text-[#733E4C] hover:underline font-bold transition-colors"
+                            className="text-[#894C5B] dark:text-[#E17A9B] hover:text-[#733E4C] dark:hover:text-[#F492B1] hover:underline font-bold transition-colors"
                             title={attempt.submittedAt ? "Xem lại bài làm và đáp án" : "Tiếp tục làm bài"}
                           >
                             {attempt.submittedAt ? "Xem lại" : "Tiếp tục"}
@@ -535,7 +535,7 @@ export default function StudentHistoryPage() {
 
         {/* Pagination & Summary */}
         {filteredAttempts.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs text-[#6F676C]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs text-[#6F676C] dark:text-[#BEB2BC]">
             <div>
               Hiển thị{" "}
               <span className="font-semibold text-[#1E1B18]">
@@ -550,7 +550,7 @@ export default function StudentHistoryPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage === 1}
-                className="w-7 h-7 rounded-lg border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg border border-[#E8E2D5] dark:border-[#403640] flex items-center justify-center text-[#64748B] dark:text-[#BEB2BC] hover:bg-[#F8F6F7] dark:hover:bg-[#2C2630] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 aria-label="Trang trước"
               >
                 <CaretLeft size={13} weight="bold" />
@@ -563,8 +563,8 @@ export default function StudentHistoryPage() {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                     safeCurrentPage === pageNum
-                      ? "bg-[#894C5B] text-white shadow-2xs"
-                      : "border border-[#E8E2D5] text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18]"
+                      ? "bg-[#894C5B] dark:bg-[#BE4F74] text-white shadow-2xs"
+                      : "border border-[#E8E2D5] dark:border-[#403640] text-[#64748B] dark:text-[#BEB2BC] hover:bg-[#F8F6F7] dark:hover:bg-[#2C2630] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3]"
                   }`}
                 >
                   {pageNum}
@@ -575,7 +575,7 @@ export default function StudentHistoryPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage === totalPages}
-                className="w-7 h-7 rounded-lg border border-[#E8E2D5] flex items-center justify-center text-[#64748B] hover:bg-[#F8F6F7] hover:text-[#1E1B18] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg border border-[#E8E2D5] dark:border-[#403640] flex items-center justify-center text-[#64748B] dark:text-[#BEB2BC] hover:bg-[#F8F6F7] dark:hover:bg-[#2C2630] hover:text-[#1E1B18] dark:hover:text-[#F5F0F3] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 aria-label="Trang tiếp"
               >
                 <CaretRight size={13} weight="bold" />

@@ -54,3 +54,12 @@
   .shell { padding: 0; }.frame { border: 0; border-radius: 0; }.vision { min-height: 250px; }.visionCopy { margin-top: 30px; }.visionCopy h2 { font-size: 31px; }.visionCopy p { max-width: 330px; font-size: 11px; }.goalMap { display: none; }.formHeader { padding-top: 26px; }.skillGrid { grid-template-columns: 1fr 1fr; }.examChoices { grid-template-columns: 1fr; }.formFooter { align-items: stretch; flex-direction: column; }.formFooter button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .skillField, .examChoices > label, .formFooter button { transition: none; } }
+
+
+
+/* Dark Mode System for StudentLearningSetupGate */
+:global(.dark) .gateCard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

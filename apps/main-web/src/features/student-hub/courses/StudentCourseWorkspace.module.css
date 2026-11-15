@@ -3173,3 +3173,912 @@
     border-left: 0;
   }
 }
+
+
+/* ==========================================================================
+   StudentCourseWorkspace.module.css — Professional Dark Mode System
+   ========================================================================== */
+:global(.dark) .workspace {
+  --ink: #F5F0F3;
+  --muted: #BEB2BC;
+  --line: #403640;
+  --rose: #E17A9B;
+  --rose-dark: #F492B1;
+  --rose-soft: #392630;
+  --study-accent: #E17A9B;
+  --study-green: #34D399;
+  color: var(--ink);
+}
+
+:global(.dark) .courseToolbar {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .courseMetaCode {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .courseIndexBadge {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .courseTitleInteractive {
+  color: #F5F0F3;
+}
+
+:global(.dark) .courseTitleInteractive:hover {
+  color: #E17A9B;
+}
+
+:global(.dark) .courseCaret {
+  color: #91858F;
+}
+
+:global(.dark) .courseSwitchPill {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .courseSwitchPill:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .courseSwitchPillActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .courseNavBtn {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .courseNavBtn:hover:not(:disabled) {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .courseNavBtnDisabled {
+  opacity: 0.35;
+}
+
+:global(.dark) .courseDropdownMenu {
+  background: #2C2630;
+  border-color: #403640;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+:global(.dark) .dropdownHeader {
+  background: #221E24;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .dropdownHeaderTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .dropdownHeaderIcon {
+  color: #E17A9B;
+}
+
+:global(.dark) .dropdownHeaderSub {
+  color: #91858F;
+}
+
+:global(.dark) .dropdownItem {
+  color: #BEB2BC;
+}
+
+:global(.dark) .dropdownItem:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .dropdownItemActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #F5F0F3;
+}
+
+:global(.dark) .dropdownItemCode {
+  background: #221E24;
+  color: #91858F;
+  border-color: #403640;
+}
+
+:global(.dark) .dropdownItemName {
+  color: #F5F0F3;
+}
+
+:global(.dark) .dropdownItemSessions {
+  color: #91858F;
+}
+
+:global(.dark) .dropdownCheckBadge {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .dropdownIndexNum {
+  color: #91858F;
+}
+
+/* Nav Tabs */
+:global(.dark) .navTabBtn {
+  color: #BEB2BC;
+}
+
+:global(.dark) .navTabBtn:hover {
+  background: #2C2630;
+  color: #F5F0F3;
+}
+
+:global(.dark) .courseToolbar .navTabActive {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .courseToolbar .tabBadge {
+  background: #2C2630;
+  color: #E17A9B;
+}
+
+:global(.dark) .tabs button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .tabs button:hover {
+  background: #2C2630;
+  color: #F5F0F3;
+}
+
+:global(.dark) .tabActive {
+  background: #392630;
+  color: #E17A9B;
+}
+
+/* Hero, Sidebar, Panels */
+:global(.dark) .hero {
+  background: #28212A;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .hero h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .hero p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .moduleSidebar {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .panel,
+:global(.dark) .detailPanel {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .noticePanel {
+  background: #262028;
+  border-color: #403640;
+}
+
+:global(.dark) .panelTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .panelTitleIcon {
+  color: #E17A9B;
+}
+
+:global(.dark) .countBadge {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .textAction {
+  color: #E17A9B;
+}
+
+:global(.dark) .textAction:hover {
+  color: #F492B1;
+}
+
+/* Actions & Assignments */
+:global(.dark) .actionRow,
+:global(.dark) .assignmentRow {
+  border-top-color: #403640;
+}
+
+:global(.dark) .rowCopy h4,
+:global(.dark) .rowCopy h5 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .rowCopy p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .actionPrimary {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .actionPrimary > a,
+:global(.dark) .actionPrimary > button,
+:global(.dark) .assignmentRow > button {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .actionPrimary > a:hover,
+:global(.dark) .actionPrimary > button:hover,
+:global(.dark) .assignmentRow > button:hover {
+  background: #A83E5E;
+}
+
+/* Alerts */
+:global(.dark) .alertDanger {
+  background: #391E24;
+  border-color: #5C2D35;
+  color: #F87171;
+}
+
+:global(.dark) .alertWarning {
+  background: #34241B;
+  border-color: #5C3D2B;
+  color: #FB923C;
+}
+
+:global(.dark) .alertInfo {
+  background: #1C2331;
+  border-color: #2D3D54;
+  color: #93C5FD;
+}
+
+/* Week Strip & Timeline */
+:global(.dark) .weekStrip span {
+  background: #2C2630;
+  color: #BEB2BC;
+  border: 1px solid #403640;
+}
+
+:global(.dark) .weekStrip .dayActive {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #E17A9B;
+  font-weight: 750;
+}
+
+:global(.dark) .timelineRow > span {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .timelineHot {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .segmented {
+  background: #2C2630;
+  border: 1px solid #403640;
+}
+
+:global(.dark) .segmented .segmentActive {
+  background: #221E24;
+  color: #E17A9B;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Details, Resources, Feedback, Path */
+:global(.dark) .detailHeading {
+  color: #F5F0F3;
+}
+
+:global(.dark) .detailRow {
+  background: #262028;
+  border-color: #403640;
+}
+
+:global(.dark) .detailRow:hover {
+  background: #2C2630;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .detailRow h4 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .resourceCard {
+  background: #262028;
+  border-color: #403640;
+}
+
+:global(.dark) .resourceCard:hover {
+  background: #2C2630;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .resourceCard h4 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .feedbackRow {
+  background: #262028;
+  border-color: #403640;
+}
+
+:global(.dark) .pathRow {
+  border-color: #403640;
+}
+
+:global(.dark) .pathDone {
+  color: #34D399;
+}
+
+:global(.dark) .pathCurrent {
+  background: #392630;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .emptyState {
+  background: #221E24;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .welcomeTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .welcomeTitle span {
+  color: #E17A9B;
+}
+
+/* Week Summary Card */
+:global(.dark) .weekSummary {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .weekProgress::before {
+  background: #221E24;
+}
+
+:global(.dark) .weekProgress span {
+  color: #E17A9B;
+}
+
+:global(.dark) .weekCopy strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .weekCopy span {
+  color: #91858F;
+}
+
+:global(.dark) .weekCopy p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .weekCopy b {
+  color: #E17A9B;
+}
+
+:global(.dark) .studyDays p {
+  color: #91858F;
+}
+
+:global(.dark) .studyDays p strong {
+  color: #E17A9B;
+}
+
+:global(.dark) .studyDays span {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .studyDays .studyDayActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+/* Section Heading */
+:global(.dark) .sectionHeading h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .sectionHeading button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .sectionHeading button:hover {
+  background: #2C2630;
+  color: #E17A9B;
+}
+
+/* Next Lesson Card ("Bài được giao") */
+:global(.dark) .nextLessonCard {
+  background: #2C2630;
+  border-color: #5C3240;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .lessonTypeIcon {
+  background: #221E24;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .nextLessonCopy > span {
+  color: #E17A9B;
+}
+
+:global(.dark) .nextLessonCopy > strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .nextLessonCopy > p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .startLessonButton {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .startLessonButton:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .lessonTime {
+  color: #BEB2BC;
+}
+
+:global(.dark) .lessonTime small {
+  color: #91858F;
+}
+
+:global(.dark) .nextLessonGlyph {
+  color: #5C3240;
+  opacity: 0.4;
+}
+
+:global(.dark) .prepHint {
+  color: #91858F;
+}
+
+/* Week Lessons Panel */
+:global(.dark) .weekLessonsPanel {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .sessionItem {
+  background: #221E24;
+}
+
+:global(.dark) .weekLessonsPanel .sessionItem {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .weekLessonsPanel .sessionItemActive {
+  box-shadow: inset 3px 0 #E17A9B;
+  background: #2C2630;
+}
+
+:global(.dark) .sessionAction {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .sessionAction:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .sessionStatus {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+/* Roadmap & Sidebar Cards */
+:global(.dark) .roadmapTopline h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .roadmapLink {
+  color: #E17A9B;
+}
+
+:global(.dark) .roadmapCard {
+  background: #221E24;
+  border: 1px solid #403640;
+  color: #F5F0F3;
+  box-shadow: none;
+}
+
+:global(.dark) .roadmapCaption {
+  color: #F5F0F3;
+}
+
+:global(.dark) .roadmapCaption strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .roadmapCaption span {
+  color: #91858F;
+}
+
+:global(.dark) .roadmapRange button {
+  border-color: #403640;
+  color: #F5F0F3;
+  background: #2C2630;
+}
+
+:global(.dark) .roadmapRange strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .roadmapRange span {
+  color: #BEB2BC;
+}
+
+:global(.dark) .roadmapBars {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .roadmapWeek > span {
+  background: #342B35;
+}
+
+:global(.dark) .roadmapWeekActive > span {
+  background: #392630;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .roadmapWeekDone > span {
+  background: #BE4F74;
+}
+
+:global(.dark) .roadmapWeek small {
+  color: #91858F;
+}
+
+:global(.dark) .roadmapMetrics {
+  border-color: #403640;
+}
+
+:global(.dark) .roadmapMetrics div {
+  border-right-color: #403640;
+}
+
+:global(.dark) .roadmapMetrics span {
+  color: #91858F;
+}
+
+:global(.dark) .roadmapMetrics strong {
+  color: #E17A9B;
+}
+
+:global(.dark) .courseProgressCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: none;
+}
+
+:global(.dark) .courseProgressContent strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .courseProgressContent small,
+:global(.dark) .courseProgressContent span {
+  color: #91858F;
+}
+
+:global(.dark) .streakCard,
+:global(.dark) .sideShortcutCard {
+  background: #221E24;
+  border: 1px solid #403640;
+  box-shadow: none;
+}
+
+:global(.dark) .streakCard span,
+:global(.dark) .sideShortcutCard span {
+  color: #BEB2BC;
+}
+
+:global(.dark) .sideShortcutCard:hover {
+  background: #2C2630;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Schedule Timetable */
+:global(.dark) .scheduleWorkspace {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: none;
+}
+
+:global(.dark) .scheduleToolbar {
+  background: #28212A;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .scheduleToolbarTitle strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .scheduleToolbarTitle > span {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .scheduleWeekControls {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .scheduleWeekControls button {
+  border-right-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .scheduleWeekControls button:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .scheduleWeekRange {
+  color: #BEB2BC;
+}
+
+:global(.dark) .scheduleCell {
+  border-right-color: #403640;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .scheduleCorner,
+:global(.dark) .scheduleDayHeader {
+  background: #28212A;
+  color: #BEB2BC;
+}
+
+:global(.dark) .scheduleDayHeader strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .scheduleDayHeader.scheduleToday {
+  background: #392630;
+  color: #E17A9B;
+  box-shadow: inset 0 -3px 0 #E17A9B;
+}
+
+:global(.dark) .scheduleSlotLabel {
+  background: #262028;
+  color: #BEB2BC;
+}
+
+:global(.dark) .scheduleSlotCell {
+  background: #221E24;
+}
+
+:global(.dark) .scheduleSessionCard {
+  background: #2C2630;
+  border-color: #5C3240;
+  color: #F5F0F3;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .scheduleSessionOnline {
+  border-color: #2D4C6E;
+  background: #1B293A;
+  color: #93C5FD;
+}
+
+:global(.dark) .scheduleSessionTest {
+  border-color: #6E5325;
+  background: #332616;
+  color: #FDE047;
+}
+
+:global(.dark) .scheduleSessionCancelled {
+  border-color: #5C2D35;
+  background: #301D22;
+  color: #F87171;
+}
+
+:global(.dark) .scheduleSessionDetails {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .scheduleLegend {
+  background: #28212A;
+  color: #91858F;
+  border-top: 1px solid #403640;
+}
+
+:global(.dark) .scheduleJoinLink {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .scheduleJoinLink:hover {
+  background: #A83E5E;
+}
+
+/* Resources Library */
+:global(.dark) .resourceSearch {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .resourceSearch:focus-within {
+  border-color: #E17A9B;
+  box-shadow: 0 0 0 3px rgba(225, 122, 155, 0.15);
+}
+
+:global(.dark) .resourceSearch input {
+  color: #F5F0F3;
+}
+
+:global(.dark) .resourceSearch input::placeholder {
+  color: #91858F;
+}
+
+:global(.dark) .resourceResultCount {
+  color: #91858F;
+}
+
+:global(.dark) .resourceViewToggle {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .resourceViewToggle button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .resourceViewToggle button:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .resourceViewToggle button[aria-pressed="true"] {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .resourceFilters {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .resourceFilterHeading {
+  color: #F5F0F3;
+}
+
+:global(.dark) .resourceFilterHeading span:last-child {
+  color: #91858F;
+}
+
+:global(.dark) .resourceFilterSection > small {
+  color: #91858F;
+}
+
+:global(.dark) .resourceFilterSection button {
+  color: #BEB2BC;
+}
+
+:global(.dark) .resourceFilterSection button:hover {
+  background: #2C2630;
+  color: #F5F0F3;
+}
+
+:global(.dark) .resourceFilterSection button.resourceFilterActive {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .resourceFilterSection button.resourceFilterActive em {
+  color: #E17A9B;
+}
+
+:global(.dark) .libraryResourceCard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .libraryResourceCard:hover {
+  border-color: #E17A9B;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .libraryResourcePreview {
+  background: #28212A;
+}
+
+:global(.dark) .libraryResourcePreview strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .libraryResourcePreview small {
+  color: #91858F;
+}
+
+:global(.dark) .libraryResourceMeta {
+  color: #BEB2BC;
+}
+
+:global(.dark) .libraryResourceFooter {
+  border-top-color: #403640;
+}
+
+:global(.dark) .resourceCardList .libraryResourceFooter {
+  border-left-color: #403640;
+}
+
+:global(.dark) .resourceOpenButton {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .resourceOpenButton:hover:not(:disabled) {
+  background: #A83E5E;
+}
+
+:global(.dark) .resourceToneDocument { background: #392630; color: #E17A9B; }
+:global(.dark) .resourceToneAudio { background: #2B243B; color: #B39DDB; }
+:global(.dark) .resourceToneVideo { background: #382B22; color: #FDBA74; }
+:global(.dark) .resourceToneLink { background: #1C2B39; color: #93C5FD; }
+:global(.dark) .resourceToneNote { background: #36281E; color: #F59E0B; }
+:global(.dark) .resourceToneAnswer { background: #1B3329; color: #6EE7B7; }
+:global(.dark) .resourceToneVocabulary { background: #392231; color: #F472B6; }
+
+:global(.dark) .resourceEmptyState {
+  border-color: #403640;
+  color: #91858F;
+}
+
+:global(.dark) .resourceEmptyState strong {
+  color: #F5F0F3;
+}
+
+/* Members Grid */
+:global(.dark) .memberGrid > div {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .memberGrid small {
+  color: #91858F;
+}
+
+:global(.dark) .memberGrid strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .memberGrid span {
+  background: #392630;
+  color: #E17A9B;
+}
