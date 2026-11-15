@@ -16,6 +16,8 @@ import {
   Clock,
   ClockCounterClockwise,
   Columns,
+  CornersIn,
+  CornersOut,
   Copy,
   DownloadSimple,
   Exam,
@@ -34,7 +36,7 @@ import {
   X,
   XCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { StudentAttemptDetail, StudentLearningInsights as Insights } from "../../academic-types";
 import { apiFetch } from "../../lib/api";
 import TeacherReadingReviewWorkspace from "./reading-review/TeacherReadingReviewWorkspace";
@@ -138,8 +140,7 @@ export default function StudentLearningInsights({ studentId, data, loading, erro
   if (error) return <State title="Không tải được dữ liệu học tập" text={error} action={onRetry} />;
   if (!data) return <State title="Chưa có dữ liệu" text="Hệ thống chưa ghi nhận dữ liệu học tập của học viên này." />;
 
-  const { summary } = data;
-  const support = supportMeta(summary.supportLevel);
+  // summary & support unused in direct attempts list view
   const skillOptions = [...new Set(data.attempts.map(item => item.skill))];
   const filterCount = [query.trim(), skill !== "ALL", status !== "ALL", dateFrom, dateTo].filter(Boolean).length;
 
@@ -153,8 +154,6 @@ export default function StudentLearningInsights({ studentId, data, loading, erro
 
   return (
     <div className="flex flex-col gap-4 text-[#2B2228]">
-      <SummaryStrip summary={summary} support={support} onShowInProgress={() => setStatus("IN_PROGRESS")} />
-
       <AttemptsSection
         attempts={attempts}
         shownAttempts={shownAttempts}
@@ -182,11 +181,6 @@ export default function StudentLearningInsights({ studentId, data, loading, erro
         onExport={exportCsv}
         onSelect={setSelectedAttempt}
       />
-
-      <div className="profile-enter profile-enter-delay-3 grid items-stretch gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <SkillsSection skills={data.skills} attempts={data.attempts} />
-        <MistakesSection mistakes={data.recurringMistakes} attempts={data.attempts} onFilterSkill={setSkill} onShowInProgress={() => setStatus("IN_PROGRESS")} />
-      </div>
 
       {selectedAttempt && (
         <AttemptReviewScreen
@@ -291,7 +285,7 @@ function AttemptsSection({
     <section className="profile-enter profile-enter-delay-1 overflow-hidden rounded-xl border border-[#E6DDE1] bg-white shadow-[0_6px_18px_rgba(43,34,40,0.03)]">
       <header className="border-b border-[#E6DDE1] p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-baseline gap-3"><h2 className="text-lg font-semibold">Lịch sử làm bài chi tiết</h2><span className="text-xs font-medium tabular-nums text-[#6B5E65]">{attempts.length} lượt</span></div>
+          <div className="flex items-baseline gap-3"><h2 className="text-lg font-semibold">Danh sách bài làm của học viên</h2><span className="text-xs font-medium tabular-nums text-[#6B5E65]">{attempts.length} lượt</span></div>
           <button onClick={onExport} disabled={!attempts.length} className="inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-xl border border-[#E6DDE1] bg-white px-3 text-sm font-semibold text-[#8B3F56] transition hover:border-[#8B3F56] hover:bg-[#F3E6EB] disabled:cursor-not-allowed disabled:opacity-50"><DownloadSimple size={17} /> Xuất CSV</button>
         </div>
 
@@ -419,6 +413,46 @@ export function AttemptReviewScreen({
   onNavigateAttempt?: (attempt: LearningAttempt) => void;
   onClose: () => void;
 }) {
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [isWorkspaceFullscreen, setIsWorkspaceFullscreen] = useState(false);
+
+  const toggleWorkspaceFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (workspaceRef.current?.requestFullscreen) {
+          await workspaceRef.current.requestFullscreen();
+        }
+        setIsWorkspaceFullscreen(true);
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+        setIsWorkspaceFullscreen(false);
+      }
+    } catch {
+      setIsWorkspaceFullscreen(prev => !prev);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsWorkspaceFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    onClose();
+  }, [onClose]);
+
   const [detail, setDetail] = useState<StudentAttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -538,7 +572,14 @@ export function AttemptReviewScreen({
     document.body.style.overflow = "hidden";
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        if (document.fullscreenElement) {
+          return;
+        }
+        if (isWorkspaceFullscreen) {
+          setIsWorkspaceFullscreen(false);
+          return;
+        }
+        handleClose();
         return;
       }
       const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
@@ -594,8 +635,18 @@ export function AttemptReviewScreen({
   const onNext = hasNext && onNavigateAttempt ? () => onNavigateAttempt(attemptsList[currentIndex + 1]) : undefined;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#2B2228]/55 p-0 backdrop-blur-[3px] sm:p-2 md:p-3" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="attempt-review-title" className="mx-auto flex h-[100dvh] w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-2xl sm:h-[calc(100dvh-1rem)] sm:rounded-2xl sm:border sm:border-[#E6DDE1]">
+    <div
+      className="fixed inset-0 z-50 bg-[#2B2228]/55 p-0 backdrop-blur-[3px] sm:p-2 md:p-3"
+      onMouseDown={event => {
+        if (event.target === event.currentTarget && !isWorkspaceFullscreen) handleClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="attempt-review-title"
+        className="mx-auto flex h-[100dvh] w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-2xl sm:h-[calc(100dvh-1rem)] sm:rounded-2xl sm:border sm:border-[#E6DDE1]"
+      >
 
         {/* Top Header Toolbar */}
         <header className="shrink-0 border-b border-[#E6DDE1] bg-white px-3 sm:px-5 py-2.5">
@@ -696,7 +747,21 @@ export function AttemptReviewScreen({
 
               <button
                 type="button"
-                onClick={onClose}
+                onClick={toggleWorkspaceFullscreen}
+                aria-label={isWorkspaceFullscreen ? "Thu nhỏ bài làm" : "Toàn màn hình bài làm"}
+                className={`grid size-9 place-items-center rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56] ${
+                  isWorkspaceFullscreen
+                    ? "border-[#8B3F56] bg-[#F3E6EB] text-[#8B3F56]"
+                    : "border-[#E6DDE1] text-[#6B5E65] hover:border-[#8B3F56] hover:bg-[#F3E6EB] hover:text-[#8B3F56]"
+                }`}
+                title={isWorkspaceFullscreen ? "Thu nhỏ bài làm (Esc)" : "Toàn màn hình bài làm"}
+              >
+                {isWorkspaceFullscreen ? <CornersIn size={18} weight="bold" /> : <CornersOut size={18} weight="bold" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClose}
                 aria-label="Đóng chi tiết bài làm"
                 className="grid size-9 place-items-center rounded-xl border border-[#E6DDE1] text-[#6B5E65] transition hover:border-[#8B3F56] hover:bg-[#F3E6EB] hover:text-[#8B3F56] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B3F56]"
                 title="Đóng (ESC)"
@@ -920,7 +985,14 @@ export function AttemptReviewScreen({
             {/* =========================================================================
                PHẦN Ở DƯỚI: BÀI LÀM CỦA HỌC VIÊN
                ========================================================================= */}
-            <div className="flex-1 min-h-[550px] flex flex-col bg-white">
+            <div
+              ref={workspaceRef}
+              className={`bg-white transition-all ${
+                isWorkspaceFullscreen
+                  ? "fixed inset-0 z-[60] flex h-screen w-screen flex-col overflow-hidden"
+                  : "flex flex-1 min-h-[550px] flex-col"
+              }`}
+            >
               {isWriting ? (
                 <WritingAttemptView detail={detail} fontSize={passageFontSize} onFontSizeChange={setPassageFontSize} />
               ) : viewMode === "FULL_LIST" ? (
@@ -943,6 +1015,8 @@ export function AttemptReviewScreen({
                       onSelectSectionTitle={setActiveSectionTitle}
                       passageFontSize={passageFontSize}
                       onFontSizeChange={setPassageFontSize}
+                      isFullscreen={isWorkspaceFullscreen}
+                      onToggleFullscreen={toggleWorkspaceFullscreen}
                     />
                   ) : (
                     <TeacherWorkspaceSplit
@@ -955,6 +1029,8 @@ export function AttemptReviewScreen({
                       onSelectSectionTitle={setActiveSectionTitle}
                       passageFontSize={passageFontSize}
                       onFontSizeChange={setPassageFontSize}
+                      isFullscreen={isWorkspaceFullscreen}
+                      onToggleFullscreen={toggleWorkspaceFullscreen}
                     />
                   )}
                 </div>
@@ -979,6 +1055,8 @@ function TeacherWorkspaceSplit({
   onSelectSectionTitle,
   passageFontSize,
   onFontSizeChange,
+  isFullscreen,
+  onToggleFullscreen,
 }: {
   currentSection: SectionInfo | undefined;
   selectedQuestion: StudentAttemptDetail["questions"][number] | null;
@@ -989,6 +1067,8 @@ function TeacherWorkspaceSplit({
   onSelectSectionTitle: (title: string) => void;
   passageFontSize: number;
   onFontSizeChange: (updater: (prev: number) => number) => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }) {
   const visibleQuestions = currentSection?.questions.length ? currentSection.questions : questions;
   const rangeStart = visibleQuestions.length ? Math.min(...visibleQuestions.map(question => question.questionNo)) : 0;
@@ -1029,7 +1109,21 @@ function TeacherWorkspaceSplit({
           <p className="truncate text-sm font-bold text-[#7A351C]">Reading · {sectionLabel}</p>
           <p className="mt-0.5 text-xs text-[#865231]">Read the passage and answer questions {rangeLabel}.</p>
         </div>
-        <span className="shrink-0 text-xs font-bold tabular-nums text-[#7A351C]">{visibleQuestions.length} câu hỏi</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-bold tabular-nums text-[#7A351C]">{visibleQuestions.length} câu hỏi</span>
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#8B3F56] border border-[#D7D7D2] rounded-lg px-2.5 py-1 transition hover:bg-[#F1F1ED]"
+              title={isFullscreen ? "Thu nhỏ (Thoát toàn màn hình)" : "Mở toàn màn hình bài làm"}
+              aria-label={isFullscreen ? "Thu nhỏ màn hình" : "Mở toàn màn hình bài làm"}
+            >
+              {isFullscreen ? <CornersIn size={13} weight="bold" /> : <CornersOut size={13} weight="bold" />}
+              <span>{isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto bg-white lg:grid-cols-[minmax(360px,42%)_minmax(420px,1fr)_190px] lg:overflow-hidden">

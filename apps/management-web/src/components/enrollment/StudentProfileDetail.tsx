@@ -1,12 +1,18 @@
 import {
   CalendarBlank,
+  CalendarCheck,
   CheckCircle,
+  Clock,
   Envelope,
+  HourglassHigh,
+  IdentificationBadge,
   Info,
   LockKey,
   MapPin,
   NotePencil,
   Phone,
+  Target,
+  TrendUp,
   UserCircle,
   Users,
   WarningCircle,
@@ -46,6 +52,14 @@ type EditFormErrors = Partial<Record<keyof EditForm, string>>;
 
 const inputClass =
   "min-h-12 w-full rounded-xl border border-outline-variant/60 bg-surface px-3 py-2.5 text-sm text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/15";
+
+function studyDuration(minutes: number) {
+  if (minutes <= 0) return "0 phút";
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours === 0) return `${remainder} phút`;
+  return remainder === 0 ? `${hours} giờ` : `${hours} giờ ${remainder} phút`;
+}
 
 export default function StudentProfileDetail({
   studentId,
@@ -90,10 +104,19 @@ export default function StudentProfileDetail({
   const emergency = normalizeEmergencyContact(student.emergencyContact);
   const profileCompleteness = getCompleteness(student);
   const missingFields = getMissingProfileFields(student);
+  const support = insights?.summary?.supportLevel
+    ? {
+        NEEDS_ATTENTION: { label: "Cần ưu tiên hỗ trợ", style: "bg-error-container/40 text-error" },
+        WATCH: { label: "Cần theo dõi", style: "bg-primary-container/20 text-primary" },
+        ON_TRACK: { label: "Tiến độ ổn định", style: "bg-emerald-50 text-emerald-700" },
+        NOT_ENOUGH_DATA: { label: "Chưa đủ dữ liệu", style: "bg-surface-container-low text-on-surface-variant" },
+      }[insights.summary.supportLevel]
+    : null;
 
   return (
     <div className="space-y-4">
-      <header className="profile-saas-panel profile-enter rounded-[20px] border px-4 py-3.5 md:px-5">
+      {/* THẺ HỒ SƠ HỌC TẬP TỔNG HỢP (MERGED ACADEMIC PROFILE CARD) */}
+      <article className="profile-saas-panel profile-enter relative overflow-hidden rounded-[20px] border border-outline-variant/40 bg-surface shadow-xs">
         {onClose && (
           <button
             type="button"
@@ -104,46 +127,175 @@ export default function StudentProfileDetail({
             <X size={18} />
           </button>
         )}
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 xl:grid-cols-[minmax(260px,1fr)_minmax(0,1.25fr)_auto] xl:gap-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <Avatar student={student} />
-            <div className="min-w-0">
-              <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-md bg-primary-container/20 px-2 py-1 font-mono text-[11px] font-semibold text-primary">
-                  {student.studentCode}
-                </span>
-                <span
-                  className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
-                    student.active ? "bg-emerald-50 text-emerald-700" : "bg-surface-container text-on-surface-variant"
-                  }`}
-                >
-                  {student.active ? "Hồ sơ hoạt động" : "Hồ sơ đã khóa"}
-                </span>
+
+        {/* Khung chính: Thông tin học viên, mục tiêu band & trạng thái */}
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {/* Nhận diện học viên */}
+            <div className="flex min-w-0 items-start sm:items-center gap-3.5">
+              <Avatar student={student} />
+              <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-md bg-primary-container/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary">
+                    {student.studentCode}
+                  </span>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                      student.active ? "bg-emerald-50 text-emerald-700" : "bg-surface-container text-on-surface-variant"
+                    }`}
+                  >
+                    {student.active ? "Hồ sơ hoạt động" : "Hồ sơ đã khóa"}
+                  </span>
+                  {support && (
+                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${support.style}`}>
+                      {support.label}
+                    </span>
+                  )}
+                </div>
+                <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-on-surface">
+                  {student.fullName}
+                </h1>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-on-surface-variant">
+                  <span className="inline-flex items-center gap-1">
+                    <Envelope size={13} className="text-on-surface-variant/70" />
+                    <span>{student.email ?? "Chưa có email"}</span>
+                  </span>
+                  <span className="opacity-40">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Phone size={13} className="text-on-surface-variant/70" />
+                    <span>{student.phone ?? "Chưa có số điện thoại"}</span>
+                  </span>
+                </p>
               </div>
-              <h1 className="font-display text-xl font-bold tracking-tight text-on-surface">
-                {student.fullName}
-              </h1>
-              <p className="mt-0.5 break-words text-xs text-on-surface-variant">
-                {student.email ?? "Chưa có email"} · {student.phone ?? "Chưa có số điện thoại"}
-              </p>
+            </div>
+
+            {/* Nút hành động */}
+            <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label="Chỉnh sửa hồ sơ"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary shadow-xs transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+              >
+                <NotePencil size={16} /> <span>Chỉnh sửa hồ sơ</span>
+              </button>
             </div>
           </div>
-          <dl className="col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-outline-variant/30 pt-3 text-xs sm:grid-cols-4 xl:col-span-1 xl:border-l xl:border-t-0 xl:py-1 xl:pl-5">
-            <div><dt className="text-on-surface-variant">Ngày tham gia</dt><dd className="mt-0.5 font-semibold text-on-surface">{date(student.joinedAt)}</dd></div>
-            <div><dt className="text-on-surface-variant">Band hiện tại</dt><dd className="mt-0.5 font-semibold text-on-surface">{student.currentBand == null ? "Chưa có" : student.currentBand.toFixed(1)}</dd></div>
-            <div><dt className="text-on-surface-variant">Band mục tiêu</dt><dd className="mt-0.5 font-semibold text-on-surface">{student.targetBand == null ? "Chưa đặt" : student.targetBand.toFixed(1)}</dd></div>
-            <div><dt className="text-on-surface-variant">Hồ sơ</dt><dd className="mt-0.5 font-semibold tabular-nums text-on-surface">{profileCompleteness}% <span className="font-normal text-on-surface-variant">· {missingFields.length} mục thiếu</span></dd></div>
-          </dl>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            aria-label="Chỉnh sửa hồ sơ"
-            className="col-start-2 row-start-1 inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 xl:col-start-3"
-          >
-            <NotePencil size={16} /> <span className="hidden sm:inline">Chỉnh sửa hồ sơ</span>
-          </button>
+
+          {/* Dòng thông tin mục tiêu học tập & hoàn thiện hồ sơ */}
+          <div className="mt-4 grid grid-cols-2 gap-3.5 sm:grid-cols-4 border-t border-outline-variant/30 pt-3.5">
+            {/* 1. Ngày tham gia */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 shadow-2xs">
+                <CalendarBlank size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Ngày tham gia</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold text-on-surface">
+                  {date(student.joinedAt)}
+                </strong>
+              </div>
+            </div>
+
+            {/* 2. Band hiện tại */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600 shadow-2xs">
+                <TrendUp size={18} weight="bold" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Band hiện tại</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold text-on-surface">
+                  {student.currentBand == null ? "Chưa có" : student.currentBand.toFixed(1)}
+                </strong>
+              </div>
+            </div>
+
+            {/* 3. Band mục tiêu */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#8B3F56]/10 text-[#8B3F56] shadow-2xs">
+                <Target size={18} weight="bold" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Band mục tiêu</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold text-[#8B3F56]">
+                  {student.targetBand == null ? "Chưa đặt" : student.targetBand.toFixed(1)}
+                </strong>
+              </div>
+            </div>
+
+            {/* 4. Hồ sơ cá nhân */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 shadow-2xs">
+                <IdentificationBadge size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Độ hoàn thiện hồ sơ</span>
+                <div className="mt-0.5 flex items-baseline gap-1.5 truncate">
+                  <strong className="text-xs sm:text-sm font-bold tabular-nums text-on-surface">{profileCompleteness}%</strong>
+                  <span className="text-[11px] text-on-surface-variant">· {missingFields.length} thiếu</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </header>
+
+        {/* Dòng tiến độ học tập thực tế (Thời lượng, Bài hoàn thành, Bài đang làm, Hoạt động gần nhất) */}
+        <div className="border-t border-outline-variant/30 bg-[#FDFBFC] px-4 py-3 sm:px-5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+            {/* 5. Thời lượng ghi nhận */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#8B3F56]/10 text-[#8B3F56] shadow-2xs">
+                <Clock size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Thời lượng ghi nhận</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold tabular-nums text-on-surface">
+                  {insights?.summary ? studyDuration(insights.summary.totalStudyMinutes) : "0 phút"}
+                </strong>
+              </div>
+            </div>
+
+            {/* 6. Bài hoàn thành */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 shadow-2xs">
+                <CheckCircle size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Bài hoàn thành</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold tabular-nums text-emerald-700">
+                  {insights?.summary ? insights.summary.completedAttempts.toLocaleString("vi-VN") : "0"}
+                </strong>
+              </div>
+            </div>
+
+            {/* 7. Bài đang làm */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600 shadow-2xs">
+                <HourglassHigh size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Bài đang làm</span>
+                <strong className={`mt-0.5 block truncate text-xs sm:text-sm font-bold tabular-nums ${insights?.summary?.inProgressAttempts ? "text-amber-600" : "text-on-surface"}`}>
+                  {insights?.summary ? insights.summary.inProgressAttempts.toLocaleString("vi-VN") : "0"}
+                </strong>
+              </div>
+            </div>
+
+            {/* 8. Hoạt động gần nhất */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs">
+                <CalendarCheck size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0">
+                <span className="block text-[11px] font-medium text-on-surface-variant">Hoạt động gần nhất</span>
+                <strong className="mt-0.5 block truncate text-xs sm:text-sm font-bold tabular-nums text-on-surface">
+                  {insights?.summary?.lastActivityAt ? new Intl.DateTimeFormat("vi-VN").format(new Date(insights.summary.lastActivityAt)) : "Chưa có"}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
 
       {insights !== undefined && (
         <StudentProfileLearningOverview

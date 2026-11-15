@@ -593,6 +593,8 @@ function deriveValidationIssues(test: TestBankItem): ValidationIssue[] {
         if (typeof part.cueCardPromptHtml !== "string" || !part.cueCardPromptHtml.trim()) issues.push({ id: `speaking-${partIndex}-content`, severity: "ERROR", sectionTitle: "Speaking Part 2", message: "Chưa nhập đề bài cue card.", targetId: "test-builder-workspace" });
         const bullets = Array.isArray(part.cueCardBullets) ? part.cueCardBullets.map(String).filter((item) => item.trim()) : [];
         if (bullets.length === 0) issues.push({ id: `speaking-${partIndex}-bullets`, severity: "WARNING", sectionTitle: "Speaking Part 2", message: "Cue card chưa có ý You should say.", targetId: "test-builder-workspace" });
+        const followUps = Array.isArray(part.followUpQuestions) ? part.followUpQuestions.map(String).filter((item) => item.trim()) : [];
+        if (followUps.length === 0) issues.push({ id: `speaking-${partIndex}-follow-up`, severity: "ERROR", sectionTitle: "Speaking Part 2", message: "Part 2 cần ít nhất một câu hỏi follow-up cho AI Examiner.", targetId: "test-builder-workspace" });
         if (part.hintsEnabled !== false) {
           const steps = Array.isArray(part.hintSteps) ? part.hintSteps.filter(isRecord) : [];
           if (!steps.some((step) => typeof step.instruction === "string" && step.instruction.trim() || Array.isArray(step.options) && step.options.length > 0)) issues.push({ id: `speaking-${partIndex}-hints`, severity: "WARNING", sectionTitle: "Speaking Part 2", message: "Gợi ý đang bật nhưng chưa có nội dung.", targetId: "test-builder-workspace" });

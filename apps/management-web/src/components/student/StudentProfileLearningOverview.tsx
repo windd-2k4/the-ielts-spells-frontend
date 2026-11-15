@@ -63,7 +63,6 @@ export default function StudentProfileLearningOverview({ insights, loading, erro
   if (error || !insights) {
     return (
       <section className="profile-enter profile-enter-delay-1 space-y-4" aria-labelledby="learning-journey-title">
-        <JourneyHeader />
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="grid min-h-40 place-content-center rounded-[20px] border border-dashed border-outline-variant/50 bg-surface p-5 text-center">
             <ChartBar className="mx-auto text-on-surface-variant" size={28} />
@@ -81,9 +80,6 @@ export default function StudentProfileLearningOverview({ insights, loading, erro
 
   return (
     <section className="profile-enter profile-enter-delay-1 space-y-4" aria-labelledby="learning-journey-title">
-      <JourneyHeader supportLevel={insights.summary.supportLevel} />
-      <SummaryStrip summary={insights.summary} />
-
       <SkillTrends insights={insights} onRetry={onRetry} />
       <CurrentCourses courses={currentCourses} />
     </section>

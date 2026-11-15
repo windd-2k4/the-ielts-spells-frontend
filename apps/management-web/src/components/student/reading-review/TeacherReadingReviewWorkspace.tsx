@@ -1,6 +1,8 @@
 import {
   CaretDoubleLeft,
   CaretDoubleRight,
+  CornersIn,
+  CornersOut,
   CheckCircle,
   FolderOpen,
   Info,
@@ -37,6 +39,8 @@ type Props = {
   onSelectSectionTitle: (title: string) => void;
   passageFontSize: number;
   onFontSizeChange: (updater: (prev: number) => number) => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 };
 
 export default function TeacherReadingReviewWorkspace({
@@ -49,6 +53,8 @@ export default function TeacherReadingReviewWorkspace({
   onSelectSectionTitle,
   passageFontSize,
   onFontSizeChange,
+  isFullscreen,
+  onToggleFullscreen,
 }: Props) {
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
   const [targetParagraph, setTargetParagraph] = useState<string | null>(null);
@@ -146,6 +152,19 @@ export default function TeacherReadingReviewWorkspace({
             {navigatorCollapsed ? <CaretDoubleLeft size={13} weight="bold" /> : <CaretDoubleRight size={13} weight="bold" />}
             <span>{navigatorCollapsed ? "Mở Navigator" : "Thu gọn Navigator"}</span>
           </button>
+
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#8B3F56] hover:text-[#6E2F43] bg-[#F3E6EB] hover:bg-[#E6DDE1] border border-[#8B3F56]/20 rounded-lg px-2.5 py-1 transition shadow-2xs"
+              title={isFullscreen ? "Thu nhỏ (Thoát toàn màn hình)" : "Mở toàn màn hình bài làm"}
+              aria-label={isFullscreen ? "Thu nhỏ màn hình" : "Mở toàn màn hình bài làm"}
+            >
+              {isFullscreen ? <CornersIn size={13} weight="bold" /> : <CornersOut size={13} weight="bold" />}
+              <span>{isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
+            </button>
+          )}
         </div>
       </header>
 

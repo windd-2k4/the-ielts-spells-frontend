@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarBlank, ChartLineUp, UserCircle } from "@phosphor-icons/react";
+import { ArrowLeft, CalendarBlank, ClipboardText, UserCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Course, Enrollment, Page, Reservation, StudentDetail, StudentLearningInsights as LearningInsights, Transfer } from "../academic-types";
@@ -104,7 +104,7 @@ export function StudentDetailPage() {
                 : "text-on-surface-variant hover:text-primary hover:bg-primary-container/10"
             }`}
           >
-            <ChartLineUp size={18} /> Kết quả &amp; lỗi thường gặp
+            <ClipboardText size={18} /> Danh sách bài làm
           </button>
           <button
             onClick={() => setActiveTab("history")}

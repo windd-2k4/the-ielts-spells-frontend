@@ -6,7 +6,7 @@ import {
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import AuthenticatedMediaImage from "../components/test-builder/AuthenticatedMediaImage";
-import { apiFetch } from "../lib/api";
+import { apiFetch, apiMediaUrl, revokeMediaUrl } from "../lib/api";
 
 const WritingWordReviewModal = lazy(() =>
   import("../components/writing/WritingWordReviewModal").then((module) => ({
@@ -568,7 +568,7 @@ function SpeakingPanel() {
     {selected ? <div className="space-y-6">
       <EvaluationHeading student={selected.studentName} title={selected.testTitle} meta={selected.questionKey} teacherStatus={selected.teacherStatus}/>
       <section className="grid gap-5 xl:grid-cols-[minmax(0,.72fr)_minmax(0,1.28fr)]">
-        <section className="rounded-2xl border border-outline-variant/65 bg-surface p-4"><h3 className="text-sm font-extrabold">Bản ghi toàn bài</h3><div className="custom-scrollbar mt-3 max-h-[650px] space-y-3 overflow-y-auto pr-1">{selected.segments?.map((segment, index) => <article key={`${segment.questionKey}-${index}`} className="rounded-xl border border-outline-variant/55 bg-surface-container-low/35 p-3"><strong className="block text-xs text-primary">Câu {index + 1}</strong><p className="mt-2 whitespace-pre-wrap font-serif text-sm leading-6">{segment.transcript || "Chưa có transcript."}</p>{segment.audioUrl ? <audio controls preload="none" className="mt-3 h-9 w-full" src={segment.audioUrl}>Trình duyệt không hỗ trợ audio.</audio> : <span className="mt-2 block text-[11px] text-on-surface-variant">Không có file ghi âm.</span>}</article>)}</div></section>
+        <section className="rounded-2xl border border-outline-variant/65 bg-surface p-4"><h3 className="text-sm font-extrabold">Bản ghi toàn bài</h3><div className="custom-scrollbar mt-3 max-h-[650px] space-y-3 overflow-y-auto pr-1">{selected.segments?.map((segment, index) => <article key={`${segment.questionKey}-${index}`} className="rounded-xl border border-outline-variant/55 bg-surface-container-low/35 p-3"><strong className="block text-xs text-primary">Câu {index + 1}</strong><p className="mt-2 whitespace-pre-wrap font-serif text-sm leading-6">{segment.transcript || "Chưa có transcript."}</p>{segment.audioUrl ? <AuthenticatedSpeakingAudio src={segment.audioUrl}/> : <span className="mt-2 block text-[11px] text-on-surface-variant">Không có file ghi âm.</span>}</article>)}</div></section>
         <div className="space-y-4">
           <AiSummary status={selected.aiStatus} overall={selected.overallBandAi} criteria={selected.criteria} labels={speakingLabels} strengths={selected.aiStrengths} improvements={selected.aiImprovements}/>
           <TeacherForm overall={calculatedOverall} setOverall={setOverall} overallReadOnly criteria={keys} labels={speakingLabels} bands={bands} setBands={setBands} feedback={criterionFeedback} setFeedback={setCriterionFeedback} feedbackText={feedback} setFeedbackText={setFeedback} strengths={strengths} setStrengths={setStrengths} improvements={improvements} setImprovements={setImprovements} saving={saving} published={selected.teacherStatus === "PUBLISHED"} onSave={save}/>
@@ -576,6 +576,31 @@ function SpeakingPanel() {
       </section>
     </div> : null}
   </EvaluationLayout>;
+}
+
+function AuthenticatedSpeakingAudio({ src }: { src: string }) {
+  const [url, setUrl] = useState(src.startsWith("data:") ? src : "");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+    if (src.startsWith("data:")) { setUrl(src); return; }
+    setUrl("");
+    let active = true;
+    let objectUrl = "";
+    void apiMediaUrl(src).then((value) => {
+      objectUrl = value;
+      if (active) setUrl(value);
+      else revokeMediaUrl(value);
+    }).catch(() => { if (active) setFailed(true); });
+    return () => {
+      active = false;
+      if (objectUrl) revokeMediaUrl(objectUrl);
+    };
+  }, [src]);
+  if (failed) return <span className="mt-2 block text-[11px] text-error">Không thể tải bản ghi âm.</span>;
+  return url
+    ? <audio controls preload="none" className="mt-3 h-9 w-full" src={url}>Trình duyệt không hỗ trợ audio.</audio>
+    : <span className="mt-2 block text-[11px] text-on-surface-variant">Đang tải bản ghi âm…</span>;
 }
 
 function EntitlementsPanel() {
