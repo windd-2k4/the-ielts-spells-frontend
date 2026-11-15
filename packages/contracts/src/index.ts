@@ -155,6 +155,8 @@ export interface StudentReadingAssignment {
   closesAt: string | null;
   maxAttempts: number;
   attemptsUsed: number;
+  completedAttempt: boolean;
+  evidenceReplacement: boolean;
   durationSeconds: number | null;
   activeAttemptExpiresAt: string | null;
 }
@@ -584,6 +586,95 @@ export interface StudentSupportCourseProgress {
 
 // ================= SPEAKING TEST CONTRACTS =================
 
+export type SpeakingExamMode = "FIXED_PRACTICE" | "AI_EXAMINER";
+
+export type SpeakingExamState =
+  | "CREATED"
+  | "MIC_CHECK"
+  | "IDENTITY_CHECK"
+  | "PART_1"
+  | "PART_2_PREPARATION"
+  | "PART_2_LONG_TURN"
+  | "PART_2_FOLLOW_UP"
+  | "PART_3"
+  | "CLOSING"
+  | "EVALUATION_QUEUED"
+  | "ABORTED";
+
+export type SpeakingExaminerTurnKind =
+  | "CHECKPOINT"
+  | "QUESTION"
+  | "CUE_CARD"
+  | "FOLLOW_UP"
+  | "CLOSING";
+
+export interface SpeakingExaminerTurn {
+  turnId: string;
+  sequenceNo: number;
+  partNo: number | null;
+  kind: SpeakingExaminerTurnKind;
+  topicKey: string | null;
+  promptText: string;
+  audioUrl: string | null;
+  preparationTimeSeconds: number | null;
+  answerTimeSeconds: number | null;
+}
+
+export interface SpeakingExaminerPolicy {
+  maxAdaptiveFollowUps: number;
+  feedbackDuringExam: false;
+  part2AndPart3ShareTopic: true;
+  resultType: "ESTIMATED_BAND";
+}
+
+export interface SpeakingExaminerVersions {
+  promptVersion: string;
+  rubricVersion: string;
+  speechModelVersion: string;
+  featureExtractorVersion: string;
+}
+
+export interface SpeakingExaminerSession {
+  sessionId: string;
+  attemptId: string;
+  mode: SpeakingExamMode;
+  state: SpeakingExamState;
+  stateVersion: number;
+  adaptiveFollowUpsUsed: number;
+  policy: SpeakingExaminerPolicy;
+  versions: SpeakingExaminerVersions;
+  currentTurn: SpeakingExaminerTurn | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface SubmitSpeakingExaminerTurnRequest {
+  clientTurnId: string;
+  examinerTurnId: string;
+  stateVersion: number;
+  storageKey: string;
+  transcript?: string | null;
+  durationMs: number;
+}
+
+export interface SpeakingExamPartTwoReadyRequest {
+  stateVersion: number;
+}
+
+export interface AbortSpeakingExamSessionRequest {
+  stateVersion: number;
+}
+
+export interface SpeakingExaminerTurnSubmission {
+  sessionId: string;
+  studentTurnId: string;
+  state: SpeakingExamState;
+  stateVersion: number;
+  adaptiveFollowUpsUsed: number;
+  nextTurn: SpeakingExaminerTurn | null;
+  examCompleted: boolean;
+}
+
 export interface SpeakingHintOption {
   id: string;
   label: string;
@@ -637,6 +728,7 @@ export interface SpeakingSavedResponse {
 
 export interface StudentSpeakingAttempt {
   attemptId: string;
+  mode: "FIXED_PRACTICE";
   testVersionId: string;
   title: string;
   description: string | null;
@@ -654,10 +746,17 @@ export interface StudentSpeakingAttempt {
 
 export interface SaveSpeakingResponseItem {
   questionKey: string;
-  audioUrl?: string | null;
+  storageKey?: string | null;
   transcript?: string | null;
   hintChoices?: Record<string, string>;
   clientRevision: number;
+}
+
+export interface SpeakingAudioUpload {
+  storageKey: string;
+  audioUrl: string;
+  sizeBytes: number;
+  durationMs: number;
 }
 
 export interface SpeakingEvaluationResult {
