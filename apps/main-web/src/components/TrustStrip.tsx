@@ -25,7 +25,7 @@ const METRICS = [
   {
     icon: ChalkboardTeacher,
     value: "5+",
-    label: "Giảng viên IELTS 8.0+",
+    label: "Giảng viên bố cuLTS 8.0+",
     subtext: "100% có chứng chỉ sư phạm quốc tế",
   },
 ];

@@ -1,4 +1,4 @@
-import { ArrowRight, SpinnerGap } from "@phosphor-icons/react";
+import { SpinnerGap } from "@phosphor-icons/react";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthShell } from "../auth/AuthShell";
@@ -38,31 +38,79 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <header className="auth-heading">
-        <p className="auth-kicker">Chào mừng trở lại</p>
-        <h1>Đăng nhập</h1>
-        <p>Tiếp tục lộ trình học tập hoặc quản lý lớp học của bạn.</p>
-      </header>
+      <div className="auth-form-header">
+        <h1 className="auth-form-title">Đăng nhập tài khoản</h1>
+        <p className="auth-form-subtitle">
+          Đăng nhập bằng tài khoản quản trị viên hoặc giáo viên để truy cập hệ thống.
+        </p>
+      </div>
 
-      {registered && <FormNotice kind="success">Tài khoản đã được tạo. Hãy kiểm tra email để xác nhận trước khi đăng nhập.</FormNotice>}
+      {registered && (
+        <FormNotice kind="success">
+          Tài khoản đã được tạo. Hãy kiểm tra email để xác nhận trước khi đăng nhập.
+        </FormNotice>
+      )}
       {error && <FormNotice kind="error">{error}</FormNotice>}
+
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <div className="field-group">
-          <label htmlFor="login-email">Email</label>
-          <input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="ban@example.com" required />
+          <label htmlFor="login-email">
+            Email công việc <span className="field-required">*</span>
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            autoComplete="email"
+            placeholder="Nhập email của bạn (ví dụ: nhansu@theieltsspells.vn)"
+            required
+          />
         </div>
-        <PasswordField id="login-password" label="Mật khẩu" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
+
+        <PasswordField
+          id="login-password"
+          label="Mật khẩu"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+          placeholder="Nhập mật khẩu của bạn"
+        />
+
         <div className="form-options">
-          <label className="checkbox-label"><input type="checkbox" checked={remember} onChange={(event) => { setRemember(event.target.checked); setRememberSession(event.target.checked); }} /> <span>Ghi nhớ đăng nhập</span></label>
-          <Link to="/forgot-password">Quên mật khẩu?</Link>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => {
+                setRemember(event.target.checked);
+                setRememberSession(event.target.checked);
+              }}
+            />
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
+          <Link to="/forgot-password" className="forgot-link">
+            Quên mật khẩu?
+          </Link>
         </div>
+
         <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? <SpinnerGap className="spin" /> : <ArrowRight weight="bold" />}
-          {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
+          {isSubmitting ? <SpinnerGap className="spin" size={18} /> : null}
+          <span>{isSubmitting ? "Đang đăng nhập..." : "ĐĂNG NHẬP"}</span>
         </button>
       </form>
 
-      <p className="auth-switch">Tài khoản quản trị chỉ được cấp qua lời mời của quản trị viên.</p>
+      <div className="auth-bottom-notes">
+        <p className="auth-switch-note">
+          Tài khoản nội bộ được cấp và phân quyền bởi Ban Quản Trị.
+        </p>
+        <div className="auth-links-row">
+          <Link to="/forgot-password">Quên mật khẩu?</Link>
+          <span className="dot-divider">•</span>
+          <a href="mailto:support@theieltsspells.vn">Hỗ trợ kỹ thuật</a>
+        </div>
+      </div>
     </AuthShell>
   );
 }

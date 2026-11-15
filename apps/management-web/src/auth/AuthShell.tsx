@@ -1,39 +1,52 @@
-import { BookOpenText, CheckCircle, Sparkle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import logo from "../../assest/logo.jpg";
+import sidePoster from "../../assest/ielts-side-poster.jpg";
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="auth-shell">
-      <section className="brand-panel" aria-label="Giới thiệu The IELTS Spells">
-        <a className="brand-link" href="/" aria-label="The IELTS Spells, về trang chính">
-          <img src={logo} alt="" />
-          <span>The IELTS Spells</span>
+    <div className="auth-fullscreen-layout">
+      {/* Top Navbar matching the professional TOEFL style */}
+      <header className="auth-fullscreen-header">
+        <a href="/" className="auth-nav-brand" aria-label="The IELTS Spells, về trang chủ">
+          <img src={logo} alt="The IELTS Spells Logo" className="auth-nav-logo" />
+          <div className="auth-nav-brand-text">
+            <span className="auth-nav-title">The IELTS Spells</span>
+            <span className="auth-nav-badge">Management Portal</span>
+          </div>
         </a>
 
-        <div className="brand-story">
-          <span className="brand-eyebrow"><Sparkle weight="fill" /> Cast the spells, claim the band</span>
-          <h2>Mỗi buổi học đều đưa bạn gần hơn tới band điểm mục tiêu.</h2>
-          <p>Một nơi để học viên theo dõi tiến độ và giáo viên đồng hành bằng dữ liệu rõ ràng.</p>
+        <div className="auth-nav-actions">
+          <span className="auth-nav-tag">Hệ thống nội bộ</span>
+          <span className="auth-nav-divider" />
+          <span className="auth-nav-lang">Tiếng Việt (VN)</span>
+          <a
+            href="mailto:support@theieltsspells.vn"
+            className="auth-nav-help-btn"
+            title="Liên hệ bộ phận kỹ thuật"
+          >
+            Trợ giúp kỹ thuật
+          </a>
         </div>
+      </header>
 
-        <div className="brand-proof">
-          <BookOpenText aria-hidden="true" />
-          <div>
-            <strong>Lộ trình được theo sát</strong>
-            <span><CheckCircle weight="fill" /> Bài tập, lịch học và phản hồi trong một hệ thống</span>
+      {/* Fullscreen Split Main Content */}
+      <main className="auth-fullscreen-main">
+        {/* Left Side: The IELTS Spells Visual Showcase */}
+        <section className="auth-side-panel" aria-label="Giới thiệu The IELTS Spells">
+          <div className="side-poster-card">
+            <img
+              src={sidePoster}
+              alt="The IELTS Spells - Master IELTS with confidence"
+              className="side-poster-img"
+            />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="form-panel">
-        <div className="mobile-brand">
-          <img src={logo} alt="" />
-          <span>The IELTS Spells</span>
-        </div>
-        <div className="auth-content">{children}</div>
-        <p className="auth-footer">Cần hỗ trợ? <a href="mailto:support@theieltssspells.vn">Liên hệ trung tâm</a></p>
-      </section>
-    </main>
+        {/* Right Side: Professional Sign In Form Panel */}
+        <section className="auth-form-panel">
+          <div className="auth-form-wrapper">{children}</div>
+        </section>
+      </main>
+    </div>
   );
 }
