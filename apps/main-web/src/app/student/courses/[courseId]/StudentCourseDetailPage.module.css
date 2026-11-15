@@ -125,3 +125,48 @@
     padding: 36px 4px;
   }
 }
+
+
+/* ==========================================================================
+   StudentCourseDetailPage.module.css — Dark Mode System
+   ========================================================================== */
+:global(.dark) .loadingHeader,
+:global(.dark) .loadingMain,
+:global(.dark) .loadingSide {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .stateCard {
+  border-color: #403640;
+  color: #E17A9B;
+}
+
+:global(.dark) .stateCard h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .stateCard p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .stateActions a {
+  border-color: #403640;
+  color: #BEB2BC;
+  background: #2C2630;
+}
+
+:global(.dark) .stateActions a:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .stateActions button {
+  background: #BE4F74;
+  border-color: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .stateActions button:hover {
+  background: #A83E5E;
+}

@@ -14,3 +14,12 @@
   height: 100%;
   filter: drop-shadow(0 2px 6px rgba(239, 68, 68, 0.15));
 }
+
+
+
+/* Dark Mode System for PlacementStamp */
+:global(.dark) .stamp {
+  border-color: #E17A9B;
+  color: #E17A9B;
+  background: #392630;
+}

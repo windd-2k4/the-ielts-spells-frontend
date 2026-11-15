@@ -231,3 +231,99 @@
     align-self: center;
   }
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .topBrand {
+  color: #E17A9B;
+}
+
+:global(.dark) .reportTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .studentName {
+  color: #E17A9B;
+}
+
+:global(.dark) .reportDesc {
+  color: #BEB2BC;
+}
+
+:global(.dark) .shareBtn {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 6px 18px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .shareBtn:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .scoreCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .scoreLabel {
+  color: #91858F;
+}
+
+:global(.dark) .estimatedOverallNumber {
+  color: #F5F0F3;
+}
+
+:global(.dark) .targetBandNumber {
+  color: #E17A9B;
+}
+
+:global(.dark) .skillPill {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .skillPillVal {
+  color: #F5F0F3;
+}
+
+:global(.dark) .targetMetaInfo {
+  color: #BEB2BC;
+}
+
+:global(.dark) .targetMetaInfo strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .arrowBetween {
+  color: #E17A9B;
+  opacity: 0.8;
+}
+
+:global(.dark) .feasibilityTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .feasibilityCallout {
+  background: #28212A;
+  border-color: #523440;
+}
+
+:global(.dark) .calloutIcon {
+  color: #E17A9B;
+}
+
+:global(.dark) .calloutHeading {
+  color: #E17A9B;
+}
+
+:global(.dark) .calloutText {
+  color: #BEB2BC;
+}
+
+:global(.dark) .detailedSectionTitle {
+  color: #F5F0F3;
+  border-bottom-color: #E17A9B;
+}

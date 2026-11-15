@@ -387,3 +387,170 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   DARK MODE STYLES (Soft Charcoal + Rose)
+   ========================================================================= */
+:global(.dark) .subnav {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .subnavItem {
+  color: #E17A9B;
+  border-bottom-color: #E17A9B;
+}
+
+:global(.dark) .previewCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .brandEyebrow {
+  color: #E17A9B;
+}
+
+:global(.dark) .reportHeading {
+  color: #F5F0F3;
+}
+
+:global(.dark) .authorBadge {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #523440;
+}
+
+:global(.dark) .verifiedDot {
+  color: #BEB2BC;
+}
+
+:global(.dark) .cardDesc {
+  color: #BEB2BC;
+}
+
+:global(.dark) .scoreRow {
+  background: #28212A;
+  border-color: #403640;
+}
+
+:global(.dark) .scoreLabel {
+  color: #91858F;
+}
+
+:global(.dark) .scoreBig {
+  color: #F5F0F3;
+}
+
+:global(.dark) .scoreTargetBig {
+  color: #E17A9B;
+}
+
+:global(.dark) .targetMeta {
+  color: #BEB2BC;
+}
+
+:global(.dark) .targetMeta strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .miniItem {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .miniVal {
+  color: #F5F0F3;
+}
+
+:global(.dark) .arrowIcon {
+  color: #E17A9B;
+  opacity: 0.75;
+}
+
+:global(.dark) .previewSnippet {
+  background: #2C2630;
+  border-color: #403640;
+}
+
+:global(.dark) .snippetTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .snippetBadge {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #523440;
+}
+
+:global(.dark) .snippetText {
+  color: #BEB2BC;
+}
+
+:global(.dark) .pillBadge {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #523440;
+}
+
+:global(.dark) .mainTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .introDesc {
+  color: #BEB2BC;
+}
+
+:global(.dark) .stepCard {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .stepCard:hover {
+  border-color: #E17A9B;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .stepNumber {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .stepNumberAlt {
+  background: #392630;
+  color: #E17A9B;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .stepTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .stepText {
+  color: #BEB2BC;
+}
+
+:global(.dark) .benefitsTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .benefitItem {
+  color: #BEB2BC;
+}
+
+:global(.dark) .checkDot {
+  background: #E17A9B;
+}
+
+:global(.dark) .ctaBtn {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .ctaBtn:hover {
+  background: #A83E5E;
+  box-shadow: 0 12px 28px rgba(190, 79, 116, 0.45);
+}

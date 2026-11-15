@@ -145,3 +145,12 @@
   }
 }
 
+
+
+
+/* Dark Mode System for AdaptiveRecommendationCard */
+:global(.dark) .card {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}

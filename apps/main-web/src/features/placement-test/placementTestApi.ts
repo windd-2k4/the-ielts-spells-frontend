@@ -574,6 +574,7 @@ export async function evaluatePlacementTest(
     .from("student_profiles")
     .update({
       current_band: overallBand,
+      target_band: placement.targetBand,
       target_reading_band: placement.targetBand,
       target_listening_band: placement.targetBand,
       target_writing_band: placement.targetBand,

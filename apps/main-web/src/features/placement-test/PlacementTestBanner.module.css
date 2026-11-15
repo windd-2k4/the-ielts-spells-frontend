@@ -111,3 +111,44 @@
     width: 100%;
   }
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .bannerCard {
+  background: linear-gradient(135deg, #221E24 0%, #2A1F29 50%, #352330 100%);
+  border-color: #403640;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .mascotCircle {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+:global(.dark) .highlightPill {
+  background: #392630;
+  border-color: #523440;
+  color: #E17A9B;
+}
+
+:global(.dark) .title {
+  color: #F5F0F3;
+}
+
+:global(.dark) .subtitle {
+  color: #BEB2BC;
+}
+
+:global(.dark) .ctaButton {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 6px 18px rgba(190, 79, 116, 0.3);
+}
+
+:global(.dark) .ctaButton:hover {
+  background: #A83E5E;
+  box-shadow: 0 8px 22px rgba(190, 79, 116, 0.4);
+}

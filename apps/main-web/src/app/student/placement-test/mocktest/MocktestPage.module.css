@@ -363,3 +363,87 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .stepItem {
+  color: #91858F;
+}
+
+:global(.dark) .stepItemActive {
+  color: #E17A9B;
+}
+
+:global(.dark) .stepCircle {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .stepCircleDone {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .stepCircleActive {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(190, 79, 116, 0.3);
+}
+
+:global(.dark) .stepConnector {
+  background: #403640;
+}
+
+:global(.dark) .stepConnectorDone {
+  background: #BE4F74;
+}
+
+:global(.dark) .timerCard,
+:global(.dark) .skillsCard,
+:global(.dark) .gradingContainer {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .cardTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .timerStateLabel {
+  color: #91858F;
+}
+
+:global(.dark) .timerValue {
+  color: #F5F0F3;
+}
+
+:global(.dark) .skillRow {
+  background: #28212A;
+  border-color: #342B35;
+}
+
+:global(.dark) .skillName {
+  color: #F5F0F3;
+}
+
+:global(.dark) .skillMeta {
+  color: #91858F;
+}
+
+:global(.dark) .progressBarTrack {
+  background: #2C2630;
+}
+
+:global(.dark) .progressBarFill {
+  background: linear-gradient(90deg, #BE4F74 0%, #E17A9B 100%);
+}
+
+:global(.dark) .gradingMessage {
+  color: #F5F0F3;
+}
+
+:global(.dark) .gradingIcon {
+  color: #E17A9B;
+}

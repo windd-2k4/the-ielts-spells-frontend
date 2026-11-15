@@ -1808,3 +1808,123 @@
   gap: 16px;
   margin-top: 10px;
 }
+
+
+
+/* Dark Mode System for CuratedVocab */
+:global(.dark) .tabNav {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .tabBtn {
+  color: #BEB2BC;
+}
+
+:global(.dark) .tabBtn:hover {
+  background: #2C2630;
+  color: #F5F0F3;
+}
+
+:global(.dark) .tabBtnActive {
+  background: #2C2630;
+  color: #E17A9B;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .tabBadge {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .toolbar {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .filterPill {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .filterPill:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .filterPillActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .searchBox {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .searchBox input {
+  color: #F5F0F3;
+}
+
+:global(.dark) .searchBox input::placeholder {
+  color: #91858F;
+}
+
+:global(.dark) .deckCard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .deckCard:hover {
+  border-color: #E17A9B;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+:global(.dark) .deckTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .deckDesc {
+  color: #BEB2BC;
+}
+
+:global(.dark) .btnStudy {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .btnStudy:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .btnView {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .btnView:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .detailHero {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .heroTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .btnBack {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}

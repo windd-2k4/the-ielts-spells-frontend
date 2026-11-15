@@ -201,3 +201,106 @@
   text-decoration-color: #894C5B;
   text-underline-offset: 3px;
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .accordion {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .accordionOpen {
+  border-color: #E17A9B;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .header {
+  background: #221E24;
+}
+
+:global(.dark) .header:hover {
+  background: #2C2630;
+}
+
+:global(.dark) .iconWrapper {
+  color: #E17A9B;
+}
+
+:global(.dark) .skillTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .bandBadge {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .contentBody {
+  border-top-color: #403640;
+}
+
+:global(.dark) .generalCommentBox {
+  background: #28212A;
+  border-color: #403640;
+}
+
+:global(.dark) .generalCommentTitle {
+  color: #F5F0F3;
+}
+
+:global(.dark) .generalCommentText {
+  color: #BEB2BC;
+}
+
+:global(.dark) .analysisTableWrapper {
+  border-color: #403640;
+}
+
+:global(.dark) .analysisTable th {
+  background: #28212A;
+  color: #F5F0F3;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .analysisTable td {
+  border-bottom-color: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .colKnowledge {
+  background: #262028;
+}
+
+:global(.dark) .criterionName {
+  color: #F5F0F3;
+}
+
+:global(.dark) .criterionScore {
+  color: #E17A9B;
+}
+
+:global(.dark) .badgeRed {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #523440;
+}
+
+:global(.dark) .badgeYellow {
+  background: #3B3020;
+  color: #F6C96B;
+  border-color: #634C28;
+}
+
+:global(.dark) .knowledgeList li {
+  color: #BEB2BC;
+}
+
+:global(.dark) .knowledgeList li strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .highlightUnderline {
+  text-decoration-color: #E17A9B;
+}

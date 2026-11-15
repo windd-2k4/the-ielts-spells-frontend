@@ -1098,3 +1098,422 @@
   .progress i { transition: none; }
   .spin { animation: none; }
 }
+
+
+
+/* Dark Mode System for FlashcardNotebook */
+:global(.dark) .page,
+:global(.dark) .studyPage {
+  color: #F5F0F3;
+}
+
+:global(.dark) .pageHeader {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .titleIcon {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .titleBlock h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .titleBlock p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .summary {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: none;
+}
+
+:global(.dark) .summaryItem {
+  border-right-color: #403640;
+}
+
+:global(.dark) .summaryLabel {
+  color: #91858F;
+}
+
+:global(.dark) .summaryValue {
+  color: #F5F0F3;
+}
+
+:global(.dark) .topicRail {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .topicHeading {
+  color: #BEB2BC;
+}
+
+:global(.dark) .topicHeading h2 {
+  color: #BEB2BC;
+}
+
+:global(.dark) .topicHeading > button {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .topicHeading > button:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .topicButton {
+  background: #221E24;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .topicButton:hover {
+  background: #2C2630;
+  border-color: #5C3240;
+  color: #F5F0F3;
+}
+
+:global(.dark) .topicActive {
+  background: #392630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+  box-shadow: inset 3px 0 0 #E17A9B;
+}
+
+:global(.dark) .topicButton small {
+  color: #91858F;
+}
+
+:global(.dark) .topicActive small {
+  color: #F492B1;
+}
+
+:global(.dark) .railEmpty {
+  color: #91858F;
+}
+
+:global(.dark) .content {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .topicTitleGroup h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .cardCountBadge {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #5C3240;
+}
+
+:global(.dark) .primaryButton {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .primaryButton:hover:not(:disabled) {
+  background: #A83E5E;
+}
+
+:global(.dark) .secondaryButton {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .secondaryButton:hover:not(:disabled) {
+  background: #342B35;
+  border-color: #5C3240;
+  color: #F5F0F3;
+}
+
+:global(.dark) .search {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .search:focus-within {
+  border-color: #E17A9B;
+  box-shadow: 0 0 0 3px rgba(225, 122, 155, 0.15);
+}
+
+:global(.dark) .search input {
+  color: #F5F0F3;
+}
+
+:global(.dark) .search input::placeholder {
+  color: #91858F;
+}
+
+:global(.dark) .clearSearchBtn {
+  color: #91858F;
+}
+
+:global(.dark) .clearSearchBtn:hover {
+  color: #F5F0F3;
+  background: #342B35;
+}
+
+:global(.dark) .emptyState {
+  background: #221E24;
+  border-color: #403640;
+}
+
+:global(.dark) .emptyIconWrap {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .emptyState h3 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .emptyState p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .emptyAddBtn {
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .emptyAddBtn:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .tableWrap {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: none;
+}
+
+:global(.dark) .table th {
+  background: #2C2630;
+  color: #BEB2BC;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .table td {
+  color: #F5F0F3;
+  border-top-color: #403640;
+}
+
+:global(.dark) .table tr:hover td {
+  background: #2C2630;
+}
+
+:global(.dark) .term strong {
+  color: #F5F0F3;
+}
+
+:global(.dark) .term button,
+:global(.dark) .editButton {
+  color: #BEB2BC;
+}
+
+:global(.dark) .term button:hover,
+:global(.dark) .editButton:hover {
+  background: #392630;
+  color: #E17A9B;
+  border-color: #E17A9B;
+}
+
+:global(.dark) .term small {
+  color: #91858F;
+}
+
+:global(.dark) .missing {
+  color: #91858F;
+}
+
+:global(.dark) .editButton {
+  border-color: #403640;
+  background: #2C2630;
+}
+
+:global(.dark) .pageState h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .pageState p {
+  color: #BEB2BC;
+}
+
+/* Study Mode */
+:global(.dark) .studyHead > button {
+  color: #F5F0F3;
+}
+
+:global(.dark) .progress {
+  color: #BEB2BC;
+}
+
+:global(.dark) .progress span {
+  background: #403640;
+}
+
+:global(.dark) .progress i {
+  background: #BE4F74;
+}
+
+:global(.dark) .arrowButton {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark) .arrowButton:hover {
+  background: #2C2630;
+  border-color: #E17A9B;
+  color: #E17A9B;
+}
+
+:global(.dark) .flashcard {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+:global(.dark) .cardFront > span:first-child {
+  color: #E17A9B;
+}
+
+:global(.dark) .cardFront h1,
+:global(.dark) .cardWord h1 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .cardFront p {
+  color: #BEB2BC;
+}
+
+:global(.dark) .cardFront small {
+  color: #91858F;
+}
+
+:global(.dark) .audioBadge {
+  background: #392630;
+  color: #E17A9B;
+}
+
+:global(.dark) .audioBadge:hover {
+  background: #4D2E3D;
+}
+
+:global(.dark) .cardWord {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .cardWord span:first-child {
+  color: #E17A9B;
+}
+
+:global(.dark) .cardBack dt {
+  color: #BEB2BC;
+}
+
+:global(.dark) .cardBack dd {
+  color: #F5F0F3;
+}
+
+:global(.dark) .cardBack dl > div {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .source {
+  color: #91858F;
+}
+
+:global(.dark) .flipHint {
+  color: #91858F;
+}
+
+:global(.dark) .masteryActions button {
+  background: #221E24;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .masteryActions button:hover {
+  background: #2C2630;
+}
+
+:global(.dark) .masteryActions button:nth-child(2) {
+  border-color: #5C3240;
+  color: #E17A9B;
+  background: #392630;
+}
+
+:global(.dark) .masteryActions .masteredButton {
+  border-color: #BE4F74;
+  background: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .masteryActions .masteredButton:hover {
+  background: #A83E5E;
+}
+
+:global(.dark) .modal {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+:global(.dark) .modal header {
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .modal header span {
+  color: #E17A9B;
+}
+
+:global(.dark) .modal h2 {
+  color: #F5F0F3;
+}
+
+:global(.dark) .modal header > button {
+  background: #2C2630;
+  color: #BEB2BC;
+}
+
+:global(.dark) .modal header > button:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .modal label {
+  color: #BEB2BC;
+}
+
+:global(.dark) .modal input,
+:global(.dark) .modal select,
+:global(.dark) .modal textarea {
+  border-color: #403640;
+  background: #2C2630;
+  color: #F5F0F3;
+}
+
+:global(.dark) .modal input:focus,
+:global(.dark) .modal select:focus,
+:global(.dark) .modal textarea:focus {
+  border-color: #E17A9B;
+  box-shadow: 0 0 0 3px rgba(225, 122, 155, 0.15);
+}
+
+:global(.dark) .modal footer > button:not(.primaryButton) {
+  color: #BEB2BC;
+}
+
+:global(.dark) .modal footer > button:not(.primaryButton):hover {
+  background: #2C2630;
+  color: #F5F0F3;
+}

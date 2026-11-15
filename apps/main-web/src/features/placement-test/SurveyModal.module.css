@@ -175,3 +175,95 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* =========================================================================
+   DARK MODE STYLES
+   ========================================================================= */
+:global(.dark) .backdrop {
+  background: rgba(10, 8, 11, 0.75);
+}
+
+:global(.dark) .modal {
+  background: #221E24;
+  border-color: #403640;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+:global(.dark) .header {
+  background: #28212A;
+  border-bottom-color: #403640;
+}
+
+:global(.dark) .title {
+  color: #F5F0F3;
+}
+
+:global(.dark) .closeButton {
+  color: #BEB2BC;
+}
+
+:global(.dark) .closeButton:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .label {
+  color: #F5F0F3;
+}
+
+:global(.dark) .input,
+:global(.dark) .select {
+  background: #2C2630;
+  border-color: #403640;
+  color: #F5F0F3;
+}
+
+:global(.dark) .input:focus,
+:global(.dark) .select:focus {
+  border-color: #E17A9B;
+  box-shadow: 0 0 0 3px rgba(225, 122, 155, 0.2);
+}
+
+:global(.dark) .bandBtn {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .bandBtn:hover {
+  border-color: #E17A9B;
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .bandBtnActive {
+  background: #BE4F74;
+  border-color: #BE4F74;
+  color: #FFFFFF;
+}
+
+:global(.dark) .footer {
+  border-top-color: #403640;
+}
+
+:global(.dark) .cancelBtn {
+  background: #2C2630;
+  border-color: #403640;
+  color: #BEB2BC;
+}
+
+:global(.dark) .cancelBtn:hover {
+  background: #342B35;
+  color: #F5F0F3;
+}
+
+:global(.dark) .submitBtn {
+  background: #BE4F74;
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(190, 79, 116, 0.35);
+}
+
+:global(.dark) .submitBtn:hover {
+  background: #A83E5E;
+  box-shadow: 0 6px 18px rgba(190, 79, 116, 0.45);
+}
