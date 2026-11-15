@@ -60,7 +60,7 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
   const brandMenuRef = useRef<HTMLDivElement>(null);
   const brandButtonRef = useRef<HTMLButtonElement>(null);
   const practiceMenuRef = useRef<HTMLDivElement>(null);
-  const practiceButtonRef = useRef<HTMLButtonElement>(null);
+  const practiceLinkRef = useRef<HTMLAnchorElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bellButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -158,26 +158,30 @@ export function StudentTopbar({ onToggleMobileMenu }: StudentTopbarProps) {
                     onMouseEnter={() => setPracticeMenuOpen(true)}
                     onMouseLeave={() => setPracticeMenuOpen(false)}
                     onKeyDown={(event) => {
-                      if (event.key === "Escape") { setPracticeMenuOpen(false); practiceButtonRef.current?.focus(); }
+                      if (event.key === "Escape") { setPracticeMenuOpen(false); practiceLinkRef.current?.focus(); }
+                      if (event.key === "ArrowDown" && !practiceMenuOpen) {
+                        event.preventDefault();
+                        setPracticeMenuOpen(true);
+                      }
                     }}
                     onBlur={(event) => {
                       if (!event.currentTarget.contains(event.relatedTarget as Node)) setPracticeMenuOpen(false);
                     }}
                   >
-                    <button
-                      ref={practiceButtonRef}
-                      type="button"
+                    <Link
+                      ref={practiceLinkRef}
+                      href="/student/practice"
                       className={styles.navLink}
                       aria-current={active ? "page" : undefined}
                       aria-haspopup="menu"
                       aria-expanded={practiceMenuOpen}
                       aria-controls="student-practice-menu"
-                      onClick={() => setPracticeMenuOpen((open) => !open)}
+                      onClick={() => setPracticeMenuOpen(false)}
                     >
                       <Icon size={15} weight={active ? "fill" : "bold"} />
                       <span>{item.label}</span>
                       <CaretDown className={styles.navCaret} size={11} weight="bold" />
-                    </button>
+                    </Link>
                     {practiceMenuOpen ? (
                       <div id="student-practice-menu" className={styles.practiceDropdown} role="menu">
                         <Link href="/student/practice" className={styles.practiceDropdownItem} role="menuitem" onClick={() => setPracticeMenuOpen(false)}>
